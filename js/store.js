@@ -20,6 +20,7 @@ function standard() {
     extraAufgaben: [],
     genStufen: {},          // Baukasten → { stufe, folge }
     wiederholen: [],        // erzeugte Aufgaben, die nochmal kommen
+    upload: { repo: '', token: '', letzter: null, versuch: 0, fehler: null, tage: {} },
     log: [],
     letzterExport: null
   };
@@ -27,7 +28,7 @@ function standard() {
 
 function zusammenfuehren(basis, gespeichert) {
   const out = { ...basis, ...gespeichert };
-  for (const k of ['spiel', 'einstellungen', 'verlauf', 'serie', 'tag']) out[k] = { ...basis[k], ...(gespeichert[k] || {}) };
+  for (const k of ['spiel', 'einstellungen', 'verlauf', 'serie', 'tag', 'upload']) out[k] = { ...basis[k], ...(gespeichert[k] || {}) };
   return out;
 }
 

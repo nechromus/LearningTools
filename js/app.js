@@ -1,10 +1,11 @@
 // Bildschirme und Ablauf der Übungsapp.
 import * as L from './logic.js';
 import * as G from './gen.js';
+import * as U from './sync.js';
 import { esc, mathe, bruchHtml, bildSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.1.1';
+export const APP_VERSION = '1.2.0';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [];
@@ -76,7 +77,7 @@ async function updateEinrichten() {
     } catch (e) { /* ohne Offline-Speicher weiter */ }
   }
   updatePruefen();
-  setInterval(updatePruefen, 15 * 60 * 1000);
+  setInterval(() => { updatePruefen(); syncen(); }, 15 * 60 * 1000);
 }
 
 async function updatePruefen() {
@@ -117,11 +118,53 @@ function neuLadenWennRuhig() {
   }
 }
 
+// ============ Automatische Übertragung ============
+
+let syncLaeuft = false;
+
+function standDaten() {
+  const { pin, name, ...einstellungen } = S.einstellungen;
+  return {
+    app: 'lernapp-2048', version: APP_VERSION, geraetId: S.geraetId, stand: new Date().toISOString(),
+    einstellungen, guthaben: S.guthaben, spiel: { punkte: S.spiel.punkte, rekord: S.spiel.rekord, maxKachel: S.spiel.maxKachel },
+    genStufen: S.genStufen, statistik: S.statistik, zusammenfassung7Tage: zusammenfassung(7), letzterExport: S.letzterExport
+  };
+}
+
+async function syncen(erzwingen = false) {
+  const u = S.upload;
+  if (!u.repo || !u.token || syncLaeuft) return null;
+  if (!erzwingen && Date.now() - (u.versuch || 0) < 10 * 60 * 1000) return null;
+  syncLaeuft = true;
+  u.versuch = Date.now();
+  let anzahl = 0;
+  try {
+    const tage = U.nachTagen(S.log, d => L.tagKey(d));
+    const offen = Object.keys(tage).sort().filter(k => tage[k].length > (u.tage[k] || 0)).slice(-14);
+    for (const tag of offen) {
+      const inhalt = JSON.stringify({ app: 'lernapp-2048', version: APP_VERSION, geraetId: S.geraetId, tag, hochgeladen: new Date().toISOString(), eintraege: tage[tag] });
+      await U.dateiSchreiben(u, `daten/${S.geraetId}/${tag}.json`, inhalt, `Lerndaten ${tag}`);
+      u.tage[tag] = tage[tag].length;
+      anzahl++;
+    }
+    if (anzahl || erzwingen) await U.dateiSchreiben(u, `daten/${S.geraetId}/stand.json`, JSON.stringify(standDaten(), null, 1), 'Stand');
+    u.letzter = new Date().toISOString();
+    u.fehler = null;
+  } catch (e) {
+    u.fehler = e.message || 'Unbekannter Fehler';
+  } finally {
+    syncLaeuft = false;
+    sichern();
+  }
+  return anzahl;
+}
+
 // ============ Startbildschirm ============
 
 function zeigeStart() {
   setzeAnsicht('start');
   if (neuLadenGeplant) { neuLadenWennRuhig(); return; }
+  syncen();
   tagAktualisieren(S);
   const slot = L.basisSlotJetzt(new Date(), S.einstellungen, S.basisSlot);
   const name = S.einstellungen.name ? `, ${esc(S.einstellungen.name)}` : '';
@@ -750,6 +793,7 @@ function sichtbarkeit() {
   const dauer = versteckt ? Date.now() - versteckt : 0;
   versteckt = null;
   updatePruefen();
+  syncen();
   tagAktualisieren(S);
   if (ansicht === 'aufgabe' && A && !A.fertig && !A.aufgabe.taschenrechner && dauer >= 3000) {
     S.tag.verlassen++;
@@ -1147,6 +1191,22 @@ function zeigeEltern(meldung = '') {
     </section>
 
     <section class="karte">
+      <h3>Automatische Übertragung</h3>
+      ${S.upload.token ? `
+        <p>Repo: <b>${esc(S.upload.repo)}</b> · Schlüssel endet auf …${esc(S.upload.token.slice(-4))}</p>
+        <p class="gedaempft klein">Letzte Übertragung: ${S.upload.letzter ? new Date(S.upload.letzter).toLocaleString('de-DE') : 'noch keine'}</p>
+        ${S.upload.fehler ? `<p class="fehler-text">${esc(S.upload.fehler)}</p>` : ''}
+        <div class="knopf-reihe"><button class="btn btn-haupt" data-act="syncJetzt">Jetzt übertragen</button><button class="btn" data-act="syncAus">Ausschalten</button></div>
+      ` : `
+        <p>Die Lerndaten werden automatisch in ein privates GitHub-Repo übertragen. Dafür einmal Repo und Zugangsschlüssel eintragen.</p>
+        <label class="feld-label">Repo (Besitzer/Name)<input id="u-repo" type="text" value="${esc(S.upload.repo || '')}" placeholder="name/LearningToolsTracking" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+        <label class="feld-label">Zugangsschlüssel<input id="u-token" type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+        <p class="fehler-text" id="u-fehler"></p>
+        <button class="btn btn-haupt" data-act="syncSpeichern">Speichern und testen</button>
+      `}
+    </section>
+
+    <section class="karte">
       <h3>Daten senden</h3>
       <p>Die Datei enthält jeden Versuch. Lade sie im Claude-Projekt hoch, dann werden die Aufgaben angepasst.</p>
       <button class="btn btn-haupt" data-act="export">Daten exportieren</button>
@@ -1365,6 +1425,30 @@ function klick(e) {
       zeigeEltern(`${el.dataset.min} Min. Spielzeit gutgeschrieben.`); break;
     }
     case 'export': exportieren(); break;
+    case 'syncSpeichern': {
+      const repo = document.getElementById('u-repo').value.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '');
+      const token = document.getElementById('u-token').value.trim();
+      const f = document.getElementById('u-fehler');
+      if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) { f.textContent = 'Bitte das Repo als Besitzer/Name angeben.'; break; }
+      if (token.length < 20) { f.textContent = 'Bitte den ganzen Schlüssel einfügen.'; break; }
+      f.textContent = 'Wird getestet …';
+      U.verbindungTesten({ repo, token }).then(info => {
+        if (!info.privat) { f.textContent = 'Das Repo ist öffentlich. Bitte nur ein privates Repo verwenden.'; return; }
+        S.upload = { ...S.upload, repo, token, fehler: null, tage: {} };
+        protokoll(S, 'upload_eingerichtet', { repo });
+        sichern();
+        return syncen(true).then(() => zeigeEltern(S.upload.fehler ? `Gespeichert, aber: ${S.upload.fehler}` : 'Übertragung eingerichtet und Daten übertragen.'));
+      }).catch(e => { f.textContent = e.message; });
+      break;
+    }
+    case 'syncJetzt':
+      el.textContent = 'Wird übertragen …';
+      syncen(true).then(n => zeigeEltern(S.upload.fehler ? S.upload.fehler : `Übertragen${n ? ` (${n} ${n === 1 ? 'Tag' : 'Tage'})` : ''}.`));
+      break;
+    case 'syncAus':
+      S.upload = { ...S.upload, token: '', fehler: null };
+      protokoll(S, 'upload_aus');
+      sichern(); zeigeEltern('Übertragung ausgeschaltet. Der Schlüssel ist vom Handy gelöscht.'); break;
     case 'genStufe': {
       const g = el.dataset.g;
       const st = S.genStufen[g] || (S.genStufen[g] = { stufe: 1, folge: 0 });

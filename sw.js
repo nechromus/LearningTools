@@ -1,8 +1,8 @@
 // Offline-Speicher. VERSION muss zu version.json und APP_VERSION in js/app.js passen.
-const VERSION = 'schrein-1.1.1';
+const VERSION = 'schrein-1.2.0';
 const DATEIEN = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest',
-  'js/app.js', 'js/logic.js', 'js/render.js', 'js/store.js', 'js/gen.js',
+  'js/app.js', 'js/logic.js', 'js/render.js', 'js/store.js', 'js/gen.js', 'js/sync.js',
   'data/aufgaben.json', 'data/hinweise.json',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'
 ];
