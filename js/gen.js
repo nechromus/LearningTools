@@ -275,15 +275,15 @@ export function kugel(stufe, rng) {
   const art = g ? g.art : wahl(rng, ['V', 'O']);
   const schritte = [], weg = [];
   if (g) { schritte.push({ text: 'Volumen oder Oberfläche?', optionen: ['Volumen', 'Oberfläche'], richtig: art === 'V' ? 0 : 1 }); weg.push(art === 'V' ? '„passt hinein" → Volumen' : '„außen" → Oberfläche'); }
-  if (mitD) { schritte.push({ text: `r = ${2 * r} : 2 =`, wert: r, einheit: 'cm' }); weg.push(`r = ${2 * r} : 2 = ${r} cm`); }
+  if (mitD) { schritte.push({ text: 'Radius r =', wert: r, einheit: 'cm' }); weg.push(`r = ${2 * r} : 2 = ${r} cm`); }
   let x;
   if (art === 'V') {
     x = 4 / 3 * Math.PI * r ** 3;
-    schritte.push({ text: 'r³ =', wert: r ** 3 }, { text: `4 ÷ 3 × π × ${r ** 3} =`, wert: r3(x), toleranz: 0.01 }, { text: 'Runden: V ≈', wert: r1(x), einheit: 'cm³', runden: 1 });
+    schritte.push({ text: 'r³ =', wert: r ** 3 }, { text: `4 ÷ 3 × π × ${r ** 3} =`, wert: r3(x), toleranz: 0.01 }, { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(x), einheit: 'cm³', runden: 1 });
     weg.push(`r³ = ${r} · ${r} · ${r} = ${r ** 3}`, `4 ÷ 3 × π × ${r ** 3} = ${zahlText(r3(x))}…`, `V ≈ ${zahlText(r1(x), 1)} cm³`);
   } else {
     x = 4 * Math.PI * r ** 2;
-    schritte.push({ text: 'r² =', wert: r ** 2 }, { text: `4 × π × ${r ** 2} =`, wert: r3(x), toleranz: 0.01 }, { text: 'Runden: O ≈', wert: r1(x), einheit: 'cm²', runden: 1 });
+    schritte.push({ text: 'r² =', wert: r ** 2 }, { text: `4 × π × ${r ** 2} =`, wert: r3(x), toleranz: 0.01 }, { text: 'Runde auf eine Stelle nach dem Komma. O ≈', wert: r1(x), einheit: 'cm²', runden: 1 });
     weg.push(`r² = ${r} · ${r} = ${r ** 2}`, `4 × π × ${r ** 2} = ${zahlText(r3(x))}…`, `O ≈ ${zahlText(r1(x), 1)} cm²`);
   }
   const mass = mitD ? `einen Durchmesser von ${2 * r} cm` : `einen Radius von ${r} cm`;
@@ -417,14 +417,18 @@ export function block(gen, rng) {
   for (let v = 0; v < 50 && teile.length < 3; v++) {
     const t = GENERATOREN[gen](1, rng);
     if (t.typ !== 'zahl' || ids.has(t.id)) continue;
+    // Runden: alle drei auf dieselbe Stellenzahl, damit die Frage für alle gilt
+    if (gen === 'runden' && teile.length && t.parameter[1] !== teile[0].parameter[1]) continue;
     ids.add(t.id); teile.push(t);
   }
   return {
     id: `gen-block-${teile.map(t => t.id.replace('gen-', '')).join('+')}`,
     quelle: 'Baukasten', generator: `block-${gen}`, parameter: teile.map(t => t.parameter),
     thema: teile[0].thema, typ: 'mehrfrage', stufe: 1, bonus: false,
-    frage: 'Rechne alle drei aus.',
-    fragen: teile.map(t => ({ frage: `${t.rechnung} =`, wert: t.antwort.wert, einheit: t.antwort.einheit || '' })),
+    frage: gen === 'runden' ? (teile[0].parameter[1] === 0 ? 'Runde alle drei auf ganze Zahlen.' : teile[0].frage.replace('Runde auf', 'Runde alle drei auf')) : 'Rechne alle drei aus.',
+    fragen: teile.map(t => gen === 'runden'
+      ? { frage: t.rechnung.replace(/\s*≈\s*\?$/, ' ≈'), wert: t.antwort.wert, runden: t.parameter[1] }
+      : { frage: `${t.rechnung} =`, wert: t.antwort.wert, einheit: t.antwort.einheit || '' }),
     hinweise: teile[0].hinweise, loesungsweg: teile.map(t => t.loesungsweg[t.loesungsweg.length - 1]),
     erklaerung: teile[0].erklaerung.split('.')[0] + '.'
   };

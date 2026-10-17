@@ -60,6 +60,12 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
   const ziel = teil ? teil.wert : aufgabe.antwort && aufgabe.antwort.wert;
   if (ziel == null) return null;
 
+  // Radius aus Durchmesser: Rechenweg steht nicht in der Frage, Tipp erst nach einem Fehler
+  if (teil && /^Radius\b/.test(teil.text || '')) {
+    if (gleich(w, 2 * ziel)) return { typ: 'kugel-d-statt-r', text: 'Das ist der Durchmesser. Der Radius ist halb so lang.' };
+    return { typ: 'radius', text: 'Der Radius geht von der Mitte bis zum Rand. Das ist der halbe Durchmesser.' };
+  }
+
   // Potenz: 5² mit 10 beantwortet
   const pot = potenzWert(aufgabe.rechnung);
   if (pot && gleich(w, pot.basis * pot.exp) && !gleich(w, pot.wert)) {
@@ -110,7 +116,7 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
 
   // Runden: richtige Stelle, aber nicht gerundet (abgeschnitten)
   if ((teil && teil.runden) || aufgabe.thema === 'runden') {
-    const d = aufgabe.generator === 'runden' ? aufgabe.parameter[1] : (teil && teil.runden) || 1;
+    const d = aufgabe.generator === 'runden' ? aufgabe.parameter[1] : teil && teil.runden != null ? teil.runden : 1;
     const stelle = d === 0 ? 'die 1. Stelle nach dem Komma' : `die ${d + 1}. Stelle nach dem Komma`;
     return { typ: 'runden', text: `Schau auf ${stelle}. 5 bis 9 heißt aufrunden.` };
   }

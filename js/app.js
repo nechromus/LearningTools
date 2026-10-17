@@ -5,7 +5,7 @@ import * as U from './sync.js';
 import { esc, mathe, bruchHtml, bildSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.3.1';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [];
@@ -431,7 +431,7 @@ function teileHtml() {
   const versatz = A.teile.length - haupt.length;
   const html = A.teile.map((t, i) => {
     if (i > A.idx && !A.fertig) {
-      if (block && !t.merk) return `<div class="teil block-teil zukunft"><div class="teil-label"><span>${mathe(t.label)}</span></div><div class="feld leer">?</div></div>`;
+      if (block && !t.merk) return `<div class="teil block-teil zukunft"><div class="teil-label"><span>${mathe(t.label)}</span></div><button class="feld leer tippbar" data-act="springe" data-i="${i}" aria-label="Zu diesem Feld springen">?</button></div>`;
       if (!t.merk) return '';
     }
     const aktiv = i === A.idx && !A.fertig;
@@ -471,7 +471,7 @@ function teileHtml() {
     if (aktiv && A.phase === 'tipp') zusatz = `<div class="tipp"><b>Noch nicht.</b> ${esc(t.tipp)}</div>`;
     if (i === A.idx && A.phase === 'aufgeloest') zusatz = `<div class="aufloesung">So ist es richtig: <b>${loesungText(t)}</b></div>`;
     if (t.merk && i > A.idx && !A.fertig) {
-      inhalt = `<div class="teil-label"><span>${mathe(t.label)}</span></div><div class="feld-zeile"><div class="feld leer">?</div>${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}</div>`;
+      inhalt = `<div class="teil-label"><span>${mathe(t.label)}</span></div><div class="feld-zeile"><button class="feld leer tippbar" data-act="springe" data-i="${i}" aria-label="Zu diesem Feld springen">?</button>${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}</div>`;
     }
     const kl = `teil${aktiv ? ' aktiv' : ''}${t.merk ? ' merk' : ''}${block && !t.merk ? ' block-teil' : ''}`;
     return { merk: !!t.merk, html: `<div class="${kl}">${inhalt}${zusatz}</div>` };
@@ -595,6 +595,35 @@ function antwortGeben() {
     return zeigeAufgabe();
   }
   versuchMerken(t, eingabe, richtig, fehler);
+}
+
+// Tippen auf ein späteres Feld: aktuelles Feld abgeben, wenn etwas drinsteht. Sonst das aktuelle Feld aufblinken lassen.
+function springeZu(ziel) {
+  if (!A || A.fertig || !(ziel > A.idx)) return;
+  const t = aktuellerTeil();
+  const hatDaten = t && A.phase === 'eingabe' && (t.art === 'zahl' ? !!t.eingabe : t.art === 'bruch' ? !!(t.z && t.n) : false);
+  protokoll(S, 'sprung', { id: A.aufgabe.id, von: A.idx, nach: ziel, abgegeben: hatDaten });
+  if (hatDaten) return antwortGeben();
+  aufblinken();
+}
+
+function aufblinken() {
+  let el;
+  if (A.phase === 'eingabe') {
+    const t = aktuellerTeil();
+    el = t && t.art === 'bruch'
+      ? [...document.querySelectorAll('.teil.aktiv .bruch-feld')].find(b => b.textContent.trim() === '?')
+      : document.querySelector('.teil.aktiv .aktiv-feld');
+    el = el || document.querySelector('.teil.aktiv');
+  } else {
+    el = document.querySelector('[data-act="verstanden"], [data-act="weiter"]');
+  }
+  if (!el) return;
+  el.classList.remove('aufblinken');
+  void el.offsetWidth; // Animation neu starten
+  el.classList.add('aufblinken');
+  el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  setTimeout(() => el.classList.remove('aufblinken'), 1300);
 }
 
 function versuchMerken(t, eingabe, richtig, fehler) {
@@ -1441,6 +1470,7 @@ function klick(e) {
     case 'taste': tastatur(el.dataset.k); break;
     case 'feld': A.feld = el.dataset.feld; zeigeAufgabe(); break;
     case 'antwort': antwortGeben(); break;
+    case 'springe': springeZu(Number(el.dataset.i)); break;
     case 'wahl': {
       const t = aktuellerTeil();
       if (!t || A.phase !== 'eingabe') break;
