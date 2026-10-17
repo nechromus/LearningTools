@@ -4,7 +4,7 @@ import * as G from './gen.js';
 import { esc, mathe, bruchHtml, bildSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.1.1';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [];
@@ -47,6 +47,7 @@ export async function starten() {
     return;
   }
   dauerhaftSpeichernAnfragen();
+  updateEinrichten();
   document.addEventListener('click', klick);
   document.addEventListener('visibilitychange', sichtbarkeit);
   document.addEventListener('keydown', taste);
@@ -55,10 +56,72 @@ export async function starten() {
   zeigeStart();
 }
 
+// ============ Aktualisierung ============
+
+let swReg = null;
+let neueVersion = null;
+let neuLadenGeplant = false;
+
+async function updateEinrichten() {
+  if ('serviceWorker' in navigator) {
+    try {
+      swReg = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
+      let warSchonGesteuert = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        // Neuer Offline-Speicher ist aktiv: neu laden, sobald es passt
+        if (!warSchonGesteuert) { warSchonGesteuert = true; return; }
+        neuLadenGeplant = true;
+        neuLadenWennRuhig();
+      });
+    } catch (e) { /* ohne Offline-Speicher weiter */ }
+  }
+  updatePruefen();
+  setInterval(updatePruefen, 15 * 60 * 1000);
+}
+
+async function updatePruefen() {
+  try {
+    const r = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+    const v = (await r.json()).version;
+    if (!v || v === APP_VERSION) return;
+    neueVersion = v;
+    if (swReg) { try { await swReg.update(); } catch (e) { /* egal */ } }
+    neuLadenGeplant = true;
+    // Ohne aktiven Offline-Speicher-Wechsel trotzdem nach kurzer Zeit neu laden
+    setTimeout(neuLadenWennRuhig, 4000);
+  } catch (e) { /* offline: später nochmal */ }
+}
+
+// Nur neu laden, wenn Tobias nicht mitten in einer Aufgabe oder im Spiel ist
+function neuLadenWennRuhig() {
+  if (!neuLadenGeplant) return;
+  if (ansicht === 'start' || ansicht === 'eltern') {
+    // Schutz gegen Neuladen in Dauerschleife, falls der Server noch alte Dateien liefert
+    let versuch = null;
+    try { versuch = JSON.parse(sessionStorage.getItem('update-versuch') || 'null'); } catch (e) { /* egal */ }
+    if (versuch && versuch.v === neueVersion && Date.now() - versuch.t < 10 * 60 * 1000) { neuLadenGeplant = false; return; }
+    try { sessionStorage.setItem('update-versuch', JSON.stringify({ v: neueVersion, t: Date.now() })); } catch (e) { /* egal */ }
+    protokoll(S, 'update', { von: APP_VERSION, nach: neueVersion });
+    sichern();
+    location.reload();
+  } else {
+    const b = document.getElementById('update-hinweis');
+    if (!b) {
+      const d = document.createElement('div');
+      d.id = 'update-hinweis';
+      d.className = 'update-hinweis';
+      d.innerHTML = 'Neue Version ist da. Sie wird geladen, wenn du zurück zum Start gehst.';
+      document.body.appendChild(d);
+      setTimeout(() => d.remove(), 6000);
+    }
+  }
+}
+
 // ============ Startbildschirm ============
 
 function zeigeStart() {
   setzeAnsicht('start');
+  if (neuLadenGeplant) { neuLadenWennRuhig(); return; }
   tagAktualisieren(S);
   const slot = L.basisSlotJetzt(new Date(), S.einstellungen, S.basisSlot);
   const name = S.einstellungen.name ? `, ${esc(S.einstellungen.name)}` : '';
@@ -100,6 +163,7 @@ function zeigeStart() {
       </div>
       <p class="gedaempft klein">Pro richtige Aufgabe. Je mehr am Stück, desto mehr Zeit. Die Serie endet, wenn du spielst oder 20 Minuten Pause machst.</p>
     </section>
+    <p class="version-zeile">Version ${APP_VERSION}</p>
     ${hatSpeicherFehler() ? '<p class="warnung">Der Speicher ist voll oder gesperrt. Bitte einem Erwachsenen Bescheid geben.</p>' : ''}
   </div>`;
   langDruecken(document.getElementById('logo'), elternZugang);
@@ -685,6 +749,7 @@ function sichtbarkeit() {
   }
   const dauer = versteckt ? Date.now() - versteckt : 0;
   versteckt = null;
+  updatePruefen();
   tagAktualisieren(S);
   if (ansicht === 'aufgabe' && A && !A.fertig && !A.aufgabe.taschenrechner && dauer >= 3000) {
     S.tag.verlassen++;

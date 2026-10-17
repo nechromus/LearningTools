@@ -1,5 +1,5 @@
-// Offline-Speicher. Bei jeder neuen Version VERSION erhöhen.
-const VERSION = 'schrein-1.1.0';
+// Offline-Speicher. VERSION muss zu version.json und APP_VERSION in js/app.js passen.
+const VERSION = 'schrein-1.1.1';
 const DATEIEN = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest',
   'js/app.js', 'js/logic.js', 'js/render.js', 'js/store.js', 'js/gen.js',
@@ -8,7 +8,10 @@ const DATEIEN = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(DATEIEN)).then(() => self.skipWaiting()));
+  // cache: 'reload' umgeht den Browser-Zwischenspeicher, damit wirklich die neuen Dateien kommen
+  e.waitUntil(caches.open(VERSION)
+    .then(c => c.addAll(DATEIEN.map(u => new Request(u, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -17,8 +20,8 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
   if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
   // Schriften: erst aus dem Speicher
   if (url.hostname.includes('fonts.g')) {
     e.respondWith(caches.open(VERSION).then(async c => {
@@ -31,10 +34,14 @@ self.addEventListener('fetch', e => {
     return;
   }
   if (url.origin !== location.origin) return;
-  // Eigene Dateien: erst Netz (immer aktuell), sonst Speicher (offline)
-  e.respondWith(fetch(e.request).then(res => {
-    const kopie = res.clone();
-    caches.open(VERSION).then(c => c.put(e.request, kopie));
+  // Versionsdatei nie zwischenspeichern
+  if (url.pathname.endsWith('/version.json')) {
+    e.respondWith(fetch(url.href, { cache: 'no-store' }).catch(() => new Response('{}', { headers: { 'Content-Type': 'application/json' } })));
+    return;
+  }
+  // Eigene Dateien: erst Netz (beim Server nachfragen, ob neu), sonst Speicher (offline)
+  e.respondWith(fetch(url.href, { cache: 'no-cache', credentials: 'same-origin' }).then(res => {
+    if (res.ok) { const kopie = res.clone(); caches.open(VERSION).then(c => c.put(e.request, kopie)); }
     return res;
-  }).catch(() => caches.match(e.request, { ignoreSearch: true })));
+  }).catch(() => caches.match(e.request, { ignoreSearch: true }).then(r => r || caches.match('index.html'))));
 });

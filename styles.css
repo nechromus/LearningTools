@@ -465,3 +465,8 @@ textarea { font-family: ui-monospace, monospace; font-size: 14px; margin-bottom:
 .schwebe { background: rgba(12, 16, 17, 0.78); border: 1px solid rgba(95, 232, 180, 0.55); border-radius: 14px; padding: 4px 16px 6px; }
 .schwebe.gold, .schwebe.meilenstein { border-color: rgba(246, 223, 162, 0.7); }
 #punkte-plus { right: calc(100% + 6px); top: 50%; margin-top: -10px; }
+.version-zeile { text-align: center; font-size: 13px; color: var(--linie); margin: 0; }
+.update-hinweis {
+  position: fixed; left: 12px; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 8px); z-index: 60; max-width: 540px; margin: 0 auto;
+  background: var(--teal); color: #fff; border-radius: 10px; padding: 10px 14px; font-weight: 700; font-size: 15px; text-align: center;
+}
