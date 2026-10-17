@@ -227,3 +227,8 @@ details ol { padding-left: 20px; }
 .als-link { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: inherit; }
 .knopf.haupt.als-link { color: #fff; }
 textarea { width: 100%; border-radius: 10px; border: 1.5px solid #8A9696; background: var(--weiss); padding: 10px 12px; font: 14px ui-monospace, Menlo, monospace; color: var(--text); }
+
+/* QR-Code */
+.qr-karte { display: flex; flex-direction: column; gap: 10px; }
+.qr-bild { background: #fff; border-radius: 12px; padding: 8px; align-self: center; width: min(100%, 360px); }
+.qr-bild svg { display: block; width: 100%; height: auto; }

@@ -6,10 +6,11 @@ import { esc, mathe, bruchHtml, bildSvg, hinweisIcon, hinweisBlatt, formatWert, 
 import { THEMA_NAMEN, GEN_NAMEN, FEHLER_NAMEN } from './namen.js';
 import * as P from './paket.js';
 import * as B from './bloecke.js';
+import { einrichtungLesen } from './einrichtung.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.7.1';
+export const APP_VERSION = '1.8.0';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [], BASIS_IDS = new Set();
@@ -53,7 +54,114 @@ export async function starten() {
   document.addEventListener('keydown', taste);
   setInterval(spielTick, 1000);
   setInterval(() => { if (ansicht === 'start') zeigeStart(); }, 30000);
+  // Einrichtungs-Link aus dem QR-Code (Kamera-App) geöffnet?
+  const ausLink = einrichtungLesen(location.hash);
+  if (location.hash.includes('einrichten=')) history.replaceState(null, '', location.pathname + location.search);
   zeigeStart();
+  if (ausLink) einrichten(ausLink, 'link');
+}
+
+// ============ Einrichtung per QR-Code ============
+
+let scanner = null; // { stream, laeuft }
+
+// Repo, Schlüssel und (bei frischem Handy) Name übernehmen. Danach kommt der Spielstand vom Server.
+async function einrichten(d, quelle) {
+  const nameNeu = d.name && d.name !== S.einstellungen.name ? d.name : '';
+  if (nameNeu && S.einstellungen.name && quelle !== 'bestaetigt') {
+    oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Anderer Name</h2>
+      <p>Dieses Handy ist für <b>${esc(S.einstellungen.name)}</b> eingerichtet. Der Code ist für <b>${esc(d.name)}</b>.</p>
+      <p>Umstellen auf ${esc(d.name)}?</p>
+      <div class="knopf-reihe"><button class="btn btn-haupt" data-act="einrichtenNameJa">Umstellen</button><button class="btn" data-act="modalZu">Abbrechen</button></div></div>`);
+    einrichtenWartet = d;
+    return;
+  }
+  oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Einrichten …</h2><p>Die Verbindung wird geprüft.</p></div>`);
+  try {
+    const info = await U.verbindungTesten({ repo: d.repo, token: d.token });
+    if (!info.privat) throw new Error('Das Daten-Repo ist öffentlich. Bitte nur ein privates Repo verwenden.');
+  } catch (e) {
+    oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Das hat nicht geklappt</h2><p>${esc(e.message || 'Verbindung nicht möglich.')}</p><button class="btn btn-haupt" data-act="modalZu">OK</button></div>`);
+    return;
+  }
+  if (nameNeu) {
+    if (S.einstellungen.name) protokoll(S, 'name_geaendert', { von: S.einstellungen.name, nach: nameNeu });
+    S.einstellungen.name = nameNeu;
+  }
+  S.upload = { ...S.upload, repo: d.repo, token: d.token, fehler: null, tage: {}, standGeprueft: false, standKern: null, standRev: 0, standWartet: false };
+  protokoll(S, 'einrichtung_qr', { repo: d.repo, quelle });
+  sichern();
+  schliesseModal();
+  zeigeStart();
+  oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Eingerichtet</h2><p>Hallo${S.einstellungen.name ? ', ' + esc(S.einstellungen.name) : ''}! Deine Daten werden jetzt gesichert.</p><button class="btn btn-haupt" data-act="modalZu">Weiter</button></div>`);
+  if (S.upload.testgeraet) return;
+  await syncen(true); // holt einen vorhandenen Spielstand vom Server („Willkommen zurück“)
+}
+let einrichtenWartet = null;
+
+function scannerStoppen() {
+  if (scanner && scanner.stream) scanner.stream.getTracks().forEach(t => t.stop());
+  scanner = null;
+}
+
+function jsqrLaden() {
+  if (window.jsQR) return Promise.resolve(window.jsQR);
+  return new Promise((ok, fehler) => {
+    const sc = document.createElement('script');
+    sc.src = 'vendor/jsQR.js';
+    sc.onload = () => ok(window.jsQR);
+    sc.onerror = () => fehler(new Error('Der QR-Leser konnte nicht geladen werden. Ist das Internet an?'));
+    document.head.appendChild(sc);
+  });
+}
+
+async function qrScannen() {
+  oeffneModal(`<div class="scan-box">
+      <h2 class="modal-titel">QR-Code scannen</h2>
+      <p class="gedaempft klein">Halte die Kamera auf den Code in der Eltern-App.</p>
+      <div class="scan-bild"><video id="scan-video" playsinline muted autoplay></video><span class="scan-rahmen"></span></div>
+      <p class="gedaempft klein" id="scan-info">Kamera wird gestartet …</p>
+      <details class="klein"><summary>Kamera geht nicht? Link einfügen</summary>
+        <textarea id="scan-text" rows="3" placeholder="Link aus der Eltern-App einfügen"></textarea>
+        <button class="btn" data-act="scanText">Übernehmen</button>
+      </details>
+    </div>`, scannerStoppen);
+  const info = () => document.getElementById('scan-info');
+  try {
+    const [jsQR, stream] = await Promise.all([
+      jsqrLaden(),
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+    ]);
+    scanner = { stream };
+    const video = document.getElementById('scan-video');
+    if (!video) { scannerStoppen(); return; }
+    video.srcObject = stream;
+    await video.play().catch(() => {});
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (info()) info().textContent = 'Suche nach dem Code …';
+    const runde = () => {
+      if (!scanner || !document.getElementById('scan-video')) return scannerStoppen();
+      if (video.readyState >= 2 && video.videoWidth) {
+        const f = Math.min(1, 640 / Math.max(video.videoWidth, video.videoHeight));
+        canvas.width = Math.round(video.videoWidth * f); canvas.height = Math.round(video.videoHeight * f);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height, { inversionAttempts: 'dontInvert' });
+        if (code && code.data) {
+          const d = einrichtungLesen(code.data);
+          if (d) { scannerStoppen(); schliesseModal(); einrichten(d, 'kamera'); return; }
+          if (info()) info().textContent = 'Das ist kein Einrichtungs-Code aus der Eltern-App.';
+        }
+      }
+      requestAnimationFrame(runde);
+    };
+    requestAnimationFrame(runde);
+  } catch (e) {
+    scannerStoppen();
+    if (info()) info().textContent = e && e.name === 'NotAllowedError'
+      ? 'Die Kamera ist nicht erlaubt. Du kannst den Link unten einfügen.'
+      : (e.message || 'Die Kamera konnte nicht gestartet werden. Du kannst den Link unten einfügen.');
+  }
 }
 
 // ============ Aktualisierung ============
@@ -289,6 +397,7 @@ function zeigeAnmeldung(fehler = '') {
       <input id="a-name" class="name-feld" type="text" maxlength="20" autocomplete="off" autocapitalize="words" spellcheck="false" placeholder="Dein Vorname">
       <p class="gedaempft" id="a-fehler">${esc(fehler)}</p>
       <button class="btn btn-haupt btn-gross" data-act="anmelden">Los geht's</button>
+      <button class="btn-text klein" data-act="qrScannen">Mit QR-Code aus der Eltern-App einrichten</button>
     </section>
   </div>`;
   const f = document.getElementById('a-name');
@@ -1713,12 +1822,15 @@ function zeigeEltern(meldung = '') {
         <p class="gedaempft klein">Letzte Übertragung: ${S.upload.letzter ? new Date(S.upload.letzter).toLocaleString('de-DE') : 'noch keine'}</p>
         ${S.upload.fehler ? `<p class="fehler-text">${esc(S.upload.fehler)}</p>` : ''}
         <div class="knopf-reihe"><button class="btn btn-haupt" data-act="syncJetzt">Jetzt übertragen</button><button class="btn" data-act="syncAus">Ausschalten</button></div>
+        <button class="btn-text klein" data-act="qrScannen">Neu einrichten mit QR-Code</button>
       ` : `
         <p>Die Lerndaten werden automatisch in ein privates GitHub-Repo übertragen. Dafür einmal Repo und Zugangsschlüssel eintragen.</p>
         <label class="feld-label">Repo (Besitzer/Name)<input id="u-repo" type="text" value="${esc(S.upload.repo || '')}" placeholder="name/LearningToolsTracking" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
         <label class="feld-label">Zugangsschlüssel<input id="u-token" type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
         <p class="fehler-text" id="u-fehler"></p>
         <button class="btn btn-haupt" data-act="syncSpeichern">Speichern und testen</button>
+        <p class="gedaempft klein">Einfacher: In der Eltern-App unter Einstellungen einen QR-Code zeigen lassen und hier scannen.</p>
+        <button class="btn" data-act="qrScannen">QR-Code scannen</button>
       `}
     </section>
 
@@ -1994,6 +2106,13 @@ function klick(e) {
       zeigeEltern(`${el.dataset.min} Min. Spielzeit gutgeschrieben.`); break;
     }
     case 'export': exportieren(); break;
+    case 'qrScannen': qrScannen(); break;
+    case 'scanText': {
+      const d = einrichtungLesen(document.getElementById('scan-text').value);
+      if (!d) { const i = document.getElementById('scan-info'); if (i) i.textContent = 'Der Link ist nicht richtig. Bitte den ganzen Link aus der Eltern-App einfügen.'; break; }
+      scannerStoppen(); schliesseModal(); einrichten(d, 'text'); break;
+    }
+    case 'einrichtenNameJa': { const d = einrichtenWartet; einrichtenWartet = null; schliesseModal(); if (d) einrichten(d, 'bestaetigt'); break; }
     case 'standSichernJetzt':
       el.textContent = 'Wird gesichert …';
       standHochladen(true).then(() => zeigeEltern(S.upload.standFehler ? S.upload.standFehler : 'Spielstand gesichert.'));

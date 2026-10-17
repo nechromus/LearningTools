@@ -6,8 +6,10 @@ import { THEMA_NAMEN, GEN_NAMEN } from '../js/namen.js';
 import { esc, mathe, bildSvg } from '../js/render.js';
 import * as A from './auswertung.js';
 import * as P from '../js/paket.js';
+import { einrichtungsLink } from '../js/einrichtung.js';
+import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.2.0';
+export const ELTERN_VERSION = '1.3.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -20,6 +22,7 @@ let route = { seite: 'uebersicht', arg: '' };
 let entwurf = null;
 let paketEntwurf = null;   // Paket, das gerade bearbeitet wird
 let paketText = { text: '', ergebnis: null }; // Paket aus Text einfügen
+let qr = { name: '', token: '', link: '' };      // QR-Code zum Einrichten (Schlüssel wird nicht gespeichert)
 let geaenderteStufen = new Set();
 let meldung = null;
 let filter = 'alle';
@@ -174,7 +177,7 @@ function nutzerWahl(klasse) {
 }
 
 function navLinks(art) {
-  const aktiv = route.seite === 'aufgabe' ? 'verlauf' : ['spielzeit', 'gewichte', 'pakete', 'paket'].includes(route.seite) ? 'einstellungen' : route.seite;
+  const aktiv = route.seite === 'aufgabe' ? 'verlauf' : ['spielzeit', 'gewichte', 'pakete', 'paket', 'qr'].includes(route.seite) ? 'einstellungen' : route.seite;
   return [['uebersicht', 'Übersicht'], ['verlauf', 'Verlauf'], ['einstellungen', 'Einstellungen']].map(([k, t]) =>
     `<a href="#${k}" class="${art}${aktiv === k ? ' aktiv' : ''}"${aktiv === k ? ' aria-current="page"' : ''}>${svg(k, 24)}<span>${t}</span></a>`).join('');
 }
@@ -220,6 +223,7 @@ function seiteHtml() {
     case 'gewichte': return gewichteSeite();
     case 'pakete': return paketeSeite();
     case 'paket': return paketSeite(route.arg);
+    case 'qr': return qrSeite();
     default: return uebersichtSeite();
   }
 }
@@ -496,7 +500,8 @@ function einstellungenSeite() {
     </section>
     <p class="klein gedaempft">Die App passt die Stufen weiter selbst an. Was du hier änderst, ist der neue Startpunkt.</p>
     ${speicherLeiste()}
-    <section class="karte liste-karte"><a class="einstell-zeile" href="#pakete"><span>Aufgabenpakete verwalten<span class="klein gedaempft block">anlegen, ändern, mit Claude erstellen</span></span>${svg('weiter', 16)}</a></section>
+    <section class="karte liste-karte"><a class="einstell-zeile" href="#pakete"><span>Aufgabenpakete verwalten<span class="klein gedaempft block">anlegen, ändern, mit Claude erstellen</span></span>${svg('weiter', 16)}</a>
+      <a class="einstell-zeile" href="#qr"><span>Handy mit QR-Code einrichten<span class="klein gedaempft block">nach dem Löschen der App oder für ein neues Handy</span></span>${svg('weiter', 16)}</a></section>
     ${schluesselKarte()}
   </div>`;
 }
@@ -650,6 +655,43 @@ function spielzeitSeite() {
     <section class="hinweis-box"><p><b>So wirkt es:</b> 10 Aufgaben am Stück, alle im 1. Versuch richtig, bringen bis zu <b>${zahlText(A.serieMinuten(r))} Min.</b> Spielzeit.</p><p class="klein">App verlassen bei Aufgaben ohne Rechner halbiert die Zeit weiterhin (ab dem 3. Mal am Tag: keine Zeit).</p></section>
     <button class="knopf" data-act="standardZeit">Standardwerte einsetzen</button>
     ${speicherLeiste()}
+  </div>`;
+}
+
+// ---------- Handy per QR-Code einrichten ----------
+
+function qrSeite() {
+  if (!qr.name && D.daten && D.daten.name) qr.name = D.daten.name;
+  const svgCode = qr.link ? (() => {
+    const q = qrcode(0, 'M');
+    q.addData(qr.link);
+    q.make();
+    return q.createSvgTag({ cellSize: 6, margin: 4, scalable: true });
+  })() : '';
+  return `<div class="seite schmal-inhalt">
+    <a class="zurueck" href="#einstellungen">${svg('zurueck', 20)}Einstellungen</a>
+    <h1>Handy einrichten</h1>
+    <p class="klein gedaempft">Nach dem Löschen der App vom Home-Bildschirm oder für ein neues Handy: Code zeigen und auf dem Kinder-Handy scannen. Danach kommen Spielzeit und Spielstände vom Server zurück.</p>
+    ${qr.link ? `
+    <section class="karte qr-karte">
+      <div class="qr-bild" role="img" aria-label="QR-Code zum Einrichten">${svgCode}</div>
+      <p><b>So geht's auf dem Kinder-Handy:</b></p>
+      <ol class="klein">
+        <li>Übungs-App öffnen.</li>
+        <li>Beim Namen auf „Mit QR-Code aus der Eltern-App einrichten“ tippen (oder im Elternbereich „QR-Code scannen“).</li>
+        <li>Kamera auf diesen Code halten.</li>
+      </ol>
+      <p class="hinweis-box klein">Der Code enthält den Zugangsschlüssel. Nur zum Scannen zeigen, nicht fotografieren oder verschicken.</p>
+      <div class="knopf-reihe"><button class="knopf" data-act="qrLinkKopieren">Link kopieren</button><button class="knopf haupt breit" data-act="qrAus">Code ausblenden</button></div>
+    </section>` : `
+    <section class="karte">
+      <label class="feld">Name des Kindes<input id="qr-name" type="text" maxlength="20" value="${esc(qr.name)}" autocomplete="off"></label>
+      <label class="feld">Zugangsschlüssel für das Kinder-Handy<input id="qr-token" type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(qr.token)}"></label>
+      <p class="klein gedaempft">Am besten ein eigener Schlüssel pro Handy (nur Daten-Repo, „Contents: Read and write“). Er wird hier nicht gespeichert.</p>
+      <button class="knopf-text" data-act="qrEigenerSchluessel">Schlüssel dieser Eltern-App verwenden</button>
+      <p class="fehler-text" id="qr-fehler">${meldung && meldung.art === 'fehler' ? esc(meldung.text) : ''}</p>
+      <button class="knopf haupt breit" data-act="qrZeigen">QR-Code zeigen</button>
+    </section>`}
   </div>`;
 }
 
@@ -809,6 +851,25 @@ document.addEventListener('click', (ev) => {
         .catch(err => { meldung = { art: 'fehler', text: err.message }; zeichne(); });
       break;
     }
+    case 'qrEigenerSchluessel': {
+      if (!confirm('Dann nutzt das Kinder-Handy denselben Schlüssel wie diese Eltern-App. Sperrst du ihn später, geht auch die Eltern-App nicht mehr. Trotzdem verwenden?')) break;
+      qr.name = document.getElementById('qr-name').value; qr.token = C.token; meldung = null; zeichne(); break;
+    }
+    case 'qrZeigen': {
+      const name = document.getElementById('qr-name').value.trim().replace(/\s+/g, ' ').slice(0, 20);
+      const token = document.getElementById('qr-token').value.trim();
+      qr.name = name; qr.token = token;
+      if (name.length < 2) { meldung = { art: 'fehler', text: 'Bitte den Namen des Kindes eingeben (wie in der App).' }; zeichne(); break; }
+      if (token.length < 20) { meldung = { art: 'fehler', text: 'Bitte den ganzen Zugangsschlüssel einfügen.' }; zeichne(); break; }
+      meldung = null;
+      qr.link = einrichtungsLink(new URL('../', location.href).href, { repo: C.repo, token, name });
+      zeichne(); break;
+    }
+    case 'qrAus': qr = { name: qr.name, token: '', link: '' }; zeichne(); break;
+    case 'qrLinkKopieren':
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(qr.link).then(() => alert('Link kopiert. Auf dem Kinder-Handy im Scan-Fenster unter „Link einfügen“ einfügen.'), () => prompt('Link kopieren:', qr.link));
+      else prompt('Link kopieren:', qr.link);
+      break;
     case 'standardZeit': entwurf.spielzeit = L.spielzeitRegeln(null); meldung = null; zeichne(); break;
     case 'verwerfen': entwurf = null; geaenderteStufen = new Set(); meldung = null; zeichne(); break;
     case 'speichern': if (geaendert()) speichern(); break;
@@ -855,7 +916,7 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Enter' && ev.target.classList && ev.target.classList.contains('min-feld')) ev.target.blur();
 });
 
-window.addEventListener('hashchange', () => { leseRoute(); meldung = ['einstellungen', 'spielzeit', 'gewichte', 'pakete'].includes(route.seite) ? meldung : null; zeichne(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', () => { leseRoute(); if (route.seite !== 'qr') qr = { name: '', token: '', link: '' }; meldung = ['einstellungen', 'spielzeit', 'gewichte', 'pakete'].includes(route.seite) ? meldung : null; zeichne(); window.scrollTo(0, 0); });
 breit.addEventListener('change', zeichne);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && C.token && D.daten && Date.now() - (D.daten.geladen || 0) > 2 * 60 * 1000) allesLaden();
