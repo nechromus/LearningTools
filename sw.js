@@ -1,8 +1,8 @@
 // Offline-Speicher. Bei jeder neuen Version VERSION erhöhen.
-const VERSION = 'schrein-1.0.0';
+const VERSION = 'schrein-1.1.0';
 const DATEIEN = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest',
-  'js/app.js', 'js/logic.js', 'js/render.js', 'js/store.js',
+  'js/app.js', 'js/logic.js', 'js/render.js', 'js/store.js', 'js/gen.js',
   'data/aufgaben.json', 'data/hinweise.json',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'
 ];

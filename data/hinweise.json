@@ -1,13 +1,18 @@
 {
-  "info": "Hinweise (Sheikah-Zeichen). Kopie von app-uebergabe/02-hinweise.json aus dem Claude-Projekt. Reihenfolge ist fest. Neue Hinweise nur hinten anfügen. Stand 17.10.2026.",
+  "info": "Hinweise (Sheikah-Zeichen). Kopie von app-uebergabe/02-hinweise.json aus dem Claude-Projekt. Reihenfolge ist fest. Neue Hinweise nur hinten anfügen. Stand 17.10.2026 (Hinweise 12 und 13 neu).",
   "icon_form": {
     "beschreibung": "Sechseck, viewBox 0 0 24 24, Füllung = farbe_hell, Rand = farbe (1.6 px), Symbol mittig in farbe_text, Schrift Atkinson Hyperlegible fett",
     "polygon": "12,1.5 21.5,7 21.5,17 12,22.5 2.5,17 2.5,7"
   },
   "hinweise": [
     {
-      "nr": 1, "id": "euro", "titel": "Minus-Zahlen", "symbol": "€",
-      "farbe": "#9A5B06", "farbe_hell": "#F5E6C6", "farbe_text": "#633806",
+      "nr": 1,
+      "id": "euro",
+      "titel": "Minus-Zahlen",
+      "symbol": "€",
+      "farbe": "#9A5B06",
+      "farbe_hell": "#F5E6C6",
+      "farbe_text": "#633806",
       "regeln": [
         "− Zahl = Schulden",
         "+ Zahl = Geld, das du hast",
@@ -17,8 +22,13 @@
       "beispiel": "−7 + 3 → 7 € Schulden, du bekommst 3 € → noch 4 € Schulden → −4"
     },
     {
-      "nr": 2, "id": "klammer", "titel": "Reihenfolge", "symbol": "( )",
-      "farbe": "#1F6F75", "farbe_hell": "#DCEDED", "farbe_text": "#0E4A4F",
+      "nr": 2,
+      "id": "klammer",
+      "titel": "Reihenfolge",
+      "symbol": "( )",
+      "farbe": "#1F6F75",
+      "farbe_hell": "#DCEDED",
+      "farbe_text": "#0E4A4F",
       "regeln": [
         "1. zuerst die Klammer ( )",
         "2. dann Punkt: mal und geteilt",
@@ -27,8 +37,13 @@
       "beispiel": "20 − (9 − 3) → 20 − 6 → 14"
     },
     {
-      "nr": 3, "id": "potenz", "titel": "Potenzen", "symbol": "x²",
-      "farbe": "#5A4AA8", "farbe_hell": "#E6E2F5", "farbe_text": "#3C3489",
+      "nr": 3,
+      "id": "potenz",
+      "titel": "Potenzen",
+      "symbol": "x²",
+      "farbe": "#5A4AA8",
+      "farbe_hell": "#E6E2F5",
+      "farbe_text": "#3C3489",
       "regeln": [
         "Hoch 2 → die Zahl 2-mal malnehmen",
         "Hoch 3 → die Zahl 3-mal malnehmen"
@@ -37,9 +52,19 @@
       "achtung": "5² ist nicht 5 · 2"
     },
     {
-      "nr": 4, "id": "bruch", "titel": "Bruch aus Bild", "symbol": "½",
-      "farbe": "#3B6D11", "farbe_hell": "#E2EED6", "farbe_text": "#27500A",
-      "bild": {"form": "kreis", "teile": 4, "gefaerbt": 3, "daneben_gross": "3/4"},
+      "nr": 4,
+      "id": "bruch",
+      "titel": "Bruch aus Bild",
+      "symbol": "½",
+      "farbe": "#3B6D11",
+      "farbe_hell": "#E2EED6",
+      "farbe_text": "#27500A",
+      "bild": {
+        "form": "kreis",
+        "teile": 4,
+        "gefaerbt": 3,
+        "daneben_gross": "3/4"
+      },
       "regeln": [
         "Zähler (oben): so viele Teile sind gefärbt",
         "Nenner (unten): in so viele Teile ist das Ganze geteilt",
@@ -48,8 +73,13 @@
       ]
     },
     {
-      "nr": 5, "id": "prozent", "titel": "Prozent von …", "symbol": "%",
-      "farbe": "#185FA5", "farbe_hell": "#DDEAF6", "farbe_text": "#0C447C",
+      "nr": 5,
+      "id": "prozent",
+      "titel": "Prozent von …",
+      "symbol": "%",
+      "farbe": "#185FA5",
+      "farbe_hell": "#DDEAF6",
+      "farbe_text": "#0C447C",
       "regeln": [
         "50 % → durch 2",
         "25 % → durch 4",
@@ -60,8 +90,13 @@
       "beispiel": "25 % von 40 € → 40 : 4 → 10 €"
     },
     {
-      "nr": 6, "id": "text", "titel": "Textaufgabe und Rabatt", "symbol": "T",
-      "farbe": "#993C1D", "farbe_hell": "#F8E0D6", "farbe_text": "#712B13",
+      "nr": 6,
+      "id": "text",
+      "titel": "Textaufgabe und Rabatt",
+      "symbol": "T",
+      "farbe": "#993C1D",
+      "farbe_hell": "#F8E0D6",
+      "farbe_text": "#712B13",
       "regeln": [
         "Unterstreiche den Preis und die Prozent",
         "Rabatt = so viel Euro sparst du",
@@ -69,8 +104,13 @@
       ]
     },
     {
-      "nr": 7, "id": "runden", "titel": "Runden", "symbol": "≈",
-      "farbe": "#5F5E5A", "farbe_hell": "#E6E4DC", "farbe_text": "#2C2C2A",
+      "nr": 7,
+      "id": "runden",
+      "titel": "Runden",
+      "symbol": "≈",
+      "farbe": "#5F5E5A",
+      "farbe_hell": "#E6E4DC",
+      "farbe_text": "#2C2C2A",
       "regeln": [
         "Auf 1 Stelle nach dem Komma: schau auf die 2. Stelle nach dem Komma",
         "0, 1, 2, 3, 4 → abrunden (3,42 ≈ 3,4)",
@@ -78,9 +118,22 @@
       ]
     },
     {
-      "nr": 8, "id": "kugel", "titel": "Kugel", "symbol": "π",
-      "farbe": "#993556", "farbe_hell": "#F6DCE6", "farbe_text": "#72243E",
-      "bild": {"form": "kugel", "beschriftung": ["Mittelpunkt M", "Radius r (von M zum Rand)", "Durchmesser d", "d = 2 · r"]},
+      "nr": 8,
+      "id": "kugel",
+      "titel": "Kugel",
+      "symbol": "π",
+      "farbe": "#993556",
+      "farbe_hell": "#F6DCE6",
+      "farbe_text": "#72243E",
+      "bild": {
+        "form": "kugel",
+        "beschriftung": [
+          "Mittelpunkt M",
+          "Radius r (von M zum Rand)",
+          "Durchmesser d",
+          "d = 2 · r"
+        ]
+      },
       "regeln": [
         "V = 4/3 · π · r³",
         "O = 4 · π · r²",
@@ -90,8 +143,13 @@
       ]
     },
     {
-      "nr": 9, "id": "baukasten", "titel": "Prozent-Baukasten", "symbol": "10%",
-      "farbe": "#6B6512", "farbe_hell": "#EEEBD0", "farbe_text": "#4A450A",
+      "nr": 9,
+      "id": "baukasten",
+      "titel": "Prozent-Baukasten",
+      "symbol": "10%",
+      "farbe": "#6B6512",
+      "farbe_hell": "#EEEBD0",
+      "farbe_text": "#4A450A",
       "regeln": [
         "Erst 10 % ausrechnen: durch 10",
         "30 % → 10 % mal 3",
@@ -102,9 +160,21 @@
       "beispiel": "30 % von 70 € → 70 : 10 = 7 → 7 · 3 = 21 €"
     },
     {
-      "nr": 10, "id": "diagramm", "titel": "Kreisdiagramm", "symbol": "Kreis mit gefüllter Hälfte",
-      "farbe": "#8A2B2B", "farbe_hell": "#F5DEDE", "farbe_text": "#6B1F1F",
-      "bild": {"form": "kreisdiagramm", "segmente": [50, 25, 25]},
+      "nr": 10,
+      "id": "diagramm",
+      "titel": "Kreisdiagramm",
+      "symbol": "Kreis mit gefüllter Hälfte",
+      "farbe": "#8A2B2B",
+      "farbe_hell": "#F5DEDE",
+      "farbe_text": "#6B1F1F",
+      "bild": {
+        "form": "kreisdiagramm",
+        "segmente": [
+          50,
+          25,
+          25
+        ]
+      },
       "regeln": [
         "Ganzer Kreis = 100 % = alle",
         "Halber Kreis → 50 %",
@@ -114,8 +184,13 @@
       "beispiel": "25 % von 20 Schülern → 20 : 4 = 5 Schüler"
     },
     {
-      "nr": 11, "id": "lang", "titel": "Lange Textaufgaben", "symbol": "?",
-      "farbe": "#6B4A2B", "farbe_hell": "#EFE4D8", "farbe_text": "#4A3019",
+      "nr": 11,
+      "id": "lang",
+      "titel": "Lange Textaufgaben",
+      "symbol": "?",
+      "farbe": "#6B4A2B",
+      "farbe_hell": "#EFE4D8",
+      "farbe_text": "#4A3019",
       "regeln": [
         "1. Lies den Text zweimal",
         "2. Unterstreiche die Frage",
@@ -125,6 +200,39 @@
       ],
       "zusatz": "Zwei Fragen in einer Aufgabe? Erst die erste Frage lösen. Das Ergebnis brauchst du oft für die zweite.",
       "beispiel": "Antwortsatz: Mia spart 24 €."
+    },
+    {
+      "nr": 12,
+      "id": "einmaleins",
+      "titel": "Einmaleins",
+      "symbol": "×",
+      "farbe": "#0F6E56",
+      "farbe_hell": "#DDF1E8",
+      "farbe_text": "#085041",
+      "regeln": [
+        "Tauschen ist erlaubt: 3 · 8 = 8 · 3",
+        "Mal 2 → verdoppeln",
+        "Mal 5 → erst mal 10, dann halbieren",
+        "Mal 9 → erst mal 10, dann einmal weniger",
+        "Geteilt: Welche Zahl mal 7 gibt 56?"
+      ],
+      "beispiel": "9 · 7 → 10 · 7 = 70 → 70 − 7 = 63"
+    },
+    {
+      "nr": 13,
+      "id": "mal10",
+      "titel": "Mal 10 und durch 10",
+      "symbol": "10",
+      "farbe": "#3D4A9E",
+      "farbe_hell": "#E1E4F6",
+      "farbe_text": "#272F72",
+      "regeln": [
+        "Mal 10 ohne Komma → eine Null anhängen",
+        "Mal 10 mit Komma → Komma 1 Stelle nach rechts",
+        "Durch 10 → Komma 1 Stelle nach links",
+        "Endet die Zahl auf 0? Durch 10 → die Null weg"
+      ],
+      "beispiel": "7 · 10 = 70   3,5 · 10 = 35   45 : 10 = 4,5"
     }
   ]
 }

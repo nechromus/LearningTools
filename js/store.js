@@ -2,6 +2,7 @@
 import { tagKey } from './logic.js';
 
 const KEY = 'lernapp-v1';
+const LOG_KEY = 'lernapp-v1-log';
 
 function standard() {
   return {
@@ -17,6 +18,8 @@ function standard() {
     serie: { pos: 0, letzteAktivitaet: 0 },
     tag: { key: tagKey(), verlassen: 0, aufgaben: 0, ersterVersuch: 0, verdient: 0 },
     extraAufgaben: [],
+    genStufen: {},          // Baukasten → { stufe, folge }
+    wiederholen: [],        // erzeugte Aufgaben, die nochmal kommen
     log: [],
     letzterExport: null
   };
@@ -33,15 +36,22 @@ export function laden() {
   try {
     const roh = localStorage.getItem(KEY);
     if (roh) s = zusammenfuehren(standard(), JSON.parse(roh));
+    const log = localStorage.getItem(LOG_KEY);
+    if (log) s.log = JSON.parse(log);
   } catch (e) { /* privater Modus o. Ä.: mit Standard weiter */ }
+  if (!Array.isArray(s.log)) s.log = [];
   if (s.tag.key !== tagKey()) s.tag = { key: tagKey(), verlassen: 0, aufgaben: 0, ersterVersuch: 0, verdient: 0 };
   return s;
 }
 
+// Zustand und Protokoll getrennt speichern, damit Spielzüge schnell bleiben.
 let speicherFehler = false;
+let logGeaendert = true;
 export function speichern(s) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(s));
+    const { log, ...rest } = s;
+    localStorage.setItem(KEY, JSON.stringify(rest));
+    if (logGeaendert) { localStorage.setItem(LOG_KEY, JSON.stringify(log)); logGeaendert = false; }
     speicherFehler = false;
   } catch (e) {
     speicherFehler = true;
@@ -52,7 +62,8 @@ export const hatSpeicherFehler = () => speicherFehler;
 
 export function protokoll(s, typ, daten = {}) {
   s.log.push({ ...daten, t: new Date().toISOString(), typ });
-  if (s.log.length > 30000) s.log.splice(0, s.log.length - 30000);
+  logGeaendert = true;
+  if (s.log.length > 12000) s.log.splice(0, s.log.length - 12000);
 }
 
 export function tagAktualisieren(s) {

@@ -187,6 +187,7 @@ export function passtKategorie(a, kategorie, thema) {
     case 'text': return !a.bonus && !!a.geschichte && a.thema !== 'kugel';
     case 'abschluss': return !a.bonus && (a.thema === 'runden' || a.thema === 'kugel');
     case 'bonus': return !!a.bonus;
+    case 'struktur': return !a.bonus && a.thema !== 'kugel' && (['schritte', 'zuordnung', 'bruch'].includes(a.typ) || (a.typ === 'mehrfrage' && !!a.bild));
     default: return !a.bonus;
   }
 }
@@ -251,8 +252,8 @@ export function rechne(ausdruck) {
       i = j;
     } else if (c === 'π') { tokens.push({ t: 'n', v: Math.PI }); i++; }
     else if (c === '²' || c === '³') { tokens.push({ t: 'post', v: c === '²' ? 2 : 3 }); i++; }
-    else if ('+−-×÷*/'.includes(c)) {
-      const op = { '−': '-', '×': '*', '÷': '/' }[c] || c;
+    else if ('+−-×÷*/·:'.includes(c)) {
+      const op = { '−': '-', '×': '*', '÷': '/', '·': '*', ':': '/' }[c] || c;
       tokens.push({ t: 'op', v: op }); i++;
     } else if (c === '(' || c === ')') { tokens.push({ t: c }); i++; }
     else return null;
@@ -376,7 +377,7 @@ export function hoechsteKachel(feld) {
 // ---------- Aufgaben aus JSON kontrollieren (Elternbereich, Tools) ----------
 
 export const TYPEN = ['zahl', 'auswahl', 'bruch', 'schritte', 'zuordnung', 'mehrfrage'];
-export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel'];
+export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10'];
 
 export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
   const f = [];
@@ -394,7 +395,13 @@ export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
     for (const h of a.hinweise) if (!hinweisIds.includes(h)) f.push(`${id}: Hinweis „${h}“ gibt es nicht`);
   } else if (a.hinweise != null) f.push(`${id}: hinweise muss eine Liste sein`);
   if (a.taschenrechner != null && typeof a.taschenrechner !== 'boolean') f.push(`${id}: taschenrechner muss true oder false sein`);
+  if (a.gegeben != null) {
+    if (!Array.isArray(a.gegeben)) f.push(`${id}: gegeben muss eine Liste sein`);
+    else a.gegeben.forEach((g, i) => { if (!g || !g.name || typeof g.wert !== 'number') f.push(`${id}: gegeben ${i + 1} braucht name und wert`); });
+  }
   const text = JSON.stringify(a);
+  if (/−\s*\(\s*−/.test(text)) f.push(`${id}: doppeltes Minus wie −(−3) ist noch nicht erlaubt`);
+  if (/\d - \d|"-\d/.test(JSON.stringify([a.rechnung, a.frage, a.geschichte, a.loesungsweg]))) f.push(`${id}: Bindestrich statt echtem Minus „−“`);
   if (text.includes('^')) f.push(`${id}: enthält ^ – bitte hochgestellte Zahlen (² ³) verwenden`);
   if (/prüfung/i.test(text)) f.push(`${id}: enthält das Wort „Prüfung“`);
   switch (a.typ) {
@@ -417,4 +424,59 @@ export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
       break;
   }
   return f;
+}
+
+// ---------- 2048 mit Kachel-Objekten (für Animationen) ----------
+// kachel: { id, wert, r, c }
+
+export function kachelnAusFeld(feld, zaehler) {
+  const k = [];
+  feld.forEach((z, r) => z.forEach((v, c) => { if (v) k.push({ id: zaehler.n++, wert: v, r, c }); }));
+  return k;
+}
+
+export function feldAusKacheln(kacheln) {
+  const f = leeresFeld();
+  for (const k of kacheln) f[k.r][k.c] = k.wert;
+  return f;
+}
+
+export function bewegeKacheln(kacheln, richtung, zaehler) {
+  const pos = (i, k) => ({
+    links: [i, k], rechts: [i, 3 - k], hoch: [k, i], runter: [3 - k, i]
+  })[richtung];
+  const gitter = leeresFeld().map(z => z.map(() => null));
+  for (const k of kacheln) gitter[k.r][k.c] = k;
+  const neu = [], wandernd = [], merges = [];
+  let punkte = 0, bewegt = false;
+  for (let i = 0; i < 4; i++) {
+    const zeile = [];
+    for (let k = 0; k < 4; k++) { const [r, c] = pos(i, k); if (gitter[r][c]) zeile.push(gitter[r][c]); }
+    let ziel = 0;
+    for (let j = 0; j < zeile.length; j++) {
+      const [r, c] = pos(i, ziel);
+      const a = zeile[j], b = zeile[j + 1];
+      if (b && a.wert === b.wert) {
+        const w = a.wert * 2;
+        wandernd.push({ ...a, r, c }, { ...b, r, c });
+        const m = { id: zaehler.n++, wert: w, r, c, neuVerschmolzen: true };
+        neu.push(m); merges.push(m);
+        punkte += w; bewegt = true; j++;
+      } else {
+        if (a.r !== r || a.c !== c) bewegt = true;
+        neu.push({ id: a.id, wert: a.wert, r, c });
+      }
+      ziel++;
+    }
+  }
+  return { kacheln: neu, wandernd, merges, punkte, bewegt };
+}
+
+export function neueKachelObjekt(kacheln, zaehler, rng = Math.random) {
+  const f = feldAusKacheln(kacheln);
+  const pos = neueKachel(f, rng);
+  if (!pos) return null;
+  const k = { id: zaehler.n++, wert: f[pos[0]][pos[1]], r: pos[0], c: pos[1], neuGesetzt: true };
+  kacheln.push(k);
+  return k;
 }

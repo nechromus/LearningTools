@@ -1,9 +1,10 @@
 // Bildschirme und Ablauf der Übungsapp.
 import * as L from './logic.js';
+import * as G from './gen.js';
 import { esc, mathe, bruchHtml, bildSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [];
@@ -11,6 +12,7 @@ const $app = document.getElementById('app');
 const $modal = document.getElementById('modal');
 
 let ansicht = 'start';
+function setzeAnsicht(name) { ansicht = name; document.body.dataset.ansicht = name; }
 let A = null;                // aktive Aufgabe
 let modalSchliessen = null;  // Callback beim Schließen
 let rechner = null;          // { ausdruck, ergebnis }
@@ -21,7 +23,8 @@ const THEMA_NAMEN = {
   'minus-zahlen': 'Minus-Zahlen', 'reihenfolge': 'Reihenfolge', 'potenzen': 'Potenzen',
   'bruch-bild': 'Bruch aus Bild', 'zuordnung': 'Zuordnung', 'prozent': 'Prozent von …',
   'prozent-baukasten': 'Prozent-Baukasten', 'rabatt': 'Rabatt', 'neuer-preis': 'Neuer Preis',
-  'kreisdiagramm': 'Kreisdiagramm', 'runden': 'Runden', 'kugel': 'Kugel'
+  'kreisdiagramm': 'Kreisdiagramm', 'runden': 'Runden', 'kugel': 'Kugel',
+  'einmaleins': 'Einmaleins', 'mal-10': 'Mal 10 und durch 10'
 };
 
 const alleAufgaben = () => [...BASIS_AUFGABEN, ...S.extraAufgaben];
@@ -55,7 +58,7 @@ export async function starten() {
 // ============ Startbildschirm ============
 
 function zeigeStart() {
-  ansicht = 'start';
+  setzeAnsicht('start');
   tagAktualisieren(S);
   const slot = L.basisSlotJetzt(new Date(), S.einstellungen, S.basisSlot);
   const name = S.einstellungen.name ? `, ${esc(S.einstellungen.name)}` : '';
@@ -114,6 +117,11 @@ function langDruecken(el, fn) {
 // ============ Aufgaben ============
 
 function teileVon(a) {
+  const merk = (a.gegeben || []).map(g => ({ art: 'zahl', merk: true, label: `${g.name} =`, ziel: { wert: g.wert }, einheit: g.einheit || '' }));
+  return [...merk, ...hauptTeile(a)];
+}
+
+function hauptTeile(a) {
   switch (a.typ) {
     case 'zahl': return [{ art: 'zahl', ziel: { wert: a.antwort.wert }, einheit: a.antwort.einheit || '' }];
     case 'bruch': return [{ art: 'bruch', antwort: a.antwort }];
@@ -128,18 +136,90 @@ function teileVon(a) {
     case 'schritte': return a.schritte.map(s => s.optionen
       ? { art: 'wahl', label: s.text, optionen: s.optionen, richtig: s.richtig, quelle: s }
       : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden }, einheit: s.einheit || '', quelle: s });
-    case 'mehrfrage': return a.fragen.map(q => ({ art: 'zahl', label: q.frage, ziel: { wert: q.wert }, einheit: q.einheit || '', bonus: !!q.bonus, quelle: q }));
+    case 'mehrfrage': return a.fragen.map(q => ({ art: 'zahl', label: q.frage, ziel: { wert: q.wert }, einheit: q.einheit || '', bonus: !!q.bonus, quelle: q, rechnung: /\s=$/.test(q.frage) ? q.frage.replace(/\s=$/, '') : undefined }));
     case 'zuordnung': return [{ art: 'zuordnung' }];
   }
   return [];
 }
 
+const MUSTER = ['leicht', 'thema', 'thema', 'text', 'mix', 'thema', 'struktur', 'mix', 'thema', 'abschluss'];
+const wahl = arr => arr[Math.floor(Math.random() * arr.length)];
+const genStufe = g => (S.genStufen[g] || { stufe: 1 }).stufe;
+
+function fokusOptionen() {
+  const n = S.log.slice(-300).filter(e => e.typ === 'versuch' && e.fehler === 'vorzeichen').length;
+  return n >= 2 ? { fokus: 'vorzeichen' } : {};
+}
+
+function erzeuge(g, stufe, opts = {}) {
+  const letzte = S.verlauf.letzteIds.slice(-15);
+  let a;
+  for (let i = 0; i < 8; i++) {
+    a = G.GENERATOREN[g](stufe, Math.random, opts);
+    if (a && !letzte.includes(a.id)) break;
+  }
+  return a;
+}
+
+function waehleAufgabe(kategorie) {
+  const thema = S.einstellungen.thema;
+  const faellig = S.wiederholen.find(w => w.ab <= S.verlauf.zaehler);
+  if (faellig && kategorie !== 'abschluss') {
+    S.wiederholen = S.wiederholen.filter(w => w !== faellig);
+    return { aufgabe: faellig.aufgabe, wdh: faellig.wdh };
+  }
+  const pool = alleAufgaben();
+  const ausPool = k => L.waehleAufgabe(pool, { kategorie: k, thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
+  const fokus = fokusOptionen();
+  const themaGens = G.THEMA_GENERATOREN[thema] || [];
+  let a = null;
+  switch (kategorie) {
+    case 'leicht':
+      if (Math.random() < 0.4) a = G.block(wahl(G.BLOCK_GENERATOREN), Math.random);
+      else a = erzeuge(wahl(['einmaleins', 'potenz', 'mal10', 'minus-plus', 'prozent', 'bruch-bild']), 1, fokus);
+      break;
+    case 'thema':
+      if (!themaGens.length || Math.random() < 0.15) { const p = ausPool('thema'); if (p && p.thema === thema && !p.geschichte) a = p; }
+      if (!a) { const g = wahl(themaGens.length ? themaGens : G.MIX_GENERATOREN); a = erzeuge(g, genStufe(g), fokus); }
+      break;
+    case 'mix': {
+      if (Math.random() < 0.15) { a = G.block(wahl(G.BLOCK_GENERATOREN), Math.random); break; }
+      const g = wahl(G.MIX_GENERATOREN.filter(x => !themaGens.includes(x)));
+      a = erzeuge(g, genStufe(g), fokus);
+      break;
+    }
+    case 'text': {
+      const r = Math.random();
+      const rabattThema = ['prozent', 'prozent-baukasten', 'rabatt', 'neuer-preis'].includes(thema);
+      if (r < 0.4) a = ausPool('text');
+      else { const g = (rabattThema ? r < 0.55 : r < 0.75) ? 'geld-geschichte' : 'rabatt-geschichte'; a = erzeuge(g, genStufe(g), fokus); }
+      break;
+    }
+    case 'struktur':
+      if (Math.random() < 0.5) a = ausPool('struktur');
+      if (!a || a.thema === 'kugel') a = Math.random() < 0.5 ? erzeuge('baukasten', 1) : erzeuge('bruch-bild', genStufe('bruch-bild'));
+      break;
+    case 'abschluss': {
+      const runde = Math.floor(S.verlauf.musterIndex / MUSTER.length);
+      const r = Math.random();
+      if (runde % 2 === 1) {
+        if (r < 0.4) a = ausPool('bonus');
+        if (!a || !a.bonus) a = r < 0.7 ? G.potenz(3, Math.random, { bonus: true }) : G.baukasten(3, Math.random, { bonus: true });
+      } else {
+        if (r < 0.25) a = ausPool('abschluss');
+        if (!a || a.bonus) a = r < 0.65 ? erzeuge('kugel', genStufe('kugel')) : erzeuge('runden', genStufe('runden'));
+      }
+      break;
+    }
+  }
+  if (!a) a = erzeuge('einmaleins', 1);
+  return { aufgabe: a, wdh: 0 };
+}
+
 function neueAufgabe() {
   tagAktualisieren(S);
-  const kategorie = L.MUSTER[S.verlauf.musterIndex % L.MUSTER.length];
-  const aufgabe = L.waehleAufgabe(alleAufgaben(), {
-    kategorie, thema: S.einstellungen.thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key
-  });
+  const kategorie = MUSTER[S.verlauf.musterIndex % MUSTER.length];
+  const { aufgabe, wdh } = waehleAufgabe(kategorie);
   S.verlauf.musterIndex++;
   if (Date.now() - S.serie.letzteAktivitaet > 20 * 60 * 1000) S.serie.pos = 0;
   S.serie.pos++;
@@ -147,13 +227,19 @@ function neueAufgabe() {
   A = {
     aufgabe, kategorie, serienPos: S.serie.pos, start: Date.now(),
     teile: teileVon(aufgabe), idx: 0, phase: 'eingabe', hinweise: [], verlassen: 0, strafe: 'keine',
-    fertig: false, meldung: null, feld: 'z'
+    fertig: false, meldung: null, feld: 'z', wdh
   };
   A.teile.forEach(t => { t.versuche = []; t.status = 'offen'; t.eingabe = ''; t.z = ''; t.n = ''; t.seit = Date.now(); });
   if (aufgabe.typ === 'zuordnung') zuordnungVorbereiten();
-  protokoll(S, 'aufgabe_start', { id: aufgabe.id, thema: aufgabe.thema, stufe: aufgabe.stufe, aufgabenTyp: aufgabe.typ, kategorie, serienPos: A.serienPos, bonus: !!aufgabe.bonus });
+  const startInfo = { id: aufgabe.id, thema: aufgabe.thema, stufe: aufgabe.stufe, aufgabenTyp: aufgabe.typ, kategorie, serienPos: A.serienPos, bonus: !!aufgabe.bonus, wiederholung: wdh };
+  if (aufgabe.generator) Object.assign(startInfo, {
+    generator: aufgabe.generator, parameter: aufgabe.parameter, rechnung: aufgabe.rechnung, geschichte: aufgabe.geschichte,
+    teile: A.teile.map(t => t.art === 'zahl' ? [t.label || null, t.ziel.wert] : t.art === 'bruch' ? [t.antwort.zaehler, t.antwort.nenner] : t.art === 'wahl' ? [t.label, t.richtig] : null)
+  });
+  protokoll(S, 'aufgabe_start', startInfo);
+  S.verlauf.letzteIds = [...S.verlauf.letzteIds, aufgabe.id].slice(-20);
   sichern();
-  ansicht = 'aufgabe';
+  setzeAnsicht('aufgabe');
   zeigeAufgabe();
 }
 
@@ -196,11 +282,17 @@ function zeigeAufgabe() {
 
 function teileHtml() {
   const a = A.aufgabe;
-  const mehrteilig = A.teile.length > 1;
-  return A.teile.map((t, i) => {
-    if (i > A.idx && !A.fertig) return '';
+  const haupt = A.teile.filter(t => !t.merk);
+  const mehrteilig = haupt.length > 1;
+  const block = (a.generator || '').startsWith('block');
+  const versatz = A.teile.length - haupt.length;
+  const html = A.teile.map((t, i) => {
+    if (i > A.idx && !A.fertig) {
+      if (block && !t.merk) return `<div class="teil block-teil zukunft"><div class="teil-label"><span>${mathe(t.label)}</span></div><div class="feld leer">?</div></div>`;
+      if (!t.merk) return '';
+    }
     const aktiv = i === A.idx && !A.fertig;
-    const nr = mehrteilig && a.typ !== 'auswahl' ? `<span class="teil-nr">${i + 1}</span>` : '';
+    const nr = mehrteilig && !t.merk && a.typ !== 'auswahl' && !block ? `<span class="teil-nr">${i + 1 - versatz}</span>` : '';
     const bonus = t.bonus ? '<span class="bonus-label klein">Bonus</span>' : '';
     let inhalt = '';
     if (t.art === 'zahl') {
@@ -235,8 +327,15 @@ function teileHtml() {
     let zusatz = '';
     if (aktiv && A.phase === 'tipp') zusatz = `<div class="tipp"><b>Noch nicht.</b> ${esc(t.tipp)}</div>`;
     if (i === A.idx && A.phase === 'aufgeloest') zusatz = `<div class="aufloesung">So ist es richtig: <b>${loesungText(t)}</b></div>`;
-    return `<div class="teil${aktiv ? ' aktiv' : ''}">${inhalt}${zusatz}</div>`;
-  }).join('');
+    if (t.merk && i > A.idx && !A.fertig) {
+      inhalt = `<div class="teil-label"><span>${mathe(t.label)}</span></div><div class="feld-zeile"><div class="feld leer">?</div>${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}</div>`;
+    }
+    const kl = `teil${aktiv ? ' aktiv' : ''}${t.merk ? ' merk' : ''}${block && !t.merk ? ' block-teil' : ''}`;
+    return { merk: !!t.merk, html: `<div class="${kl}">${inhalt}${zusatz}</div>` };
+  });
+  const merk = html.filter(h => h && h.merk).map(h => h.html).join('');
+  const rest = html.filter(h => h && (typeof h === 'string' || !h.merk)).map(h => typeof h === 'string' ? h : h.html).join('');
+  return (merk ? `<div class="merkzettel"><div class="merk-titel">Merkzettel</div><p class="merk-text">Schreib dir die Zahlen auf, die du brauchst.</p>${merk}</div>` : '') + rest;
 }
 
 function loesungText(t) {
@@ -327,8 +426,11 @@ function antwortGeben() {
     eingabe = t.eingabe.replace(',', '.');
     richtig = L.pruefeZahl(t.eingabe, t.ziel);
     if (!richtig) {
-      const pseudo = t.rechnung ? { ...a, rechnung: t.rechnung, thema: 'potenzen' } : a;
-      fehler = L.erkenneFehler(pseudo, t.quelle || (t.rechnung ? { wert: t.ziel.wert } : null), t.eingabe);
+      if (t.merk) fehler = { typ: 'merk', text: 'Lies noch einmal im Text nach. Welche Zahl gehört dazu?' };
+      else {
+        const pseudo = t.rechnung ? { ...a, rechnung: t.rechnung } : a;
+        fehler = L.erkenneFehler(pseudo, t.quelle || (t.rechnung ? { wert: t.ziel.wert } : null), t.eingabe);
+      }
     }
   } else if (t.art === 'bruch') {
     if (!t.z || !t.n) { A.meldung = 'Tippe Zähler und Nenner ein.'; return zeigeAufgabe(); }
@@ -352,7 +454,7 @@ function versuchMerken(t, eingabe, richtig, fehler) {
   const ms = Date.now() - t.seit;
   t.versuche.push({ eingabe, richtig });
   protokoll(S, 'versuch', {
-    id: a.id, thema: a.thema, teil: A.idx, versuch: t.versuche.length, eingabe, richtig,
+    id: a.id, thema: a.thema, teil: A.idx, merk: !!t.merk, versuch: t.versuche.length, eingabe, richtig,
     fehler: fehler ? fehler.typ : null, ms, schnell: !!a.geschichte && ms < 4000,
     hinweiseOffen: A.hinweise.slice()
   });
@@ -389,7 +491,7 @@ function naechsterTeil() {
 
 function abschliessen() {
   const a = A.aufgabe;
-  const pflicht = A.teile.filter(t => !t.bonus);
+  const pflicht = A.teile.filter(t => !t.bonus && !t.merk);
   let ergebnis = 'erst';
   if (pflicht.some(t => t.status === 'loesung')) ergebnis = 'loesung';
   else if (pflicht.some(t => t.status === 'zweit')) ergebnis = 'zweit';
@@ -400,16 +502,27 @@ function abschliessen() {
   S.tag.aufgaben++;
   if (ergebnis === 'erst') S.tag.ersterVersuch++;
   S.tag.verdient += sek;
-  const st = S.statistik[a.id] || (S.statistik[a.id] = { gesehen: 0 });
-  st.gesehen++; st.zuletzt = S.verlauf.zaehler; st.letztesErgebnis = ergebnis; st.letzterTag = S.tag.key;
+  if (!a.generator) {
+    const st = S.statistik[a.id] || (S.statistik[a.id] = { gesehen: 0 });
+    st.gesehen++; st.zuletzt = S.verlauf.zaehler; st.letztesErgebnis = ergebnis; st.letzterTag = S.tag.key;
+  } else {
+    const g = a.generator;
+    if (!a.bonus && !g.startsWith('block') && G.GENERATOREN[g]) {
+      const st = S.genStufen[g] || (S.genStufen[g] = { stufe: 1, folge: 0 });
+      if (ergebnis === 'erst') { st.folge++; if (st.folge >= 3 && st.stufe < 3) { st.stufe++; st.folge = 0; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } }
+      else if (ergebnis === 'zweit') st.folge = 0;
+      else { if (st.stufe > 1) { st.stufe--; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } st.folge = 0; }
+    }
+    if (ergebnis === 'loesung' && (A.wdh || 0) < 2) S.wiederholen = [...S.wiederholen, { ab: S.verlauf.zaehler + 3, aufgabe: a, wdh: (A.wdh || 0) + 1 }].slice(-10);
+  }
   S.verlauf.zaehler++;
-  S.verlauf.letzteIds = [...S.verlauf.letzteIds, a.id].slice(-20);
   S.verlauf.themaZuletzt[a.thema] = { ergebnis, stufe: a.stufe };
   S.serie.letzteAktivitaet = Date.now();
   protokoll(S, 'aufgabe_ende', {
     id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: sek, serienPos: A.serienPos,
     strafe: A.strafe, verlassen: A.verlassen, ms: Date.now() - A.start, hinweise: A.hinweise.slice(),
-    bonusTeile: A.teile.filter(t => t.bonus).map(t => t.status)
+    bonusTeile: A.teile.filter(t => t.bonus).map(t => t.status), merkTeile: A.teile.filter(t => t.merk).map(t => t.status),
+    generator: a.generator || null
   });
   sichern();
   zeigeAufgabe();
@@ -594,28 +707,47 @@ function sichtbarkeit() {
 
 // ============ 2048 ============
 
+let KACHELN = [];
+const KZ = { n: 1 };
+const EL = new Map();
+let kette = 0;
+let syncTimer = null;
+const ruhig = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const dauer = () => (ruhig() ? 0 : 100);
+const $id = id => document.getElementById(id);
+
 function zeigeSpiel() {
-  ansicht = 'spiel';
+  setzeAnsicht('spiel');
   // Spielen beendet die Serie
   if (S.serie.pos) { protokoll(S, 'serie_ende', { laenge: S.serie.pos }); S.serie.pos = 0; }
   if (!S.spiel.feld) neuesSpielFeld();
   spielSitzung = { start: Date.now(), sekunden: 0 };
   protokoll(S, 'spiel_start', { guthaben: S.guthaben });
   sichern();
+  const zellen = Array.from({ length: 16 }, () => '<div class="zelle"></div>').join('');
   $app.innerHTML = `
   <div class="screen spiel-screen">
-    <header class="topbar">
+    <header class="topbar spiel-kopf">
       <button class="btn-text" data-act="spielZurueck">← Zurück</button>
-      <div class="zeit-chip gross">${zeitSymbol(22)}<span id="spielzeit">${L.formatZeit(S.guthaben)}</span></div>
-      <div class="punkte-box"><span>Punkte</span><b id="punkte">${S.spiel.punkte}</b></div>
+      <div class="rune-uhr${S.guthaben < 60 ? ' knapp' : ''}" id="uhr"><span class="uhr-ring"></span><span id="spielzeit">${L.formatZeit(S.guthaben)}</span></div>
+      <div class="punkte-box"><span>Punkte</span><b id="punkte">${S.spiel.punkte}</b><i id="punkte-plus"></i></div>
     </header>
-    <div class="spiel-zeile"><span class="gedaempft">Rekord: <b id="rekord">${S.spiel.rekord}</b></span><button class="btn-text klein" data-act="neuesSpiel">Neues Spiel</button></div>
-    <div class="brett-rahmen"><div class="brett" id="brett"></div><div id="spiel-overlay"></div></div>
-    <button class="btn btn-haupt" data-act="aufgaben">Mehr Spielzeit: Aufgaben machen</button>
-    <p class="gedaempft klein mitte">Wische, um die Steine zu schieben. Gleiche Zahlen verschmelzen.</p>
+    <div class="spiel-zeile">
+      <span>Rekord <b id="rekord">${S.spiel.rekord}</b></span>
+      <span>Höchster Stein <b id="maxk">${S.spiel.maxKachel || 0}</b></span>
+      <button class="btn-text klein" data-act="neuesSpiel">Neu</button>
+    </div>
+    <div class="brett-rahmen" id="rahmen">
+      <span class="orn o1"></span><span class="orn o2"></span><span class="orn o3"></span><span class="orn o4"></span>
+      <div class="brett" id="brett">${zellen}<div class="kachel-ebene" id="kacheln"></div><div class="effekt-ebene" id="effekte"></div></div>
+      <div id="spiel-overlay"></div>
+    </div>
+    <button class="btn spiel-btn" data-act="aufgaben">Mehr Spielzeit: Aufgaben machen</button>
+    <p class="spiel-tipp">Wische, um die Steine zu schieben. Verschmelze mehrere auf einmal für eine Kombo.</p>
   </div>`;
+  kette = 0;
   brettZeichnen();
-  wischen(document.querySelector('.brett-rahmen'));
+  wischen($id('rahmen'));
   overlayPruefen();
 }
 
@@ -625,51 +757,183 @@ function neuesSpielFeld() {
   S.spiel.feld = f; S.spiel.punkte = 0; S.spiel.maxKachel = L.hoechsteKachel(f); S.spiel.gewonnenGezeigt = false;
 }
 
-function brettZeichnen(neu = null, verschmolzen = []) {
-  const b = document.getElementById('brett');
-  if (!b) return;
-  b.innerHTML = S.spiel.feld.map((z, r) => z.map((v, c) => {
-    let kl = `kachel k${v > 4096 ? 'x' : v}`;
-    if (v >= 1000) kl += ' vierstellig';
-    if (neu && neu[0] === r && neu[1] === c) kl += ' neu';
-    if (verschmolzen.some(([a, b2]) => a === r && b2 === c)) kl += ' verschmolzen';
-    return `<div class="${kl}">${v || ''}</div>`;
-  }).join('')).join('');
-  const p = document.getElementById('punkte'); if (p) p.textContent = S.spiel.punkte;
-  const re = document.getElementById('rekord'); if (re) re.textContent = S.spiel.rekord;
+function steinHtml(k, extra = '') {
+  const kl = k.wert > 4096 ? 'kx' : `k${k.wert}`;
+  return `<div class="stein ${kl}${k.wert >= 1000 ? ' vierstellig' : ''}${extra}"><span>${k.wert}</span></div>`;
+}
+
+function setzePos(d, k) { d.style.setProperty('--r', k.r); d.style.setProperty('--c', k.c); }
+
+function kachelEl(k, extra = '') {
+  const d = document.createElement('div');
+  d.className = 'kachel';
+  setzePos(d, k);
+  d.innerHTML = steinHtml(k, extra);
+  return d;
+}
+
+function brettZeichnen() {
+  const ebene = $id('kacheln');
+  if (!ebene) return;
+  KACHELN = L.kachelnAusFeld(S.spiel.feld, KZ);
+  ebene.innerHTML = '';
+  EL.clear();
+  for (const k of KACHELN) { const d = kachelEl(k); ebene.appendChild(d); EL.set(k.id, d); }
+  glutSetzen();
+  anzeigenAktualisieren();
+}
+
+function anzeigenAktualisieren() {
+  const p = $id('punkte'); if (p) p.textContent = S.spiel.punkte;
+  const re = $id('rekord'); if (re) re.textContent = S.spiel.rekord;
+  const m = $id('maxk'); if (m) m.textContent = S.spiel.maxKachel || 0;
+}
+
+function abgleichen() {
+  const ebene = $id('kacheln');
+  if (!ebene) return;
+  const ids = new Set(KACHELN.map(k => k.id));
+  for (const [id, d] of EL) if (!ids.has(id)) { d.remove(); EL.delete(id); }
+  for (const k of KACHELN) {
+    const d = EL.get(k.id);
+    if (!d) { const nd = kachelEl(k); ebene.appendChild(nd); EL.set(k.id, nd); }
+    else setzePos(d, k);
+  }
 }
 
 function zug(richtung) {
   if (ansicht !== 'spiel' || S.guthaben <= 0 || document.querySelector('#spiel-overlay .overlay')) return;
-  const r = L.bewege(S.spiel.feld, richtung);
-  if (!r.bewegt) return;
-  S.spiel.feld = r.feld;
+  const ebene = $id('kacheln');
+  const r = L.bewegeKacheln(KACHELN, richtung, KZ);
+  if (!r.bewegt) {
+    const b = $id('brett');
+    if (b && !ruhig()) { b.classList.remove(`stoss-${richtung}`); void b.offsetWidth; b.classList.add(`stoss-${richtung}`); }
+    return;
+  }
+  const t = dauer();
+  for (const w of r.wandernd) {
+    const d = EL.get(w.id);
+    if (d) { setzePos(d, w); d.classList.add('weg'); EL.delete(w.id); setTimeout(() => d.remove(), t); }
+  }
+  for (const k of r.kacheln) { if (k.neuVerschmolzen) continue; const d = EL.get(k.id); if (d) setzePos(d, k); }
+  KACHELN = r.kacheln.map(k => ({ id: k.id, wert: k.wert, r: k.r, c: k.c }));
+  const gesetzt = L.neueKachelObjekt(KACHELN, KZ);
+  const vorherMax = S.spiel.maxKachel || 0;
+  S.spiel.feld = L.feldAusKacheln(KACHELN);
   S.spiel.punkte += r.punkte;
   if (S.spiel.punkte > S.spiel.rekord) S.spiel.rekord = S.spiel.punkte;
-  const neu = L.neueKachel(S.spiel.feld);
-  S.spiel.maxKachel = Math.max(S.spiel.maxKachel, L.hoechsteKachel(S.spiel.feld));
-  brettZeichnen(neu, r.verschmolzen);
+  S.spiel.maxKachel = Math.max(vorherMax, L.hoechsteKachel(S.spiel.feld));
+  const merges = r.merges;
+  setTimeout(() => {
+    for (const m of merges) {
+      const cur = KACHELN.find(k => k.id === m.id);
+      if (!cur || EL.has(m.id) || !ebene.isConnected) continue;
+      const d = kachelEl(cur, ' verschmolzen' + (cur.wert >= 128 ? ' gold' : ''));
+      ebene.appendChild(d); EL.set(m.id, d);
+    }
+    if (gesetzt && !EL.has(gesetzt.id) && ebene.isConnected) {
+      const cur = KACHELN.find(k => k.id === gesetzt.id);
+      if (cur) { const d = kachelEl(cur, ' neu'); ebene.appendChild(d); EL.set(cur.id, d); }
+    }
+    effekte(merges, r.punkte, vorherMax);
+  }, t);
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(abgleichen, t + 40);
+  anzeigenAktualisieren();
+  sichern();
   if (!L.kannBewegen(S.spiel.feld)) {
     protokoll(S, 'spiel_vorbei', { punkte: S.spiel.punkte, maxKachel: S.spiel.maxKachel });
     sichern();
-    overlay(`<div class="overlay-titel">Keine Züge mehr</div><p>${S.spiel.punkte} Punkte. Ein neues Spiel kostet nichts.</p><button class="btn btn-haupt" data-act="neuesSpielJetzt">Neues Spiel</button>`);
+    setTimeout(() => overlay(`<div class="overlay-titel">Keine Züge mehr</div><p>${S.spiel.punkte} Punkte. Ein neues Spiel kostet nichts.</p><button class="btn btn-jade" data-act="neuesSpielJetzt">Neues Spiel</button>`), 500);
   } else if (S.spiel.maxKachel >= 2048 && !S.spiel.gewonnenGezeigt) {
     S.spiel.gewonnenGezeigt = true;
     protokoll(S, 'spiel_2048', { punkte: S.spiel.punkte });
-    overlay(`<div class="overlay-titel">2048 geschafft!</div><p>Stark! Du kannst weiterspielen.</p><button class="btn btn-haupt" data-act="overlayZu">Weiterspielen</button>`);
+    setTimeout(() => overlay(`<div class="overlay-titel">2048 geschafft!</div><p>Stark! Du kannst weiterspielen.</p><button class="btn btn-jade" data-act="overlayZu">Weiterspielen</button>`), 1300);
+  }
+}
+
+// ---------- Effekte ----------
+
+function effektZelle(k) {
+  const d = document.createElement('div');
+  d.className = 'effekt-zelle';
+  setzePos(d, k);
+  return d;
+}
+
+function funken(m) {
+  const e = $id('effekte');
+  if (!e) return;
+  const gold = m.wert >= 128;
+  const d = effektZelle(m);
+  let html = `<span class="welle${gold ? ' gold' : ''}"></span>`;
+  if (!ruhig()) {
+    const n = m.wert >= 512 ? 12 : 8;
+    for (let i = 0; i < n; i++) {
+      const a = Math.round(i * 360 / n + Math.random() * 20 - 10);
+      const weit = 34 + Math.round(Math.random() * 22) + (gold ? 12 : 0);
+      html += `<span class="funke${gold ? ' gold' : ''}" style="--a:${a}deg;--w:${weit}px"></span>`;
+    }
+  }
+  d.innerHTML = html;
+  e.appendChild(d);
+  setTimeout(() => d.remove(), 700);
+}
+
+function schwebeText(text, klasse, dauerMs = 1100) {
+  const r = $id('rahmen');
+  if (!r) return;
+  const d = document.createElement('div');
+  d.className = `schwebe ${klasse}`;
+  d.textContent = text;
+  r.appendChild(d);
+  setTimeout(() => d.remove(), dauerMs);
+}
+
+function punktePop(p) {
+  const el = $id('punkte-plus');
+  if (!el) return;
+  el.textContent = `+${p}`;
+  el.classList.remove('an'); void el.offsetWidth; el.classList.add('an');
+}
+
+function glutSetzen() {
+  const r = $id('rahmen');
+  if (r) r.style.setProperty('--glut', Math.min(1, kette / 8).toFixed(2));
+}
+
+function effekte(merges, punkte, vorherMax) {
+  if (!merges.length) { kette = Math.max(0, kette - 2); glutSetzen(); return; }
+  kette++;
+  merges.slice(0, 4).forEach(funken);
+  punktePop(punkte);
+  const n = merges.length;
+  const rahmen = $id('rahmen');
+  if (n >= 2) schwebeText(`Kombo ×${n}`, n >= 3 ? 'kombo gold' : 'kombo');
+  if (n >= 3 && rahmen && !ruhig()) { rahmen.classList.remove('beben'); void rahmen.offsetWidth; rahmen.classList.add('beben'); }
+  if ([4, 6, 10, 15, 20, 30].includes(kette)) schwebeText(`Kette ×${kette}`, 'kette');
+  glutSetzen();
+  const max = Math.max(...merges.map(m => m.wert));
+  if (max >= 128 && max > vorherMax) {
+    protokoll(S, 'spiel_meilenstein', { stein: max, punkte: S.spiel.punkte });
+    const m = merges.find(x => x.wert === max);
+    const e = $id('effekte');
+    if (e && m) { const d = effektZelle(m); d.innerHTML = '<span class="strahlen"></span>'; e.appendChild(d); setTimeout(() => d.remove(), 1400); }
+    schwebeText(`Neuer Stein: ${max}`, 'meilenstein', 1600);
+    if (rahmen) { rahmen.classList.remove('entfacht'); void rahmen.offsetWidth; rahmen.classList.add('entfacht'); }
   }
 }
 
 function overlay(html) {
-  const o = document.getElementById('spiel-overlay');
+  const o = $id('spiel-overlay');
   if (o) o.innerHTML = `<div class="overlay">${html}</div>`;
 }
 
 function overlayPruefen() {
   if (S.guthaben <= 0) {
-    overlay(`<div class="overlay-titel">Spielzeit ist um</div><p>Dein Spiel bleibt gespeichert.</p><button class="btn btn-haupt" data-act="aufgaben">Aufgaben machen</button>`);
+    overlay(`<div class="overlay-titel">Spielzeit ist um</div><p>Dein Spiel bleibt gespeichert.</p><button class="btn btn-jade" data-act="aufgaben">Aufgaben machen</button>`);
   } else if (!L.kannBewegen(S.spiel.feld)) {
-    overlay(`<div class="overlay-titel">Keine Züge mehr</div><p>Ein neues Spiel kostet nichts.</p><button class="btn btn-haupt" data-act="neuesSpielJetzt">Neues Spiel</button>`);
+    overlay(`<div class="overlay-titel">Keine Züge mehr</div><p>Ein neues Spiel kostet nichts.</p><button class="btn btn-jade" data-act="neuesSpielJetzt">Neues Spiel</button>`);
   }
 }
 
@@ -678,8 +942,10 @@ function spielTick() {
   if (document.querySelector('#spiel-overlay .overlay')) return;
   S.guthaben = Math.max(0, S.guthaben - 1);
   if (spielSitzung) spielSitzung.sekunden++;
-  const el = document.getElementById('spielzeit');
+  const el = $id('spielzeit');
   if (el) el.textContent = L.formatZeit(S.guthaben);
+  const uhr = $id('uhr');
+  if (uhr) uhr.classList.toggle('knapp', S.guthaben < 60);
   if (S.guthaben % 10 === 0) sichern();
   if (S.guthaben <= 0) { spielBeenden(); overlayPruefen(); }
 }
@@ -764,14 +1030,21 @@ function zusammenfassung(tage = 7) {
   return { tage, aufgaben, erst, loesung, verlassen, hinweise, spielSek, rechnerNutzung, schnellFalsch: schnell, fehler, proThema };
 }
 
+const GEN_NAMEN = {
+  'minus-plus': 'Minus-Zahlen', 'reihenfolge': 'Reihenfolge', 'potenz': 'Potenzen', 'einmaleins': 'Einmaleins',
+  'mal10': 'Mal 10 / durch 10', 'prozent': 'Prozent von …', 'baukasten': 'Prozent-Baukasten', 'runden': 'Runden',
+  'bruch-bild': 'Bruch aus Bild', 'kugel': 'Kugel', 'geld-geschichte': 'Geld-Geschichten', 'rabatt-geschichte': 'Rabatt-Geschichten'
+};
+
 const FEHLER_NAMEN = {
   'vorzeichen': 'Vorzeichen falsch (Geld/Schulden)', 'potenz-mal': 'Potenz als „mal“ gerechnet',
   'kugel-d-statt-r': 'Kugel: d statt r', 'kugel-ohne-4-3': 'Kugel: 4 ÷ 3 vergessen',
-  'rabatt-ersparnis': 'Ersparnis statt neuer Preis', 'runden': 'Falsch gerundet', 'bruch-vertauscht': 'Bruch vertauscht'
+  'rabatt-ersparnis': 'Ersparnis statt neuer Preis', 'runden': 'Falsch gerundet', 'bruch-vertauscht': 'Bruch vertauscht',
+  'merk': 'Wert im Text nicht gefunden (Merkzettel)'
 };
 
 function zeigeEltern(meldung = '') {
-  ansicht = 'eltern';
+  setzeAnsicht('eltern');
   const z = zusammenfassung(7);
   const quote = z.aufgaben ? Math.round(z.erst / z.aufgaben * 100) : 0;
   const themenZeilen = Object.entries(z.proThema).filter(([, v]) => v.aufgaben).map(([k, v]) =>
@@ -800,6 +1073,12 @@ function zeigeEltern(meldung = '') {
       ${fehlerZeilen ? `<h4>Häufige Fehler</h4><ul class="liste">${fehlerZeilen}</ul>` : ''}
       ${z.schnellFalsch ? `<p class="gedaempft">Auffällig schnelle falsche Antworten bei Textaufgaben: <b>${z.schnellFalsch}</b></p>` : ''}
       ${letzte ? `<h4>Zuletzt</h4><ul class="liste klein">${letzte}</ul>` : ''}
+    </section>
+
+    <section class="karte">
+      <h3>Schwierigkeit der Baukästen</h3>
+      <p class="gedaempft klein">Steigt nach 3 richtigen Aufgaben im 1. Versuch, sinkt nach einem Lösungsweg. Du kannst sie auch selbst ändern.</p>
+      <div class="stufen-liste">${Object.keys(GEN_NAMEN).map(g => `<div class="stufen-zeile"><span>${esc(GEN_NAMEN[g])}</span><span class="stufen-knoepfe"><button class="btn btn-klein" data-act="genStufe" data-g="${g}" data-d="-1" aria-label="leichter">−</button><b>Stufe ${genStufe(g)}</b><button class="btn btn-klein" data-act="genStufe" data-g="${g}" data-d="1" aria-label="schwerer">+</button></span></div>`).join('')}</div>
     </section>
 
     <section class="karte">
@@ -836,7 +1115,7 @@ function zeigeEltern(meldung = '') {
       <textarea id="e-json" rows="6" placeholder='[{"id":"app-minus-zahlen-1", …}]'></textarea>
       <div id="import-fehler"></div>
       <button class="btn btn-haupt" data-act="import">Kontrollieren und hinzufügen</button>
-      <p class="gedaempft klein">Eingebaute Aufgaben: ${BASIS_AUFGABEN.length} · Hinzugefügt: ${S.extraAufgaben.length}</p>
+      <p class="gedaempft klein">Eingebaute Aufgaben: ${BASIS_AUFGABEN.length} · Hinzugefügt: ${S.extraAufgaben.length} · dazu unbegrenzt viele aus den Baukästen</p>
       ${S.extraAufgaben.length ? '<button class="btn-text klein" data-act="extraLoeschen">Hinzugefügte Aufgaben entfernen</button>' : ''}
     </section>
 
@@ -854,7 +1133,7 @@ async function exportieren() {
   const daten = {
     app: 'lernapp-2048', version: APP_VERSION, exportiertAm: new Date().toISOString(), geraetId: S.geraetId,
     seitLetztemExport: S.letzterExport, einstellungen, guthaben: S.guthaben, spiel: { rekord: S.spiel.rekord, maxKachel: S.spiel.maxKachel },
-    zusammenfassung7Tage: zusammenfassung(7), statistik: S.statistik, log: S.log
+    zusammenfassung7Tage: zusammenfassung(7), genStufen: S.genStufen, statistik: S.statistik, log: S.log
   };
   const json = JSON.stringify(daten, null, 1);
   const name = `lernapp-daten-${L.tagKey()}.json`;
@@ -1021,6 +1300,13 @@ function klick(e) {
       zeigeEltern(`${el.dataset.min} Min. Spielzeit gutgeschrieben.`); break;
     }
     case 'export': exportieren(); break;
+    case 'genStufe': {
+      const g = el.dataset.g;
+      const st = S.genStufen[g] || (S.genStufen[g] = { stufe: 1, folge: 0 });
+      st.stufe = Math.max(1, Math.min(3, st.stufe + Number(el.dataset.d))); st.folge = 0;
+      protokoll(S, 'stufe_eltern', { generator: g, stufe: st.stufe }); sichern();
+      zeigeEltern(`${GEN_NAMEN[g]}: Stufe ${st.stufe}`); break;
+    }
     case 'import': importieren(); break;
     case 'extraLoeschen':
       oeffneModal(`<h2 class="modal-titel">Hinzugefügte Aufgaben entfernen?</h2><p>Die ${S.extraAufgaben.length} hinzugefügten Aufgaben werden gelöscht. Die eingebauten bleiben.</p><div class="knopf-reihe"><button class="btn btn-haupt" data-act="extraLoeschenJa">Entfernen</button><button class="btn" data-act="modalZu">Abbrechen</button></div>`);
