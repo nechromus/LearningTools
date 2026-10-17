@@ -5,7 +5,7 @@ import * as U from './sync.js';
 import { esc, mathe, bruchHtml, bildSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.2.4';
+export const APP_VERSION = '1.3.0';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [];
@@ -122,17 +122,24 @@ function neuLadenWennRuhig() {
 let syncLaeuft = false;
 
 function standDaten() {
-  const { pin, name, ...einstellungen } = S.einstellungen;
+  const { pin, ...einstellungen } = S.einstellungen;
   return {
-    app: 'lernapp-2048', version: APP_VERSION, geraetId: S.geraetId, stand: new Date().toISOString(),
+    app: 'lernapp-2048', version: APP_VERSION, nutzer: S.einstellungen.name, geraetId: S.geraetId, stand: new Date().toISOString(),
     einstellungen, guthaben: S.guthaben, spiel: { punkte: S.spiel.punkte, rekord: S.spiel.rekord, maxKachel: S.spiel.maxKachel },
     genStufen: S.genStufen, statistik: S.statistik, zusammenfassung7Tage: zusammenfassung(7), letzterExport: S.letzterExport
   };
 }
 
+// Ordnername aus dem Namen: Kleinbuchstaben, Umlaute ausgeschrieben, nur a–z, 0–9 und Bindestrich
+export function nutzerOrdner(name = S.einstellungen.name) {
+  const o = (name || '').toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return o || 'ohne-namen';
+}
+
 async function syncen(erzwingen = false) {
   const u = S.upload;
-  if (u.testgeraet || !u.repo || !u.token || syncLaeuft) return null;
+  if (!S.einstellungen.name || u.testgeraet || !u.repo || !u.token || syncLaeuft) return null;
   if (!erzwingen && Date.now() - (u.versuch || 0) < 10 * 60 * 1000) return null;
   syncLaeuft = true;
   u.versuch = Date.now();
@@ -141,12 +148,12 @@ async function syncen(erzwingen = false) {
     const tage = U.nachTagen(U.ohneTestphasen(S.log), d => L.tagKey(d));
     const offen = Object.keys(tage).sort().filter(k => tage[k].length > (u.tage[k] || 0)).slice(-14);
     for (const tag of offen) {
-      const inhalt = JSON.stringify({ app: 'lernapp-2048', version: APP_VERSION, geraetId: S.geraetId, tag, hochgeladen: new Date().toISOString(), eintraege: tage[tag] });
-      await U.dateiSchreiben(u, `daten/${S.geraetId}/${tag}.json`, inhalt, `Lerndaten ${tag}`);
+      const inhalt = JSON.stringify({ app: 'lernapp-2048', version: APP_VERSION, nutzer: S.einstellungen.name, geraetId: S.geraetId, tag, hochgeladen: new Date().toISOString(), eintraege: tage[tag] });
+      await U.dateiSchreiben(u, `daten/${nutzerOrdner()}/${S.geraetId}/${tag}.json`, inhalt, `Lerndaten ${tag}`);
       u.tage[tag] = tage[tag].length;
       anzahl++;
     }
-    if (anzahl || erzwingen) await U.dateiSchreiben(u, `daten/${S.geraetId}/stand.json`, JSON.stringify(standDaten(), null, 1), 'Stand');
+    if (anzahl || erzwingen) await U.dateiSchreiben(u, `daten/${nutzerOrdner()}/${S.geraetId}/stand.json`, JSON.stringify(standDaten(), null, 1), 'Stand');
     u.letzter = new Date().toISOString();
     u.fehler = null;
   } catch (e) {
@@ -160,7 +167,36 @@ async function syncen(erzwingen = false) {
 
 // ============ Startbildschirm ============
 
+function zeigeAnmeldung(fehler = '') {
+  setzeAnsicht('anmeldung');
+  $app.innerHTML = `
+  <div class="screen anmeldung">
+    <div class="anmeldung-logo">${sechseck(88, '#DCEDED', '#1F6F75', '<text x="12" y="12.6" text-anchor="middle" dominant-baseline="central" font-family="Cinzel, serif" font-weight="700" font-size="6" fill="#0E4A4F">2048</text>')}</div>
+    <h1 class="mitte">Schrein der Zahlen</h1>
+    <section class="karte anmeldung-karte">
+      <label class="feld-label gross" for="a-name">Wie heißt du?</label>
+      <input id="a-name" class="name-feld" type="text" maxlength="20" autocomplete="off" autocapitalize="words" spellcheck="false" placeholder="Dein Vorname">
+      <p class="gedaempft" id="a-fehler">${esc(fehler)}</p>
+      <button class="btn btn-haupt btn-gross" data-act="anmelden">Los geht's</button>
+    </section>
+  </div>`;
+  const f = document.getElementById('a-name');
+  f.addEventListener('keydown', e => { if (e.key === 'Enter') anmelden(); });
+  setTimeout(() => f.focus(), 50);
+}
+
+function anmelden() {
+  const name = (document.getElementById('a-name').value || '').trim().replace(/\s+/g, ' ').slice(0, 20);
+  if (name.length < 2) return zeigeAnmeldung('Bitte gib deinen Namen ein.');
+  S.einstellungen.name = name;
+  S.upload.tage = {};
+  protokoll(S, 'anmeldung', { name });
+  sichern();
+  zeigeStart();
+}
+
 function zeigeStart() {
+  if (!S.einstellungen.name) return zeigeAnmeldung();
   setzeAnsicht('start');
   if (neuLadenGeplant) { neuLadenWennRuhig(); return; }
   syncen();
@@ -487,7 +523,8 @@ function ergebnisHtml() {
   const a = A.aufgabe;
   const sek = A.sekunden;
   let kopf;
-  if (A.ergebnis === 'erst') kopf = `<div class="erfolg-titel">Richtig!</div>`;
+  const nm = S.einstellungen.name ? `, ${esc(S.einstellungen.name)}` : '';
+  if (A.ergebnis === 'erst') kopf = `<div class="erfolg-titel">${A.serienPos % 3 === 0 ? `Stark${nm}!` : `Richtig${nm}!`}</div>`;
   else if (A.ergebnis === 'zweit') kopf = `<div class="erfolg-titel">Geschafft – im 2. Versuch!</div>`;
   else kopf = `<div class="erfolg-titel neutral">Jetzt weißt du, wie es geht.</div><p>Die Aufgabe kommt später noch einmal.</p>`;
   const zeit = sek > 0 ? `<div class="zeit-gewinn">${zeitSymbol(28)} +${L.formatMinuten(sek)} Spielzeit</div>` : '';
@@ -1233,7 +1270,7 @@ function zeigeEltern(meldung = '') {
       <h3>Automatische Übertragung</h3>
       ${S.upload.testgeraet ? '<p class="meldung">Testgerät: Übertragung ist ausgeschaltet.</p>' : ''}
       ${S.upload.token ? `
-        <p>Repo: <b>${esc(S.upload.repo)}</b> · Schlüssel endet auf …${esc(S.upload.token.slice(-4))}</p>
+        <p>Repo: <b>${esc(S.upload.repo)}</b> · Ordner: <b>daten/${esc(nutzerOrdner())}</b> · Schlüssel endet auf …${esc(S.upload.token.slice(-4))}</p>
         <p class="gedaempft klein">Letzte Übertragung: ${S.upload.letzter ? new Date(S.upload.letzter).toLocaleString('de-DE') : 'noch keine'}</p>
         ${S.upload.fehler ? `<p class="fehler-text">${esc(S.upload.fehler)}</p>` : ''}
         <div class="knopf-reihe"><button class="btn btn-haupt" data-act="syncJetzt">Jetzt übertragen</button><button class="btn" data-act="syncAus">Ausschalten</button></div>
@@ -1260,7 +1297,7 @@ function zeigeEltern(meldung = '') {
         <label class="feld-label">Basiszeit ab<select id="e-von">${stunden(S.einstellungen.basisVon)}</select></label>
         <label class="feld-label">bis<select id="e-bis">${stunden(S.einstellungen.basisBis)}</select></label>
       </div>
-      <label class="feld-label">Name für die Begrüßung (nur auf diesem Handy)<input id="e-name" type="text" value="${esc(S.einstellungen.name)}" maxlength="20" autocomplete="off"></label>
+      <label class="feld-label">Name (Begrüßung und Ordner in den Lerndaten)<input id="e-name" type="text" value="${esc(S.einstellungen.name)}" maxlength="20" autocomplete="off"></label>
       <button class="btn btn-haupt" data-act="einstellungenSpeichern">Speichern</button>
     </section>
 
@@ -1296,12 +1333,12 @@ function zeigeEltern(meldung = '') {
 async function exportieren() {
   const { pin, ...einstellungen } = S.einstellungen;
   const daten = {
-    app: 'lernapp-2048', version: APP_VERSION, exportiertAm: new Date().toISOString(), geraetId: S.geraetId, testgeraet: !!S.upload.testgeraet,
+    app: 'lernapp-2048', version: APP_VERSION, exportiertAm: new Date().toISOString(), nutzer: S.einstellungen.name, geraetId: S.geraetId, testgeraet: !!S.upload.testgeraet,
     seitLetztemExport: S.letzterExport, einstellungen, guthaben: S.guthaben, spiel: { rekord: S.spiel.rekord, maxKachel: S.spiel.maxKachel },
     zusammenfassung7Tage: zusammenfassung(7), genStufen: S.genStufen, statistik: S.statistik, log: S.log
   };
   const json = JSON.stringify(daten, null, 1);
-  const name = `lernapp-daten-${L.tagKey()}.json`;
+  const name = `lernapp-daten-${nutzerOrdner()}-${L.tagKey()}.json`;
   let geteilt = false;
   try {
     for (const type of ['application/json', 'text/plain']) {
@@ -1472,7 +1509,12 @@ function klick(e) {
       S.einstellungen.thema = document.getElementById('e-thema').value;
       S.einstellungen.basisVon = Math.min(von, bis);
       S.einstellungen.basisBis = Math.max(von, bis);
-      S.einstellungen.name = document.getElementById('e-name').value.trim().slice(0, 20);
+      const neuerName = document.getElementById('e-name').value.trim().replace(/\s+/g, ' ').slice(0, 20);
+      if (neuerName.length >= 2 && neuerName !== S.einstellungen.name) {
+        protokoll(S, 'name_geaendert', { von: S.einstellungen.name, nach: neuerName });
+        S.einstellungen.name = neuerName;
+        S.upload.tage = {};
+      }
       protokoll(S, 'einstellungen', { thema: S.einstellungen.thema, basisVon: S.einstellungen.basisVon, basisBis: S.einstellungen.basisBis });
       sichern(); zeigeEltern('Einstellungen gespeichert.'); break;
     }
@@ -1482,6 +1524,7 @@ function klick(e) {
       zeigeEltern(`${el.dataset.min} Min. Spielzeit gutgeschrieben.`); break;
     }
     case 'export': exportieren(); break;
+    case 'anmelden': anmelden(); break;
     case 'syncSpeichern': {
       const repo = document.getElementById('u-repo').value.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '');
       const token = document.getElementById('u-token').value.trim();
