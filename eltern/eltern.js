@@ -7,7 +7,7 @@ import { esc, mathe, bildSvg } from '../js/render.js';
 import * as A from './auswertung.js';
 import * as P from '../js/paket.js';
 
-export const ELTERN_VERSION = '1.1.0';
+export const ELTERN_VERSION = '1.2.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -431,11 +431,13 @@ function aufgabeDetail(rec) {
 // ---------- Einstellungen ----------
 
 function entwurfHolen() {
-  if (!entwurf) { entwurf = A.startWerte(D.daten.einst, neuesterStand()); geaenderteStufen = new Set(); }
+  if (!entwurf) { entwurf = A.startWerte(D.daten.einst, neuesterStand(), paketVon); geaenderteStufen = new Set(); }
   return entwurf;
 }
+// Vergleich unabhängig von der Reihenfolge der Schlüssel
+const kanon = (v) => Array.isArray(v) ? v.map(kanon) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map(k => [k, kanon(v[k])])) : v;
 function geaendert() {
-  return JSON.stringify(entwurfHolen()) !== JSON.stringify(A.startWerte(D.daten.einst, neuesterStand())) || geaenderteStufen.size > 0;
+  return JSON.stringify(kanon(entwurfHolen())) !== JSON.stringify(kanon(A.startWerte(D.daten.einst, neuesterStand(), paketVon))) || geaenderteStufen.size > 0;
 }
 
 function lieferStatus() {
@@ -506,10 +508,10 @@ function gewichteKurz(g) {
   return [viel ? `${viel} viel` : '', aus ? `${aus} aus` : ''].filter(Boolean).join(' · ') || 'alle normal';
 }
 
-function gewichtZeilen(g, vergleich, act) {
+function gewichtZeilen(g, vergleich, act, abweichungen = null) {
   const anteile = P.kopfAnteile(g);
   const zeile = (t) => `<div class="gewicht-zeile">
-    <span class="gewicht-name">${esc(THEMA_NAMEN[t] || t)}${P.KOPF_THEMEN.includes(t) && g[t] ? ` <span class="klein gedaempft">≈ ${anteile[t]} %</span>` : ''}${vergleich && vergleich[t] !== g[t] ? ` <span class="klein amber">Paket: ${P.stufeName(vergleich[t])}</span>` : ''}</span>
+    <span class="gewicht-name">${esc(THEMA_NAMEN[t] || t)}${P.KOPF_THEMEN.includes(t) && g[t] ? ` <span class="klein gedaempft">≈ ${anteile[t]} %</span>` : ''}${abweichungen && t in abweichungen ? ` <span class="klein amber">angepasst · Paket: ${P.stufeName(vergleich ? vergleich[t] : 2)}</span> <button class="knopf-text klein" data-act="abweichungWeg" data-t="${t}">wie im Paket</button>` : ''}</span>
     <span class="segmente klein-seg" role="group" aria-label="${esc(THEMA_NAMEN[t] || t)}">${P.STUFEN.map(st => `<button class="segment${g[t] === st.w ? ' an' : ''}" data-act="${act}" data-t="${t}" data-w="${st.w}" aria-pressed="${g[t] === st.w}">${st.name}</button>`).join('')}</span>
   </div>`;
   return `<h2 class="abschnitt">Kurze Aufgaben (7 von 10)</h2>
@@ -522,14 +524,15 @@ function gewichtZeilen(g, vergleich, act) {
 function gewichteSeite() {
   const w = entwurfHolen();
   const p = paketVon(w.paket.id);
-  const abweichend = p && L.THEMEN.some(t => p.gewichte[t] !== w.gewichte[t]);
+  const anzahl = Object.keys(w.abweichungen).length;
   return `<div class="seite schmal-inhalt">
     <a class="zurueck" href="#einstellungen">${svg('zurueck', 20)}Einstellungen</a>
     <h1>Themen für ${esc(name())}</h1>
-    <section class="info-box"><p>Paket: <b>${esc(w.paket.name)}</b>${abweichend ? ' · für ' + esc(name()) + ' angepasst' : ''}</p>
+    <section class="info-box"><p>Paket: <b>${esc(w.paket.name)}</b>${anzahl ? ` · ${anzahl} ${anzahl === 1 ? 'Thema' : 'Themen'} für ${esc(name())} angepasst` : ''}</p>
+      <p class="klein">Ändert sich das Paket, gilt das auch für ${esc(name())}. Angepasste Themen bleiben so, wie du sie hier eingestellt hast.</p>
       <p class="klein">aus = kommt nicht vor · wenig = halb so oft wie normal · viel = doppelt so oft wie normal</p>
-      ${abweichend ? '<button class="knopf-text" data-act="paketStandard">Auf Paket-Standard zurücksetzen</button>' : ''}</section>
-    ${gewichtZeilen(w.gewichte, p && p.gewichte, 'gewicht')}
+      ${anzahl ? '<button class="knopf-text" data-act="paketStandard">Alle Anpassungen entfernen</button>' : ''}</section>
+    ${gewichtZeilen(w.gewichte, p ? p.gewichte : null, 'gewicht', w.abweichungen)}
     ${speicherLeiste()}
   </div>`;
 }
@@ -581,7 +584,7 @@ function paketSeite(id) {
       ${e.eingebaut ? '<p class="klein gedaempft">Das ist das eingebaute Paket. Beim Speichern wird deine Fassung im Daten-Repo abgelegt und ersetzt es.</p>' : ''}
     </section>
     ${gewichtZeilen(e.gewichte, null, 'pgewicht')}
-    <p class="klein gedaempft">Kinder, die dieses Paket schon nutzen, behalten ihre Gewichte. In ihren Einstellungen kannst du sie auf den neuen Paket-Standard zurücksetzen.</p>
+    <p class="klein gedaempft">Änderungen gelten sofort für alle Kinder mit diesem Paket. Was du bei einem Kind extra angepasst hast, bleibt bei ihm so.</p>
     <div class="speicher-leiste">
       ${meldung ? `<p class="meldung ${meldung.art}">${esc(meldung.text)}</p>` : ''}
       <div class="knopf-reihe">${!e.neu && !e.eingebaut ? '<button class="knopf" data-act="paketLoeschen">Löschen</button>' : ''}<button class="knopf haupt breit" data-act="paketSpeichern">Paket speichern</button></div>
@@ -592,6 +595,22 @@ function paketSeite(id) {
 async function paketSchreiben(paket, alteId) {
   await U.dateiSchreiben(C, `pakete/${paket.id}.json`, paketJson(paket), `Aufgabenpaket ${paket.name}`);
   D.pakete = [...D.pakete.filter(p => p.id !== paket.id && p.id !== alteId), paket];
+  return kinderNachziehen(paket);
+}
+
+// Alle Kinder, die dieses Paket nutzen, bekommen die neuen Paket-Gewichte (ihre Anpassungen bleiben)
+async function kinderNachziehen(paket) {
+  const namen = [];
+  for (const n of D.nutzer || []) {
+    const pfad = `daten/${n.ordner}/einstellungen.json`;
+    const alt = await U.dateiLesen(C, pfad);
+    const neu = A.einstellungMitNeuemPaket(alt, paket);
+    if (!neu) continue;
+    await U.dateiSchreiben(C, pfad, JSON.stringify(neu, null, 1), `Einstellungen für ${n.ordner}: Paket ${paket.name} geändert (Version ${neu.version})`);
+    if (D.daten && D.daten.ordner === n.ordner) { D.daten.einst = neu; entwurf = null; geaenderteStufen = new Set(); }
+    namen.push(D.daten && D.daten.ordner === n.ordner ? D.daten.name : n.name);
+  }
+  return namen;
 }
 
 async function paketSpeichern() {
@@ -602,9 +621,9 @@ async function paketSpeichern() {
   if (e.neu) { let id = paket.id, n = 2; while (paketVon(id)) id = `${paket.id}-${n++}`; paket.id = id; }
   meldung = { art: 'info', text: 'Wird gespeichert …' }; zeichne();
   try {
-    await paketSchreiben(paket);
+    const kinder = await paketSchreiben(paket);
     paketEntwurf = null;
-    meldung = { art: 'ok', text: `Paket „${paket.name}“ gespeichert.` };
+    meldung = { art: 'ok', text: `Paket „${paket.name}“ gespeichert.${kinder.length ? ` Gilt jetzt auch für ${kinder.join(' und ')}.` : ''}` };
     location.hash = '#pakete';
   } catch (err) { meldung = { art: 'fehler', text: err.message || 'Speichern hat nicht geklappt.' }; zeichne(); }
 }
@@ -730,7 +749,7 @@ document.addEventListener('click', (ev) => {
     case 'stufe': {
       const g = el.dataset.g;
       entwurf.genStufen[g] = Math.max(1, Math.min(3, entwurf.genStufen[g] + Number(el.dataset.d)));
-      const start = A.startWerte(D.daten.einst, neuesterStand()).genStufen[g];
+      const start = A.startWerte(D.daten.einst, neuesterStand(), paketVon).genStufen[g];
       if (entwurf.genStufen[g] === start) geaenderteStufen.delete(g); else geaenderteStufen.add(g);
       meldung = null; zeichne(); break;
     }
@@ -742,13 +761,27 @@ document.addEventListener('click', (ev) => {
       minutenSetzen(feld, ziel); meldung = null; zeichne(); break;
     }
     case 'anteil': entwurf.spielzeit[el.dataset.k] = Number(el.dataset.v); meldung = null; zeichne(); break;
-    case 'gewicht': entwurf.gewichte[el.dataset.t] = Number(el.dataset.w); meldung = null; zeichne(); break;
-    case 'paketStandard': { const pk = paketVon(entwurf.paket.id); if (pk) entwurf.gewichte = { ...pk.gewichte }; meldung = null; zeichne(); break; }
+    case 'gewicht': {
+      const t = el.dataset.t, v = Number(el.dataset.w), pk = paketVon(entwurf.paket.id);
+      const ab = { ...entwurf.abweichungen };
+      if (pk && pk.gewichte[t] === v) delete ab[t]; else ab[t] = v;
+      entwurf.abweichungen = ab;
+      entwurf.gewichte = pk ? A.gewichteMit(pk.gewichte, ab) : { ...entwurf.gewichte, [t]: v };
+      meldung = null; zeichne(); break;
+    }
+    case 'abweichungWeg': {
+      const pk = paketVon(entwurf.paket.id), ab = { ...entwurf.abweichungen };
+      delete ab[el.dataset.t];
+      entwurf.abweichungen = ab;
+      if (pk) entwurf.gewichte = A.gewichteMit(pk.gewichte, ab);
+      meldung = null; zeichne(); break;
+    }
+    case 'paketStandard': { const pk = paketVon(entwurf.paket.id); entwurf.abweichungen = {}; if (pk) entwurf.gewichte = { ...pk.gewichte }; meldung = null; zeichne(); break; }
     case 'pgewicht': paketEntwurf.gewichte[el.dataset.t] = Number(el.dataset.w); meldung = null; zeichne(); break;
     case 'paketSpeichern': paketSpeichern(); break;
     case 'paketLoeschen': {
       const e = paketEntwurf;
-      if (!confirm(`Paket „${e.name}“ löschen? Kinder, die es nutzen, behalten ihre Gewichte.`)) break;
+      if (!confirm(`Paket „${e.name}“ löschen? Kinder, die es nutzen, behalten ihre jetzigen Gewichte.`)) break;
       U.dateiLoeschen(C, `pakete/${e.id}.json`, `Aufgabenpaket ${e.name} gelöscht`).then(() => {
         D.pakete = D.pakete.filter(x => x.id !== e.id); paketEntwurf = null;
         meldung = { art: 'ok', text: `Paket „${e.name}“ gelöscht.` }; location.hash = '#pakete';
@@ -772,7 +805,7 @@ document.addEventListener('click', (ev) => {
       const pk = paketText.ergebnis && paketText.ergebnis.paket;
       if (!pk) break;
       meldung = { art: 'info', text: 'Wird gespeichert …' }; zeichne();
-      paketSchreiben(pk).then(() => { paketText = { text: '', ergebnis: null }; meldung = { art: 'ok', text: `Paket „${pk.name}“ gespeichert.` }; zeichne(); })
+      paketSchreiben(pk).then((kinder) => { paketText = { text: '', ergebnis: null }; meldung = { art: 'ok', text: `Paket „${pk.name}“ gespeichert.${kinder.length ? ` Gilt jetzt auch für ${kinder.join(' und ')}.` : ''}` }; zeichne(); })
         .catch(err => { meldung = { art: 'fehler', text: err.message }; zeichne(); });
       break;
     }
@@ -798,7 +831,7 @@ document.addEventListener('change', (ev) => {
   if (!entwurf) return;
   if (el.id === 'e-paket') {
     const pk = paketVon(el.value);
-    if (pk) { entwurf.paket = { id: pk.id, name: pk.name }; entwurf.gewichte = { ...pk.gewichte }; }
+    if (pk) { entwurf.paket = { id: pk.id, name: pk.name }; entwurf.abweichungen = {}; entwurf.gewichte = { ...pk.gewichte }; }
   }
   else if (el.id === 'e-von' || el.id === 'e-bis') {
     const von = Number(document.getElementById('e-von').value), bis = Number(document.getElementById('e-bis').value);

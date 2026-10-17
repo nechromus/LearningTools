@@ -210,7 +210,19 @@ export function letzteTage(n, heute = new Date()) {
 }
 
 // Aktuelle Werte für die Einstellungen: aus der letzten Eltern-Einstellung, sonst aus dem neuesten Stand des Handys
-export function startWerte(einst, stand) {
+// Gewichte eines Kindes = Paket-Gewichte, darüber die Abweichungen für dieses Kind
+export function gewichteMit(paketGewichte, abweichungen) {
+  return P.gewichteNorm({ ...P.gewichteNorm(paketGewichte), ...(abweichungen || {}) });
+}
+
+// Abweichungen nur für Themen, die wirklich anders sind als im Paket
+export function abweichungenAus(paketGewichte, gewichte) {
+  const p = P.gewichteNorm(paketGewichte), g = P.gewichteNorm(gewichte);
+  return Object.fromEntries(Object.keys(g).filter(t => g[t] !== p[t]).map(t => [t, g[t]]));
+}
+
+// paketVon(id) liefert das Paket (mit gewichte) oder nichts, wenn es das Paket nicht mehr gibt
+export function startWerte(einst, stand, paketVon = () => null) {
   const e = (stand && stand.einstellungen) || {};
   const w = (einst && einst.werte) || {};
   const genStufen = {};
@@ -222,11 +234,19 @@ export function startWerte(einst, stand) {
     rechnerAngebot: w.rechnerAngebot ?? (e.rechnerAngebot !== false),
     spielzeit: spielzeitRegeln(w.spielzeit || (stand && stand.spielzeit) || SPIELZEIT_STANDARD),
     genStufen,
-    paket: w.paket ? { id: w.paket.id, name: w.paket.name }
-      : (stand && stand.paket) ? { id: stand.paket.id, name: stand.paket.name }
-      : { id: P.STANDARD_PAKET.id, name: P.STANDARD_PAKET.name },
-    gewichte: P.gewichteNorm(w.gewichte || (stand && stand.paket && stand.paket.gewichte) || (stand && stand.gewichte) || P.gewichteOhnePaket(e.thema || 'minus-zahlen'))
+    ...paketTeil(w, stand, e, paketVon)
   };
+}
+
+function paketTeil(w, stand, e, paketVon) {
+  const ref = w.paket ? { id: w.paket.id, name: w.paket.name }
+    : (stand && stand.paket) ? { id: stand.paket.id, name: stand.paket.name }
+    : { id: P.STANDARD_PAKET.id, name: P.STANDARD_PAKET.name };
+  const bisher = w.gewichte || (stand && stand.paket && stand.paket.gewichte) || (stand && stand.gewichte) || P.gewichteOhnePaket(e.thema || 'minus-zahlen');
+  const paket = paketVon(ref.id);
+  if (!paket) return { paket: ref, abweichungen: {}, gewichte: P.gewichteNorm(bisher) }; // Paket gelöscht: Gewichte bleiben stehen
+  const abweichungen = w.abweichungen ? { ...w.abweichungen } : abweichungenAus(paket.gewichte, bisher);
+  return { paket: { id: paket.id, name: paket.name }, abweichungen, gewichte: gewichteMit(paket.gewichte, abweichungen) };
 }
 
 // Datei für daten/<name>/einstellungen.json bauen. Stufen bekommen nur dann die neue Version, wenn sie geändert wurden.
@@ -236,8 +256,20 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
   for (const g of geaenderteStufen) genStufen[g] = { stufe: werte.genStufen[g], v: version };
   return {
     app: 'lernapp-2048-eltern', version, geaendert: jetzt.toISOString(),
-    werte: { thema: hauptThema(werte), paket: werte.paket, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, spielzeit: spielzeitRegeln(werte.spielzeit), genStufen }
+    werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, spielzeit: spielzeitRegeln(werte.spielzeit), genStufen }
   };
+}
+
+// Paket wurde geändert: neue Gewichte für ein Kind, das dieses Paket nutzt (Abweichungen bleiben). null = nichts zu tun.
+export function einstellungMitNeuemPaket(alt, paket, jetzt = new Date()) {
+  const w = alt && alt.werte;
+  if (!w || !w.paket || w.paket.id !== paket.id) return null;
+  const abweichungen = w.abweichungen || abweichungenAus(paket.gewichte, w.gewichte);
+  const gewichte = gewichteMit(paket.gewichte, abweichungen);
+  const neu = { ...w, paket: { id: paket.id, name: paket.name }, abweichungen, gewichte };
+  if (JSON.stringify(neu) === JSON.stringify(w)) return null;
+  neu.thema = hauptThema(neu);
+  return { ...alt, version: alt.version + 1, geaendert: jetzt.toISOString(), werte: neu };
 }
 
 // Für ältere Übungs-Apps ohne Pakete: das kurze Thema mit dem höchsten Gewicht
