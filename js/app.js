@@ -5,7 +5,7 @@ import * as U from './sync.js';
 import { esc, mathe, bruchHtml, bildSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.2.2';
+export const APP_VERSION = '1.2.3';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [];

@@ -17,6 +17,22 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    // Falls Safari die Seite als Desktop-Website darstellt (sehr kleine Schrift), passend vergrößern.
+    (function () {
+      function anpassen() {
+        var touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        var quer = window.matchMedia && window.matchMedia('(orientation: landscape)').matches;
+        var breite = quer ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+        document.documentElement.style.zoom = '';
+        var verhaeltnis = window.innerWidth / breite;
+        if (touch && breite && verhaeltnis > 1.15) document.documentElement.style.zoom = verhaeltnis.toFixed(3);
+      }
+      anpassen();
+      window.addEventListener('resize', anpassen);
+      window.addEventListener('orientationchange', function () { setTimeout(anpassen, 300); });
+    })();
+  </script>
 </head>
 <body>
   <div id="app"><div class="screen"><p class="gedaempft">Wird geladen …</p></div></div>
