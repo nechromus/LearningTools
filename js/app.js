@@ -10,7 +10,7 @@ import { einrichtungLesen } from './einrichtung.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.8.3';
+export const APP_VERSION = '1.8.4';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [], BASIS_IDS = new Set();
@@ -758,7 +758,7 @@ function fussHtml() {
   if (A.fertig) {
     return `<div class="fuss-knoepfe">
       <button class="btn btn-haupt btn-gross" data-act="naechste">Nächste Aufgabe</button>
-      <button class="btn btn-amber-rand" data-act="spielen">Zum Spiel · ${L.formatZeit(S.guthaben)}</button>
+      <button class="btn btn-amber-rand" data-act="zumSpiel">Zum Spiel · ${L.formatZeit(S.guthaben)}</button>
     </div>`;
   }
   const t = aktuellerTeil();
@@ -1189,6 +1189,7 @@ const $id = id => document.getElementById(id);
 
 function zeigeSpiel() {
   setzeAnsicht('spiel');
+  S.letztesSpiel = '2048'; // „Zum Spiel“ führt zurück ins zuletzt gespielte Spiel
   // Spielen beendet die Serie
   if (S.serie.pos) { protokoll(S, 'serie_ende', { laenge: S.serie.pos }); S.serie.pos = 0; }
   if (!S.spiel.feld) neuesSpielFeld();
@@ -1471,6 +1472,7 @@ let RF = null; // gerade gezogene Form
 
 function zeigeRunenfeld() {
   setzeAnsicht('spiel');
+  S.letztesSpiel = 'runenfeld';
   if (S.serie.pos) { protokoll(S, 'serie_ende', { laenge: S.serie.pos }); S.serie.pos = 0; }
   if (!S.bloecke || !S.bloecke.feld) S.bloecke = { ...B.neuesSpiel(), rekord: (S.bloecke && S.bloecke.rekord) || 0 };
   if (spielSitzung && spielSitzung.art !== 'runenfeld') spielBeenden();
@@ -1991,6 +1993,9 @@ function klick(e) {
       neueAufgabe(); break;
     case 'spielen':
       zeigeSpiel(); break;
+    case 'zumSpiel':
+      if (S.letztesSpiel === 'runenfeld') zeigeRunenfeld(); else zeigeSpiel();
+      break;
     case 'runenfeld':
       zeigeRunenfeld(); break;
     case 'runenfeldNeu':
