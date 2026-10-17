@@ -12,7 +12,9 @@ function standard() {
     guthaben: 0,            // Spielzeit in Sekunden
     basisSlot: null,        // zuletzt abgeholte Basiszeit (Tag-Stunde)
     spiel: { feld: null, punkte: 0, rekord: 0, maxKachel: 0, gewonnenGezeigt: false },
-    einstellungen: { thema: 'minus-zahlen', basisVon: 14, basisBis: 21, pin: null, name: '' },
+    einstellungen: { thema: 'minus-zahlen', basisVon: 14, basisBis: 21, pin: null, name: '', rechnerAngebot: true },
+    spielzeit: null,        // Spielzeit-Regeln aus der Eltern-App (null = Standard)
+    fern: { version: 0, geaendert: null, angewendet: null, geholt: null, fehler: null }, // Einstellungen aus der Eltern-App
     statistik: {},          // je Aufgabe: gesehen, zuletzt, letztesErgebnis, letzterTag
     verlauf: { zaehler: 0, letzteIds: [], themaZuletzt: {}, musterIndex: 0 },
     serie: { pos: 0, letzteAktivitaet: 0 },
@@ -28,7 +30,7 @@ function standard() {
 
 function zusammenfuehren(basis, gespeichert) {
   const out = { ...basis, ...gespeichert };
-  for (const k of ['spiel', 'einstellungen', 'verlauf', 'serie', 'tag', 'upload']) out[k] = { ...basis[k], ...(gespeichert[k] || {}) };
+  for (const k of ['spiel', 'einstellungen', 'verlauf', 'serie', 'tag', 'upload', 'fern']) out[k] = { ...basis[k], ...(gespeichert[k] || {}) };
   return out;
 }
 

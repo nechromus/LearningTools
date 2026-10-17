@@ -3,12 +3,13 @@ import * as L from './logic.js';
 import * as G from './gen.js';
 import * as U from './sync.js';
 import { esc, mathe, bruchHtml, bildSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
+import { THEMA_NAMEN, GEN_NAMEN, FEHLER_NAMEN } from './namen.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.3.1';
+export const APP_VERSION = '1.4.0';
 
 const S = laden();
-let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [];
+let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [], BASIS_IDS = new Set();
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal');
 
@@ -19,14 +20,9 @@ let modalSchliessen = null;  // Callback beim Schließen
 let spielSitzung = null;     // { start, sekunden }
 let versteckt = null;        // Zeitpunkt, an dem die App verlassen wurde
 
-const THEMA_NAMEN = {
-  'minus-zahlen': 'Minus-Zahlen', 'reihenfolge': 'Reihenfolge', 'potenzen': 'Potenzen',
-  'bruch-bild': 'Bruch aus Bild', 'zuordnung': 'Zuordnung', 'prozent': 'Prozent von …',
-  'prozent-baukasten': 'Prozent-Baukasten', 'rabatt': 'Rabatt', 'neuer-preis': 'Neuer Preis',
-  'kreisdiagramm': 'Kreisdiagramm', 'runden': 'Runden', 'kugel': 'Kugel',
-  'einmaleins': 'Einmaleins', 'mal-10': 'Mal 10 und durch 10'
-};
 
+const R = () => L.spielzeitRegeln(S.spielzeit);
+const minText = m => `${String(m).replace('.', ',')} ${m === 1 ? 'Minute' : 'Minuten'}`;
 const alleAufgaben = () => [...BASIS_AUFGABEN, ...S.extraAufgaben];
 const sichern = () => speichern(S);
 const zeitSymbol = (size = 22) => sechseck(size, '#F5E6C6', '#9A5B06', '<path d="M12 7v5l3 2" stroke="#633806" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
@@ -42,6 +38,7 @@ export async function starten() {
     HINWEISE = h.hinweise;
     HINWEISE.forEach(x => { HMAP[x.id] = x; });
     BASIS_AUFGABEN = a.aufgaben;
+    BASIS_IDS = new Set(a.aufgaben.map(x => x.id));
   } catch (e) {
     $app.innerHTML = `<div class="screen"><div class="karte"><p>Die Aufgaben konnten nicht geladen werden. Schau, ob das Internet an ist, und öffne die App noch einmal.</p></div></div>`;
     return;
@@ -126,7 +123,7 @@ function standDaten() {
   return {
     app: 'lernapp-2048', version: APP_VERSION, nutzer: S.einstellungen.name, geraetId: S.geraetId, stand: new Date().toISOString(),
     einstellungen, guthaben: S.guthaben, spiel: { punkte: S.spiel.punkte, rekord: S.spiel.rekord, maxKachel: S.spiel.maxKachel },
-    genStufen: S.genStufen, statistik: S.statistik, zusammenfassung7Tage: zusammenfassung(7), letzterExport: S.letzterExport
+    genStufen: S.genStufen, spielzeit: R(), fern: S.fern, statistik: S.statistik, zusammenfassung7Tage: zusammenfassung(7), letzterExport: S.letzterExport
   };
 }
 
@@ -137,8 +134,36 @@ export function nutzerOrdner(name = S.einstellungen.name) {
   return o || 'ohne-namen';
 }
 
+// Einstellungen aus der Eltern-App holen (daten/<name>/einstellungen.json)
+let fernLaeuft = false, fernZuletzt = 0;
+async function fernHolen(erzwingen = false) {
+  const u = S.upload;
+  if (!S.einstellungen.name || !u.repo || !u.token || fernLaeuft) return null;
+  if (!erzwingen && Date.now() - fernZuletzt < 2 * 60 * 1000) return null;
+  fernLaeuft = true; fernZuletzt = Date.now();
+  let geaendert = null;
+  try {
+    const datei = await U.dateiLesen(u, `daten/${nutzerOrdner()}/einstellungen.json`);
+    S.fern = { ...S.fern, geholt: new Date().toISOString(), fehler: null };
+    geaendert = L.fernAnwenden(S, datei);
+    if (geaendert) protokoll(S, 'fern_einstellungen', { version: S.fern.version, geaendert });
+  } catch (e) {
+    S.fern = { ...S.fern, fehler: e.message || 'Unbekannter Fehler' };
+  } finally {
+    fernLaeuft = false;
+    sichern();
+  }
+  if (geaendert) {
+    if (ansicht === 'start') zeigeStart();
+    else if (ansicht === 'eltern') zeigeEltern('Neue Einstellungen aus der Eltern-App übernommen.');
+  }
+  return geaendert;
+}
+
 async function syncen(erzwingen = false) {
   const u = S.upload;
+  // Neue Einstellungen übernommen? Dann gleich den Stand melden, damit die Eltern-App es sieht.
+  if (await fernHolen(erzwingen)) erzwingen = true;
   if (!S.einstellungen.name || u.testgeraet || !u.repo || !u.token || syncLaeuft) return null;
   if (!erzwingen && Date.now() - (u.versuch || 0) < 10 * 60 * 1000) return null;
   syncLaeuft = true;
@@ -201,7 +226,7 @@ function zeigeStart() {
   if (neuLadenGeplant) { neuLadenWennRuhig(); return; }
   syncen();
   tagAktualisieren(S);
-  const slot = L.basisSlotJetzt(new Date(), S.einstellungen, S.basisSlot);
+  const slot = R().basisMin > 0 ? L.basisSlotJetzt(new Date(), S.einstellungen, S.basisSlot) : null;
   const name = S.einstellungen.name ? `, ${esc(S.einstellungen.name)}` : '';
   const serieAktiv = S.serie.pos > 0 && Date.now() - S.serie.letzteAktivitaet < 20 * 60 * 1000;
   $app.innerHTML = `
@@ -218,7 +243,7 @@ function zeigeStart() {
 
     ${slot ? `
     <section class="basis-karte">
-      <div><b>3 Min. Spielzeit sind da!</b><div class="gedaempft">Jede Stunde gibt es 3 Minuten geschenkt.</div></div>
+      <div><b>${minText(R().basisMin)} Spielzeit sind da!</b><div class="gedaempft">Jede Stunde gibt es ${minText(R().basisMin)} geschenkt.</div></div>
       <button class="btn btn-amber" data-act="basis">Abholen</button>
     </section>` : ''}
 
@@ -378,6 +403,8 @@ function neueAufgabe() {
     generator: aufgabe.generator, parameter: aufgabe.parameter, rechnung: aufgabe.rechnung, geschichte: aufgabe.geschichte,
     teile: A.teile.map(t => t.art === 'zahl' ? [t.label || null, t.ziel.wert] : t.art === 'bruch' ? [t.antwort.zaehler, t.antwort.nenner] : t.art === 'wahl' ? [t.label, t.richtig] : null)
   });
+  // Erzeugte oder hinzugefügte Aufgaben vollständig mitschreiben, damit die Eltern-App sie zeigen kann
+  if (!BASIS_IDS.has(aufgabe.id)) startInfo.aufgabe = aufgabe;
   protokoll(S, 'aufgabe_start', startInfo);
   S.verlauf.letzteIds = [...S.verlauf.letzteIds, aufgabe.id].slice(-20);
   sichern();
@@ -389,7 +416,7 @@ function aktuellerTeil() { return A && A.teile[A.idx]; }
 
 function zeigeAufgabe() {
   const a = A.aufgabe;
-  const min = L.minutenFuerPosition(A.serienPos);
+  const min = L.minutenFuerPosition(A.serienPos, R());
   const tz = String(min).replace('.', ',');
   const icons = (a.hinweise || []).filter(id => HMAP[id]).map(id =>
     `<button class="hw-btn${A.meldung && A.phase === 'tipp' ? ' pulsieren' : ''}" data-act="hinweis" data-id="${id}" aria-label="Hinweis ${esc(HMAP[id].titel)}">${hinweisIcon(HMAP[id], 42)}</button>`).join('');
@@ -411,7 +438,7 @@ function zeigeAufgabe() {
         <div class="teile">${teileHtml()}</div>
         <div class="hw-leiste"><span class="gedaempft">Hinweis:</span>${icons}
           ${a.taschenrechner && !A.fertig ? '<button class="btn btn-klein btn-rechner" data-act="rechner">Taschenrechner</button>' : ''}
-          ${L.rechnerOptional(a) && !A.fertig ? `<button class="btn btn-klein btn-rechner optional" data-act="rechnerOptional">${A.rechnerHalb ? 'Taschenrechner' : 'Taschenrechner · ½ Zeit'}</button>` : ''}
+          ${rechnerAngeboten(a) && !A.fertig ? `<button class="btn btn-klein btn-rechner optional" data-act="rechnerOptional">${A.rechnerHalb || R().rechner >= 1 ? 'Taschenrechner' : R().rechner > 0 ? 'Taschenrechner · ½ Zeit' : 'Taschenrechner · keine Zeit'}</button>` : ''}
         </div>
       </article>
       ${A.meldung && A.phase === 'eingabe' ? `<div class="meldung">${esc(A.meldung)}</div>` : ''}
@@ -530,7 +557,7 @@ function ergebnisHtml() {
   const zeit = sek > 0 ? `<div class="zeit-gewinn">${zeitSymbol(28)} +${L.formatMinuten(sek)} Spielzeit</div>` : '';
   let strafe = '';
 
-  if (A.rechnerHalb && A.ergebnis !== 'loesung') strafe += '<p class="gedaempft">Mit Taschenrechner gibt es die halbe Spielzeit.</p>';
+  if (A.rechnerHalb && A.ergebnis !== 'loesung' && R().rechner < 1) strafe += `<p class="gedaempft">Mit Taschenrechner gibt es ${L.anteilText(R().rechner)}.</p>`;
   if (A.strafe === 'halb' && A.ergebnis !== 'loesung') strafe = '<p class="gedaempft">Du warst kurz außerhalb der App. Darum gibt es diesmal nur die Hälfte.</p>';
   if (A.strafe === 'null' && A.ergebnis !== 'loesung') strafe = '<p class="gedaempft">Du warst außerhalb der App. Bei Aufgaben ohne Taschenrechner gibt es dafür heute keine Spielzeit.</p>';
   const weg = `<div class="loesungsweg"><div class="lw-titel">So geht's</div>${(a.loesungsweg || []).map(z => `<div class="lw-zeile">${mathe(z)}</div>`).join('')}<p class="lw-erkl">${mathe(a.erklaerung || '')}</p></div>`;
@@ -631,7 +658,7 @@ function versuchMerken(t, eingabe, richtig, fehler) {
   const ms = Date.now() - t.seit;
   t.versuche.push({ eingabe, richtig });
   protokoll(S, 'versuch', {
-    id: a.id, thema: a.thema, teil: A.idx, merk: !!t.merk, versuch: t.versuche.length, eingabe, richtig,
+    id: a.id, thema: a.thema, teil: A.idx, label: t.label || null, merk: !!t.merk, versuch: t.versuche.length, eingabe, richtig,
     fehler: fehler ? fehler.typ : null, ms, schnell: !!a.geschichte && ms < 4000,
     hinweiseOffen: A.hinweise.slice()
   });
@@ -672,7 +699,7 @@ function abschliessen() {
   let ergebnis = 'erst';
   if (pflicht.some(t => t.status === 'loesung')) ergebnis = 'loesung';
   else if (pflicht.some(t => t.status === 'zweit')) ergebnis = 'zweit';
-  const sek = L.sekundenFuerAufgabe({ ergebnis, serienPos: A.serienPos, strafe: A.strafe, rechnerHalb: !!A.rechnerHalb });
+  const sek = L.sekundenFuerAufgabe({ ergebnis, serienPos: A.serienPos, strafe: A.strafe, rechnerHalb: !!A.rechnerHalb, regeln: R() });
   A.ergebnis = ergebnis; A.sekunden = sek; A.fertig = true; A.idx = A.teile.length - 1; A.phase = 'eingabe';
   S.guthaben += sek;
   tagAktualisieren(S);
@@ -807,6 +834,8 @@ function hinweisOeffnen(id) {
   sichern();
   oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);
 }
+
+function rechnerAngeboten(a) { return L.rechnerOptional(a) && S.einstellungen.rechnerAngebot !== false; }
 
 function rechnerOeffnen() {
   if (!A.rechner) A.rechner = { ausdruck: '', ergebnis: null };
@@ -1239,21 +1268,11 @@ function zusammenfassung(tage = 7) {
   return { tage, aufgaben, erst, loesung, verlassen, hinweise, spielSek, rechnerNutzung, schnellFalsch: schnell, fehler, proThema };
 }
 
-const GEN_NAMEN = {
-  'minus-plus': 'Minus-Zahlen', 'reihenfolge': 'Reihenfolge', 'potenz': 'Potenzen', 'einmaleins': 'Einmaleins',
-  'mal10': 'Mal 10 / durch 10', 'prozent': 'Prozent von …', 'baukasten': 'Prozent-Baukasten', 'runden': 'Runden',
-  'bruch-bild': 'Bruch aus Bild', 'kugel': 'Kugel', 'geld-geschichte': 'Geld-Geschichten', 'rabatt-geschichte': 'Rabatt-Geschichten'
-};
 
-const FEHLER_NAMEN = {
-  'vorzeichen': 'Vorzeichen falsch (Geld/Schulden)', 'potenz-mal': 'Potenz als „mal“ gerechnet',
-  'kugel-d-statt-r': 'Kugel: d statt r', 'kugel-ohne-4-3': 'Kugel: 4 ÷ 3 vergessen',
-  'rabatt-ersparnis': 'Ersparnis statt neuer Preis', 'runden': 'Falsch gerundet', 'bruch-vertauscht': 'Bruch vertauscht',
-  'merk': 'Wert im Text nicht gefunden (Merkzettel)'
-};
 
 function zeigeEltern(meldung = '') {
   setzeAnsicht('eltern');
+  const fern = (S.fern && S.fern.version) > 0;
   const z = zusammenfassung(7);
   const quote = z.aufgaben ? Math.round(z.erst / z.aufgaben * 100) : 0;
   const themenZeilen = Object.entries(z.proThema).filter(([, v]) => v.aufgaben).map(([k, v]) =>
@@ -1286,8 +1305,10 @@ function zeigeEltern(meldung = '') {
 
     <section class="karte">
       <h3>Schwierigkeit der Baukästen</h3>
-      <p class="gedaempft klein">Steigt nach 3 richtigen Aufgaben im 1. Versuch, sinkt nach einem Lösungsweg. Du kannst sie auch selbst ändern.</p>
-      <div class="stufen-liste">${Object.keys(GEN_NAMEN).map(g => `<div class="stufen-zeile"><span>${esc(GEN_NAMEN[g])}</span><span class="stufen-knoepfe"><button class="btn btn-klein" data-act="genStufe" data-g="${g}" data-d="-1" aria-label="leichter">−</button><b>Stufe ${genStufe(g)}</b><button class="btn btn-klein" data-act="genStufe" data-g="${g}" data-d="1" aria-label="schwerer">+</button></span></div>`).join('')}</div>
+      <p class="gedaempft klein">Steigt nach 3 richtigen Aufgaben im 1. Versuch, sinkt nach einem Lösungsweg. ${fern ? 'Ändern geht in der Eltern-App.' : 'Du kannst sie auch selbst ändern.'}</p>
+      <div class="stufen-liste">${Object.keys(GEN_NAMEN).map(g => fern
+        ? `<div class="stufen-zeile"><span>${esc(GEN_NAMEN[g])}</span><b>Stufe ${genStufe(g)}</b></div>`
+        : `<div class="stufen-zeile"><span>${esc(GEN_NAMEN[g])}</span><span class="stufen-knoepfe"><button class="btn btn-klein" data-act="genStufe" data-g="${g}" data-d="-1" aria-label="leichter">−</button><b>Stufe ${genStufe(g)}</b><button class="btn btn-klein" data-act="genStufe" data-g="${g}" data-d="1" aria-label="schwerer">+</button></span></div>`).join('')}</div>
     </section>
 
     <section class="karte">
@@ -1321,11 +1342,19 @@ function zeigeEltern(meldung = '') {
 
     <section class="karte">
       <h3>Einstellungen</h3>
+      ${fern ? `
+      <p class="meldung">Diese Einstellungen kommen aus der Eltern-App (Stand ${new Date(S.fern.angewendet).toLocaleString('de-DE')}).</p>
+      <div class="info-zeile"><span>Übungsthema</span><b>${esc(THEMA_NAMEN[S.einstellungen.thema] || S.einstellungen.thema)}</b></div>
+      <div class="info-zeile"><span>Geschenkte Spielzeit</span><b>${S.einstellungen.basisVon} bis ${S.einstellungen.basisBis} Uhr · ${minText(R().basisMin)}</b></div>
+      <div class="info-zeile"><span>Spielzeit pro Aufgabe</span><b>${R().staffel.map(m => String(m).replace('.', ',')).join(' / ')} Min.</b></div>
+      <div class="info-zeile"><span>2. Versuch / mit Rechner</span><b>${L.anteilText(R().zweit).replace('die ', '')} / ${L.anteilText(R().rechner).replace('die ', '')}</b></div>
+      <div class="info-zeile"><span>Freiwilliger Taschenrechner</span><b>${S.einstellungen.rechnerAngebot !== false ? 'an' : 'aus'}</b></div>
+      ` : `
       <label class="feld-label">Übungsthema<select id="e-thema">${optThema}</select></label>
       <div class="zwei-spalten">
         <label class="feld-label">Basiszeit ab<select id="e-von">${stunden(S.einstellungen.basisVon)}</select></label>
         <label class="feld-label">bis<select id="e-bis">${stunden(S.einstellungen.basisBis)}</select></label>
-      </div>
+      </div>`}
       <label class="feld-label">Name (Begrüßung und Ordner in den Lerndaten)<input id="e-name" type="text" value="${esc(S.einstellungen.name)}" maxlength="20" autocomplete="off"></label>
       <button class="btn btn-haupt" data-act="einstellungenSpeichern">Speichern</button>
     </section>
@@ -1353,7 +1382,7 @@ function zeigeEltern(meldung = '') {
     <section class="karte">
       <h3>Einrichtung</h3>
       ${standalone ? '<p>Die App ist auf dem Home-Bildschirm installiert.</p>' : '<p><b>Tipp:</b> In Safari auf „Teilen“ tippen und „Zum Home-Bildschirm“ wählen. Dann startet die App wie ein eigenes Programm und funktioniert auch ohne Internet.</p>'}
-      <p class="gedaempft klein">Alle Daten liegen nur auf diesem Handy. Bitte regelmäßig exportieren. Version ${APP_VERSION}</p>
+      <p class="gedaempft klein">${S.upload.token ? 'Die Lerndaten werden automatisch übertragen.' : 'Alle Daten liegen nur auf diesem Handy. Bitte regelmäßig exportieren.'} Version ${APP_VERSION}</p>
       <button class="btn-text klein" data-act="pinAendern">PIN ändern</button>
     </section>
   </div>`;
@@ -1450,7 +1479,7 @@ function klick(e) {
       zeigeSpiel(); break;
     case 'basis': {
       const slot = L.basisSlotJetzt(new Date(), S.einstellungen, S.basisSlot);
-      if (slot) { S.basisSlot = slot; S.guthaben += L.BASIS_SEKUNDEN; protokoll(S, 'basis', { slot }); sichern(); }
+      if (slot && R().basisMin > 0) { S.basisSlot = slot; S.guthaben += Math.round(R().basisMin * 60); protokoll(S, 'basis', { slot }); sichern(); }
       zeigeStart(); break;
     }
     case 'start': zeigeStart(); break;
@@ -1489,8 +1518,8 @@ function klick(e) {
       if (A.rechnerHalb) { rechnerOeffnen(); break; }
       oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Taschenrechner nutzen?</h2>
         <p>Hier sind die Zahlen groß. Du darfst den Taschenrechner nehmen.</p>
-        <p><b>Dann gibt es für diese Aufgabe nur die halbe Spielzeit.</b></p>
-        <p>Selbst rechnen bringt die volle Zeit.</p>
+        ${R().rechner >= 1 ? '<p>Die Spielzeit bleibt gleich.</p>' : `<p><b>Dann gibt es für diese Aufgabe ${L.anteilText(R().rechner)}.</b></p>
+        <p>Selbst rechnen bringt die volle Zeit.</p>`}
         <div class="knopf-reihe"><button class="btn btn-haupt" data-act="rechnerJa">Ja, mit Rechner</button><button class="btn" data-act="modalZu">Ich rechne selbst</button></div></div>`);
       protokoll(S, 'rechner_angeboten', { id: A.aufgabe.id });
       break;
@@ -1535,10 +1564,12 @@ function klick(e) {
     }
     case 'pinAendern': S.einstellungen.pin = null; sichern(); elternZugang(); break;
     case 'einstellungenSpeichern': {
-      const von = Number(document.getElementById('e-von').value), bis = Number(document.getElementById('e-bis').value);
-      S.einstellungen.thema = document.getElementById('e-thema').value;
-      S.einstellungen.basisVon = Math.min(von, bis);
-      S.einstellungen.basisBis = Math.max(von, bis);
+      if (document.getElementById('e-thema')) {
+        const von = Number(document.getElementById('e-von').value), bis = Number(document.getElementById('e-bis').value);
+        S.einstellungen.thema = document.getElementById('e-thema').value;
+        S.einstellungen.basisVon = Math.min(von, bis);
+        S.einstellungen.basisBis = Math.max(von, bis);
+      }
       const neuerName = document.getElementById('e-name').value.trim().replace(/\s+/g, ' ').slice(0, 20);
       if (neuerName.length >= 2 && neuerName !== S.einstellungen.name) {
         protokoll(S, 'name_geaendert', { von: S.einstellungen.name, nach: neuerName });
@@ -1588,6 +1619,7 @@ function klick(e) {
       protokoll(S, 'upload_aus');
       sichern(); zeigeEltern('Übertragung ausgeschaltet. Der Schlüssel ist vom Handy gelöscht.'); break;
     case 'genStufe': {
+      if (S.fern && S.fern.version > 0) break;
       const g = el.dataset.g;
       const st = S.genStufen[g] || (S.genStufen[g] = { stufe: 1, folge: 0 });
       st.stufe = Math.max(1, Math.min(3, st.stufe + Number(el.dataset.d))); st.folge = 0;

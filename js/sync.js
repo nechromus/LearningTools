@@ -22,14 +22,14 @@ function fehlerText(status) {
   return `GitHub meldet Fehler ${status}.`;
 }
 
-async function anfrage(cfg, method, url, body) {
+async function anfrage(cfg, method, url, body, accept = 'application/vnd.github+json') {
   let r;
   try {
     r = await fetch(url, {
       method, cache: 'no-store',
       headers: {
         Authorization: `Bearer ${cfg.token}`,
-        Accept: 'application/vnd.github+json',
+        Accept: accept,
         'X-GitHub-Api-Version': '2022-11-28',
         ...(body ? { 'Content-Type': 'application/json' } : {})
       },
@@ -50,7 +50,7 @@ export async function verbindungTesten(cfg) {
 }
 
 export async function dateiSchreiben(cfg, pfad, inhalt, nachricht) {
-  const url = `${API}/repos/${cfg.repo}/contents/${pfad.split('/').map(encodeURIComponent).join('/')}`;
+  const url = pfadUrl(cfg, pfad);
   for (let versuch = 0; versuch < 2; versuch++) {
     let sha;
     const g = await anfrage(cfg, 'GET', url);
@@ -62,6 +62,25 @@ export async function dateiSchreiben(cfg, pfad, inhalt, nachricht) {
     throw new UploadFehler(p.status, fehlerText(p.status));
   }
   return false;
+}
+
+const pfadUrl = (cfg, pfad) => `${API}/repos/${cfg.repo}/contents/${pfad.split('/').map(encodeURIComponent).join('/')}`;
+
+// Liest eine JSON-Datei aus dem Repo. Gibt null zurück, wenn es sie nicht gibt.
+export async function dateiLesen(cfg, pfad) {
+  const r = await anfrage(cfg, 'GET', pfadUrl(cfg, pfad), undefined, 'application/vnd.github.raw+json');
+  if (r.status === 404) return null;
+  if (!r.ok) throw new UploadFehler(r.status, fehlerText(r.status));
+  return JSON.parse(await r.text());
+}
+
+// Inhalt eines Ordners: [{ name, path, type: 'file'|'dir', sha, size }]. Fehlt der Ordner: [].
+export async function ordnerLesen(cfg, pfad) {
+  const r = await anfrage(cfg, 'GET', pfadUrl(cfg, pfad));
+  if (r.status === 404) return [];
+  if (!r.ok) throw new UploadFehler(r.status, fehlerText(r.status));
+  const liste = await r.json();
+  return Array.isArray(liste) ? liste.map(({ name, path, type, sha, size }) => ({ name, path, type, sha, size })) : [];
 }
 
 // Teilt das Protokoll nach lokalen Tagen auf.

@@ -128,18 +128,47 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
 
 export const BASIS_SEKUNDEN = 180;
 
-export function minutenFuerPosition(pos) {
-  if (pos <= 3) return 1;
-  if (pos <= 6) return 1.5;
-  if (pos <= 9) return 2;
-  return 2.5;
+// Spielzeit-Regeln. Werte in Minuten (eine Nachkommastelle), Anteile 1 = alles, 0,5 = Hälfte, 0 = nichts.
+// Werden in der Eltern-App eingestellt; ohne Einstellung gelten diese Standardwerte.
+export const SPIELZEIT_STANDARD = Object.freeze({ staffel: Object.freeze([1, 1.5, 2, 2.5]), zweit: 0.5, rechner: 0.5, basisMin: 3 });
+const ANTEILE = [0, 0.5, 1];
+
+function minutenWert(x, standard, max) {
+  const n = Number(x);
+  if (!Number.isFinite(n)) return standard;
+  return Math.round(Math.min(max, Math.max(0, n)) * 10) / 10;
+}
+
+export function spielzeitRegeln(r) {
+  const S0 = SPIELZEIT_STANDARD;
+  if (!r || typeof r !== 'object') return { staffel: [...S0.staffel], zweit: S0.zweit, rechner: S0.rechner, basisMin: S0.basisMin };
+  const staffel = S0.staffel.map((w, i) => minutenWert(Array.isArray(r.staffel) ? r.staffel[i] : undefined, w, 10));
+  return {
+    staffel,
+    zweit: ANTEILE.includes(r.zweit) ? r.zweit : S0.zweit,
+    rechner: ANTEILE.includes(r.rechner) ? r.rechner : S0.rechner,
+    basisMin: minutenWert(r.basisMin, S0.basisMin, 15)
+  };
+}
+
+export function minutenFuerPosition(pos, regeln = SPIELZEIT_STANDARD) {
+  const st = regeln.staffel;
+  if (pos <= 3) return st[0];
+  if (pos <= 6) return st[1];
+  if (pos <= 9) return st[2];
+  return st[3];
+}
+
+// Kurzer Text für einen Anteil: „die halbe Spielzeit“ usw.
+export function anteilText(a) {
+  return a >= 1 ? 'die volle Spielzeit' : a > 0 ? 'die halbe Spielzeit' : 'keine Spielzeit';
 }
 
 // ergebnis: 'erst' | 'zweit' | 'loesung'; strafe: 'keine' | 'halb' | 'null'
-export function sekundenFuerAufgabe({ ergebnis, serienPos, strafe = 'keine', rechnerHalb = false }) {
-  let min = minutenFuerPosition(serienPos);
-  if (rechnerHalb) min /= 2;
-  if (ergebnis === 'zweit') min /= 2;
+export function sekundenFuerAufgabe({ ergebnis, serienPos, strafe = 'keine', rechnerHalb = false, regeln = SPIELZEIT_STANDARD }) {
+  let min = minutenFuerPosition(serienPos, regeln);
+  if (rechnerHalb) min *= regeln.rechner;
+  if (ergebnis === 'zweit') min *= regeln.zweit;
   else if (ergebnis !== 'erst') min = 0;
   if (strafe === 'halb') min /= 2;
   if (strafe === 'null') min = 0;
@@ -504,4 +533,39 @@ export function groessteZahl(a) {
 
 export function rechnerOptional(a) {
   return !a.taschenrechner && RECHNER_OPTIONAL_THEMEN.includes(a.thema) && groessteZahl(a) >= 100;
+}
+
+// ---------- Einstellungen aus der Eltern-App ----------
+
+// Wendet daten/<name>/einstellungen.json auf den Zustand an (nur wenn die Version neuer ist).
+// Baukasten-Stufen werden nur übernommen, wenn sie in einer neueren Version geändert wurden,
+// damit die App sie zwischendurch weiter selbst anpassen kann.
+export function fernAnwenden(z, datei) {
+  const alt = (z.fern && z.fern.version) || 0;
+  if (!datei || typeof datei !== 'object' || !(Number(datei.version) > alt)) return null;
+  const w = datei.werte || {};
+  const geaendert = [];
+  const e = z.einstellungen;
+  if (THEMEN.includes(w.thema) && w.thema !== e.thema) { e.thema = w.thema; geaendert.push('thema'); }
+  const stunde = x => Number.isInteger(x) && x >= 0 && x <= 24;
+  if (stunde(w.basisVon) && stunde(w.basisBis)) {
+    const von = Math.min(w.basisVon, w.basisBis), bis = Math.max(w.basisVon, w.basisBis);
+    if (von !== e.basisVon || bis !== e.basisBis) { e.basisVon = von; e.basisBis = bis; geaendert.push('basiszeit'); }
+  }
+  if (typeof w.rechnerAngebot === 'boolean' && w.rechnerAngebot !== (e.rechnerAngebot !== false)) { e.rechnerAngebot = w.rechnerAngebot; geaendert.push('rechnerAngebot'); }
+  if (w.spielzeit) {
+    const neu = spielzeitRegeln(w.spielzeit);
+    if (JSON.stringify(neu) !== JSON.stringify(spielzeitRegeln(z.spielzeit))) geaendert.push('spielzeit');
+    z.spielzeit = neu;
+  }
+  if (w.genStufen && typeof w.genStufen === 'object') {
+    for (const [g, v] of Object.entries(w.genStufen)) {
+      if (!/^[a-z0-9-]{1,30}$/.test(g) || !v || !(Number(v.v) > alt)) continue;
+      const stufe = Math.max(1, Math.min(3, Math.round(Number(v.stufe)) || 1));
+      z.genStufen[g] = { stufe, folge: 0 };
+      geaendert.push('stufe:' + g);
+    }
+  }
+  z.fern = { ...(z.fern || {}), version: Number(datei.version), geaendert: datei.geaendert || null, angewendet: new Date().toISOString() };
+  return geaendert;
 }
