@@ -1,6 +1,7 @@
 // Auswertung der Lerndaten für die Eltern-App. Reine Funktionen, ohne DOM (testbar mit node).
 import { tagKey, potenzWert, SPIELZEIT_STANDARD, spielzeitRegeln } from '../js/logic.js';
 import { THEMA_NAMEN, FEHLER_NAMEN, GEN_NAMEN } from '../js/namen.js';
+import * as P from '../js/paket.js';
 
 const ZU_AUFGABE = new Set(['versuch', 'versuch_wiederholt', 'tipp_bestaetigt', 'hinweis', 'rechner', 'rechner_offen',
   'rechner_angeboten', 'rechner_optional', 'verlassen', 'sprung', 'loesung_gezeigt', 'bonus_teil_uebersprungen']);
@@ -220,7 +221,11 @@ export function startWerte(einst, stand) {
     basisBis: w.basisBis ?? e.basisBis ?? 21,
     rechnerAngebot: w.rechnerAngebot ?? (e.rechnerAngebot !== false),
     spielzeit: spielzeitRegeln(w.spielzeit || (stand && stand.spielzeit) || SPIELZEIT_STANDARD),
-    genStufen
+    genStufen,
+    paket: w.paket ? { id: w.paket.id, name: w.paket.name }
+      : (stand && stand.paket) ? { id: stand.paket.id, name: stand.paket.name }
+      : { id: P.STANDARD_PAKET.id, name: P.STANDARD_PAKET.name },
+    gewichte: P.gewichteNorm(w.gewichte || (stand && stand.paket && stand.paket.gewichte) || (stand && stand.gewichte) || P.gewichteOhnePaket(e.thema || 'minus-zahlen'))
   };
 }
 
@@ -231,8 +236,16 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
   for (const g of geaenderteStufen) genStufen[g] = { stufe: werte.genStufen[g], v: version };
   return {
     app: 'lernapp-2048-eltern', version, geaendert: jetzt.toISOString(),
-    werte: { thema: werte.thema, basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, spielzeit: spielzeitRegeln(werte.spielzeit), genStufen }
+    werte: { thema: hauptThema(werte), paket: werte.paket, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, spielzeit: spielzeitRegeln(werte.spielzeit), genStufen }
   };
+}
+
+// Für ältere Übungs-Apps ohne Pakete: das kurze Thema mit dem höchsten Gewicht
+function hauptThema(werte) {
+  const g = werte.gewichte || {};
+  let best = null;
+  for (const t of P.KOPF_THEMEN) if ((g[t] || 0) > (best ? g[best] : 0)) best = t;
+  return best || werte.thema;
 }
 
 // Mögliche Spielzeit für 10 Aufgaben am Stück, alle im 1. Versuch

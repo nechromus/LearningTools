@@ -4,9 +4,10 @@ import * as G from './gen.js';
 import * as U from './sync.js';
 import { esc, mathe, bruchHtml, bildSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
 import { THEMA_NAMEN, GEN_NAMEN, FEHLER_NAMEN } from './namen.js';
+import * as P from './paket.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.4.0';
+export const APP_VERSION = '1.5.0';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [], BASIS_IDS = new Set();
@@ -123,7 +124,7 @@ function standDaten() {
   return {
     app: 'lernapp-2048', version: APP_VERSION, nutzer: S.einstellungen.name, geraetId: S.geraetId, stand: new Date().toISOString(),
     einstellungen, guthaben: S.guthaben, spiel: { punkte: S.spiel.punkte, rekord: S.spiel.rekord, maxKachel: S.spiel.maxKachel },
-    genStufen: S.genStufen, spielzeit: R(), fern: S.fern, statistik: S.statistik, zusammenfassung7Tage: zusammenfassung(7), letzterExport: S.letzterExport
+    genStufen: S.genStufen, spielzeit: R(), paket: S.paket, gewichte: gewichte(), fern: S.fern, statistik: S.statistik, zusammenfassung7Tage: zusammenfassung(7), letzterExport: S.letzterExport
   };
 }
 
@@ -328,57 +329,90 @@ function erzeuge(g, stufe, opts = {}) {
   return a;
 }
 
+// Gewichte der Themen: aus dem Paket der Eltern-App, sonst Übungsthema auf „viel“
+const gewichte = () => (S.paket && S.paket.gewichte) ? P.gewichteNorm(S.paket.gewichte) : P.gewichteOhnePaket(S.einstellungen.thema);
+
+function kurzeAufgabe(g, fokus, { leicht = false } = {}) {
+  const thema = P.kopfThema(g, Math.random, S.verlauf.kopfZuletzt);
+  if (!thema) return null;
+  S.verlauf.kopfZuletzt = thema;
+  if (leicht && P.BLOCK_GEN[thema] && Math.random() < 0.4) return G.block(P.BLOCK_GEN[thema], Math.random);
+  if (!leicht && Math.random() < 0.15) {
+    const p = L.waehleAufgabe(alleAufgaben(), { kategorie: 'thema', thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
+    if (p && p.thema === thema && !p.geschichte && !p.bonus) return p;
+  }
+  const gen = wahl(P.KOPF_GEN[thema]);
+  return erzeuge(gen, leicht ? 1 : genStufe(gen), fokus);
+}
+
 function waehleAufgabe(kategorie) {
-  const thema = S.einstellungen.thema;
-  const faellig = S.wiederholen.find(w => w.ab <= S.verlauf.zaehler);
+  const g = gewichte();
+  const faellig = S.wiederholen.find(w => w.ab <= S.verlauf.zaehler && (g[w.aufgabe.thema] || 0) > 0);
   if (faellig && kategorie !== 'abschluss') {
     S.wiederholen = S.wiederholen.filter(w => w !== faellig);
     return { aufgabe: faellig.aufgabe, wdh: faellig.wdh };
   }
-  const pool = alleAufgaben();
-  const ausPool = k => L.waehleAufgabe(pool, { kategorie: k, thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
+  // Nur Aufgaben aus Themen, die im Paket an sind
+  const pool = alleAufgaben().filter(a => (g[a.thema] || 0) > 0);
+  const ausPool = (k, thema) => {
+    const a = L.waehleAufgabe(pool, { kategorie: k, thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
+    return a && L.passtKategorie(a, k, thema) && (g[a.thema] || 0) > 0 ? a : null;
+  };
+  const poolGewicht = (k) => {
+    const passend = pool.filter(a => L.passtKategorie(a, k));
+    return passend.length ? Math.max(...passend.map(a => g[a.thema])) : 0;
+  };
   const fokus = fokusOptionen();
-  const themaGens = G.THEMA_GENERATOREN[thema] || [];
   let a = null;
   switch (kategorie) {
-    case 'leicht':
-      if (Math.random() < 0.4) a = G.block(wahl(G.BLOCK_GENERATOREN), Math.random);
-      else a = erzeuge(wahl(['einmaleins', 'potenz', 'mal10', 'minus-plus', 'prozent', 'bruch-bild']), 1, fokus);
-      break;
+    case 'leicht': a = kurzeAufgabe(g, fokus, { leicht: true }); break;
     case 'thema':
-      if (!themaGens.length || Math.random() < 0.15) { const p = ausPool('thema'); if (p && p.thema === thema && !p.geschichte) a = p; }
-      if (!a) { const g = wahl(themaGens.length ? themaGens : G.MIX_GENERATOREN); a = erzeuge(g, genStufe(g), fokus); }
-      break;
-    case 'mix': {
-      if (Math.random() < 0.15) { a = G.block(wahl(G.BLOCK_GENERATOREN), Math.random); break; }
-      const g = wahl(G.MIX_GENERATOREN.filter(x => !themaGens.includes(x)));
-      a = erzeuge(g, genStufe(g), fokus);
-      break;
-    }
+    case 'mix': a = kurzeAufgabe(g, fokus); break;
     case 'text': {
-      const r = Math.random();
-      const rabattThema = ['prozent', 'prozent-baukasten', 'rabatt', 'neuer-preis'].includes(thema);
-      if (r < 0.4) a = ausPool('text');
-      else { const g = (rabattThema ? r < 0.55 : r < 0.75) ? 'geld-geschichte' : 'rabatt-geschichte'; a = erzeuge(g, genStufe(g), fokus); }
+      const o = P.ziehe([
+        { w: poolGewicht('text'), art: 'pool' },
+        { w: g['minus-zahlen'], art: 'geld-geschichte' },
+        { w: Math.max(g.rabatt, g['neuer-preis']), art: 'rabatt-geschichte' }
+      ]);
+      if (o && o.art === 'pool') a = ausPool('text');
+      else if (o) a = erzeuge(o.art, genStufe(o.art), fokus);
       break;
     }
-    case 'struktur':
-      if (Math.random() < 0.5) a = ausPool('struktur');
-      if (!a || a.thema === 'kugel') a = Math.random() < 0.5 ? erzeuge('baukasten', 1) : erzeuge('bruch-bild', genStufe('bruch-bild'));
+    case 'struktur': {
+      const o = P.ziehe([
+        { w: poolGewicht('struktur'), art: 'pool' },
+        { w: g['prozent-baukasten'], art: 'baukasten' },
+        { w: g['bruch-bild'], art: 'bruch-bild' }
+      ]);
+      if (o && o.art === 'pool') a = ausPool('struktur');
+      if (a && a.thema === 'kugel') a = null;
+      if (!a && o && o.art !== 'pool') a = erzeuge(o.art, o.art === 'baukasten' ? 1 : genStufe(o.art));
       break;
+    }
     case 'abschluss': {
       const runde = Math.floor(S.verlauf.musterIndex / MUSTER.length);
-      const r = Math.random();
       if (runde % 2 === 1) {
-        if (r < 0.4) a = ausPool('bonus');
-        if (!a || !a.bonus) a = r < 0.7 ? G.potenz(3, Math.random, { bonus: true }) : G.baukasten(3, Math.random, { bonus: true });
+        const o = P.ziehe([
+          { w: poolGewicht('bonus'), art: 'pool' },
+          { w: g.potenzen, art: 'potenz' },
+          { w: g['prozent-baukasten'], art: 'baukasten' }
+        ]);
+        if (o && o.art === 'pool') a = ausPool('bonus');
+        else if (o) a = G[o.art](3, Math.random, { bonus: true });
       } else {
-        if (r < 0.25) a = ausPool('abschluss');
-        if (!a || a.bonus) a = r < 0.65 ? erzeuge('kugel', genStufe('kugel')) : erzeuge('runden', genStufe('runden'));
+        const o = P.ziehe([
+          { w: poolGewicht('abschluss') / 2, art: 'pool' },
+          { w: g.kugel, art: 'kugel' },
+          { w: g.runden, art: 'runden' }
+        ]);
+        if (o && o.art === 'pool') a = ausPool('abschluss');
+        else if (o) a = erzeuge(o.art, genStufe(o.art));
       }
       break;
     }
   }
+  if (!a) a = kurzeAufgabe(g, fokus);
+  if (!a) { const rest = pool.filter(x => !x.bonus); a = rest.length ? L.waehleAufgabe(rest, { kategorie: 'alle', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key }) : null; }
   if (!a) a = erzeuge('einmaleins', 1);
   return { aufgabe: a, wdh: 0 };
 }
@@ -1344,7 +1378,10 @@ function zeigeEltern(meldung = '') {
       <h3>Einstellungen</h3>
       ${fern ? `
       <p class="meldung">Diese Einstellungen kommen aus der Eltern-App (Stand ${new Date(S.fern.angewendet).toLocaleString('de-DE')}).</p>
-      <div class="info-zeile"><span>Übungsthema</span><b>${esc(THEMA_NAMEN[S.einstellungen.thema] || S.einstellungen.thema)}</b></div>
+      ${S.paket ? `<div class="info-zeile"><span>Aufgabenpaket</span><b>${esc(S.paket.name)}</b></div>
+      <div class="info-zeile"><span>Mehr üben</span><b>${esc(Object.entries(gewichte()).filter(([, v]) => v === 4).map(([t]) => THEMA_NAMEN[t]).join(', ') || '–')}</b></div>
+      <div class="info-zeile"><span>Aus</span><b>${esc(Object.entries(gewichte()).filter(([, v]) => v === 0).map(([t]) => THEMA_NAMEN[t]).join(', ') || '–')}</b></div>`
+      : `<div class="info-zeile"><span>Übungsthema</span><b>${esc(THEMA_NAMEN[S.einstellungen.thema] || S.einstellungen.thema)}</b></div>`}
       <div class="info-zeile"><span>Geschenkte Spielzeit</span><b>${S.einstellungen.basisVon} bis ${S.einstellungen.basisBis} Uhr · ${minText(R().basisMin)}</b></div>
       <div class="info-zeile"><span>Spielzeit pro Aufgabe</span><b>${R().staffel.map(m => String(m).replace('.', ',')).join(' / ')} Min.</b></div>
       <div class="info-zeile"><span>2. Versuch / mit Rechner</span><b>${L.anteilText(R().zweit).replace('die ', '')} / ${L.anteilText(R().rechner).replace('die ', '')}</b></div>

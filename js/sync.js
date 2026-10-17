@@ -83,6 +83,18 @@ export async function ordnerLesen(cfg, pfad) {
   return Array.isArray(liste) ? liste.map(({ name, path, type, sha, size }) => ({ name, path, type, sha, size })) : [];
 }
 
+// Löscht eine Datei im Repo (nur Eltern-App, für Pakete)
+export async function dateiLoeschen(cfg, pfad, nachricht) {
+  const url = pfadUrl(cfg, pfad);
+  const g = await anfrage(cfg, 'GET', url);
+  if (g.status === 404) return false;
+  if (!g.ok) throw new UploadFehler(g.status, fehlerText(g.status));
+  const { sha } = await g.json();
+  const r = await anfrage(cfg, 'DELETE', url, { message: nachricht, sha });
+  if (!r.ok) throw new UploadFehler(r.status, fehlerText(r.status));
+  return true;
+}
+
 // Teilt das Protokoll nach lokalen Tagen auf.
 export function nachTagen(log, tagKey) {
   const tage = {};

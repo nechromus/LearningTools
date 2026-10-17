@@ -5,8 +5,9 @@ import * as L from '../js/logic.js';
 import { THEMA_NAMEN, GEN_NAMEN } from '../js/namen.js';
 import { esc, mathe, bildSvg } from '../js/render.js';
 import * as A from './auswertung.js';
+import * as P from '../js/paket.js';
 
-export const ELTERN_VERSION = '1.0.0';
+export const ELTERN_VERSION = '1.1.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -14,9 +15,11 @@ const app = document.getElementById('app');
 const breit = window.matchMedia('(min-width: 760px)');
 
 let C = konfigLaden();
-const D = { nutzer: null, pool: new Map(), hinweise: {}, daten: null, fehler: null };
+const D = { nutzer: null, pool: new Map(), hinweise: {}, daten: null, fehler: null, pakete: [] };
 let route = { seite: 'uebersicht', arg: '' };
 let entwurf = null;
+let paketEntwurf = null;   // Paket, das gerade bearbeitet wird
+let paketText = { text: '', ergebnis: null }; // Paket aus Text einfügen
 let geaenderteStufen = new Set();
 let meldung = null;
 let filter = 'alle';
@@ -81,6 +84,20 @@ async function nutzerLaden() {
   if (!D.nutzer.some(n => n.ordner === C.nutzer)) { C.nutzer = D.nutzer.length ? D.nutzer[0].ordner : ''; konfigSichern(); }
 }
 
+async function paketeLaden() {
+  const dateien = (await U.ordnerLesen(C, 'pakete')).filter(f => f.type === 'file' && f.name.endsWith('.json'));
+  const inhalte = await Promise.all(dateien.map(f => U.dateiLesen(C, f.path).catch(() => null)));
+  D.pakete = inhalte.map(x => x && P.paketPruefen(x).paket).filter(Boolean);
+}
+
+// Eingebautes Paket plus die Pakete aus dem Daten-Repo (gleiche id im Repo ersetzt das eingebaute)
+function allePakete() {
+  const map = new Map([[P.STANDARD_PAKET.id, { ...P.STANDARD_PAKET, eingebaut: true }]]);
+  for (const p of D.pakete) map.set(p.id, p);
+  return [...map.values()];
+}
+const paketVon = (id) => allePakete().find(p => p.id === id);
+
 async function tagDateiHolen(f, cache, behalten) {
   const key = `https://cache.eltern.local/${f.path}?sha=${f.sha}`;
   behalten.add(key);
@@ -133,7 +150,7 @@ async function allesLaden({ nutzerliste = false } = {}) {
   try {
     if (!D.pool.size) await grunddatenLaden();
     if (nutzerliste || !D.nutzer) await nutzerLaden();
-    await datenLaden();
+    await Promise.all([datenLaden(), paketeLaden()]);
   } catch (e) {
     D.fehler = e.message || 'Laden hat nicht geklappt.';
   }
@@ -157,7 +174,7 @@ function nutzerWahl(klasse) {
 }
 
 function navLinks(art) {
-  const aktiv = route.seite === 'aufgabe' ? 'verlauf' : route.seite === 'spielzeit' ? 'einstellungen' : route.seite;
+  const aktiv = route.seite === 'aufgabe' ? 'verlauf' : ['spielzeit', 'gewichte', 'pakete', 'paket'].includes(route.seite) ? 'einstellungen' : route.seite;
   return [['uebersicht', 'Übersicht'], ['verlauf', 'Verlauf'], ['einstellungen', 'Einstellungen']].map(([k, t]) =>
     `<a href="#${k}" class="${art}${aktiv === k ? ' aktiv' : ''}"${aktiv === k ? ' aria-current="page"' : ''}>${svg(k, 24)}<span>${t}</span></a>`).join('');
 }
@@ -200,6 +217,9 @@ function seiteHtml() {
     case 'aufgabe': return breit.matches ? verlaufBreit() : aufgabeSeite(route.arg);
     case 'einstellungen': return einstellungenSeite();
     case 'spielzeit': return spielzeitSeite();
+    case 'gewichte': return gewichteSeite();
+    case 'pakete': return paketeSeite();
+    case 'paket': return paketSeite(route.arg);
     default: return uebersichtSeite();
   }
 }
@@ -452,7 +472,9 @@ function speicherLeiste() {
 
 function einstellungenSeite() {
   const w = entwurfHolen();
-  const optThema = L.THEMEN.map(t => `<option value="${t}"${t === w.thema ? ' selected' : ''}>${esc(THEMA_NAMEN[t])}</option>`).join('');
+  const pakete = allePakete();
+  if (!pakete.some(p => p.id === w.paket.id)) pakete.push({ id: w.paket.id, name: w.paket.name + ' (gelöscht)' });
+  const optPaket = pakete.map(p => `<option value="${esc(p.id)}"${p.id === w.paket.id ? ' selected' : ''}>${esc(p.name)}</option>`).join('');
   const stunden = (sel) => Array.from({ length: 25 }, (_, h) => `<option value="${h}"${h === sel ? ' selected' : ''}>${h} Uhr</option>`).join('');
   const st = neuesterStand();
   const liveStufe = (g) => (st && st.genStufen && st.genStufen[g] && st.genStufen[g].stufe) || 1;
@@ -460,7 +482,8 @@ function einstellungenSeite() {
     ${breit.matches ? `<header class="kopf-breit"><h1>Einstellungen für ${esc(name())}</h1>${nutzerWahl('nutzer-chip nur-hoch')}</header>` : kopfSchmal('Einstellungen')}
     ${lieferStatus()}
     <section class="karte liste-karte">
-      <label class="einstell-zeile"><span>Übungsthema</span><select id="e-thema">${optThema}</select></label>
+      <label class="einstell-zeile"><span>Aufgabenpaket</span><select id="e-paket">${optPaket}</select></label>
+      <a class="einstell-zeile" href="#gewichte"><span>Themen und Gewichte</span><span class="wert">${gewichteKurz(w.gewichte)}</span>${svg('weiter', 16)}</a>
       <div class="einstell-zeile"><span>Geschenkte Spielzeit</span><span class="zwei-felder"><label><span class="unsichtbar">ab</span><select id="e-von">${stunden(w.basisVon)}</select></label><span>bis</span><label><span class="unsichtbar">bis</span><select id="e-bis">${stunden(w.basisBis)}</select></label></span></div>
       <a class="einstell-zeile" href="#spielzeit"><span>Spielzeit pro Aufgabe</span><span class="wert">${w.spielzeit.staffel.map(zahlText).join(' / ')} Min.</span>${svg('weiter', 16)}</a>
       <label class="einstell-zeile"><span>Freiwilliger Taschenrechner<span class="klein gedaempft block">bei großen Zahlen, kostet Spielzeit</span></span><input type="checkbox" class="schalter" id="e-rechner"${w.rechnerAngebot ? ' checked' : ''}></label>
@@ -471,8 +494,119 @@ function einstellungenSeite() {
     </section>
     <p class="klein gedaempft">Die App passt die Stufen weiter selbst an. Was du hier änderst, ist der neue Startpunkt.</p>
     ${speicherLeiste()}
+    <section class="karte liste-karte"><a class="einstell-zeile" href="#pakete"><span>Aufgabenpakete verwalten<span class="klein gedaempft block">anlegen, ändern, mit Claude erstellen</span></span>${svg('weiter', 16)}</a></section>
     ${schluesselKarte()}
   </div>`;
+}
+
+// ---------- Themen und Gewichte ----------
+
+function gewichteKurz(g) {
+  const viel = Object.values(g).filter(v => v === 4).length, aus = Object.values(g).filter(v => v === 0).length;
+  return [viel ? `${viel} viel` : '', aus ? `${aus} aus` : ''].filter(Boolean).join(' · ') || 'alle normal';
+}
+
+function gewichtZeilen(g, vergleich, act) {
+  const anteile = P.kopfAnteile(g);
+  const zeile = (t) => `<div class="gewicht-zeile">
+    <span class="gewicht-name">${esc(THEMA_NAMEN[t] || t)}${P.KOPF_THEMEN.includes(t) && g[t] ? ` <span class="klein gedaempft">≈ ${anteile[t]} %</span>` : ''}${vergleich && vergleich[t] !== g[t] ? ` <span class="klein amber">Paket: ${P.stufeName(vergleich[t])}</span>` : ''}</span>
+    <span class="segmente klein-seg" role="group" aria-label="${esc(THEMA_NAMEN[t] || t)}">${P.STUFEN.map(st => `<button class="segment${g[t] === st.w ? ' an' : ''}" data-act="${act}" data-t="${t}" data-w="${st.w}" aria-pressed="${g[t] === st.w}">${st.name}</button>`).join('')}</span>
+  </div>`;
+  return `<h2 class="abschnitt">Kurze Aufgaben (7 von 10)</h2>
+    <section class="karte liste-karte">${P.KOPF_THEMEN.map(zeile).join('')}</section>
+    <h2 class="abschnitt">Text, Schritte und Abschluss</h2>
+    <p class="klein gedaempft">Daraus kommen die übrigen 3 von 10 Aufgaben. „Minus-Zahlen“ steuert auch die Geld-Geschichten, „Prozent-Baukasten“ die Schritte-Aufgaben, „Kugel“ und „Runden“ den Abschluss.</p>
+    <section class="karte liste-karte">${P.WEITERE_THEMEN.map(zeile).join('')}</section>`;
+}
+
+function gewichteSeite() {
+  const w = entwurfHolen();
+  const p = paketVon(w.paket.id);
+  const abweichend = p && L.THEMEN.some(t => p.gewichte[t] !== w.gewichte[t]);
+  return `<div class="seite schmal-inhalt">
+    <a class="zurueck" href="#einstellungen">${svg('zurueck', 20)}Einstellungen</a>
+    <h1>Themen für ${esc(name())}</h1>
+    <section class="info-box"><p>Paket: <b>${esc(w.paket.name)}</b>${abweichend ? ' · für ' + esc(name()) + ' angepasst' : ''}</p>
+      <p class="klein">aus = kommt nicht vor · wenig = halb so oft wie normal · viel = doppelt so oft wie normal</p>
+      ${abweichend ? '<button class="knopf-text" data-act="paketStandard">Auf Paket-Standard zurücksetzen</button>' : ''}</section>
+    ${gewichtZeilen(w.gewichte, p && p.gewichte, 'gewicht')}
+    ${speicherLeiste()}
+  </div>`;
+}
+
+// ---------- Aufgabenpakete ----------
+
+function paketJson(p) {
+  return JSON.stringify({ format: P.FORMAT, id: p.id, name: p.name, beschreibung: p.beschreibung || '', gewichte: p.gewichte }, null, 1);
+}
+
+function paketeSeite() {
+  const erg = paketText.ergebnis;
+  return `<div class="seite schmal-inhalt">
+    <a class="zurueck" href="#einstellungen">${svg('zurueck', 20)}Einstellungen</a>
+    <h1>Aufgabenpakete</h1>
+    <p class="klein gedaempft">Ein Paket legt fest, welche Themen vorkommen und wie oft. Pro Kind wählst du in den Einstellungen ein Paket und kannst die Gewichte dort noch anpassen.</p>
+    ${meldung ? `<p class="meldung ${meldung.art}">${esc(meldung.text)}</p>` : ''}
+    ${allePakete().map(p => `<section class="karte paket-karte">
+      <div class="paket-kopf"><h2>${esc(p.name)}</h2>${p.eingebaut ? '<span class="badge b-offen">eingebaut</span>' : ''}</div>
+      ${p.beschreibung ? `<p class="klein">${esc(p.beschreibung)}</p>` : ''}
+      <p class="klein gedaempft">${gewichteKurz(p.gewichte)}</p>
+      <div class="knopf-reihe"><a class="knopf als-link" href="#paket/${encodeURIComponent(p.id)}">Bearbeiten</a><button class="knopf" data-act="paketKopieren" data-id="${esc(p.id)}">Als Text kopieren</button></div>
+    </section>`).join('')}
+    <a class="knopf haupt breit als-link" href="#paket/neu">Neues Paket</a>
+    <h2 class="abschnitt">Paket von Claude einfügen</h2>
+    <section class="karte">
+      <p class="klein">Bitte Claude im Projekt um ein Aufgabenpaket (Format in <i>06-aufgabenpakete.md</i>) und füge den Text hier ein.</p>
+      <label class="feld"><span class="unsichtbar">Paket als Text</span><textarea id="p-text" rows="7" placeholder='{"name": "…", "gewichte": {"einmaleins": 4, …}}'>${esc(paketText.text)}</textarea></label>
+      ${erg ? `${erg.fehler.map(f => `<p class="fehler-text">${esc(f)}</p>`).join('')}${erg.hinweise.length ? `<details class="klein"><summary>${erg.hinweise.length} Hinweise</summary>${erg.hinweise.map(h => `<p>${esc(h)}</p>`).join('')}</details>` : ''}${erg.paket ? `<p class="meldung ok">„${esc(erg.paket.name)}“ ist in Ordnung: ${gewichteKurz(erg.paket.gewichte)}.${paketVon(erg.paket.id) ? ' Ein Paket mit diesem Namen gibt es schon, es wird ersetzt.' : ''}</p>` : ''}` : ''}
+      <div class="knopf-reihe"><button class="knopf" data-act="paketTextPruefen">Prüfen</button>${erg && erg.paket ? '<button class="knopf haupt breit" data-act="paketTextSpeichern">Paket speichern</button>' : ''}</div>
+    </section>
+  </div>`;
+}
+
+function paketSeite(id) {
+  if (!paketEntwurf || paketEntwurf.route !== id) {
+    const vorlage = id === 'neu' ? null : paketVon(id);
+    paketEntwurf = vorlage
+      ? { route: id, neu: false, eingebaut: !!vorlage.eingebaut && !D.pakete.some(p => p.id === id), id: vorlage.id, name: vorlage.name, beschreibung: vorlage.beschreibung || '', gewichte: { ...vorlage.gewichte } }
+      : { route: id, neu: true, id: '', name: '', beschreibung: '', gewichte: { ...P.STANDARD_PAKET.gewichte } };
+  }
+  const e = paketEntwurf;
+  return `<div class="seite schmal-inhalt">
+    <a class="zurueck" href="#pakete">${svg('zurueck', 20)}Aufgabenpakete</a>
+    <h1>${e.neu ? 'Neues Paket' : 'Paket bearbeiten'}</h1>
+    <section class="karte">
+      <label class="feld">Name<input id="p-name" type="text" maxlength="40" value="${esc(e.name)}" placeholder="z. B. Klasse 7 Grundlagen" autocomplete="off"></label>
+      <label class="feld">Beschreibung (optional)<input id="p-beschr" type="text" maxlength="300" value="${esc(e.beschreibung)}" autocomplete="off"></label>
+      ${e.eingebaut ? '<p class="klein gedaempft">Das ist das eingebaute Paket. Beim Speichern wird deine Fassung im Daten-Repo abgelegt und ersetzt es.</p>' : ''}
+    </section>
+    ${gewichtZeilen(e.gewichte, null, 'pgewicht')}
+    <p class="klein gedaempft">Kinder, die dieses Paket schon nutzen, behalten ihre Gewichte. In ihren Einstellungen kannst du sie auf den neuen Paket-Standard zurücksetzen.</p>
+    <div class="speicher-leiste">
+      ${meldung ? `<p class="meldung ${meldung.art}">${esc(meldung.text)}</p>` : ''}
+      <div class="knopf-reihe">${!e.neu && !e.eingebaut ? '<button class="knopf" data-act="paketLoeschen">Löschen</button>' : ''}<button class="knopf haupt breit" data-act="paketSpeichern">Paket speichern</button></div>
+    </div>
+  </div>`;
+}
+
+async function paketSchreiben(paket, alteId) {
+  await U.dateiSchreiben(C, `pakete/${paket.id}.json`, paketJson(paket), `Aufgabenpaket ${paket.name}`);
+  D.pakete = [...D.pakete.filter(p => p.id !== paket.id && p.id !== alteId), paket];
+}
+
+async function paketSpeichern() {
+  const e = paketEntwurf;
+  const geprueft = P.paketPruefen({ id: e.neu ? undefined : e.id, name: e.name, beschreibung: e.beschreibung, gewichte: e.gewichte });
+  if (!geprueft.paket) { meldung = { art: 'fehler', text: geprueft.fehler.join(' ') }; return zeichne(); }
+  const paket = geprueft.paket;
+  if (e.neu) { let id = paket.id, n = 2; while (paketVon(id)) id = `${paket.id}-${n++}`; paket.id = id; }
+  meldung = { art: 'info', text: 'Wird gespeichert …' }; zeichne();
+  try {
+    await paketSchreiben(paket);
+    paketEntwurf = null;
+    meldung = { art: 'ok', text: `Paket „${paket.name}“ gespeichert.` };
+    location.hash = '#pakete';
+  } catch (err) { meldung = { art: 'fehler', text: err.message || 'Speichern hat nicht geklappt.' }; zeichne(); }
 }
 
 function spielzeitSeite() {
@@ -608,6 +742,40 @@ document.addEventListener('click', (ev) => {
       minutenSetzen(feld, ziel); meldung = null; zeichne(); break;
     }
     case 'anteil': entwurf.spielzeit[el.dataset.k] = Number(el.dataset.v); meldung = null; zeichne(); break;
+    case 'gewicht': entwurf.gewichte[el.dataset.t] = Number(el.dataset.w); meldung = null; zeichne(); break;
+    case 'paketStandard': { const pk = paketVon(entwurf.paket.id); if (pk) entwurf.gewichte = { ...pk.gewichte }; meldung = null; zeichne(); break; }
+    case 'pgewicht': paketEntwurf.gewichte[el.dataset.t] = Number(el.dataset.w); meldung = null; zeichne(); break;
+    case 'paketSpeichern': paketSpeichern(); break;
+    case 'paketLoeschen': {
+      const e = paketEntwurf;
+      if (!confirm(`Paket „${e.name}“ löschen? Kinder, die es nutzen, behalten ihre Gewichte.`)) break;
+      U.dateiLoeschen(C, `pakete/${e.id}.json`, `Aufgabenpaket ${e.name} gelöscht`).then(() => {
+        D.pakete = D.pakete.filter(x => x.id !== e.id); paketEntwurf = null;
+        meldung = { art: 'ok', text: `Paket „${e.name}“ gelöscht.` }; location.hash = '#pakete';
+      }).catch(err => { meldung = { art: 'fehler', text: err.message }; zeichne(); });
+      break;
+    }
+    case 'paketKopieren': {
+      const pk = paketVon(el.dataset.id);
+      const text = paketJson(pk);
+      const fertig = (ok) => { meldung = ok ? { art: 'ok', text: `„${pk.name}“ als Text kopiert. Du kannst es jetzt Claude schicken.` } : { art: 'info', text: 'Kopieren ging nicht. Der Text steht unten im Feld.' }; if (!ok) paketText = { text, ergebnis: null }; zeichne(); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => fertig(true), () => fertig(false));
+      else fertig(false);
+      break;
+    }
+    case 'paketTextPruefen': {
+      paketText.text = document.getElementById('p-text').value;
+      paketText.ergebnis = P.paketPruefen(paketText.text);
+      meldung = null; zeichne(); break;
+    }
+    case 'paketTextSpeichern': {
+      const pk = paketText.ergebnis && paketText.ergebnis.paket;
+      if (!pk) break;
+      meldung = { art: 'info', text: 'Wird gespeichert …' }; zeichne();
+      paketSchreiben(pk).then(() => { paketText = { text: '', ergebnis: null }; meldung = { art: 'ok', text: `Paket „${pk.name}“ gespeichert.` }; zeichne(); })
+        .catch(err => { meldung = { art: 'fehler', text: err.message }; zeichne(); });
+      break;
+    }
     case 'standardZeit': entwurf.spielzeit = L.spielzeitRegeln(null); meldung = null; zeichne(); break;
     case 'verwerfen': entwurf = null; geaenderteStufen = new Set(); meldung = null; zeichne(); break;
     case 'speichern': if (geaendert()) speichern(); break;
@@ -628,7 +796,10 @@ document.addEventListener('change', (ev) => {
     allesLaden(); return;
   }
   if (!entwurf) return;
-  if (el.id === 'e-thema') entwurf.thema = el.value;
+  if (el.id === 'e-paket') {
+    const pk = paketVon(el.value);
+    if (pk) { entwurf.paket = { id: pk.id, name: pk.name }; entwurf.gewichte = { ...pk.gewichte }; }
+  }
   else if (el.id === 'e-von' || el.id === 'e-bis') {
     const von = Number(document.getElementById('e-von').value), bis = Number(document.getElementById('e-bis').value);
     entwurf.basisVon = Math.min(von, bis); entwurf.basisBis = Math.max(von, bis);
@@ -639,12 +810,19 @@ document.addEventListener('change', (ev) => {
   zeichne();
 });
 
+document.addEventListener('input', (ev) => {
+  const el = ev.target;
+  if (paketEntwurf && el.id === 'p-name') paketEntwurf.name = el.value;
+  if (paketEntwurf && el.id === 'p-beschr') paketEntwurf.beschreibung = el.value;
+  if (el.id === 'p-text') paketText.text = el.value;
+});
+
 document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Enter' && (ev.target.id === 'r-token' || ev.target.id === 'r-repo')) verbinden();
   if (ev.key === 'Enter' && ev.target.classList && ev.target.classList.contains('min-feld')) ev.target.blur();
 });
 
-window.addEventListener('hashchange', () => { leseRoute(); meldung = route.seite === 'einstellungen' || route.seite === 'spielzeit' ? meldung : null; zeichne(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', () => { leseRoute(); meldung = ['einstellungen', 'spielzeit', 'gewichte', 'pakete'].includes(route.seite) ? meldung : null; zeichne(); window.scrollTo(0, 0); });
 breit.addEventListener('change', zeichne);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && C.token && D.daten && Date.now() - (D.daten.geladen || 0) > 2 * 60 * 1000) allesLaden();

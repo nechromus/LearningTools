@@ -558,6 +558,16 @@ export function fernAnwenden(z, datei) {
     if (JSON.stringify(neu) !== JSON.stringify(spielzeitRegeln(z.spielzeit))) geaendert.push('spielzeit');
     z.spielzeit = neu;
   }
+  // Aufgabenpaket mit Gewichten je Thema (0 aus, 1 wenig, 2 normal, 4 viel)
+  if (w.paket && typeof w.paket === 'object' && w.gewichte && typeof w.gewichte === 'object') {
+    const gewichte = {};
+    for (const t of THEMEN) { const v = Number(w.gewichte[t]); gewichte[t] = [0, 1, 2, 4].includes(v) ? v : 0; }
+    if (Object.values(gewichte).some(v => v > 0)) {
+      const neu = { id: String(w.paket.id || '').slice(0, 40), name: String(w.paket.name || '').slice(0, 40), gewichte };
+      if (JSON.stringify(neu) !== JSON.stringify(z.paket || null)) geaendert.push('paket');
+      z.paket = neu;
+    }
+  }
   if (w.genStufen && typeof w.genStufen === 'object') {
     for (const [g, v] of Object.entries(w.genStufen)) {
       if (!/^[a-z0-9-]{1,30}$/.test(g) || !v || !(Number(v.v) > alt)) continue;

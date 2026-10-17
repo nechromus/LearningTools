@@ -14,6 +14,7 @@ function standard() {
     spiel: { feld: null, punkte: 0, rekord: 0, maxKachel: 0, gewonnenGezeigt: false },
     einstellungen: { thema: 'minus-zahlen', basisVon: 14, basisBis: 21, pin: null, name: '', rechnerAngebot: true },
     spielzeit: null,        // Spielzeit-Regeln aus der Eltern-App (null = Standard)
+    paket: null,            // Aufgabenpaket aus der Eltern-App: { id, name, gewichte } (null = Übungsthema)
     fern: { version: 0, geaendert: null, angewendet: null, geholt: null, fehler: null }, // Einstellungen aus der Eltern-App
     statistik: {},          // je Aufgabe: gesehen, zuletzt, letztesErgebnis, letzterTag
     verlauf: { zaehler: 0, letzteIds: [], themaZuletzt: {}, musterIndex: 0 },

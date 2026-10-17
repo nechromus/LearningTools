@@ -215,3 +215,15 @@ details ol { padding-left: 20px; }
   .nur-hoch { display: block; }
   .tag-feld select { width: 100%; min-height: 42px; border-radius: 10px; border: 1.5px solid var(--teal); background: var(--teal-hell); color: var(--teal-dunkel); font-weight: 700; padding: 0 8px; margin-bottom: 6px; }
 }
+
+/* Gewichte und Pakete */
+.gewicht-zeile { display: flex; align-items: center; gap: 8px 12px; padding: 8px 12px 8px 16px; border-top: 1px solid var(--linie-hell); flex-wrap: wrap; }
+.liste-karte > .gewicht-zeile:first-child { border-top: 0; }
+.gewicht-name { flex: 1 1 140px; min-width: 0; }
+.klein-seg { flex: 0 1 290px; padding: 3px; gap: 3px; }
+.klein-seg .segment { min-height: 36px; font-size: 14px; padding: 0 4px; }
+.paket-kopf { display: flex; align-items: center; gap: 10px; }
+.paket-kopf h2 { margin: 0; flex-grow: 1; }
+.als-link { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: inherit; }
+.knopf.haupt.als-link { color: #fff; }
+textarea { width: 100%; border-radius: 10px; border: 1.5px solid #8A9696; background: var(--weiss); padding: 10px 12px; font: 14px ui-monospace, Menlo, monospace; color: var(--text); }
