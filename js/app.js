@@ -9,7 +9,7 @@ import * as B from './bloecke.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.7.0';
+export const APP_VERSION = '1.7.1';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [], BASIS_IDS = new Set();
@@ -164,51 +164,83 @@ async function fernHolen(erzwingen = false) {
 }
 
 // ---------- Spielstand online ----------
+// Der Stand auf dem Server gewinnt immer (Wunsch Vater). Jede gesicherte Fassung hat eine Nummer (rev).
+// Ist auf dem Server eine neuere Fassung als die, die dieses Handy zuletzt kannte, wird sie übernommen –
+// auch wenn auf dem Handy inzwischen etwas anderes passiert ist. Erst danach wird hochgeladen.
 const standPfad = () => `daten/${nutzerOrdner()}/spielstand.json`;
-let standLaeuft = false, standZuletzt = 0;
+let standLaeuft = false, standZuletztGeprueft = 0;
+const ruhigeAnsicht = () => ['start', 'eltern', 'anmeldung'].includes(ansicht);
+const revVon = (d) => (d && Number(d.rev)) || 0;
 
-// Einmal nach dem Einrichten: gibt es online schon einen Spielstand zu diesem Namen?
-// Ist dieses Handy noch frisch (z. B. App neu auf den Home-Bildschirm gelegt), wird er übernommen.
-async function standPruefen() {
+function standUebernehmen(datei, grund) {
+  const warFrisch = istFrisch(S);
+  if (!spielstandAnwenden(S, datei)) return false;
   const u = S.upload;
-  if (u.standGeprueft || !S.einstellungen.name || u.testgeraet || !u.repo || !u.token) return false;
-  const datei = await U.dateiLesen(u, standPfad());
-  u.standGeprueft = true;
-  u.standOnline = datei ? { gespeichert: datei.gespeichert, geraetId: datei.geraetId } : null;
-  if (datei && istFrisch(S) && spielstandAnwenden(S, datei)) {
-    protokoll(S, 'spielstand_geladen', { von: datei.geraetId, gespeichert: datei.gespeichert, automatisch: true });
-    sichern();
-    if (ansicht === 'start' || ansicht === 'eltern' || ansicht === 'anmeldung') zeigeStart();
+  u.standRev = revVon(datei);
+  u.standKern = spielstandKern(S);
+  u.standOnline = { gespeichert: datei.gespeichert, geraetId: datei.geraetId };
+  u.standWartet = false;
+  protokoll(S, 'spielstand_geladen', { von: datei.geraetId, gespeichert: datei.gespeichert, rev: u.standRev, grund });
+  sichern();
+  if (ansicht === 'start' || ansicht === 'anmeldung') zeigeStart();
+  else if (ansicht === 'eltern') zeigeEltern('Spielstand vom Server übernommen.');
+  if (warFrisch) {
     oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Willkommen zurück${S.einstellungen.name ? ', ' + esc(S.einstellungen.name) : ''}!</h2>
       <p>Deine Spielzeit und deine Spielstände sind wieder da.</p>
       <button class="btn btn-haupt" data-act="modalZu">Weiter</button></div>`);
-    return true;
+  }
+  return true;
+}
+
+// Server prüfen: neuere Fassung übernehmen. Gibt true zurück, wenn übernommen wurde.
+// Während einer Aufgabe oder eines Spiels wird nur vorgemerkt und beim nächsten Startbildschirm übernommen.
+async function standAbgleich(erzwingen = false) {
+  const u = S.upload;
+  if (!S.einstellungen.name || u.testgeraet || !u.repo || !u.token) return false;
+  if (!erzwingen && Date.now() - standZuletztGeprueft < 20 * 1000) return false;
+  standZuletztGeprueft = Date.now();
+  const datei = await U.dateiLesen(u, standPfad());
+  u.standGeprueft = true;
+  if (!datei) { sichern(); return false; }
+  u.standOnline = { gespeichert: datei.gespeichert, geraetId: datei.geraetId };
+  if (revVon(datei) > (u.standRev || 0) || (!u.standRev && istFrisch(S))) {
+    if (!ruhigeAnsicht()) { u.standWartet = true; sichern(); return false; }
+    return standUebernehmen(datei, 'server-neuer');
   }
   sichern();
   return false;
 }
 
-// Spielstand hochladen, wenn sich etwas geändert hat (höchstens alle 30 Sekunden)
+// Spielstand hochladen, wenn sich etwas geändert hat. Vorher prüfen, ob der Server eine neuere Fassung hat –
+// dann gewinnt der Server und es wird nichts hochgeladen.
 async function standHochladen(erzwingen = false) {
   const u = S.upload;
-  if (!S.einstellungen.name || u.testgeraet || !u.repo || !u.token || standLaeuft || !u.standGeprueft) return false;
-  if (!erzwingen && Date.now() - standZuletzt < 30 * 1000) return false;
+  if (!S.einstellungen.name || u.testgeraet || !u.repo || !u.token || standLaeuft || u.standWartet) return false;
   const kern = spielstandKern(S);
   if (!erzwingen && kern === u.standKern) return false;
-  standLaeuft = true; standZuletzt = Date.now();
+  standLaeuft = true;
   try {
-    const datei = spielstandAus(S);
-    await U.dateiSchreiben(u, standPfad(), JSON.stringify(datei), 'Spielstand');
+    const server = await U.dateiLesen(u, standPfad());
+    u.standGeprueft = true;
+    if (server && revVon(server) > (u.standRev || 0)) {
+      if (ruhigeAnsicht()) standUebernehmen(server, 'server-neuer');
+      else u.standWartet = true;
+      return false;
+    }
+    const datei = { ...spielstandAus(S), rev: revVon(server) + 1 };
+    await U.dateiSchreiben(u, standPfad(), JSON.stringify(datei), `Spielstand ${datei.rev}`);
+    u.standRev = datei.rev;
     u.standKern = kern;
     u.standOnline = { gespeichert: datei.gespeichert, geraetId: S.geraetId };
     u.standFehler = null;
+    return true;
   } catch (e) {
     u.standFehler = e.message || 'Unbekannter Fehler';
+    return false;
   } finally {
     standLaeuft = false;
     sichern();
   }
-  return true;
 }
 
 async function syncen(erzwingen = false) {
@@ -216,7 +248,7 @@ async function syncen(erzwingen = false) {
   // Neue Einstellungen übernommen? Dann gleich den Stand melden, damit die Eltern-App es sieht.
   if (await fernHolen(erzwingen)) erzwingen = true;
   if (!S.einstellungen.name || u.testgeraet || !u.repo || !u.token) return null;
-  try { await standPruefen(); } catch (e) { /* später nochmal */ }
+  try { await standAbgleich(erzwingen); } catch (e) { /* später nochmal */ }
   standHochladen(erzwingen);
   if (syncLaeuft) return null;
   if (!erzwingen && Date.now() - (u.versuch || 0) < 10 * 60 * 1000) return null;
@@ -269,7 +301,7 @@ function anmelden() {
   if (name.length < 2) return zeigeAnmeldung('Bitte gib deinen Namen ein.');
   S.einstellungen.name = name;
   S.upload.tage = {};
-  S.upload.standGeprueft = false; S.upload.standKern = null;
+  S.upload.standGeprueft = false; S.upload.standKern = null; S.upload.standRev = 0; S.upload.standWartet = false;
   protokoll(S, 'anmeldung', { name });
   sichern();
   zeigeStart();
@@ -279,6 +311,7 @@ function zeigeStart() {
   if (!S.einstellungen.name) return zeigeAnmeldung();
   setzeAnsicht('start');
   if (neuLadenGeplant) { neuLadenWennRuhig(); return; }
+  if (S.upload.standWartet) standAbgleich(true).catch(() => {});
   syncen();
   tagAktualisieren(S);
   const slot = R().basisMin > 0 ? L.basisSlotJetzt(new Date(), S.einstellungen, S.basisSlot) : null;
@@ -1691,7 +1724,7 @@ function zeigeEltern(meldung = '') {
 
     ${S.upload.token && !S.upload.testgeraet ? `<section class="karte">
       <h3>Spielstand online</h3>
-      <p>Spielzeit, Spielstände und Fortschritt werden unter dem Namen <b>${esc(S.einstellungen.name)}</b> gesichert. Wird die App gelöscht und neu eingerichtet, kommen sie mit dem gleichen Namen automatisch zurück.</p>
+      <p>Spielzeit, Spielstände und Fortschritt werden unter dem Namen <b>${esc(S.einstellungen.name)}</b> gesichert. Der Stand auf dem Server gilt immer: Ist dort ein neuerer Stand (z. B. von einem anderen Gerät), wird er übernommen. Nach dem Neu-Einrichten kommt alles mit dem gleichen Namen zurück.</p>
       <p class="gedaempft klein">Zuletzt gesichert: ${S.upload.standOnline && S.upload.standOnline.gespeichert ? new Date(S.upload.standOnline.gespeichert).toLocaleString('de-DE') + (S.upload.standOnline.geraetId && S.upload.standOnline.geraetId !== S.geraetId ? ' (von einem anderen Gerät)' : '') : 'noch nicht'}</p>
       ${S.upload.standFehler ? `<p class="fehler-text">${esc(S.upload.standFehler)}</p>` : ''}
       <div class="knopf-reihe"><button class="btn" data-act="standSichernJetzt">Jetzt sichern</button><button class="btn" data-act="standLaden">Online-Stand laden</button></div>
@@ -1950,7 +1983,7 @@ function klick(e) {
         protokoll(S, 'name_geaendert', { von: S.einstellungen.name, nach: neuerName });
         S.einstellungen.name = neuerName;
         S.upload.tage = {};
-        S.upload.standGeprueft = false; S.upload.standKern = null;
+        S.upload.standGeprueft = false; S.upload.standKern = null; S.upload.standRev = 0; S.upload.standWartet = false;
       }
       protokoll(S, 'einstellungen', { thema: S.einstellungen.thema, basisVon: S.einstellungen.basisVon, basisBis: S.einstellungen.basisBis });
       sichern(); zeigeEltern('Einstellungen gespeichert.'); break;
@@ -1971,10 +2004,7 @@ function klick(e) {
     case 'standLadenJa':
       schliesseModal();
       U.dateiLesen(S.upload, standPfad()).then(datei => {
-        if (!datei || !spielstandAnwenden(S, datei)) return zeigeEltern('Online gibt es noch keinen Spielstand.');
-        protokoll(S, 'spielstand_geladen', { von: datei.geraetId, gespeichert: datei.gespeichert, automatisch: false });
-        S.upload.standKern = spielstandKern(S);
-        sichern();
+        if (!datei || !standUebernehmen(datei, 'eltern')) return zeigeEltern('Online gibt es noch keinen Spielstand.');
         zeigeEltern(`Spielstand vom ${new Date(datei.gespeichert).toLocaleString('de-DE')} geladen.`);
       }).catch(e => zeigeEltern(e.message));
       break;
@@ -1988,7 +2018,7 @@ function klick(e) {
       f.textContent = 'Wird getestet …';
       U.verbindungTesten({ repo, token }).then(info => {
         if (!info.privat) { f.textContent = 'Das Repo ist öffentlich. Bitte nur ein privates Repo verwenden.'; return; }
-        S.upload = { ...S.upload, repo, token, fehler: null, tage: {}, standGeprueft: false, standKern: null };
+        S.upload = { ...S.upload, repo, token, fehler: null, tage: {}, standGeprueft: false, standKern: null, standRev: 0, standWartet: false };
         protokoll(S, 'upload_eingerichtet', { repo });
         sichern();
         if (S.upload.testgeraet) { zeigeEltern('Verbindung klappt und ist gespeichert. Testgerät: Es wird nichts übertragen.'); return; }
