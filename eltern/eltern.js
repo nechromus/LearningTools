@@ -6,10 +6,10 @@ import { THEMA_NAMEN, GEN_NAMEN } from '../js/namen.js';
 import { esc, mathe, bildSvg } from '../js/render.js';
 import * as A from './auswertung.js';
 import * as P from '../js/paket.js';
-import { einrichtungsLink } from '../js/einrichtung.js';
+import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.3.0';
+export const ELTERN_VERSION = '1.4.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -22,7 +22,8 @@ let route = { seite: 'uebersicht', arg: '' };
 let entwurf = null;
 let paketEntwurf = null;   // Paket, das gerade bearbeitet wird
 let paketText = { text: '', ergebnis: null }; // Paket aus Text einfügen
-let qr = { name: '', token: '', link: '' };      // QR-Code zum Einrichten (Schlüssel wird nicht gespeichert)
+let qr = { name: '', token: '', link: '', art: 'kind' }; // QR-Code zum Einrichten (Schlüssel wird nicht gespeichert)
+let scanStopp = null;
 let geaenderteStufen = new Set();
 let meldung = null;
 let filter = 'alle';
@@ -662,6 +663,7 @@ function spielzeitSeite() {
 
 function qrSeite() {
   if (!qr.name && D.daten && D.daten.name) qr.name = D.daten.name;
+  const eltern = qr.art === 'eltern';
   const svgCode = qr.link ? (() => {
     const q = qrcode(0, 'M');
     q.addData(qr.link);
@@ -670,24 +672,35 @@ function qrSeite() {
   })() : '';
   return `<div class="seite schmal-inhalt">
     <a class="zurueck" href="#einstellungen">${svg('zurueck', 20)}Einstellungen</a>
-    <h1>Handy einrichten</h1>
-    <p class="klein gedaempft">Nach dem Löschen der App vom Home-Bildschirm oder für ein neues Handy: Code zeigen und auf dem Kinder-Handy scannen. Danach kommen Spielzeit und Spielstände vom Server zurück.</p>
+    <h1>Per QR-Code einrichten</h1>
+    <div class="segmente" role="group" aria-label="Was einrichten?">
+      <button class="segment${eltern ? '' : ' an'}" data-act="qrArt" data-art="kind" aria-pressed="${!eltern}">Kinder-Handy</button>
+      <button class="segment${eltern ? ' an' : ''}" data-act="qrArt" data-art="eltern" aria-pressed="${eltern}">Weitere Eltern-App</button>
+    </div>
+    <p class="klein gedaempft">${eltern
+      ? 'Für ein weiteres Eltern-Gerät (z. B. iPad oder das Handy der Mutter): Code zeigen und dort in der Eltern-App scannen.'
+      : 'Nach dem Löschen der App vom Home-Bildschirm oder für ein neues Handy: Code zeigen und auf dem Kinder-Handy scannen. Danach kommen Spielzeit und Spielstände vom Server zurück.'}</p>
     ${qr.link ? `
     <section class="karte qr-karte">
       <div class="qr-bild" role="img" aria-label="QR-Code zum Einrichten">${svgCode}</div>
-      <p><b>So geht's auf dem Kinder-Handy:</b></p>
+      ${eltern ? `<p><b>So geht's auf dem anderen Gerät:</b></p>
+      <ol class="klein">
+        <li>Eltern-App öffnen (${esc(new URL('./', location.href).href)}).</li>
+        <li>Auf „Mit QR-Code einrichten“ tippen.</li>
+        <li>Kamera auf diesen Code halten.</li>
+      </ol>` : `<p><b>So geht's auf dem Kinder-Handy:</b></p>
       <ol class="klein">
         <li>Übungs-App öffnen.</li>
         <li>Beim Namen auf „Mit QR-Code aus der Eltern-App einrichten“ tippen (oder im Elternbereich „QR-Code scannen“).</li>
         <li>Kamera auf diesen Code halten.</li>
-      </ol>
+      </ol>`}
       <p class="hinweis-box klein">Der Code enthält den Zugangsschlüssel. Nur zum Scannen zeigen, nicht fotografieren oder verschicken.</p>
       <div class="knopf-reihe"><button class="knopf" data-act="qrLinkKopieren">Link kopieren</button><button class="knopf haupt breit" data-act="qrAus">Code ausblenden</button></div>
     </section>` : `
     <section class="karte">
-      <label class="feld">Name des Kindes<input id="qr-name" type="text" maxlength="20" value="${esc(qr.name)}" autocomplete="off"></label>
-      <label class="feld">Zugangsschlüssel für das Kinder-Handy<input id="qr-token" type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(qr.token)}"></label>
-      <p class="klein gedaempft">Am besten ein eigener Schlüssel pro Handy (nur Daten-Repo, „Contents: Read and write“). Er wird hier nicht gespeichert.</p>
+      ${eltern ? '' : `<label class="feld">Name des Kindes<input id="qr-name" type="text" maxlength="20" value="${esc(qr.name)}" autocomplete="off"></label>`}
+      <label class="feld">Zugangsschlüssel für ${eltern ? 'das andere Eltern-Gerät' : 'das Kinder-Handy'}<input id="qr-token" type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(qr.token)}"></label>
+      <p class="klein gedaempft">Am besten ein eigener Schlüssel pro Gerät (nur Daten-Repo, „Contents: Read and write“). Er wird hier nicht gespeichert.</p>
       <button class="knopf-text" data-act="qrEigenerSchluessel">Schlüssel dieser Eltern-App verwenden</button>
       <p class="fehler-text" id="qr-fehler">${meldung && meldung.art === 'fehler' ? esc(meldung.text) : ''}</p>
       <button class="knopf haupt breit" data-act="qrZeigen">QR-Code zeigen</button>
@@ -733,6 +746,10 @@ function zeichneEinrichten(fehler = '') {
       <p class="fehler-text" id="r-fehler" role="alert">${esc(fehler)}</p>
       <button class="knopf haupt breit" data-act="verbinden">Verbinden</button>
     </section>
+    <section class="karte">
+      <p class="klein">Schon eine Eltern-App eingerichtet? Dort unter Einstellungen → „Per QR-Code einrichten“ → „Weitere Eltern-App“ einen Code zeigen lassen.</p>
+      <button class="knopf breit" data-act="elternScan">Mit QR-Code einrichten</button>
+    </section>
     <details class="karte klein-karte"><summary>Wie bekomme ich einen Schlüssel?</summary>
       <ol class="klein">
         <li>Auf github.com: Settings → Developer settings → Fine-grained tokens → Generate new token.</li>
@@ -743,6 +760,56 @@ function zeichneEinrichten(fehler = '') {
       <p class="klein">Der Schlüssel bleibt nur auf diesem Gerät.</p>
     </details>
   </div>`;
+}
+
+// Einrichtung per QR-Code (Kamera oder Link)
+async function elternEinrichten(d, fehlerFeld) {
+  try {
+    const info = await U.verbindungTesten({ repo: d.repo, token: d.token });
+    if (!info.privat) throw new Error('Das Repo ist öffentlich. Bitte nur ein privates Repo verwenden.');
+    C = { ...C, repo: d.repo, token: d.token };
+    konfigSichern();
+    if (d.name) C.nutzer = d.name.toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    konfigSichern();
+    history.replaceState(null, '', location.pathname + '#uebersicht');
+    leseRoute();
+    allesLaden({ nutzerliste: true });
+  } catch (e) {
+    zeichneEinrichten(e.message || 'Verbindung nicht möglich.');
+  }
+}
+
+function elternScan() {
+  app.innerHTML = `<div class="einrichten">
+    <h1>QR-Code scannen</h1>
+    <p class="klein gedaempft">Halte die Kamera auf den Code aus der anderen Eltern-App.</p>
+    <div class="scan-bild"><video id="scan-video" playsinline muted autoplay></video><span class="scan-rahmen"></span></div>
+    <p class="klein gedaempft" id="scan-info">Kamera wird gestartet …</p>
+    <details class="karte klein-karte"><summary>Kamera geht nicht? Link einfügen</summary>
+      <textarea id="scan-text" rows="3" placeholder="Link einfügen"></textarea>
+      <button class="knopf" data-act="elternScanText">Übernehmen</button>
+    </details>
+    <button class="knopf" data-act="elternScanZu">Zurück</button>
+  </div>`;
+  const info = (t) => { const i = document.getElementById('scan-info'); if (i) i.textContent = t; };
+  kameraScan(document.getElementById('scan-video'), '../vendor/jsQR.js', (text) => {
+    const d = einrichtungLesen(text);
+    if (!d) { info('Das ist kein Einrichtungs-Code.'); return false; }
+    info('Code erkannt. Verbindung wird geprüft …');
+    elternEinrichten(d);
+    return true;
+  }).then(stopp => { scanStopp = stopp; info('Suche nach dem Code …'); })
+    .catch(e => info(e && e.name === 'NotAllowedError' ? 'Die Kamera ist nicht erlaubt. Du kannst den Link unten einfügen.' : (e.message || 'Die Kamera konnte nicht gestartet werden.')));
+}
+
+// Link aus der Kamera-App (…/eltern/#einrichten=…)
+function linkPruefen() {
+  const d = einrichtungLesen(location.hash);
+  if (!d) return false;
+  history.replaceState(null, '', location.pathname);
+  app.innerHTML = '<div class="einrichten"><p>Wird eingerichtet …</p></div>';
+  elternEinrichten(d);
+  return true;
 }
 
 async function verbinden() {
@@ -851,21 +918,35 @@ document.addEventListener('click', (ev) => {
         .catch(err => { meldung = { art: 'fehler', text: err.message }; zeichne(); });
       break;
     }
+    case 'qrArt': qr = { name: qr.name, token: '', link: '', art: el.dataset.art }; meldung = null; zeichne(); break;
     case 'qrEigenerSchluessel': {
-      if (!confirm('Dann nutzt das Kinder-Handy denselben Schlüssel wie diese Eltern-App. Sperrst du ihn später, geht auch die Eltern-App nicht mehr. Trotzdem verwenden?')) break;
-      qr.name = document.getElementById('qr-name').value; qr.token = C.token; meldung = null; zeichne(); break;
+      if (!confirm('Dann nutzt das andere Gerät denselben Schlüssel wie diese Eltern-App. Sperrst du ihn später, gehen beide nicht mehr. Trotzdem verwenden?')) break;
+      const n = document.getElementById('qr-name'); if (n) qr.name = n.value;
+      qr.token = C.token; meldung = null; zeichne(); break;
     }
     case 'qrZeigen': {
-      const name = document.getElementById('qr-name').value.trim().replace(/\s+/g, ' ').slice(0, 20);
+      const eltern = qr.art === 'eltern';
+      const nEl = document.getElementById('qr-name');
+      const name = nEl ? nEl.value.trim().replace(/\s+/g, ' ').slice(0, 20) : '';
       const token = document.getElementById('qr-token').value.trim();
-      qr.name = name; qr.token = token;
-      if (name.length < 2) { meldung = { art: 'fehler', text: 'Bitte den Namen des Kindes eingeben (wie in der App).' }; zeichne(); break; }
+      qr.name = name || qr.name; qr.token = token;
+      if (!eltern && name.length < 2) { meldung = { art: 'fehler', text: 'Bitte den Namen des Kindes eingeben (wie in der App).' }; zeichne(); break; }
       if (token.length < 20) { meldung = { art: 'fehler', text: 'Bitte den ganzen Zugangsschlüssel einfügen.' }; zeichne(); break; }
       meldung = null;
-      qr.link = einrichtungsLink(new URL('../', location.href).href, { repo: C.repo, token, name });
+      qr.link = eltern
+        ? einrichtungsLink(new URL('./', location.href).href, { repo: C.repo, token, art: 'eltern' })
+        : einrichtungsLink(new URL('../', location.href).href, { repo: C.repo, token, name });
       zeichne(); break;
     }
-    case 'qrAus': qr = { name: qr.name, token: '', link: '' }; zeichne(); break;
+    case 'qrAus': qr = { name: qr.name, token: '', link: '', art: qr.art }; zeichne(); break;
+    case 'elternScan': elternScan(); break;
+    case 'elternScanText': {
+      const d = einrichtungLesen(document.getElementById('scan-text').value);
+      if (!d) { document.getElementById('scan-info').textContent = 'Der Link ist nicht richtig. Bitte den ganzen Link einfügen.'; break; }
+      if (scanStopp) scanStopp();
+      elternEinrichten(d); break;
+    }
+    case 'elternScanZu': if (scanStopp) scanStopp(); scanStopp = null; zeichneEinrichten(); break;
     case 'qrLinkKopieren':
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(qr.link).then(() => alert('Link kopiert. Auf dem Kinder-Handy im Scan-Fenster unter „Link einfügen“ einfügen.'), () => prompt('Link kopieren:', qr.link));
       else prompt('Link kopieren:', qr.link);
@@ -916,11 +997,11 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Enter' && ev.target.classList && ev.target.classList.contains('min-feld')) ev.target.blur();
 });
 
-window.addEventListener('hashchange', () => { leseRoute(); if (route.seite !== 'qr') qr = { name: '', token: '', link: '' }; meldung = ['einstellungen', 'spielzeit', 'gewichte', 'pakete'].includes(route.seite) ? meldung : null; zeichne(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', () => { if (location.hash.includes('einrichten=')) return linkPruefen(); leseRoute(); if (route.seite !== 'qr') qr = { name: '', token: '', link: '', art: 'kind' }; meldung = ['einstellungen', 'spielzeit', 'gewichte', 'pakete'].includes(route.seite) ? meldung : null; zeichne(); window.scrollTo(0, 0); });
 breit.addEventListener('change', zeichne);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && C.token && D.daten && Date.now() - (D.daten.geladen || 0) > 2 * 60 * 1000) allesLaden();
 });
 
 leseRoute();
-if (C.token) allesLaden(); else zeichneEinrichten();
+if (!linkPruefen()) { if (C.token) allesLaden(); else zeichneEinrichten(); }

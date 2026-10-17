@@ -10,7 +10,7 @@ import { einrichtungLesen } from './einrichtung.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.8.0';
+export const APP_VERSION = '1.8.1';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [], BASIS_IDS = new Set();
@@ -55,7 +55,8 @@ export async function starten() {
   setInterval(spielTick, 1000);
   setInterval(() => { if (ansicht === 'start') zeigeStart(); }, 30000);
   // Einrichtungs-Link aus dem QR-Code (Kamera-App) geöffnet?
-  const ausLink = einrichtungLesen(location.hash);
+  const ausLinkRoh = einrichtungLesen(location.hash);
+  const ausLink = ausLinkRoh && ausLinkRoh.art !== 'eltern' ? ausLinkRoh : null;
   if (location.hash.includes('einrichten=')) history.replaceState(null, '', location.pathname + location.search);
   zeigeStart();
   if (ausLink) einrichten(ausLink, 'link');
@@ -149,8 +150,9 @@ async function qrScannen() {
         const code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height, { inversionAttempts: 'dontInvert' });
         if (code && code.data) {
           const d = einrichtungLesen(code.data);
-          if (d) { scannerStoppen(); schliesseModal(); einrichten(d, 'kamera'); return; }
-          if (info()) info().textContent = 'Das ist kein Einrichtungs-Code aus der Eltern-App.';
+          if (d && d.art === 'eltern') { if (info()) info().textContent = 'Das ist ein Code für die Eltern-App, nicht für dieses Handy.'; }
+          else if (d) { scannerStoppen(); schliesseModal(); einrichten(d, 'kamera'); return; }
+          else if (info()) info().textContent = 'Das ist kein Einrichtungs-Code aus der Eltern-App.';
         }
       }
       requestAnimationFrame(runde);
@@ -2109,7 +2111,7 @@ function klick(e) {
     case 'qrScannen': qrScannen(); break;
     case 'scanText': {
       const d = einrichtungLesen(document.getElementById('scan-text').value);
-      if (!d) { const i = document.getElementById('scan-info'); if (i) i.textContent = 'Der Link ist nicht richtig. Bitte den ganzen Link aus der Eltern-App einfügen.'; break; }
+      if (!d || d.art === 'eltern') { const i = document.getElementById('scan-info'); if (i) i.textContent = 'Der Link ist nicht richtig. Bitte den ganzen Link aus der Eltern-App einfügen.'; break; }
       scannerStoppen(); schliesseModal(); einrichten(d, 'text'); break;
     }
     case 'einrichtenNameJa': { const d = einrichtenWartet; einrichtenWartet = null; schliesseModal(); if (d) einrichten(d, 'bestaetigt'); break; }
