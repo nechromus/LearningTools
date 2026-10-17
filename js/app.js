@@ -8,7 +8,7 @@ import * as P from './paket.js';
 import * as B from './bloecke.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.6.0';
+export const APP_VERSION = '1.6.1';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [], BASIS_IDS = new Set();
@@ -1352,7 +1352,9 @@ function rfZiehenEinrichten() {
   const ab = $id('rf-ablage');
   if (!ab) return;
   ab.addEventListener('pointerdown', (e) => {
-    const el = e.target.closest('.rf-teil');
+    // Ganzer Platz mit Umrandung zählt, nicht nur die Form selbst (kleine Formen sind schwer zu treffen)
+    const platz = e.target.closest('.rf-platz');
+    const el = platz && platz.querySelector('.rf-teil');
     if (!el || RF || document.querySelector('#spiel-overlay .overlay') || S.guthaben <= 0) return;
     const nr = Number(el.dataset.nr), t = S.bloecke.teile[nr];
     if (!t) return;
@@ -1367,7 +1369,7 @@ function rfZiehenEinrichten() {
     // Die Form schwebt über dem Finger, damit man sie sieht
     RF = { nr, t, f, el, geist, zelle, abstand: Math.min(90, zelle * 1.6), ziel: null, id: e.pointerId };
     el.classList.add('gezogen');
-    try { el.setPointerCapture(e.pointerId); } catch (err) { /* egal */ }
+    try { platz.setPointerCapture(e.pointerId); } catch (err) { /* egal */ }
     rfBewegen(e);
   });
   ab.addEventListener('pointermove', (e) => { if (RF && e.pointerId === RF.id) { e.preventDefault(); rfBewegen(e); } });

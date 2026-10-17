@@ -523,7 +523,8 @@ textarea { font-family: ui-monospace, monospace; font-size: 14px; margin-bottom:
 @keyframes rfBlitz { 0% { filter: brightness(1.8); box-shadow: 0 0 14px var(--jade-hell); } 100% { filter: brightness(2.4); transform: scale(0.3); opacity: 0; } }
 .rf-ablage { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; min-height: 120px; touch-action: none; user-select: none; -webkit-user-select: none; }
 .rf-platz { display: flex; align-items: center; justify-content: center; min-height: 120px; border-radius: 14px; background: rgba(255, 255, 255, 0.03); border: 1px dashed rgba(95, 232, 180, 0.18); }
-.rf-teil { padding: 10px; cursor: grab; touch-action: none; }
+.rf-teil { padding: 10px; touch-action: none; }
+.rf-platz:has(.rf-teil) { cursor: grab; }
 .rf-teil .rf-form { display: grid; gap: 2px; width: calc(var(--b) * 20px); height: calc(var(--h) * 20px); }
 .rf-teil.gezogen { opacity: 0.15; }
 .rf-teil.passt-nicht { opacity: 0.4; filter: grayscale(0.7); }
