@@ -1,0 +1,1032 @@
+// Bildschirme und Ablauf der Übungsapp.
+import * as L from './logic.js';
+import { esc, mathe, bruchHtml, bildSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
+import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
+
+export const APP_VERSION = '1.0.0';
+
+const S = laden();
+let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [];
+const $app = document.getElementById('app');
+const $modal = document.getElementById('modal');
+
+let ansicht = 'start';
+let A = null;                // aktive Aufgabe
+let modalSchliessen = null;  // Callback beim Schließen
+let rechner = null;          // { ausdruck, ergebnis }
+let spielSitzung = null;     // { start, sekunden }
+let versteckt = null;        // Zeitpunkt, an dem die App verlassen wurde
+
+const THEMA_NAMEN = {
+  'minus-zahlen': 'Minus-Zahlen', 'reihenfolge': 'Reihenfolge', 'potenzen': 'Potenzen',
+  'bruch-bild': 'Bruch aus Bild', 'zuordnung': 'Zuordnung', 'prozent': 'Prozent von …',
+  'prozent-baukasten': 'Prozent-Baukasten', 'rabatt': 'Rabatt', 'neuer-preis': 'Neuer Preis',
+  'kreisdiagramm': 'Kreisdiagramm', 'runden': 'Runden', 'kugel': 'Kugel'
+};
+
+const alleAufgaben = () => [...BASIS_AUFGABEN, ...S.extraAufgaben];
+const sichern = () => speichern(S);
+const zeitSymbol = (size = 22) => sechseck(size, '#F5E6C6', '#9A5B06', '<path d="M12 7v5l3 2" stroke="#633806" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
+
+// ============ Start ============
+
+export async function starten() {
+  try {
+    const [h, a] = await Promise.all([
+      fetch('data/hinweise.json').then(r => r.json()),
+      fetch('data/aufgaben.json').then(r => r.json())
+    ]);
+    HINWEISE = h.hinweise;
+    HINWEISE.forEach(x => { HMAP[x.id] = x; });
+    BASIS_AUFGABEN = a.aufgaben;
+  } catch (e) {
+    $app.innerHTML = `<div class="screen"><div class="karte"><p>Die Aufgaben konnten nicht geladen werden. Schau, ob das Internet an ist, und öffne die App noch einmal.</p></div></div>`;
+    return;
+  }
+  dauerhaftSpeichernAnfragen();
+  document.addEventListener('click', klick);
+  document.addEventListener('visibilitychange', sichtbarkeit);
+  document.addEventListener('keydown', taste);
+  setInterval(spielTick, 1000);
+  setInterval(() => { if (ansicht === 'start') zeigeStart(); }, 30000);
+  zeigeStart();
+}
+
+// ============ Startbildschirm ============
+
+function zeigeStart() {
+  ansicht = 'start';
+  tagAktualisieren(S);
+  const slot = L.basisSlotJetzt(new Date(), S.einstellungen, S.basisSlot);
+  const name = S.einstellungen.name ? `, ${esc(S.einstellungen.name)}` : '';
+  const serieAktiv = S.serie.pos > 0 && Date.now() - S.serie.letzteAktivitaet < 20 * 60 * 1000;
+  $app.innerHTML = `
+  <div class="screen start">
+    <header class="start-kopf">
+      <div class="logo" id="logo" title="">${sechseck(56, '#DCEDED', '#1F6F75', '<text x="12" y="12.6" text-anchor="middle" dominant-baseline="central" font-family="Cinzel, serif" font-weight="700" font-size="6" fill="#0E4A4F">2048</text>')}</div>
+      <div><h1>Schrein der Zahlen</h1><p class="gedaempft">Hallo${name}!</p></div>
+    </header>
+
+    <section class="guthaben-karte">
+      ${zeitSymbol(44)}
+      <div><div class="guthaben-zahl">${L.formatZeit(S.guthaben)}</div><div class="gedaempft">Spielzeit</div></div>
+    </section>
+
+    ${slot ? `
+    <section class="basis-karte">
+      <div><b>3 Min. Spielzeit sind da!</b><div class="gedaempft">Jede Stunde gibt es 3 Minuten geschenkt.</div></div>
+      <button class="btn btn-amber" data-act="basis">Abholen</button>
+    </section>` : ''}
+
+    <button class="btn btn-haupt btn-gross" data-act="aufgaben">Aufgaben machen</button>
+    <button class="btn btn-amber-rand btn-gross" data-act="spielen">2048 spielen</button>
+
+    <section class="info-karte">
+      <div class="info-zeile"><span>Heute geschafft</span><b>${S.tag.aufgaben} ${S.tag.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}</b></div>
+      <div class="info-zeile"><span>Heute verdient</span><b>${L.formatMinuten(S.tag.verdient)}</b></div>
+      ${serieAktiv ? `<div class="info-zeile"><span>Deine Serie</span><b>${S.serie.pos} am Stück</b></div>` : ''}
+    </section>
+
+    <section class="regel-karte">
+      <div class="regel-titel">So bekommst du Spielzeit</div>
+      <div class="stufen">
+        <div><b>1</b> Min.<span>Aufg. 1–3</span></div>
+        <div><b>1,5</b> Min.<span>Aufg. 4–6</span></div>
+        <div><b>2</b> Min.<span>Aufg. 7–9</span></div>
+        <div><b>2,5</b> Min.<span>ab Aufg. 10</span></div>
+      </div>
+      <p class="gedaempft klein">Pro richtige Aufgabe. Je mehr am Stück, desto mehr Zeit. Die Serie endet, wenn du spielst oder 20 Minuten Pause machst.</p>
+    </section>
+    ${hatSpeicherFehler() ? '<p class="warnung">Der Speicher ist voll oder gesperrt. Bitte einem Erwachsenen Bescheid geben.</p>' : ''}
+  </div>`;
+  langDruecken(document.getElementById('logo'), elternZugang);
+}
+
+function langDruecken(el, fn) {
+  let t = null;
+  const start = e => { e.preventDefault(); t = setTimeout(() => { t = null; fn(); }, 1500); };
+  const stop = () => { if (t) clearTimeout(t); t = null; };
+  el.addEventListener('pointerdown', start);
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => el.addEventListener(ev, stop));
+  el.addEventListener('contextmenu', e => e.preventDefault());
+}
+
+// ============ Aufgaben ============
+
+function teileVon(a) {
+  switch (a.typ) {
+    case 'zahl': return [{ art: 'zahl', ziel: { wert: a.antwort.wert }, einheit: a.antwort.einheit || '' }];
+    case 'bruch': return [{ art: 'bruch', antwort: a.antwort }];
+    case 'auswahl': {
+      const werte = a.optionen.map(L.potenzWert);
+      const teile = [];
+      // Gegen Raten: erst die Werte ausrechnen, dann wählen
+      if (werte.every(Boolean)) a.optionen.forEach((o, i) => teile.push({ art: 'zahl', label: `${o} =`, ziel: { wert: werte[i].wert }, einheit: '', rechnung: o }));
+      teile.push({ art: 'wahl', label: a.frage, optionen: a.optionen, richtig: a.antwort.richtig });
+      return teile;
+    }
+    case 'schritte': return a.schritte.map(s => s.optionen
+      ? { art: 'wahl', label: s.text, optionen: s.optionen, richtig: s.richtig, quelle: s }
+      : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden }, einheit: s.einheit || '', quelle: s });
+    case 'mehrfrage': return a.fragen.map(q => ({ art: 'zahl', label: q.frage, ziel: { wert: q.wert }, einheit: q.einheit || '', bonus: !!q.bonus, quelle: q }));
+    case 'zuordnung': return [{ art: 'zuordnung' }];
+  }
+  return [];
+}
+
+function neueAufgabe() {
+  tagAktualisieren(S);
+  const kategorie = L.MUSTER[S.verlauf.musterIndex % L.MUSTER.length];
+  const aufgabe = L.waehleAufgabe(alleAufgaben(), {
+    kategorie, thema: S.einstellungen.thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key
+  });
+  S.verlauf.musterIndex++;
+  if (Date.now() - S.serie.letzteAktivitaet > 20 * 60 * 1000) S.serie.pos = 0;
+  S.serie.pos++;
+  S.serie.letzteAktivitaet = Date.now();
+  A = {
+    aufgabe, kategorie, serienPos: S.serie.pos, start: Date.now(),
+    teile: teileVon(aufgabe), idx: 0, phase: 'eingabe', hinweise: [], verlassen: 0, strafe: 'keine',
+    fertig: false, meldung: null, feld: 'z'
+  };
+  A.teile.forEach(t => { t.versuche = []; t.status = 'offen'; t.eingabe = ''; t.z = ''; t.n = ''; t.seit = Date.now(); });
+  if (aufgabe.typ === 'zuordnung') zuordnungVorbereiten();
+  protokoll(S, 'aufgabe_start', { id: aufgabe.id, thema: aufgabe.thema, stufe: aufgabe.stufe, aufgabenTyp: aufgabe.typ, kategorie, serienPos: A.serienPos, bonus: !!aufgabe.bonus });
+  sichern();
+  ansicht = 'aufgabe';
+  zeigeAufgabe();
+}
+
+function aktuellerTeil() { return A && A.teile[A.idx]; }
+
+function zeigeAufgabe() {
+  const a = A.aufgabe;
+  const min = L.minutenFuerPosition(A.serienPos);
+  const tz = String(min).replace('.', ',');
+  const icons = (a.hinweise || []).filter(id => HMAP[id]).map(id =>
+    `<button class="hw-btn${A.meldung && A.phase === 'tipp' ? ' pulsieren' : ''}" data-act="hinweis" data-id="${id}" aria-label="Hinweis ${esc(HMAP[id].titel)}">${hinweisIcon(HMAP[id], 42)}</button>`).join('');
+
+  $app.innerHTML = `
+  <div class="screen aufgabe-screen">
+    <header class="topbar">
+      <button class="btn-text" data-act="beenden">✕ Fertig</button>
+      <div class="serie-chip">Aufgabe ${A.serienPos} · <b>${tz} Min.</b></div>
+      <div class="zeit-chip">${zeitSymbol(18)}${L.formatZeit(S.guthaben)}</div>
+    </header>
+    <main class="aufgabe-inhalt">
+      <article class="karte aufgabe${a.bonus ? ' bonus' : ''}">
+        ${a.bonus ? `<div class="bonus-kopf"><span class="bonus-label">Bonus · freiwillig</span>${!A.fertig && A.teile.every(t => !t.versuche.length) ? '<button class="btn-text klein" data-act="ueberspringen">Überspringen</button>' : ''}</div>` : ''}
+        ${a.geschichte ? `<p class="geschichte">${mathe(a.geschichte)}</p>` : ''}
+        ${a.rechnung ? `<div class="rechnung">${mathe(a.rechnung)}</div>` : ''}
+        ${a.bild ? `<div class="bild">${bildSvg(a.bild)}</div>` : ''}
+        ${a.typ !== 'auswahl' ? `<p class="frage">${mathe(a.frage)}</p>` : ''}
+        <div class="teile">${teileHtml()}</div>
+        <div class="hw-leiste"><span class="gedaempft">Hinweis:</span>${icons}
+          ${a.taschenrechner && !A.fertig ? '<button class="btn btn-klein btn-rechner" data-act="rechner">Taschenrechner</button>' : ''}
+        </div>
+      </article>
+      ${A.meldung && A.phase === 'eingabe' ? `<div class="meldung">${esc(A.meldung)}</div>` : ''}
+      ${A.fertig ? ergebnisHtml() : ''}
+    </main>
+    <footer class="eingabe-bereich">${fussHtml()}</footer>
+  </div>`;
+  const aktiv = document.querySelector('.teil.aktiv');
+  if (aktiv && !A.fertig) aktiv.scrollIntoView({ block: 'nearest' });
+}
+
+function teileHtml() {
+  const a = A.aufgabe;
+  const mehrteilig = A.teile.length > 1;
+  return A.teile.map((t, i) => {
+    if (i > A.idx && !A.fertig) return '';
+    const aktiv = i === A.idx && !A.fertig;
+    const nr = mehrteilig && a.typ !== 'auswahl' ? `<span class="teil-nr">${i + 1}</span>` : '';
+    const bonus = t.bonus ? '<span class="bonus-label klein">Bonus</span>' : '';
+    let inhalt = '';
+    if (t.art === 'zahl') {
+      const label = t.label ? `<div class="teil-label">${nr}${bonus}<span>${mathe(t.label)}</span></div>` : '';
+      if (aktiv) {
+        inhalt = `${label}<div class="feld-zeile"><div class="feld aktiv-feld${t.eingabe ? '' : ' leer'}" aria-live="polite">${esc(t.eingabe.replace('-', '−')) || '?'}</div>${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}</div>`;
+      } else {
+        const ok = t.versuche.find(v => v.richtig);
+        const zeigen = ok ? `${ok.eingabe.replace('-', '−').replace('.', ',')}${t.einheit ? ' ' + t.einheit : ''}` : formatWert(t.ziel.wert, t.einheit);
+        inhalt = `${label}<div class="feld-zeile">${erledigtWert(t, zeigen)}</div>`;
+      }
+    } else if (t.art === 'bruch') {
+      if (aktiv) {
+        inhalt = `<div class="bruch-eingabe">
+          <button class="feld bruch-feld${A.feld === 'z' ? ' aktiv-feld' : ''}" data-act="feld" data-feld="z">${esc(t.z) || '?'}</button>
+          <div class="bruch-strich"></div>
+          <button class="feld bruch-feld${A.feld === 'n' ? ' aktiv-feld' : ''}" data-act="feld" data-feld="n">${esc(t.n) || '?'}</button>
+        </div><p class="gedaempft klein mitte">Oben: gefärbte Teile. Unten: alle Teile. Tippe ein Feld an.</p>`;
+      } else {
+        inhalt = `<div class="feld-zeile">${erledigtWert(t, bruchHtml(t.antwort.zaehler, t.antwort.nenner), true)}</div>`;
+      }
+    } else if (t.art === 'wahl') {
+      const knoepfe = t.optionen.map((o, k) => {
+        let kl = 'wahl-btn';
+        if (!aktiv) { if (k === t.richtig) kl += ' wahl-richtig'; else if (t.gewaehlt === k) kl += ' wahl-falsch'; }
+        return `<button class="${kl}" data-act="wahl" data-k="${k}" ${aktiv && A.phase === 'eingabe' ? '' : 'disabled'}>${mathe(o)}</button>`;
+      }).join('');
+      inhalt = `<div class="teil-label">${nr}<span><b>${mathe(t.label)}</b></span></div><div class="wahl-reihe">${knoepfe}</div>`;
+    } else if (t.art === 'zuordnung') {
+      inhalt = zuordnungHtml(aktiv);
+    }
+    let zusatz = '';
+    if (aktiv && A.phase === 'tipp') zusatz = `<div class="tipp"><b>Noch nicht.</b> ${esc(t.tipp)}</div>`;
+    if (i === A.idx && A.phase === 'aufgeloest') zusatz = `<div class="aufloesung">So ist es richtig: <b>${loesungText(t)}</b></div>`;
+    return `<div class="teil${aktiv ? ' aktiv' : ''}">${inhalt}${zusatz}</div>`;
+  }).join('');
+}
+
+function loesungText(t) {
+  if (t.art === 'zahl') return esc(formatWert(t.ziel.wert, t.einheit));
+  if (t.art === 'bruch') return bruchHtml(t.antwort.zaehler, t.antwort.nenner);
+  if (t.art === 'wahl') return mathe(t.optionen[t.richtig]);
+  return 'siehe unten';
+}
+
+function erledigtWert(t, wertHtml, roh = false) {
+  const w = roh ? wertHtml : esc(wertHtml);
+  if (t.status === 'erst' || t.status === 'zweit') return `<span class="erledigt richtig">${w} <span class="haken">✓</span></span>`;
+  if (t.status === 'uebersprungen') return `<span class="erledigt gedaempft">übersprungen</span>`;
+  return `<span class="erledigt loesung">${w}</span>`;
+}
+
+function fussHtml() {
+  if (A.fertig) {
+    return `<div class="fuss-knoepfe">
+      <button class="btn btn-haupt btn-gross" data-act="naechste">Nächste Aufgabe</button>
+      <button class="btn btn-amber-rand" data-act="spielen">Zum Spiel · ${L.formatZeit(S.guthaben)}</button>
+    </div>`;
+  }
+  const t = aktuellerTeil();
+  if (A.phase === 'tipp') return `<button class="btn btn-haupt btn-gross" data-act="verstanden">Verstanden</button>`;
+  if (A.phase === 'aufgeloest') return `<button class="btn btn-haupt btn-gross" data-act="weiter">Weiter</button>`;
+  if (t.art === 'zahl' || t.art === 'bruch') {
+    return `${t.bonus ? '<button class="btn-text klein ueberspringen" data-act="teilUeberspringen">Bonus überspringen</button>' : ''}
+    <div class="tastatur">
+      ${['7', '8', '9', '⌫', '4', '5', '6', '−', '1', '2', '3', ','].map(k => `<button class="taste${k === '⌫' || k === '−' || k === ',' ? ' taste-sonder' : ''}" data-act="taste" data-k="${k}" ${t.art === 'bruch' && (k === '−' || k === ',') ? 'disabled' : ''} aria-label="${k === '⌫' ? 'Löschen' : k === '−' ? 'Minus' : k}">${k}</button>`).join('')}
+      <button class="taste taste-null" data-act="taste" data-k="0">0</button>
+      <button class="taste taste-ok" data-act="antwort">Antwort geben</button>
+    </div>`;
+  }
+  if (t.art === 'zuordnung') return `<button class="btn btn-haupt btn-gross" data-act="antwort">Antwort geben</button>`;
+  return '';
+}
+
+function ergebnisHtml() {
+  const a = A.aufgabe;
+  const sek = A.sekunden;
+  let kopf;
+  if (A.ergebnis === 'erst') kopf = `<div class="erfolg-titel">Richtig!</div>`;
+  else if (A.ergebnis === 'zweit') kopf = `<div class="erfolg-titel">Geschafft – im 2. Versuch!</div>`;
+  else kopf = `<div class="erfolg-titel neutral">Jetzt weißt du, wie es geht.</div><p>Die Aufgabe kommt später noch einmal.</p>`;
+  const zeit = sek > 0 ? `<div class="zeit-gewinn">${zeitSymbol(28)} +${L.formatMinuten(sek)} Spielzeit</div>` : '';
+  let strafe = '';
+  if (A.strafe === 'halb' && A.ergebnis !== 'loesung') strafe = '<p class="gedaempft">Du warst kurz außerhalb der App. Darum gibt es diesmal nur die Hälfte.</p>';
+  if (A.strafe === 'null' && A.ergebnis !== 'loesung') strafe = '<p class="gedaempft">Du warst außerhalb der App. Bei Aufgaben ohne Taschenrechner gibt es dafür heute keine Spielzeit.</p>';
+  const weg = `<div class="loesungsweg"><div class="lw-titel">So geht's</div>${(a.loesungsweg || []).map(z => `<div class="lw-zeile">${mathe(z)}</div>`).join('')}<p class="lw-erkl">${mathe(a.erklaerung || '')}</p></div>`;
+  const offen = A.ergebnis === 'loesung';
+  return `<section class="ergebnis-karte">${kopf}${zeit}${strafe}
+    ${offen ? weg : `<details class="weg-details"><summary>Lösungsweg ansehen</summary>${weg}</details>`}
+  </section>`;
+}
+
+// ---------- Eingabe ----------
+
+function tastatur(k) {
+  const t = aktuellerTeil();
+  if (!t || A.phase !== 'eingabe') return;
+  A.meldung = null;
+  if (t.art === 'bruch') {
+    const f = A.feld;
+    if (k === '⌫') t[f] = t[f].slice(0, -1);
+    else if (/\d/.test(k) && t[f].length < 3) t[f] += k;
+    zeigeAufgabe();
+    return;
+  }
+  let e = t.eingabe;
+  if (k === '⌫') e = e.slice(0, -1);
+  else if (k === '−') e = e.startsWith('-') ? e.slice(1) : '-' + e;
+  else if (k === ',') { if (!e.includes(',')) e = (e === '' || e === '-' ? e + '0' : e) + ','; }
+  else if (e.replace(/[-,]/g, '').length < 9) e += k;
+  t.eingabe = e;
+  zeigeAufgabe();
+}
+
+function antwortGeben() {
+  const t = aktuellerTeil();
+  if (!t || A.phase !== 'eingabe') return;
+  const a = A.aufgabe;
+  if (t.art === 'zuordnung') return zuordnungAntwort();
+  let eingabe, richtig, fehler = null;
+  if (t.art === 'zahl') {
+    const p = L.parseZahl(t.eingabe);
+    if (!p.ok) { A.meldung = 'Tippe zuerst eine Zahl ein.'; return zeigeAufgabe(); }
+    eingabe = t.eingabe.replace(',', '.');
+    richtig = L.pruefeZahl(t.eingabe, t.ziel);
+    if (!richtig) {
+      const pseudo = t.rechnung ? { ...a, rechnung: t.rechnung, thema: 'potenzen' } : a;
+      fehler = L.erkenneFehler(pseudo, t.quelle || (t.rechnung ? { wert: t.ziel.wert } : null), t.eingabe);
+    }
+  } else if (t.art === 'bruch') {
+    if (!t.z || !t.n) { A.meldung = 'Tippe Zähler und Nenner ein.'; return zeigeAufgabe(); }
+    eingabe = `${t.z}/${t.n}`;
+    richtig = L.pruefeBruch(t.z, t.n, t.antwort);
+    if (!richtig && t.z === String(t.antwort.nenner) && t.n === String(t.antwort.zaehler)) {
+      fehler = { typ: 'bruch-vertauscht', text: 'Oben stehen die gefärbten Teile, unten alle Teile.' };
+    }
+  }
+  if (!richtig && t.versuche.some(v => v.eingabe === eingabe)) {
+    A.meldung = 'Das hattest du schon. Rechne noch einmal nach.';
+    protokoll(S, 'versuch_wiederholt', { id: a.id, teil: A.idx, eingabe });
+    sichern();
+    return zeigeAufgabe();
+  }
+  versuchMerken(t, eingabe, richtig, fehler);
+}
+
+function versuchMerken(t, eingabe, richtig, fehler) {
+  const a = A.aufgabe;
+  const ms = Date.now() - t.seit;
+  t.versuche.push({ eingabe, richtig });
+  protokoll(S, 'versuch', {
+    id: a.id, thema: a.thema, teil: A.idx, versuch: t.versuche.length, eingabe, richtig,
+    fehler: fehler ? fehler.typ : null, ms, schnell: !!a.geschichte && ms < 4000,
+    hinweiseOffen: A.hinweise.slice()
+  });
+  t.seit = Date.now();
+  if (richtig) {
+    t.status = t.versuche.length === 1 ? 'erst' : 'zweit';
+    return naechsterTeil();
+  }
+  const maxVersuche = t.art === 'wahl' ? 1 : 2;
+  if (t.versuche.length < maxVersuche) {
+    t.tipp = fehler ? fehler.text : 'Schau dir den Hinweis an und rechne noch einmal.';
+    A.phase = 'tipp';
+    A.meldung = t.tipp;
+    t.eingabe = ''; t.z = ''; t.n = '';
+  } else {
+    t.status = 'loesung';
+    A.phase = 'aufgeloest';
+    protokoll(S, 'loesung_gezeigt', { id: a.id, teil: A.idx });
+  }
+  sichern();
+  zeigeAufgabe();
+}
+
+function naechsterTeil() {
+  A.phase = 'eingabe';
+  A.meldung = null;
+  A.feld = 'z';
+  A.idx++;
+  if (A.idx >= A.teile.length) return abschliessen();
+  A.teile[A.idx].seit = Date.now();
+  sichern();
+  zeigeAufgabe();
+}
+
+function abschliessen() {
+  const a = A.aufgabe;
+  const pflicht = A.teile.filter(t => !t.bonus);
+  let ergebnis = 'erst';
+  if (pflicht.some(t => t.status === 'loesung')) ergebnis = 'loesung';
+  else if (pflicht.some(t => t.status === 'zweit')) ergebnis = 'zweit';
+  const sek = L.sekundenFuerAufgabe({ ergebnis, serienPos: A.serienPos, strafe: A.strafe });
+  A.ergebnis = ergebnis; A.sekunden = sek; A.fertig = true; A.idx = A.teile.length - 1; A.phase = 'eingabe';
+  S.guthaben += sek;
+  tagAktualisieren(S);
+  S.tag.aufgaben++;
+  if (ergebnis === 'erst') S.tag.ersterVersuch++;
+  S.tag.verdient += sek;
+  const st = S.statistik[a.id] || (S.statistik[a.id] = { gesehen: 0 });
+  st.gesehen++; st.zuletzt = S.verlauf.zaehler; st.letztesErgebnis = ergebnis; st.letzterTag = S.tag.key;
+  S.verlauf.zaehler++;
+  S.verlauf.letzteIds = [...S.verlauf.letzteIds, a.id].slice(-20);
+  S.verlauf.themaZuletzt[a.thema] = { ergebnis, stufe: a.stufe };
+  S.serie.letzteAktivitaet = Date.now();
+  protokoll(S, 'aufgabe_ende', {
+    id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: sek, serienPos: A.serienPos,
+    strafe: A.strafe, verlassen: A.verlassen, ms: Date.now() - A.start, hinweise: A.hinweise.slice(),
+    bonusTeile: A.teile.filter(t => t.bonus).map(t => t.status)
+  });
+  sichern();
+  zeigeAufgabe();
+  const k = document.querySelector('.ergebnis-karte');
+  if (k) k.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+// ---------- Zuordnung ----------
+
+function zuordnungVorbereiten() {
+  const g = A.aufgabe.gruppen;
+  const idx = g.map((_, i) => i);
+  A.zuo = {
+    spalten: A.aufgabe.spalten.filter(s => s !== 'worte'),
+    reihenfolge: {},
+    wahl: g.map(() => ({})),
+    falsch: new Set(),
+    versuch: 0
+  };
+  for (const s of A.zuo.spalten) A.zuo.reihenfolge[s] = L.mischen(idx);
+}
+
+function zuoInhalt(spalte, gi, klein = true) {
+  const g = A.aufgabe.gruppen[gi];
+  if (spalte === 'bild') return `<div class="zuo-bild">${bildSvg(g.bild, klein)}</div>`;
+  if (spalte === 'bruch') { const [z, n] = String(g.bruch).split('/'); return bruchHtml(z, n); }
+  if (spalte === 'prozent') return `<span class="zuo-prozent">${g.prozent} %</span>`;
+  return esc(g[spalte]);
+}
+
+const SPALTEN_NAMEN = { bild: 'Bild', bruch: 'Bruch', prozent: 'Prozent' };
+
+function zuordnungHtml(aktiv) {
+  const z = A.zuo;
+  const kopf = `<div class="zuo-reihe zuo-kopf"><div>Worte</div>${z.spalten.map(s => `<div>${SPALTEN_NAMEN[s]}</div>`).join('')}</div>`;
+  const reihen = A.aufgabe.gruppen.map((g, gi) => {
+    const slots = z.spalten.map(s => {
+      const w = z.wahl[gi][s];
+      const key = `${gi}-${s}`;
+      let kl = 'zuo-slot';
+      if (w == null) kl += ' leer';
+      if (z.falsch.has(key)) kl += ' markiert';
+      if (!aktiv && A.fertig && w === gi) kl += ' ok';
+      return `<button class="${kl}" data-act="zuoSlot" data-g="${gi}" data-s="${s}" ${aktiv && A.phase === 'eingabe' ? '' : 'disabled'}>${w == null ? '?' : zuoInhalt(s, w)}</button>`;
+    }).join('');
+    return `<div class="zuo-reihe"><div class="zuo-worte">${esc(g.worte)}</div>${slots}</div>`;
+  }).join('');
+  return `${kopf}${reihen}${aktiv ? '<p class="gedaempft klein">Tippe auf ein Fragezeichen und wähle aus.</p>' : ''}`;
+}
+
+function zuoAuswahl(gi, spalte) {
+  const g = A.aufgabe.gruppen[gi];
+  const opts = A.zuo.reihenfolge[spalte].map(oi => {
+    const benutzt = A.zuo.wahl.some((w, i) => i !== gi && w[spalte] === oi);
+    return `<button class="zuo-option${benutzt ? ' benutzt' : ''}" data-act="zuoWahl" data-g="${gi}" data-s="${spalte}" data-o="${oi}">${zuoInhalt(spalte, oi, spalte !== 'bild')}${benutzt ? '<span class="benutzt-label">schon benutzt</span>' : ''}</button>`;
+  }).join('');
+  oeffneModal(`<h2 class="modal-titel">${SPALTEN_NAMEN[spalte]} für „${esc(g.worte)}“</h2><div class="zuo-optionen ${spalte}">${opts}</div>`);
+}
+
+function zuoWaehlen(gi, spalte, oi) {
+  A.zuo.wahl.forEach((w, i) => { if (i !== gi && w[spalte] === oi) delete w[spalte]; });
+  A.zuo.wahl[gi][spalte] = oi;
+  A.zuo.falsch.delete(`${gi}-${spalte}`);
+  schliesseModal();
+  zeigeAufgabe();
+}
+
+function zuordnungAntwort() {
+  const z = A.zuo, t = aktuellerTeil();
+  const leer = A.aufgabe.gruppen.some((_, gi) => z.spalten.some(s => z.wahl[gi][s] == null));
+  if (leer) { A.meldung = 'Fülle zuerst alle Kästchen aus.'; return zeigeAufgabe(); }
+  const falsch = [];
+  A.aufgabe.gruppen.forEach((_, gi) => z.spalten.forEach(s => { if (z.wahl[gi][s] !== gi) falsch.push(`${gi}-${s}`); }));
+  z.versuch++;
+  const ms = Date.now() - t.seit;
+  t.versuche.push({ eingabe: JSON.stringify(z.wahl), richtig: !falsch.length });
+  protokoll(S, 'versuch', { id: A.aufgabe.id, thema: A.aufgabe.thema, teil: 0, versuch: z.versuch, eingabe: z.wahl, falsch: falsch.length, richtig: !falsch.length, ms, hinweiseOffen: A.hinweise.slice() });
+  t.seit = Date.now();
+  if (!falsch.length) { t.status = z.versuch === 1 ? 'erst' : 'zweit'; return naechsterTeil(); }
+  if (z.versuch === 1) {
+    z.falsch = new Set(falsch);
+    const n = falsch.length;
+    t.tipp = `${n} ${n === 1 ? 'Kästchen stimmt' : 'Kästchen stimmen'} noch nicht. Sie sind markiert.`;
+    A.phase = 'tipp'; A.meldung = t.tipp;
+    sichern();
+    return zeigeAufgabe();
+  }
+  // Lösung zeigen
+  z.falsch = new Set(falsch);
+  A.aufgabe.gruppen.forEach((_, gi) => z.spalten.forEach(s => { z.wahl[gi][s] = gi; }));
+  t.status = 'loesung';
+  protokoll(S, 'loesung_gezeigt', { id: A.aufgabe.id, teil: 0 });
+  A.phase = 'aufgeloest';
+  sichern();
+  zeigeAufgabe();
+}
+
+// ---------- Hinweise, Taschenrechner ----------
+
+function hinweisOeffnen(id) {
+  const h = HMAP[id];
+  if (!h) return;
+  if (A && ansicht === 'aufgabe' && !A.hinweise.includes(id)) A.hinweise.push(id);
+  protokoll(S, 'hinweis', { hinweis: id, id: A && ansicht === 'aufgabe' ? A.aufgabe.id : null });
+  sichern();
+  oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);
+}
+
+function rechnerOeffnen() {
+  rechner = { ausdruck: '', ergebnis: null };
+  protokoll(S, 'rechner_offen', { id: A.aufgabe.id });
+  zeigeRechner();
+}
+
+function zeigeRechner() {
+  const tasten = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', ',', 'π', '=', 'x²', 'x³', '⌫'];
+  const anzeige = rechner.ergebnis != null ? L.formatRechnerZahl(rechner.ergebnis) : '';
+  oeffneModal(`
+    <div class="rechner">
+      <div class="rechner-anzeige"><div class="rechner-ausdruck">${esc(rechner.ausdruck) || '&nbsp;'}</div><div class="rechner-ergebnis">${esc(anzeige) || '&nbsp;'}</div></div>
+      <div class="rechner-tasten">${tasten.map(k => `<button class="r-taste${'÷×−+='.includes(k) && k.length === 1 ? ' r-op' : ''}${k === '=' ? ' r-gleich' : ''}" data-act="rTaste" data-k="${k}">${k === 'x²' ? 'x²' : k === 'x³' ? 'x³' : k}</button>`).join('')}
+        <button class="r-taste r-uebernehmen" data-act="rUebernehmen" ${rechner.ergebnis == null ? 'disabled' : ''}>Ergebnis eintragen</button>
+      </div>
+    </div>`, () => { rechner = null; });
+}
+
+function rechnerTaste(k) {
+  if (!rechner) return;
+  if (k === 'C') { rechner.ausdruck = ''; rechner.ergebnis = null; }
+  else if (k === '⌫') { rechner.ausdruck = rechner.ausdruck.slice(0, -1); }
+  else if (k === '=') {
+    rechner.ergebnis = L.rechne(rechner.ausdruck);
+    protokoll(S, 'rechner', { id: A && A.aufgabe.id, ausdruck: rechner.ausdruck, ergebnis: rechner.ergebnis });
+    sichern();
+  } else {
+    if (rechner.ergebnis != null && /^[0-9,π(]$/.test(k)) rechner.ausdruck = '';
+    else if (rechner.ergebnis != null && /^[÷×−+]$/.test(k)) rechner.ausdruck = L.formatRechnerZahl(rechner.ergebnis);
+    rechner.ergebnis = null;
+    rechner.ausdruck += k === 'x²' ? '²' : k === 'x³' ? '³' : k;
+  }
+  zeigeRechner();
+}
+
+function rechnerUebernehmen() {
+  const t = aktuellerTeil();
+  if (rechner && rechner.ergebnis != null && t && t.art === 'zahl' && A.phase === 'eingabe') {
+    t.eingabe = L.formatRechnerZahl(rechner.ergebnis).replace('−', '-');
+  }
+  schliesseModal();
+  zeigeAufgabe();
+}
+
+// ---------- App verlassen ----------
+
+function sichtbarkeit() {
+  if (document.hidden) {
+    versteckt = Date.now();
+    sichern();
+    return;
+  }
+  const dauer = versteckt ? Date.now() - versteckt : 0;
+  versteckt = null;
+  tagAktualisieren(S);
+  if (ansicht === 'aufgabe' && A && !A.fertig && !A.aufgabe.taschenrechner && dauer >= 3000) {
+    S.tag.verlassen++;
+    A.verlassen++;
+    const n = S.tag.verlassen;
+    const neu = L.strafeFuerVerlassen(n);
+    const rang = { keine: 0, halb: 1, null: 2 };
+    if (rang[neu] > rang[A.strafe]) A.strafe = neu;
+    protokoll(S, 'verlassen', { id: A.aufgabe.id, ms: dauer, n, strafe: A.strafe });
+    sichern();
+    if (n >= 2) {
+      oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Ohne Taschenrechner</h2>
+        <p>Diese Aufgabe rechnest du ohne Taschenrechner.</p>
+        <p>Wenn du die App während einer Aufgabe verlässt, gibt es weniger Spielzeit${n >= 3 ? ' – heute für diese Aufgabe gar keine' : ''}.</p>
+        <button class="btn btn-haupt" data-act="modalZu">Verstanden</button></div>`);
+    }
+  }
+  if (ansicht === 'start') zeigeStart();
+}
+
+// ============ 2048 ============
+
+function zeigeSpiel() {
+  ansicht = 'spiel';
+  // Spielen beendet die Serie
+  if (S.serie.pos) { protokoll(S, 'serie_ende', { laenge: S.serie.pos }); S.serie.pos = 0; }
+  if (!S.spiel.feld) neuesSpielFeld();
+  spielSitzung = { start: Date.now(), sekunden: 0 };
+  protokoll(S, 'spiel_start', { guthaben: S.guthaben });
+  sichern();
+  $app.innerHTML = `
+  <div class="screen spiel-screen">
+    <header class="topbar">
+      <button class="btn-text" data-act="spielZurueck">← Zurück</button>
+      <div class="zeit-chip gross">${zeitSymbol(22)}<span id="spielzeit">${L.formatZeit(S.guthaben)}</span></div>
+      <div class="punkte-box"><span>Punkte</span><b id="punkte">${S.spiel.punkte}</b></div>
+    </header>
+    <div class="spiel-zeile"><span class="gedaempft">Rekord: <b id="rekord">${S.spiel.rekord}</b></span><button class="btn-text klein" data-act="neuesSpiel">Neues Spiel</button></div>
+    <div class="brett-rahmen"><div class="brett" id="brett"></div><div id="spiel-overlay"></div></div>
+    <button class="btn btn-haupt" data-act="aufgaben">Mehr Spielzeit: Aufgaben machen</button>
+    <p class="gedaempft klein mitte">Wische, um die Steine zu schieben. Gleiche Zahlen verschmelzen.</p>
+  </div>`;
+  brettZeichnen();
+  wischen(document.querySelector('.brett-rahmen'));
+  overlayPruefen();
+}
+
+function neuesSpielFeld() {
+  const f = L.leeresFeld();
+  L.neueKachel(f); L.neueKachel(f);
+  S.spiel.feld = f; S.spiel.punkte = 0; S.spiel.maxKachel = L.hoechsteKachel(f); S.spiel.gewonnenGezeigt = false;
+}
+
+function brettZeichnen(neu = null, verschmolzen = []) {
+  const b = document.getElementById('brett');
+  if (!b) return;
+  b.innerHTML = S.spiel.feld.map((z, r) => z.map((v, c) => {
+    let kl = `kachel k${v > 4096 ? 'x' : v}`;
+    if (v >= 1000) kl += ' vierstellig';
+    if (neu && neu[0] === r && neu[1] === c) kl += ' neu';
+    if (verschmolzen.some(([a, b2]) => a === r && b2 === c)) kl += ' verschmolzen';
+    return `<div class="${kl}">${v || ''}</div>`;
+  }).join('')).join('');
+  const p = document.getElementById('punkte'); if (p) p.textContent = S.spiel.punkte;
+  const re = document.getElementById('rekord'); if (re) re.textContent = S.spiel.rekord;
+}
+
+function zug(richtung) {
+  if (ansicht !== 'spiel' || S.guthaben <= 0 || document.querySelector('#spiel-overlay .overlay')) return;
+  const r = L.bewege(S.spiel.feld, richtung);
+  if (!r.bewegt) return;
+  S.spiel.feld = r.feld;
+  S.spiel.punkte += r.punkte;
+  if (S.spiel.punkte > S.spiel.rekord) S.spiel.rekord = S.spiel.punkte;
+  const neu = L.neueKachel(S.spiel.feld);
+  S.spiel.maxKachel = Math.max(S.spiel.maxKachel, L.hoechsteKachel(S.spiel.feld));
+  brettZeichnen(neu, r.verschmolzen);
+  if (!L.kannBewegen(S.spiel.feld)) {
+    protokoll(S, 'spiel_vorbei', { punkte: S.spiel.punkte, maxKachel: S.spiel.maxKachel });
+    sichern();
+    overlay(`<div class="overlay-titel">Keine Züge mehr</div><p>${S.spiel.punkte} Punkte. Ein neues Spiel kostet nichts.</p><button class="btn btn-haupt" data-act="neuesSpielJetzt">Neues Spiel</button>`);
+  } else if (S.spiel.maxKachel >= 2048 && !S.spiel.gewonnenGezeigt) {
+    S.spiel.gewonnenGezeigt = true;
+    protokoll(S, 'spiel_2048', { punkte: S.spiel.punkte });
+    overlay(`<div class="overlay-titel">2048 geschafft!</div><p>Stark! Du kannst weiterspielen.</p><button class="btn btn-haupt" data-act="overlayZu">Weiterspielen</button>`);
+  }
+}
+
+function overlay(html) {
+  const o = document.getElementById('spiel-overlay');
+  if (o) o.innerHTML = `<div class="overlay">${html}</div>`;
+}
+
+function overlayPruefen() {
+  if (S.guthaben <= 0) {
+    overlay(`<div class="overlay-titel">Spielzeit ist um</div><p>Dein Spiel bleibt gespeichert.</p><button class="btn btn-haupt" data-act="aufgaben">Aufgaben machen</button>`);
+  } else if (!L.kannBewegen(S.spiel.feld)) {
+    overlay(`<div class="overlay-titel">Keine Züge mehr</div><p>Ein neues Spiel kostet nichts.</p><button class="btn btn-haupt" data-act="neuesSpielJetzt">Neues Spiel</button>`);
+  }
+}
+
+function spielTick() {
+  if (ansicht !== 'spiel' || document.hidden || S.guthaben <= 0) return;
+  if (document.querySelector('#spiel-overlay .overlay')) return;
+  S.guthaben = Math.max(0, S.guthaben - 1);
+  if (spielSitzung) spielSitzung.sekunden++;
+  const el = document.getElementById('spielzeit');
+  if (el) el.textContent = L.formatZeit(S.guthaben);
+  if (S.guthaben % 10 === 0) sichern();
+  if (S.guthaben <= 0) { spielBeenden(); overlayPruefen(); }
+}
+
+function spielBeenden() {
+  if (!spielSitzung) return;
+  protokoll(S, 'spiel_ende', { sekunden: spielSitzung.sekunden, punkte: S.spiel.punkte, maxKachel: S.spiel.maxKachel, rest: S.guthaben });
+  spielSitzung = null;
+  sichern();
+}
+
+function wischen(el) {
+  let x0 = null, y0 = null;
+  el.addEventListener('touchstart', e => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; }, { passive: true });
+  el.addEventListener('touchmove', e => { if (x0 != null) e.preventDefault(); }, { passive: false });
+  el.addEventListener('touchend', e => {
+    if (x0 == null) return;
+    const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+    x0 = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    zug(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'rechts' : 'links') : (dy > 0 ? 'runter' : 'hoch'));
+  });
+}
+
+function taste(e) {
+  if (ansicht === 'spiel') {
+    const m = { ArrowLeft: 'links', ArrowRight: 'rechts', ArrowUp: 'hoch', ArrowDown: 'runter' }[e.key];
+    if (m) { e.preventDefault(); zug(m); }
+  } else if (ansicht === 'aufgabe' && A && !A.fertig && !$modal.classList.contains('offen')) {
+    if (/^[0-9]$/.test(e.key)) tastatur(e.key);
+    else if (e.key === 'Backspace') tastatur('⌫');
+    else if (e.key === '-') tastatur('−');
+    else if (e.key === ',' || e.key === '.') tastatur(',');
+    else if (e.key === 'Enter') {
+      if (A.phase === 'tipp') { A.phase = 'eingabe'; zeigeAufgabe(); }
+      else if (A.phase === 'aufgeloest') naechsterTeil();
+      else antwortGeben();
+    }
+  }
+}
+
+// ============ Elternbereich ============
+
+function elternZugang() {
+  if (!S.einstellungen.pin) {
+    oeffneModal(`<div class="pin-form"><h2 class="modal-titel">Elternbereich einrichten</h2>
+      <p>Lege einen PIN fest (4 bis 8 Ziffern). Damit kommst du später in den Elternbereich: Logo 2 Sekunden gedrückt halten.</p>
+      <input id="pin1" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="PIN">
+      <input id="pin2" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="PIN wiederholen">
+      <p class="fehler-text" id="pin-fehler"></p>
+      <button class="btn btn-haupt" data-act="pinSetzen">Speichern</button></div>`);
+  } else {
+    oeffneModal(`<div class="pin-form"><h2 class="modal-titel">Elternbereich</h2>
+      <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="PIN">
+      <p class="fehler-text" id="pin-fehler"></p>
+      <button class="btn btn-haupt" data-act="pinPruefen">Öffnen</button></div>`);
+  }
+  setTimeout(() => { const i = document.querySelector('#modal input'); if (i) i.focus(); }, 50);
+}
+
+function zusammenfassung(tage = 7) {
+  const grenze = Date.now() - tage * 86400000;
+  const proThema = {};
+  let aufgaben = 0, erst = 0, loesung = 0, verlassen = 0, hinweise = 0, spielSek = 0, rechnerNutzung = 0, schnell = 0;
+  const fehler = {};
+  for (const e of S.log) {
+    if (new Date(e.t).getTime() < grenze) continue;
+    const th = e.thema && (proThema[e.thema] || (proThema[e.thema] = { aufgaben: 0, erst: 0, zweit: 0, loesung: 0, hinweise: 0 }));
+    if (e.typ === 'aufgabe_ende') {
+      aufgaben++; th.aufgaben++; th[e.ergebnis]++;
+      if (e.ergebnis === 'erst') erst++;
+      if (e.ergebnis === 'loesung') loesung++;
+      if (e.hinweise && e.hinweise.length) th.hinweise++;
+    }
+    if (e.typ === 'versuch' && e.fehler) fehler[e.fehler] = (fehler[e.fehler] || 0) + 1;
+    if (e.typ === 'versuch' && e.schnell && !e.richtig) schnell++;
+    if (e.typ === 'verlassen') verlassen++;
+    if (e.typ === 'hinweis') hinweise++;
+    if (e.typ === 'spiel_ende') spielSek += e.sekunden || 0;
+    if (e.typ === 'rechner') rechnerNutzung++;
+  }
+  return { tage, aufgaben, erst, loesung, verlassen, hinweise, spielSek, rechnerNutzung, schnellFalsch: schnell, fehler, proThema };
+}
+
+const FEHLER_NAMEN = {
+  'vorzeichen': 'Vorzeichen falsch (Geld/Schulden)', 'potenz-mal': 'Potenz als „mal“ gerechnet',
+  'kugel-d-statt-r': 'Kugel: d statt r', 'kugel-ohne-4-3': 'Kugel: 4 ÷ 3 vergessen',
+  'rabatt-ersparnis': 'Ersparnis statt neuer Preis', 'runden': 'Falsch gerundet', 'bruch-vertauscht': 'Bruch vertauscht'
+};
+
+function zeigeEltern(meldung = '') {
+  ansicht = 'eltern';
+  const z = zusammenfassung(7);
+  const quote = z.aufgaben ? Math.round(z.erst / z.aufgaben * 100) : 0;
+  const themenZeilen = Object.entries(z.proThema).filter(([, v]) => v.aufgaben).map(([k, v]) =>
+    `<tr><td>${esc(THEMA_NAMEN[k] || k)}</td><td>${v.aufgaben}</td><td>${Math.round(v.erst / v.aufgaben * 100)} %</td><td>${v.loesung}</td><td>${v.hinweise}</td></tr>`).join('');
+  const fehlerZeilen = Object.entries(z.fehler).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<li>${esc(FEHLER_NAMEN[k] || k)}: <b>${v}</b></li>`).join('');
+  const letzte = S.log.filter(e => e.typ === 'aufgabe_ende').slice(-8).reverse().map(e =>
+    `<li><span class="erg erg-${e.ergebnis}">${e.ergebnis === 'erst' ? '1. Versuch' : e.ergebnis === 'zweit' ? '2. Versuch' : 'Lösungsweg'}</span> ${esc(THEMA_NAMEN[e.thema] || e.thema)} · ${esc(e.id)}${e.verlassen ? ' · App verlassen' : ''}</li>`).join('');
+  const optThema = L.THEMEN.map(t => `<option value="${t}"${t === S.einstellungen.thema ? ' selected' : ''}>${esc(THEMA_NAMEN[t])}</option>`).join('');
+  const stunden = (sel) => Array.from({ length: 25 }, (_, h) => `<option value="${h}"${h === sel ? ' selected' : ''}>${h}:00</option>`).join('');
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  $app.innerHTML = `
+  <div class="screen eltern">
+    <header class="topbar"><button class="btn-text" data-act="start">← Zurück</button><h2 class="eltern-titel">Elternbereich</h2><span></span></header>
+    ${meldung ? `<div class="meldung ok">${meldung}</div>` : ''}
+    <section class="karte">
+      <h3>Letzte 7 Tage</h3>
+      <div class="kennzahlen">
+        <div><b>${z.aufgaben}</b><span>Aufgaben</span></div>
+        <div><b>${quote} %</b><span>im 1. Versuch</span></div>
+        <div><b>${z.loesung}</b><span>Lösungsweg nötig</span></div>
+        <div><b>${L.formatMinuten(z.spielSek).replace(' Min.', '')}</b><span>Min. gespielt</span></div>
+        <div><b>${z.hinweise}</b><span>Hinweise geöffnet</span></div>
+        <div><b>${z.verlassen}</b><span>App verlassen</span></div>
+      </div>
+      ${themenZeilen ? `<table class="tabelle"><thead><tr><th>Thema</th><th>Aufg.</th><th>1. Vers.</th><th>Lösung</th><th>mit Hinweis</th></tr></thead><tbody>${themenZeilen}</tbody></table>` : '<p class="gedaempft">Noch keine Aufgaben gemacht.</p>'}
+      ${fehlerZeilen ? `<h4>Häufige Fehler</h4><ul class="liste">${fehlerZeilen}</ul>` : ''}
+      ${z.schnellFalsch ? `<p class="gedaempft">Auffällig schnelle falsche Antworten bei Textaufgaben: <b>${z.schnellFalsch}</b></p>` : ''}
+      ${letzte ? `<h4>Zuletzt</h4><ul class="liste klein">${letzte}</ul>` : ''}
+    </section>
+
+    <section class="karte">
+      <h3>Daten senden</h3>
+      <p>Die Datei enthält jeden Versuch. Lade sie im Claude-Projekt hoch, dann werden die Aufgaben angepasst.</p>
+      <button class="btn btn-haupt" data-act="export">Daten exportieren</button>
+      <p class="gedaempft klein">Letzter Export: ${S.letzterExport ? new Date(S.letzterExport).toLocaleString('de-DE') : 'noch nie'} · ${S.log.length} Einträge</p>
+    </section>
+
+    <section class="karte">
+      <h3>Einstellungen</h3>
+      <label class="feld-label">Übungsthema<select id="e-thema">${optThema}</select></label>
+      <div class="zwei-spalten">
+        <label class="feld-label">Basiszeit ab<select id="e-von">${stunden(S.einstellungen.basisVon)}</select></label>
+        <label class="feld-label">bis<select id="e-bis">${stunden(S.einstellungen.basisBis)}</select></label>
+      </div>
+      <label class="feld-label">Name für die Begrüßung (nur auf diesem Handy)<input id="e-name" type="text" value="${esc(S.einstellungen.name)}" maxlength="20" autocomplete="off"></label>
+      <button class="btn btn-haupt" data-act="einstellungenSpeichern">Speichern</button>
+    </section>
+
+    <section class="karte">
+      <h3>Spielzeit</h3>
+      <p>Aktuell: <b>${L.formatZeit(S.guthaben)}</b></p>
+      <div class="knopf-reihe">
+        <button class="btn" data-act="zeitPlus" data-min="5">+5 Min.</button>
+        <button class="btn" data-act="zeitPlus" data-min="15">+15 Min.</button>
+        <button class="btn" data-act="zeitPlus" data-min="30">+30 Min.</button>
+      </div>
+    </section>
+
+    <section class="karte">
+      <h3>Aufgaben hinzufügen</h3>
+      <p>JSON im Format aus <i>03-aufgabenformat-und-erstellung.md</i> einfügen (Liste oder <code>{"aufgaben": [...]}</code>).</p>
+      <textarea id="e-json" rows="6" placeholder='[{"id":"app-minus-zahlen-1", …}]'></textarea>
+      <div id="import-fehler"></div>
+      <button class="btn btn-haupt" data-act="import">Kontrollieren und hinzufügen</button>
+      <p class="gedaempft klein">Eingebaute Aufgaben: ${BASIS_AUFGABEN.length} · Hinzugefügt: ${S.extraAufgaben.length}</p>
+      ${S.extraAufgaben.length ? '<button class="btn-text klein" data-act="extraLoeschen">Hinzugefügte Aufgaben entfernen</button>' : ''}
+    </section>
+
+    <section class="karte">
+      <h3>Einrichtung</h3>
+      ${standalone ? '<p>Die App ist auf dem Home-Bildschirm installiert.</p>' : '<p><b>Tipp:</b> In Safari auf „Teilen“ tippen und „Zum Home-Bildschirm“ wählen. Dann startet die App wie ein eigenes Programm und funktioniert auch ohne Internet.</p>'}
+      <p class="gedaempft klein">Alle Daten liegen nur auf diesem Handy. Bitte regelmäßig exportieren. Version ${APP_VERSION}</p>
+      <button class="btn-text klein" data-act="pinAendern">PIN ändern</button>
+    </section>
+  </div>`;
+}
+
+async function exportieren() {
+  const { pin, ...einstellungen } = S.einstellungen;
+  const daten = {
+    app: 'lernapp-2048', version: APP_VERSION, exportiertAm: new Date().toISOString(), geraetId: S.geraetId,
+    seitLetztemExport: S.letzterExport, einstellungen, guthaben: S.guthaben, spiel: { rekord: S.spiel.rekord, maxKachel: S.spiel.maxKachel },
+    zusammenfassung7Tage: zusammenfassung(7), statistik: S.statistik, log: S.log
+  };
+  const json = JSON.stringify(daten, null, 1);
+  const name = `lernapp-daten-${L.tagKey()}.json`;
+  let geteilt = false;
+  try {
+    for (const type of ['application/json', 'text/plain']) {
+      const file = new File([json], name, { type });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Lernapp-Daten' });
+        geteilt = true;
+        break;
+      }
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return; // abgebrochen
+  }
+  if (!geteilt) {
+    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+  S.letzterExport = new Date().toISOString();
+  protokoll(S, 'export', { eintraege: S.log.length });
+  sichern();
+  zeigeEltern('Daten exportiert.');
+}
+
+function importieren() {
+  const roh = document.getElementById('e-json').value.trim();
+  const box = document.getElementById('import-fehler');
+  let liste;
+  try {
+    const d = JSON.parse(roh);
+    liste = Array.isArray(d) ? d : Array.isArray(d.aufgaben) ? d.aufgaben : [d];
+  } catch (e) {
+    box.innerHTML = `<p class="fehler-text">Das ist kein gültiges JSON: ${esc(e.message)}</p>`;
+    return;
+  }
+  const ids = new Set(alleAufgaben().map(a => a.id));
+  const hinweisIds = HINWEISE.map(h => h.id);
+  const fehler = [];
+  for (const a of liste) {
+    fehler.push(...L.kontrolliereAufgabe(a, hinweisIds, ids));
+    if (a && a.id) ids.add(a.id);
+  }
+  if (fehler.length) {
+    box.innerHTML = `<p class="fehler-text">Nichts hinzugefügt. Bitte korrigieren:</p><ul class="liste fehler-text">${fehler.slice(0, 30).map(f => `<li>${esc(f)}</li>`).join('')}</ul>`;
+    return;
+  }
+  S.extraAufgaben.push(...liste);
+  protokoll(S, 'import', { anzahl: liste.length, ids: liste.map(a => a.id) });
+  sichern();
+  zeigeEltern(`${liste.length} ${liste.length === 1 ? 'Aufgabe' : 'Aufgaben'} hinzugefügt.`);
+}
+
+// ============ Modal ============
+
+function oeffneModal(html, beimSchliessen = null) {
+  modalSchliessen = beimSchliessen;
+  $modal.innerHTML = `<div class="modal-hinter" data-act="modalZu"></div><div class="modal-box" role="dialog" aria-modal="true"><button class="modal-x" data-act="modalZu" aria-label="Schließen">✕</button>${html}</div>`;
+  $modal.classList.add('offen');
+}
+
+function schliesseModal() {
+  $modal.classList.remove('offen');
+  $modal.innerHTML = '';
+  const cb = modalSchliessen; modalSchliessen = null;
+  if (cb) cb();
+}
+
+// ============ Klicks ============
+
+function klick(e) {
+  const el = e.target.closest('[data-act]');
+  if (!el || el.disabled) return;
+  const act = el.dataset.act;
+  switch (act) {
+    case 'aufgaben':
+      if (ansicht === 'spiel') spielBeenden();
+      neueAufgabe(); break;
+    case 'spielen':
+      zeigeSpiel(); break;
+    case 'basis': {
+      const slot = L.basisSlotJetzt(new Date(), S.einstellungen, S.basisSlot);
+      if (slot) { S.basisSlot = slot; S.guthaben += L.BASIS_SEKUNDEN; protokoll(S, 'basis', { slot }); sichern(); }
+      zeigeStart(); break;
+    }
+    case 'start': zeigeStart(); break;
+    case 'beenden':
+      if (A && !A.fertig) protokoll(S, 'aufgabe_abgebrochen', { id: A.aufgabe.id, teil: A.idx, ms: Date.now() - A.start });
+      A = null; sichern(); zeigeStart(); break;
+    case 'naechste': neueAufgabe(); break;
+    case 'ueberspringen':
+      protokoll(S, 'uebersprungen', { id: A.aufgabe.id });
+      S.serie.pos = Math.max(0, S.serie.pos - 1);
+      neueAufgabe(); break;
+    case 'teilUeberspringen': {
+      const t = aktuellerTeil();
+      if (t && t.bonus) { t.status = 'uebersprungen'; protokoll(S, 'bonus_teil_uebersprungen', { id: A.aufgabe.id, teil: A.idx }); naechsterTeil(); }
+      break;
+    }
+    case 'taste': tastatur(el.dataset.k); break;
+    case 'feld': A.feld = el.dataset.feld; zeigeAufgabe(); break;
+    case 'antwort': antwortGeben(); break;
+    case 'wahl': {
+      const t = aktuellerTeil();
+      if (!t || A.phase !== 'eingabe') break;
+      const k = Number(el.dataset.k);
+      t.gewaehlt = k;
+      versuchMerken(t, String(k), k === t.richtig, null);
+      break;
+    }
+    case 'verstanden':
+      protokoll(S, 'tipp_bestaetigt', { id: A.aufgabe.id, teil: A.idx });
+      A.phase = 'eingabe'; A.meldung = null; zeigeAufgabe(); break;
+    case 'weiter': naechsterTeil(); break;
+    case 'hinweis': hinweisOeffnen(el.dataset.id); break;
+    case 'rechner': rechnerOeffnen(); break;
+    case 'rTaste': rechnerTaste(el.dataset.k); break;
+    case 'rUebernehmen': rechnerUebernehmen(); break;
+    case 'zuoSlot': zuoAuswahl(Number(el.dataset.g), el.dataset.s); break;
+    case 'zuoWahl': zuoWaehlen(Number(el.dataset.g), el.dataset.s, Number(el.dataset.o)); break;
+    case 'modalZu': schliesseModal(); break;
+    case 'spielZurueck': spielBeenden(); zeigeStart(); break;
+    case 'neuesSpiel':
+      if (S.spiel.punkte > 0) {
+        oeffneModal(`<h2 class="modal-titel">Neues Spiel?</h2><p>Das aktuelle Spiel ist dann weg. Deine Spielzeit bleibt.</p><div class="knopf-reihe"><button class="btn btn-haupt" data-act="neuesSpielJetzt">Neues Spiel</button><button class="btn" data-act="modalZu">Abbrechen</button></div>`);
+      } else { neuesSpielFeld(); sichern(); brettZeichnen(); }
+      break;
+    case 'neuesSpielJetzt':
+      schliesseModal();
+      protokoll(S, 'spiel_neu', { altePunkte: S.spiel.punkte });
+      neuesSpielFeld(); sichern();
+      document.getElementById('spiel-overlay').innerHTML = '';
+      brettZeichnen(); overlayPruefen(); break;
+    case 'overlayZu': document.getElementById('spiel-overlay').innerHTML = ''; sichern(); break;
+    case 'pinSetzen': {
+      const p1 = document.getElementById('pin1').value, p2 = document.getElementById('pin2').value;
+      const f = document.getElementById('pin-fehler');
+      if (!/^\d{4,8}$/.test(p1)) { f.textContent = 'Bitte 4 bis 8 Ziffern.'; break; }
+      if (p1 !== p2) { f.textContent = 'Die beiden PINs sind verschieden.'; break; }
+      S.einstellungen.pin = p1; sichern(); schliesseModal(); zeigeEltern('PIN gespeichert.'); break;
+    }
+    case 'pinPruefen': {
+      const p = document.getElementById('pin').value;
+      if (p === S.einstellungen.pin) { schliesseModal(); protokoll(S, 'eltern_offen'); sichern(); zeigeEltern(); }
+      else { document.getElementById('pin-fehler').textContent = 'Falscher PIN.'; protokoll(S, 'eltern_pin_falsch'); sichern(); }
+      break;
+    }
+    case 'pinAendern': S.einstellungen.pin = null; sichern(); elternZugang(); break;
+    case 'einstellungenSpeichern': {
+      const von = Number(document.getElementById('e-von').value), bis = Number(document.getElementById('e-bis').value);
+      S.einstellungen.thema = document.getElementById('e-thema').value;
+      S.einstellungen.basisVon = Math.min(von, bis);
+      S.einstellungen.basisBis = Math.max(von, bis);
+      S.einstellungen.name = document.getElementById('e-name').value.trim().slice(0, 20);
+      protokoll(S, 'einstellungen', { thema: S.einstellungen.thema, basisVon: S.einstellungen.basisVon, basisBis: S.einstellungen.basisBis });
+      sichern(); zeigeEltern('Einstellungen gespeichert.'); break;
+    }
+    case 'zeitPlus': {
+      const sek = Number(el.dataset.min) * 60;
+      S.guthaben += sek; protokoll(S, 'zeit_eltern', { sekunden: sek }); sichern();
+      zeigeEltern(`${el.dataset.min} Min. Spielzeit gutgeschrieben.`); break;
+    }
+    case 'export': exportieren(); break;
+    case 'import': importieren(); break;
+    case 'extraLoeschen':
+      oeffneModal(`<h2 class="modal-titel">Hinzugefügte Aufgaben entfernen?</h2><p>Die ${S.extraAufgaben.length} hinzugefügten Aufgaben werden gelöscht. Die eingebauten bleiben.</p><div class="knopf-reihe"><button class="btn btn-haupt" data-act="extraLoeschenJa">Entfernen</button><button class="btn" data-act="modalZu">Abbrechen</button></div>`);
+      break;
+    case 'extraLoeschenJa':
+      protokoll(S, 'extra_geloescht', { anzahl: S.extraAufgaben.length });
+      S.extraAufgaben = []; sichern(); schliesseModal(); zeigeEltern('Hinzugefügte Aufgaben entfernt.'); break;
+  }
+}
