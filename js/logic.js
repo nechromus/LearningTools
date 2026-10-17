@@ -128,8 +128,9 @@ export function minutenFuerPosition(pos) {
 }
 
 // ergebnis: 'erst' | 'zweit' | 'loesung'; strafe: 'keine' | 'halb' | 'null'
-export function sekundenFuerAufgabe({ ergebnis, serienPos, strafe = 'keine' }) {
+export function sekundenFuerAufgabe({ ergebnis, serienPos, strafe = 'keine', rechnerHalb = false }) {
   let min = minutenFuerPosition(serienPos);
+  if (rechnerHalb) min /= 2;
   if (ergebnis === 'zweit') min /= 2;
   else if (ergebnis !== 'erst') min = 0;
   if (strafe === 'halb') min /= 2;
@@ -479,4 +480,20 @@ export function neueKachelObjekt(kacheln, zaehler, rng = Math.random) {
   const k = { id: zaehler.n++, wert: f[pos[0]][pos[1]], r: pos[0], c: pos[1], neuGesetzt: true };
   kacheln.push(k);
   return k;
+}
+
+// ---------- Freiwilliger Taschenrechner bei großen Zahlen ----------
+// Angeboten bei diesen Themen, wenn in der Aufgabe eine Zahl ab 100 vorkommt. Kostet die halbe Spielzeit.
+export const RECHNER_OPTIONAL_THEMEN = ['minus-zahlen', 'reihenfolge', 'prozent', 'prozent-baukasten', 'rabatt', 'neuer-preis', 'kreisdiagramm'];
+
+export function groessteZahl(a) {
+  const texte = [a.rechnung, a.geschichte, a.frage, ...(a.fragen || []).map(f => f.frage), ...(a.schritte || []).map(s => s.text || '')].filter(Boolean).join(' ');
+  const werte = (texte.match(/\d+(?:[.,]\d+)?/g) || []).map(x => Number(x.replace(',', '.')));
+  if (a.antwort && typeof a.antwort.wert === 'number') werte.push(Math.abs(a.antwort.wert));
+  for (const t of [...(a.fragen || []), ...(a.schritte || []), ...(a.gegeben || [])]) if (typeof t.wert === 'number') werte.push(Math.abs(t.wert));
+  return werte.length ? Math.max(...werte) : 0;
+}
+
+export function rechnerOptional(a) {
+  return !a.taschenrechner && RECHNER_OPTIONAL_THEMEN.includes(a.thema) && groessteZahl(a) >= 100;
 }

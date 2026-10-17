@@ -470,3 +470,4 @@ textarea { font-family: ui-monospace, monospace; font-size: 14px; margin-bottom:
   position: fixed; left: 12px; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 8px); z-index: 60; max-width: 540px; margin: 0 auto;
   background: var(--teal); color: #fff; border-radius: 10px; padding: 10px 14px; font-weight: 700; font-size: 15px; text-align: center;
 }
+.btn-rechner.optional { border-style: dashed; border-color: var(--amber); color: var(--amber-dunkel); background: var(--amber-hell); }

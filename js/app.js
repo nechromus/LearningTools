@@ -5,7 +5,7 @@ import * as U from './sync.js';
 import { esc, mathe, bruchHtml, bildSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.2.0';
+export const APP_VERSION = '1.2.1';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [];
@@ -376,6 +376,7 @@ function zeigeAufgabe() {
         <div class="teile">${teileHtml()}</div>
         <div class="hw-leiste"><span class="gedaempft">Hinweis:</span>${icons}
           ${a.taschenrechner && !A.fertig ? '<button class="btn btn-klein btn-rechner" data-act="rechner">Taschenrechner</button>' : ''}
+          ${L.rechnerOptional(a) && !A.fertig ? `<button class="btn btn-klein btn-rechner optional" data-act="rechnerOptional">${A.rechnerHalb ? 'Taschenrechner' : 'Taschenrechner · ½ Zeit'}</button>` : ''}
         </div>
       </article>
       ${A.meldung && A.phase === 'eingabe' ? `<div class="meldung">${esc(A.meldung)}</div>` : ''}
@@ -490,6 +491,8 @@ function ergebnisHtml() {
   else kopf = `<div class="erfolg-titel neutral">Jetzt weißt du, wie es geht.</div><p>Die Aufgabe kommt später noch einmal.</p>`;
   const zeit = sek > 0 ? `<div class="zeit-gewinn">${zeitSymbol(28)} +${L.formatMinuten(sek)} Spielzeit</div>` : '';
   let strafe = '';
+
+  if (A.rechnerHalb && A.ergebnis !== 'loesung') strafe += '<p class="gedaempft">Mit Taschenrechner gibt es die halbe Spielzeit.</p>';
   if (A.strafe === 'halb' && A.ergebnis !== 'loesung') strafe = '<p class="gedaempft">Du warst kurz außerhalb der App. Darum gibt es diesmal nur die Hälfte.</p>';
   if (A.strafe === 'null' && A.ergebnis !== 'loesung') strafe = '<p class="gedaempft">Du warst außerhalb der App. Bei Aufgaben ohne Taschenrechner gibt es dafür heute keine Spielzeit.</p>';
   const weg = `<div class="loesungsweg"><div class="lw-titel">So geht's</div>${(a.loesungsweg || []).map(z => `<div class="lw-zeile">${mathe(z)}</div>`).join('')}<p class="lw-erkl">${mathe(a.erklaerung || '')}</p></div>`;
@@ -602,7 +605,7 @@ function abschliessen() {
   let ergebnis = 'erst';
   if (pflicht.some(t => t.status === 'loesung')) ergebnis = 'loesung';
   else if (pflicht.some(t => t.status === 'zweit')) ergebnis = 'zweit';
-  const sek = L.sekundenFuerAufgabe({ ergebnis, serienPos: A.serienPos, strafe: A.strafe });
+  const sek = L.sekundenFuerAufgabe({ ergebnis, serienPos: A.serienPos, strafe: A.strafe, rechnerHalb: !!A.rechnerHalb });
   A.ergebnis = ergebnis; A.sekunden = sek; A.fertig = true; A.idx = A.teile.length - 1; A.phase = 'eingabe';
   S.guthaben += sek;
   tagAktualisieren(S);
@@ -627,7 +630,7 @@ function abschliessen() {
   S.serie.letzteAktivitaet = Date.now();
   protokoll(S, 'aufgabe_ende', {
     id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: sek, serienPos: A.serienPos,
-    strafe: A.strafe, verlassen: A.verlassen, ms: Date.now() - A.start, hinweise: A.hinweise.slice(),
+    strafe: A.strafe, rechnerOptional: !!A.rechnerHalb, verlassen: A.verlassen, ms: Date.now() - A.start, hinweise: A.hinweise.slice(),
     bonusTeile: A.teile.filter(t => t.bonus).map(t => t.status), merkTeile: A.teile.filter(t => t.merk).map(t => t.status),
     generator: a.generator || null
   });
@@ -1378,6 +1381,21 @@ function klick(e) {
     case 'weiter': naechsterTeil(); break;
     case 'hinweis': hinweisOeffnen(el.dataset.id); break;
     case 'rechner': rechnerOeffnen(); break;
+    case 'rechnerOptional':
+      if (A.rechnerHalb) { rechnerOeffnen(); break; }
+      oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Taschenrechner nutzen?</h2>
+        <p>Hier sind die Zahlen groß. Du darfst den Taschenrechner nehmen.</p>
+        <p><b>Dann gibt es für diese Aufgabe nur die halbe Spielzeit.</b></p>
+        <p>Selbst rechnen bringt die volle Zeit.</p>
+        <div class="knopf-reihe"><button class="btn btn-haupt" data-act="rechnerJa">Ja, mit Rechner</button><button class="btn" data-act="modalZu">Ich rechne selbst</button></div></div>`);
+      protokoll(S, 'rechner_angeboten', { id: A.aufgabe.id });
+      break;
+    case 'rechnerJa':
+      A.rechnerHalb = true;
+      protokoll(S, 'rechner_optional', { id: A.aufgabe.id, teil: A.idx });
+      schliesseModal();
+      rechnerOeffnen();
+      break;
     case 'rTaste': rechnerTaste(el.dataset.k); break;
     case 'rUebernehmen': rechnerUebernehmen(); break;
     case 'zuoSlot': zuoAuswahl(Number(el.dataset.g), el.dataset.s); break;
