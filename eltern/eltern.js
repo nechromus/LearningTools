@@ -9,7 +9,7 @@ import * as P from '../js/paket.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.5.0';
+export const ELTERN_VERSION = '1.6.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -495,16 +495,45 @@ function einstellungenSeite() {
       <a class="einstell-zeile" href="#spielzeit"><span>Spielzeit pro Aufgabe</span><span class="wert">${w.spielzeit.staffel.map(zahlText).join(' / ')} Min.</span>${svg('weiter', 16)}</a>
       <label class="einstell-zeile"><span>Freiwilliger Taschenrechner<span class="klein gedaempft block">bei großen Zahlen, kostet Spielzeit</span></span><input type="checkbox" class="schalter" id="e-rechner"${w.rechnerAngebot ? ' checked' : ''}></label>
     </section>
-    <h2 class="abschnitt">Schwierigkeit der Baukästen</h2>
+    <h2 class="abschnitt">Baukästen: Schwierigkeit und Häufigkeit</h2>
     <section class="karte liste-karte">
-      ${Object.keys(GEN_NAMEN).map(g => `<div class="einstell-zeile"><span>${esc(GEN_NAMEN[g])}${geaenderteStufen.has(g) ? ` <span class="klein amber">vorher ${liveStufe(g)}</span>` : ''}</span>${stepper('stufe', `data-g="${g}"`, `Stufe ${w.genStufen[g]}`, GEN_NAMEN[g])}</div>`).join('')}
+      ${Object.keys(GEN_NAMEN).map(g => baukastenZeile(g, w, liveStufe)).join('')}
     </section>
     <p class="klein gedaempft">Die App passt die Stufen weiter selbst an. Was du hier änderst, ist der neue Startpunkt.</p>
+    <p class="klein gedaempft">Die Häufigkeit kommt aus dem Paket. Änderst du sie hier, gilt das nur für ${esc(name())}. Das Paket bleibt, wie es ist.</p>
     ${speicherLeiste()}
     <section class="karte liste-karte"><a class="einstell-zeile" href="#pakete"><span>Aufgabenpakete verwalten<span class="klein gedaempft block">anlegen, ändern, mit Claude erstellen</span></span>${svg('weiter', 16)}</a>
       <a class="einstell-zeile" href="#qr"><span>Handy mit QR-Code einrichten<span class="klein gedaempft block">nach dem Löschen der App oder für ein neues Handy</span></span>${svg('weiter', 16)}</a></section>
     ${schluesselKarte()}
   </div>`;
+}
+
+// ---------- Baukästen: Stufe und Häufigkeit ----------
+// Welches Thema die Häufigkeit eines Baukastens steuert. Geschichten hängen an einem anderen Baukasten-Thema.
+const GEN_THEMA = {
+  'minus-plus': 'minus-zahlen', 'reihenfolge': 'reihenfolge', 'potenz': 'potenzen', 'einmaleins': 'einmaleins', 'mal10': 'mal-10',
+  'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'runden': 'runden', 'bruch-bild': 'bruch-bild', 'kugel': 'kugel'
+};
+const GEN_WIE = { 'geld-geschichte': ['minus-zahlen'], 'rabatt-geschichte': ['rabatt', 'neuer-preis'] };
+
+function baukastenZeile(g, w, liveStufe) {
+  const kopf = `<div class="baukasten-kopf"><span class="gewicht-name"><b>${esc(GEN_NAMEN[g])}</b>${geaenderteStufen.has(g) ? ` <span class="klein amber">vorher Stufe ${liveStufe(g)}</span>` : ''}</span>${stepper('stufe', `data-g="${g}"`, `Stufe ${w.genStufen[g]}`, GEN_NAMEN[g])}</div>`;
+  const t = GEN_THEMA[g];
+  let haeufig;
+  if (t) {
+    const pk = paketVon(w.paket.id);
+    const paketWert = pk ? pk.gewichte[t] : null;
+    const angepasst = t in w.abweichungen;
+    haeufig = `<div class="baukasten-haeufig">
+      <span class="segmente klein-seg" role="group" aria-label="Häufigkeit ${esc(GEN_NAMEN[g])}">${P.STUFEN.map(st => `<button class="segment${w.gewichte[t] === st.w ? ' an' : ''}" data-act="gewicht" data-t="${t}" data-w="${st.w}" aria-pressed="${w.gewichte[t] === st.w}">${st.name}</button>`).join('')}</span>
+      <span class="klein ${angepasst ? 'amber' : 'gedaempft'}">${angepasst ? `angepasst · Paket: ${P.stufeName(paketWert)}` : 'wie im Paket'}</span>${angepasst ? ` <button class="knopf-text klein" data-act="abweichungWeg" data-t="${t}">wie im Paket</button>` : ''}
+    </div>`;
+  } else {
+    const themen = GEN_WIE[g] || [];
+    const wert = Math.max(0, ...themen.map(x => w.gewichte[x] || 0));
+    haeufig = `<div class="baukasten-haeufig"><span class="klein gedaempft">Häufigkeit: ${P.stufeName(wert)} – wie ${themen.map(x => esc(THEMA_NAMEN[x] || x)).join(' / ')}</span></div>`;
+  }
+  return `<div class="einstell-block baukasten-zeile">${kopf}${haeufig}</div>`;
 }
 
 // ---------- Themen und Gewichte ----------

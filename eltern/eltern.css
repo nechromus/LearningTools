@@ -243,3 +243,9 @@ textarea { width: 100%; border-radius: 10px; border: 1.5px solid #8A9696; backgr
   padding: 8px 14px; font-weight: 700; box-shadow: 0 4px 14px rgba(0,0,0,.12); }
 .update-leiste span { flex: 1 1 180px; }
 .update-leiste .knopf { min-height: 40px; }
+
+/* Baukästen: Stufe und Häufigkeit */
+.baukasten-zeile { padding: 10px 12px 10px 16px; border-top: 1px solid var(--linie-hell); }
+.liste-karte > .baukasten-zeile:first-child { border-top: 0; }
+.baukasten-kopf { display: flex; align-items: center; gap: 10px; }
+.baukasten-haeufig { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-top: 6px; }
