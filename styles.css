@@ -564,3 +564,11 @@ textarea { font-family: ui-monospace, monospace; font-size: 14px; margin-bottom:
 .scan-rahmen { position: absolute; inset: 14%; border: 3px solid var(--amber, #9A5B06); border-radius: 12px; box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.35); }
 .scan-box textarea { width: 100%; margin: 8px 0; border-radius: 10px; border: 1.5px solid #8A9696; padding: 8px; font: 14px ui-monospace, Menlo, monospace; }
 .anmeldung .btn-text { align-self: center; margin-top: 4px; }
+
+/* „Hilf mir“ und wartende Aufgabe */
+.btn-hilfe { border: 1.5px dashed var(--teal); color: var(--teal-dunkel); background: var(--teal-hell, #DCEDED); }
+.hilfe-box { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--teal-hell, #DCEDED); border-left: 4px solid var(--teal); }
+.hilfe-titel { font-weight: 700; color: var(--teal-dunkel); margin-bottom: 4px; }
+.hilfe-zeile { font-size: 20px; font-weight: 700; padding: 2px 0; }
+.hilfe-text { margin: 4px 0 0; color: var(--gedaempft, #4F5E5E); }
+.wartet-hinweis { margin: 0 0 8px; padding: 8px 12px; border-radius: 10px; background: var(--amber-hell, #F5E6C6); color: var(--amber-dunkel, #633806); font-weight: 700; text-align: center; }

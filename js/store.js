@@ -24,6 +24,7 @@ function standard() {
     extraAufgaben: [],
     genStufen: {},          // Baukasten → { stufe, folge }
     wiederholen: [],        // erzeugte Aufgaben, die nochmal kommen
+    wartet: null,           // mit „Fertig“ verlassene Aufgabe: kommt beim nächsten Mal wieder (Zustand der Aufgabe)
     upload: { repo: '', token: '', letzter: null, versuch: 0, fehler: null, tage: {}, testgeraet: false },
     log: [],
     letzterExport: null
@@ -83,7 +84,7 @@ export async function dauerhaftSpeichernAnfragen() {
 // Gesichert wird, was Kind und Spiele erreicht haben. Nicht dabei: PIN, Zugangsschlüssel, Geräte-ID, Protokoll.
 export const STAND_FORMAT = 'lernapp-spielstand-1';
 const STAND_FELDER = ['guthaben', 'basisSlot', 'spiel', 'bloecke', 'statistik', 'verlauf', 'serie', 'tag', 'extraAufgaben',
-  'genStufen', 'wiederholen', 'spielzeit', 'paket', 'fern'];
+  'genStufen', 'wiederholen', 'spielzeit', 'paket', 'fern', 'wartet'];
 
 export function spielstandAus(s, jetzt = new Date()) {
   const zustand = {};

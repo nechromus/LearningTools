@@ -10,9 +10,11 @@ import { einrichtungLesen } from './einrichtung.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.8.5';
+export const APP_VERSION = '1.9.0';
 
 const S = laden();
+// Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
+if (S.laufend) { if (!S.wartet) S.wartet = S.laufend; S.laufend = null; }
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [], BASIS_IDS = new Set();
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal');
@@ -446,7 +448,7 @@ function zeigeStart() {
       <button class="btn btn-amber" data-act="basis">Abholen</button>
     </section>` : ''}
 
-    <button class="btn btn-haupt btn-gross" data-act="aufgaben">Aufgaben machen</button>
+    <button class="btn btn-haupt btn-gross" data-act="aufgaben">${S.wartet ? 'Weiter mit deiner Aufgabe' : 'Aufgaben machen'}</button>
     <div class="spiel-wahl">
       <button class="btn btn-amber-rand btn-gross" data-act="spielen">2048</button>
       <button class="btn btn-amber-rand btn-gross" data-act="runenfeld">Runenfeld</button>
@@ -615,29 +617,68 @@ function waehleAufgabe(kategorie) {
   return { aufgabe: a, wdh: 0 };
 }
 
-function neueAufgabe() {
-  tagAktualisieren(S);
-  const kategorie = MUSTER[S.verlauf.musterIndex % MUSTER.length];
-  const { aufgabe, wdh } = waehleAufgabe(kategorie);
-  S.verlauf.musterIndex++;
+function serieWeiter() {
   if (Date.now() - S.serie.letzteAktivitaet > 20 * 60 * 1000) S.serie.pos = 0;
   S.serie.pos++;
   S.serie.letzteAktivitaet = Date.now();
-  A = {
-    aufgabe, kategorie, serienPos: S.serie.pos, start: Date.now(),
-    teile: teileVon(aufgabe), idx: 0, phase: 'eingabe', hinweise: [], verlassen: 0, strafe: 'keine',
-    fertig: false, meldung: null, feld: 'z', wdh
-  };
-  A.teile.forEach(t => { t.versuche = []; t.status = 'offen'; t.eingabe = ''; t.z = ''; t.n = ''; t.seit = Date.now(); });
-  if (aufgabe.typ === 'zuordnung') zuordnungVorbereiten();
-  const startInfo = { id: aufgabe.id, thema: aufgabe.thema, stufe: aufgabe.stufe, aufgabenTyp: aufgabe.typ, kategorie, serienPos: A.serienPos, bonus: !!aufgabe.bonus, wiederholung: wdh };
+  return S.serie.pos;
+}
+
+function startInfoVon(A, extra = {}) {
+  const aufgabe = A.aufgabe;
+  const startInfo = { id: aufgabe.id, thema: aufgabe.thema, stufe: aufgabe.stufe, aufgabenTyp: aufgabe.typ, kategorie: A.kategorie, serienPos: A.serienPos, bonus: !!aufgabe.bonus, wiederholung: A.wdh || 0, ...extra };
   if (aufgabe.generator) Object.assign(startInfo, {
     generator: aufgabe.generator, parameter: aufgabe.parameter, rechnung: aufgabe.rechnung, geschichte: aufgabe.geschichte,
     teile: A.teile.map(t => t.art === 'zahl' ? [t.label || null, t.ziel.wert] : t.art === 'bruch' ? [t.antwort.zaehler, t.antwort.nenner] : t.art === 'wahl' ? [t.label, t.richtig] : null)
   });
   // Erzeugte oder hinzugefügte Aufgaben vollständig mitschreiben, damit die Eltern-App sie zeigen kann
   if (!BASIS_IDS.has(aufgabe.id)) startInfo.aufgabe = aufgabe;
-  protokoll(S, 'aufgabe_start', startInfo);
+  return startInfo;
+}
+
+// Zustand einer angefangenen Aufgabe zum Speichern (ohne Taschenrechner-Anzeige)
+function aufgabeSchnappschuss() {
+  if (!A || A.fertig) return null;
+  const k = JSON.parse(JSON.stringify({ ...A, rechnerOffen: false, zuo: A.zuo ? { ...A.zuo, falsch: [...A.zuo.falsch] } : undefined }));
+  return k;
+}
+
+// Mit „Fertig“ verlassene Aufgabe wieder aufnehmen (wenn ihr Thema noch an ist)
+function wartendeAufgabe() {
+  const w = S.wartet;
+  if (!w || !w.aufgabe || !Array.isArray(w.teile)) { S.wartet = null; return null; }
+  S.wartet = null;
+  if (!((gewichte()[w.aufgabe.thema] || 0) > 0)) return null;
+  const neu = { ...w, start: Date.now(), phase: w.phase === 'tipp' ? 'tipp' : w.phase, meldung: null, fertig: false, rechnerOffen: false };
+  if (neu.zuo) neu.zuo = { ...neu.zuo, falsch: new Set(neu.zuo.falsch || []) };
+  neu.teile.forEach(t => { t.seit = Date.now(); });
+  return neu;
+}
+
+function neueAufgabe() {
+  tagAktualisieren(S);
+  const alt = wartendeAufgabe();
+  if (alt) {
+    A = alt;
+    A.serienPos = serieWeiter();
+    A.wartete = true;
+    protokoll(S, 'aufgabe_start', startInfoVon(A, { fortsetzung: true, teil: A.idx }));
+    sichern();
+    setzeAnsicht('aufgabe');
+    zeigeAufgabe();
+    return;
+  }
+  const kategorie = MUSTER[S.verlauf.musterIndex % MUSTER.length];
+  const { aufgabe, wdh } = waehleAufgabe(kategorie);
+  S.verlauf.musterIndex++;
+  A = {
+    aufgabe, kategorie, serienPos: serieWeiter(), start: Date.now(),
+    teile: teileVon(aufgabe), idx: 0, phase: 'eingabe', hinweise: [], verlassen: 0, strafe: 'keine',
+    fertig: false, meldung: null, feld: 'z', wdh
+  };
+  A.teile.forEach(t => { t.versuche = []; t.status = 'offen'; t.eingabe = ''; t.z = ''; t.n = ''; t.seit = Date.now(); });
+  if (aufgabe.typ === 'zuordnung') zuordnungVorbereiten();
+  protokoll(S, 'aufgabe_start', startInfoVon(A));
   S.verlauf.letzteIds = [...S.verlauf.letzteIds, aufgabe.id].slice(-20);
   sichern();
   setzeAnsicht('aufgabe');
@@ -661,6 +702,7 @@ function zeigeAufgabe() {
       <div class="zeit-chip">${zeitSymbol(18)}${L.formatZeit(S.guthaben)}</div>
     </header>
     <main class="aufgabe-inhalt">
+      ${A.wartete && !A.fertig && A.teile.every(t => !t.versuche.length) ? '<p class="wartet-hinweis">Diese Aufgabe wartet noch auf dich.</p>' : ''}
       <article class="karte aufgabe${a.bonus ? ' bonus' : ''}">
         ${a.bonus ? `<div class="bonus-kopf"><span class="bonus-label">Bonus · freiwillig</span>${!A.fertig && A.teile.every(t => !t.versuche.length) ? '<button class="btn-text klein" data-act="ueberspringen">Überspringen</button>' : ''}</div>` : ''}
         ${a.geschichte ? `<p class="geschichte">${mathe(a.geschichte)}</p>` : ''}
@@ -670,6 +712,7 @@ function zeigeAufgabe() {
         <div class="teile">${teileHtml()}</div>
         <div class="hw-leiste"><span class="gedaempft">Hinweis:</span>${icons}
           ${a.taschenrechner && !A.fertig ? '<button class="btn btn-klein btn-rechner" data-act="rechner">Taschenrechner</button>' : ''}
+          ${hilfeKnopf()}
           ${rechnerAngeboten(a) && !A.fertig ? `<button class="btn btn-klein btn-rechner optional" data-act="rechnerOptional">${A.rechnerHalb || R().rechner >= 1 ? 'Taschenrechner' : R().rechner > 0 ? 'Taschenrechner · ½ Zeit' : 'Taschenrechner · keine Zeit'}</button>` : ''}
         </div>
       </article>
@@ -728,6 +771,7 @@ function teileHtml() {
     }
     let zusatz = '';
     if (aktiv && A.phase === 'tipp') zusatz = `<div class="tipp"><b>Noch nicht.</b> ${esc(t.tipp)}</div>`;
+    if (aktiv && t.hilfe && A.phase !== 'tipp') zusatz += hilfeBox(t);
     if (i === A.idx && A.phase === 'aufgeloest') zusatz = `<div class="aufloesung">So ist es richtig: <b>${loesungText(t)}</b></div>`;
     if (t.merk && i > A.idx && !A.fertig) {
       inhalt = `<div class="teil-label"><span>${mathe(t.label)}</span></div><div class="feld-zeile"><button class="feld leer tippbar" data-act="springe" data-i="${i}" aria-label="Zu diesem Feld springen">?</button>${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}</div>`;
@@ -790,6 +834,7 @@ function ergebnisHtml() {
   let strafe = '';
 
   if (A.rechnerHalb && A.ergebnis !== 'loesung' && R().rechner < 1) strafe += `<p class="gedaempft">Mit Taschenrechner gibt es ${L.anteilText(R().rechner)}.</p>`;
+  if (A.hilfeGenutzt && A.ergebnis !== 'loesung' && hilfeAnteil() < 1) strafe += `<p class="gedaempft">Mit „Hilf mir“ gibt es ${L.anteilText(hilfeAnteil())}.</p>`;
   if (A.strafe === 'halb' && A.ergebnis !== 'loesung') strafe = '<p class="gedaempft">Du warst kurz außerhalb der App. Darum gibt es diesmal nur die Hälfte.</p>';
   if (A.strafe === 'null' && A.ergebnis !== 'loesung') strafe = '<p class="gedaempft">Du warst außerhalb der App. Bei Aufgaben ohne Taschenrechner gibt es dafür heute keine Spielzeit.</p>';
   const weg = `<div class="loesungsweg"><div class="lw-titel">So geht's</div>${(a.loesungsweg || []).map(z => `<div class="lw-zeile">${mathe(z)}</div>`).join('')}<p class="lw-erkl">${mathe(a.erklaerung || '')}</p></div>`;
@@ -797,6 +842,60 @@ function ergebnisHtml() {
   return `<section class="ergebnis-karte">${kopf}${zeit}${strafe}
     ${offen ? weg : `<details class="weg-details"><summary>Lösungsweg ansehen</summary>${weg}</details>`}
   </section>`;
+}
+
+// ---------- „Hilf mir“ ----------
+// Zeigt den nächsten Schritt aus dem Lösungsweg, das Ergebnis bleibt verdeckt („?“).
+// Bringt dann einen Teil der Spielzeit (wie der freiwillige Taschenrechner, in der Eltern-App einstellbar).
+
+const hilfeAnteil = () => R().hilfe ?? 0.5;
+const normal = (x) => String(x || '').replace(/\s+/g, '').replace(/[=≈→?]+$/, '');
+
+function hilfeDaten(t) {
+  const a = A.aufgabe;
+  if (!t || t.merk || t.art === 'wahl' || t.art === 'zuordnung') return null;
+  const haupt = A.teile.filter(x => !x.merk);
+  const nr = haupt.indexOf(t);
+  const anz = L.hilfeAnzeige(a.loesungsweg || [], haupt.length, nr, Math.max(1, (t.hilfe || 0) + 1));
+  if (!anz.zeilen.length) return null;
+  // Zeigt die Hilfe nur die Rechnung, die schon dasteht? Dann hilft sie nicht.
+  const rechnung = t.rechnung || (haupt.length === 1 ? a.rechnung : null);
+  if (anz.zeilen.length === 1 && rechnung && normal(anz.zeilen[0]) === normal(rechnung)) return null;
+  return anz;
+}
+
+function hilfeKnopf() {
+  if (!A || A.fertig || A.phase !== 'eingabe') return '';
+  const t = aktuellerTeil();
+  if (!t) return '';
+  if (t.hilfe) {
+    // weiterer Schritt nur, wenn es noch einen gibt
+    const haupt = A.teile.filter(x => !x.merk);
+    if (!L.hilfeAnzeige(A.aufgabe.loesungsweg || [], haupt.length, haupt.indexOf(t), t.hilfe).mehr) return '';
+  } else if (!hilfeDaten(t)) return '';
+  const kosten = A.hilfeGenutzt || hilfeAnteil() >= 1 ? '' : hilfeAnteil() > 0 ? ' · ½ Zeit' : ' · keine Zeit';
+  return `<button class="btn btn-klein btn-hilfe" data-act="hilfe">${t.hilfe ? 'Noch ein Schritt' : 'Hilf mir'}${kosten}</button>`;
+}
+
+function hilfeBox(t) {
+  const haupt = A.teile.filter(x => !x.merk);
+  const anz = L.hilfeAnzeige(A.aufgabe.loesungsweg || [], haupt.length, haupt.indexOf(t), t.hilfe);
+  if (!anz.zeilen.length) return '';
+  return `<div class="hilfe-box"><div class="hilfe-titel">So fängst du an</div>${anz.zeilen.map(z => `<div class="hilfe-zeile">${mathe(z)}</div>`).join('')}<p class="hilfe-text">Rechne das <b>?</b> aus.</p></div>`;
+}
+
+function hilfeZeigen() {
+  const t = aktuellerTeil();
+  if (!t || A.phase !== 'eingabe' || !hilfeKnopf()) return;
+  t.hilfe = (t.hilfe || 0) + 1;
+  A.hilfeGenutzt = true;
+  const haupt = A.teile.filter(x => !x.merk);
+  const anz = L.hilfeAnzeige(A.aufgabe.loesungsweg || [], haupt.length, haupt.indexOf(t), t.hilfe);
+  protokoll(S, 'hilfe', { id: A.aufgabe.id, teil: A.idx, stufe: t.hilfe, zeilen: anz.zeilen });
+  sichern();
+  zeigeAufgabe();
+  const b = document.querySelector('.hilfe-box');
+  if (b) b.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
 // ---------- Eingabe ----------
@@ -931,7 +1030,8 @@ function abschliessen() {
   let ergebnis = 'erst';
   if (pflicht.some(t => t.status === 'loesung')) ergebnis = 'loesung';
   else if (pflicht.some(t => t.status === 'zweit')) ergebnis = 'zweit';
-  const sek = L.sekundenFuerAufgabe({ ergebnis, serienPos: A.serienPos, strafe: A.strafe, rechnerHalb: !!A.rechnerHalb, regeln: R() });
+  const sek = L.sekundenFuerAufgabe({ ergebnis, serienPos: A.serienPos, strafe: A.strafe, rechnerHalb: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, regeln: R() });
+  S.laufend = null;
   A.ergebnis = ergebnis; A.sekunden = sek; A.fertig = true; A.idx = A.teile.length - 1; A.phase = 'eingabe';
   S.guthaben += sek;
   tagAktualisieren(S);
@@ -945,7 +1045,8 @@ function abschliessen() {
     const g = a.generator;
     if (!a.bonus && !g.startsWith('block') && G.GENERATOREN[g]) {
       const st = S.genStufen[g] || (S.genStufen[g] = { stufe: 1, folge: 0 });
-      if (ergebnis === 'erst') { st.folge++; if (st.folge >= 3 && st.stufe < 3) { st.stufe++; st.folge = 0; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } }
+      if (ergebnis === 'erst' && A.hilfeGenutzt) st.folge = 0; // mit „Hilf mir“: Stufe bleibt
+      else if (ergebnis === 'erst') { st.folge++; if (st.folge >= 3 && st.stufe < 3) { st.stufe++; st.folge = 0; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } }
       else if (ergebnis === 'zweit') st.folge = 0;
       else { if (st.stufe > 1) { st.stufe--; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } st.folge = 0; }
     }
@@ -956,7 +1057,7 @@ function abschliessen() {
   S.serie.letzteAktivitaet = Date.now();
   protokoll(S, 'aufgabe_ende', {
     id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: sek, serienPos: A.serienPos,
-    strafe: A.strafe, rechnerOptional: !!A.rechnerHalb, verlassen: A.verlassen, ms: Date.now() - A.start, hinweise: A.hinweise.slice(),
+    strafe: A.strafe, rechnerOptional: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, verlassen: A.verlassen, ms: Date.now() - A.start, hinweise: A.hinweise.slice(),
     bonusTeile: A.teile.filter(t => t.bonus).map(t => t.status), merkTeile: A.teile.filter(t => t.merk).map(t => t.status),
     generator: a.generator || null
   });
@@ -1148,6 +1249,7 @@ function rechnerUebernehmen() {
 function sichtbarkeit() {
   if (document.hidden) {
     versteckt = Date.now();
+    S.laufend = ansicht === 'aufgabe' && A && !A.fertig && !A.aufgabe.bonus ? aufgabeSchnappschuss() : null;
     sichern();
     standHochladen(); // falls die App jetzt geschlossen wird
     return;
@@ -1864,6 +1966,7 @@ function zeigeEltern(meldung = '') {
       <div class="info-zeile"><span>Geschenkte Spielzeit</span><b>${S.einstellungen.basisVon} bis ${S.einstellungen.basisBis} Uhr · ${minText(R().basisMin)}</b></div>
       <div class="info-zeile"><span>Spielzeit pro Aufgabe</span><b>${R().staffel.map(m => String(m).replace('.', ',')).join(' / ')} Min.</b></div>
       <div class="info-zeile"><span>2. Versuch / mit Rechner</span><b>${L.anteilText(R().zweit).replace('die ', '')} / ${L.anteilText(R().rechner).replace('die ', '')}</b></div>
+      <div class="info-zeile"><span>Mit „Hilf mir“</span><b>${L.anteilText(R().hilfe ?? 0.5).replace('die ', '')}</b></div>
       <div class="info-zeile"><span>Freiwilliger Taschenrechner</span><b>${S.einstellungen.rechnerAngebot !== false ? 'an' : 'aus'}</b></div>
       ` : `
       <label class="feld-label">Übungsthema<select id="e-thema">${optThema}</select></label>
@@ -2011,7 +2114,15 @@ function klick(e) {
     }
     case 'start': zeigeStart(); break;
     case 'beenden':
-      if (A && !A.fertig) protokoll(S, 'aufgabe_abgebrochen', { id: A.aufgabe.id, teil: A.idx, ms: Date.now() - A.start });
+      if (A && !A.fertig) {
+        const ohneEingabe = A.teile.every(t => !t.versuche.length);
+        protokoll(S, 'aufgabe_abgebrochen', { id: A.aufgabe.id, teil: A.idx, ms: Date.now() - A.start, ohneEingabe, thema: A.aufgabe.thema, wartet: !A.aufgabe.bonus });
+        // Freiwillige Bonus-Aufgaben dürfen weg. Alle anderen warten, bis sie gelöst sind.
+        if (!A.aufgabe.bonus) S.wartet = aufgabeSchnappschuss();
+        // Die verlassene Aufgabe zählt nicht für die Serie
+        S.serie.pos = Math.max(0, S.serie.pos - 1);
+      }
+      S.laufend = null;
       A = null; sichern(); zeigeStart(); break;
     case 'naechste': neueAufgabe(); break;
     case 'ueberspringen':
@@ -2050,6 +2161,7 @@ function klick(e) {
         <div class="knopf-reihe"><button class="btn btn-haupt" data-act="rechnerJa">Ja, mit Rechner</button><button class="btn" data-act="modalZu">Ich rechne selbst</button></div></div>`);
       protokoll(S, 'rechner_angeboten', { id: A.aufgabe.id });
       break;
+    case 'hilfe': hilfeZeigen(); break;
     case 'rechnerJa':
       A.rechnerHalb = true;
       protokoll(S, 'rechner_optional', { id: A.aufgabe.id, teil: A.idx });

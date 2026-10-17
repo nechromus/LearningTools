@@ -130,7 +130,7 @@ export const BASIS_SEKUNDEN = 180;
 
 // Spielzeit-Regeln. Werte in Minuten (eine Nachkommastelle), Anteile 1 = alles, 0,5 = Hälfte, 0 = nichts.
 // Werden in der Eltern-App eingestellt; ohne Einstellung gelten diese Standardwerte.
-export const SPIELZEIT_STANDARD = Object.freeze({ staffel: Object.freeze([1, 1.5, 2, 2.5]), zweit: 0.5, rechner: 0.5, basisMin: 3 });
+export const SPIELZEIT_STANDARD = Object.freeze({ staffel: Object.freeze([1, 1.5, 2, 2.5]), zweit: 0.5, rechner: 0.5, hilfe: 0.5, basisMin: 3 });
 const ANTEILE = [0, 0.5, 1];
 
 function minutenWert(x, standard, max) {
@@ -141,12 +141,13 @@ function minutenWert(x, standard, max) {
 
 export function spielzeitRegeln(r) {
   const S0 = SPIELZEIT_STANDARD;
-  if (!r || typeof r !== 'object') return { staffel: [...S0.staffel], zweit: S0.zweit, rechner: S0.rechner, basisMin: S0.basisMin };
+  if (!r || typeof r !== 'object') return { staffel: [...S0.staffel], zweit: S0.zweit, rechner: S0.rechner, hilfe: S0.hilfe, basisMin: S0.basisMin };
   const staffel = S0.staffel.map((w, i) => minutenWert(Array.isArray(r.staffel) ? r.staffel[i] : undefined, w, 10));
   return {
     staffel,
     zweit: ANTEILE.includes(r.zweit) ? r.zweit : S0.zweit,
     rechner: ANTEILE.includes(r.rechner) ? r.rechner : S0.rechner,
+    hilfe: ANTEILE.includes(r.hilfe) ? r.hilfe : S0.hilfe,
     basisMin: minutenWert(r.basisMin, S0.basisMin, 15)
   };
 }
@@ -165,9 +166,10 @@ export function anteilText(a) {
 }
 
 // ergebnis: 'erst' | 'zweit' | 'loesung'; strafe: 'keine' | 'halb' | 'null'
-export function sekundenFuerAufgabe({ ergebnis, serienPos, strafe = 'keine', rechnerHalb = false, regeln = SPIELZEIT_STANDARD }) {
+export function sekundenFuerAufgabe({ ergebnis, serienPos, strafe = 'keine', rechnerHalb = false, hilfe = false, regeln = SPIELZEIT_STANDARD }) {
   let min = minutenFuerPosition(serienPos, regeln);
   if (rechnerHalb) min *= regeln.rechner;
+  if (hilfe) min *= regeln.hilfe ?? SPIELZEIT_STANDARD.hilfe;
   if (ergebnis === 'zweit') min *= regeln.zweit;
   else if (ergebnis !== 'erst') min = 0;
   if (strafe === 'halb') min /= 2;
@@ -578,4 +580,34 @@ export function fernAnwenden(z, datei) {
   }
   z.fern = { ...(z.fern || {}), version: Number(datei.version), geaendert: datei.geaendert || null, angewendet: new Date().toISOString() };
   return geaendert;
+}
+
+// ---------- „Hilf mir“ ----------
+// Zeigt Zeilen aus dem Lösungsweg, aber das Ergebnis der neuesten Zeile ist verdeckt („?“).
+// Verdeckt wird alles nach dem letzten „=“, „≈“ oder „→“.
+export function verdecken(zeile) {
+  const s = String(zeile || '');
+  const m = [...s.matchAll(/=|≈|→/g)].pop();
+  if (!m) return null;
+  return s.slice(0, m.index + m[0].length) + ' ?';
+}
+
+// Welche Lösungsweg-Zeilen gehören zum aktuellen Teil?
+// weg: Zeilen, anzahlTeile: Teile ohne Merkzettel, teilNr: aktueller Teil (ohne Merkzettel, ab 0)
+export function hilfeZeilen(weg, anzahlTeile, teilNr) {
+  const n = (weg || []).length;
+  if (!n) return [];
+  if (anzahlTeile <= 1) return weg.map((_, i) => i);   // eine Frage: Schritt für Schritt
+  if (n === anzahlTeile) return [teilNr];                // je Teil eine Zeile
+  return [Math.min(teilNr, n - 1)];
+}
+
+// Was „Hilf mir“ nach `stufe` Mal Tippen zeigt: frühere Zeilen offen, die neueste verdeckt.
+// Gibt { zeilen: [text], mehr: bool } zurück. Zeilen ohne „=“ usw. lassen sich nicht verdecken und werden übersprungen.
+export function hilfeAnzeige(weg, anzahlTeile, teilNr, stufe) {
+  const idx = hilfeZeilen(weg, anzahlTeile, teilNr).filter(i => verdecken(weg[i]));
+  const k = Math.max(1, Math.min(stufe, idx.length));
+  if (!idx.length) return { zeilen: [], mehr: false };
+  const zeilen = idx.slice(0, k).map((i, j) => j === k - 1 ? verdecken(weg[i]) : weg[i]);
+  return { zeilen, mehr: k < idx.length };
 }

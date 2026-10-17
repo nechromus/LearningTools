@@ -9,7 +9,7 @@ import * as P from '../js/paket.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.7.0';
+export const ELTERN_VERSION = '1.8.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -372,6 +372,7 @@ function aufgabenZeilen(liste, gewaehlt) {
     if (r.events.some(e => e.typ === 'hinweis')) extra.push('Hinweis');
     if (r.events.some(e => e.typ === 'rechner' || e.typ === 'rechner_optional')) extra.push('Rechner');
     if (r.events.some(e => e.typ === 'verlassen')) extra.push('App verlassen');
+    if (r.events.some(e => e.typ === 'hilfe')) extra.push('Hilf mir');
     if (a && a.gegeben) extra.push('Merkzettel');
     const block = (r.start.generator || '').startsWith('block');
     return `<a class="zeile${r.key === gewaehlt ? ' gewaehlt' : ''}" href="#aufgabe/${encodeURIComponent(r.key)}">
@@ -721,6 +722,7 @@ function spielzeitSeite() {
     <section class="karte liste-karte">
       ${anteil('zweit', 'Richtig im 2. Versuch')}
       ${anteil('rechner', 'Mit freiwilligem Taschenrechner')}
+      ${anteil('hilfe', 'Mit „Hilf mir“ (nächster Schritt)')}
       <div class="einstell-zeile"><span>Geschenkt pro Stunde</span>${minFeld('basis', r.basisMin, 'Geschenkte Zeit')}</div>
     </section>
     <section class="hinweis-box"><p><b>So wirkt es:</b> 10 Aufgaben am Stück, alle im 1. Versuch richtig, bringen bis zu <b>${zahlText(A.serieMinuten(r))} Min.</b> Spielzeit.</p><p class="klein">App verlassen bei Aufgaben ohne Rechner halbiert die Zeit weiterhin (ab dem 3. Mal am Tag: keine Zeit).</p></section>

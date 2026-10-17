@@ -4,7 +4,7 @@ import { THEMA_NAMEN, FEHLER_NAMEN, GEN_NAMEN } from '../js/namen.js';
 import * as P from '../js/paket.js';
 
 const ZU_AUFGABE = new Set(['versuch', 'versuch_wiederholt', 'tipp_bestaetigt', 'hinweis', 'rechner', 'rechner_offen',
-  'rechner_angeboten', 'rechner_optional', 'verlassen', 'sprung', 'loesung_gezeigt', 'bonus_teil_uebersprungen']);
+  'rechner_angeboten', 'rechner_optional', 'verlassen', 'sprung', 'loesung_gezeigt', 'bonus_teil_uebersprungen', 'hilfe']);
 
 export const zahl = (w) => w == null ? '' : String(w).replace('.', ',').replace(/^-/, '−');
 
@@ -111,7 +111,7 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
     const p = { zeit: zeit(e), titel: '', text: '', art: 'info' };
     switch (e.typ) {
       case 'aufgabe_start':
-        p.titel = 'Aufgabe geöffnet';
+        p.titel = e.fortsetzung ? 'Aufgabe wieder geöffnet (hatte gewartet)' : 'Aufgabe geöffnet';
         p.text = [`Aufgabe ${e.serienPos} der Serie`, e.wiederholung ? 'Wiederholung' : '', e.bonus ? 'Bonus' : ''].filter(Boolean).join(' · ');
         break;
       case 'versuch': {
@@ -148,7 +148,8 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
         p.text = [`Spielzeit +${minutenText(e.sekunden)}`, `Dauer ${dauerText(e.ms)}`].join(' · ');
         p.art = e.ergebnis === 'erst' ? 'ok' : e.ergebnis === 'zweit' ? 'info' : 'fehler';
         break;
-      case 'aufgabe_abgebrochen': p.titel = 'Mit „Fertig“ verlassen'; break;
+      case 'aufgabe_abgebrochen': p.titel = 'Mit „Fertig“ verlassen'; p.text = [e.ohneEingabe ? 'ohne Eingabe' : '', e.wartet ? 'kommt beim nächsten Mal wieder' : ''].filter(Boolean).join(' · '); p.art = 'fehler'; break;
+      case 'hilfe': p.titel = `„Hilf mir“ (${e.stufe}. Schritt)`; p.text = (e.zeilen || []).join(' · ') + ' · weniger Spielzeit'; p.art = 'fehler'; break;
       case 'uebersprungen': p.titel = 'Übersprungen'; break;
       default: continue;
     }
@@ -178,6 +179,10 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
   }
   const verlassen = ein.filter(e => e.typ === 'verlassen').length;
   const rechnerFrei = ein.filter(e => e.typ === 'rechner_optional').length;
+  const hilfe = new Set(ein.filter(e => e.typ === 'hilfe').map(e => `${e.id}|${tagKey(new Date(e.t))}`)).size;
+  const weg = ein.filter(e => e.typ === 'aufgabe_abgebrochen' && ohneEingabe(e, aufgaben));
+  const wegThemen = {};
+  for (const e of weg) { const th = e.thema || (aufgaben.find(r => r.id === e.id) || {}).thema; if (th) wegThemen[th] = (wegThemen[th] || 0) + 1; }
   const tage = {};
   for (const r of auf) {
     const d = tage[r.tag] || (tage[r.tag] = { tag: r.tag, anzahl: 0, erst: 0, ms: 0, sekunden: 0 });
@@ -187,6 +192,11 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
   if (verlassen) auffaellig.push(`App ${verlassen}-mal verlassen während einer Aufgabe`);
   if (schnell) auffaellig.push(`${schnell}-mal sehr schnell falsch geantwortet (Textaufgaben)`);
   if (rechnerFrei) auffaellig.push(`${rechnerFrei}-mal den freiwilligen Rechner genommen`);
+  if (weg.length) {
+    const top = Object.entries(wegThemen).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([t, n]) => `${THEMA_NAMEN[t] || t} ${n}-mal`);
+    auffaellig.push(`Aufgabe ${weg.length}-mal ohne Eingabe verlassen${top.length ? ` (meist ${top.join(', ')})` : ''}`);
+  }
+  if (hilfe) auffaellig.push(`${hilfe}-mal „Hilf mir“ genutzt`);
   return {
     aufgaben: auf.length,
     erst,
@@ -200,6 +210,13 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
     tage,
     auffaellig
   };
+}
+
+// Wurde die Aufgabe ohne jede Eingabe verlassen? Neue Einträge haben das Feld, ältere werden aus den Versuchen bestimmt.
+function ohneEingabe(e, aufgaben) {
+  if (typeof e.ohneEingabe === 'boolean') return e.ohneEingabe;
+  const rec = aufgaben.find(r => r.status === 'abgebrochen' && r.bis === e.t && r.id === e.id);
+  return rec ? !rec.events.some(x => x.typ === 'versuch') : false;
 }
 
 // Tage-Schlüssel der letzten n Tage, ältester zuerst
