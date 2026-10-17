@@ -12,6 +12,7 @@ function standard() {
     guthaben: 0,            // Spielzeit in Sekunden
     basisSlot: null,        // zuletzt abgeholte Basiszeit (Tag-Stunde)
     spiel: { feld: null, punkte: 0, rekord: 0, maxKachel: 0, gewonnenGezeigt: false },
+    bloecke: null,          // Runenfeld: { feld, teile, punkte, kombo, ohneLinie, rekord }
     einstellungen: { thema: 'minus-zahlen', basisVon: 14, basisBis: 21, pin: null, name: '', rechnerAngebot: true },
     spielzeit: null,        // Spielzeit-Regeln aus der Eltern-App (null = Standard)
     paket: null,            // Aufgabenpaket aus der Eltern-App: { id, name, gewichte } (null = Übungsthema)

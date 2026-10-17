@@ -5,9 +5,10 @@ import * as U from './sync.js';
 import { esc, mathe, bruchHtml, bildSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
 import { THEMA_NAMEN, GEN_NAMEN, FEHLER_NAMEN } from './namen.js';
 import * as P from './paket.js';
+import * as B from './bloecke.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.5.1';
+export const APP_VERSION = '1.6.0';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [], BASIS_IDS = new Set();
@@ -249,7 +250,10 @@ function zeigeStart() {
     </section>` : ''}
 
     <button class="btn btn-haupt btn-gross" data-act="aufgaben">Aufgaben machen</button>
-    <button class="btn btn-amber-rand btn-gross" data-act="spielen">2048 spielen</button>
+    <div class="spiel-wahl">
+      <button class="btn btn-amber-rand btn-gross" data-act="spielen">2048</button>
+      <button class="btn btn-amber-rand btn-gross" data-act="runenfeld">Runenfeld</button>
+    </div>
 
     <section class="info-karte">
       <div class="info-zeile"><span>Heute geschafft</span><b>${S.tag.aufgaben} ${S.tag.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}</b></div>
@@ -260,10 +264,7 @@ function zeigeStart() {
     <section class="regel-karte">
       <div class="regel-titel">So bekommst du Spielzeit</div>
       <div class="stufen">
-        <div><b>1</b> Min.<span>Aufg. 1–3</span></div>
-        <div><b>1,5</b> Min.<span>Aufg. 4–6</span></div>
-        <div><b>2</b> Min.<span>Aufg. 7–9</span></div>
-        <div><b>2,5</b> Min.<span>ab Aufg. 10</span></div>
+        ${R().staffel.map((m, k) => `<div><b>${String(m).replace('.', ',')}</b> Min.<span>${['Aufg. 1–3', 'Aufg. 4–6', 'Aufg. 7–9', 'ab Aufg. 10'][k]}</span></div>`).join('')}
       </div>
       <p class="gedaempft klein">Pro richtige Aufgabe. Je mehr am Stück, desto mehr Zeit. Die Serie endet, wenn du spielst oder 20 Minuten Pause machst.</p>
     </section>
@@ -993,8 +994,11 @@ function zeigeSpiel() {
   // Spielen beendet die Serie
   if (S.serie.pos) { protokoll(S, 'serie_ende', { laenge: S.serie.pos }); S.serie.pos = 0; }
   if (!S.spiel.feld) neuesSpielFeld();
-  spielSitzung = { start: Date.now(), sekunden: 0 };
-  protokoll(S, 'spiel_start', { guthaben: S.guthaben });
+  if (spielSitzung && spielSitzung.art !== '2048') spielBeenden();
+  if (!spielSitzung) {
+    spielSitzung = { start: Date.now(), sekunden: 0, art: '2048' };
+    protokoll(S, 'spiel_start', { guthaben: S.guthaben, spiel: '2048' });
+  }
   sichern();
   const zellen = Array.from({ length: 16 }, () => '<div class="zelle"></div>').join('');
   $app.innerHTML = `
@@ -1007,7 +1011,7 @@ function zeigeSpiel() {
     <div class="spiel-zeile">
       <span>Rekord <b id="rekord">${S.spiel.rekord}</b></span>
       <span>Höchster Stein <b id="maxk">${S.spiel.maxKachel || 0}</b></span>
-      <button class="btn-text klein" data-act="neuesSpiel">Neu</button>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="neuesSpiel">Neu</button><button class="btn-text klein" data-act="runenfeld">Runenfeld</button></span>
     </div>
     <div class="brett-rahmen" id="rahmen">
       <span class="orn o1"></span><span class="orn o2"></span><span class="orn o3"></span><span class="orn o4"></span>
@@ -1204,6 +1208,8 @@ function overlay(html) {
 function overlayPruefen() {
   if (S.guthaben <= 0) {
     overlay(`<div class="overlay-titel">Spielzeit ist um</div><p>Dein Spiel bleibt gespeichert.</p><button class="btn btn-jade" data-act="aufgaben">Aufgaben machen</button>`);
+  } else if (spielSitzung && spielSitzung.art === 'runenfeld') {
+    if (S.bloecke && B.spielVorbei(S.bloecke.feld, S.bloecke.teile)) overlay(`<div class="overlay-titel">Kein Platz mehr</div><p>${S.bloecke.punkte} Punkte. Ein neues Spiel kostet nichts.</p><button class="btn btn-jade" data-act="runenfeldNeuJetzt">Neues Spiel</button>`);
   } else if (!L.kannBewegen(S.spiel.feld)) {
     overlay(`<div class="overlay-titel">Keine Züge mehr</div><p>Ein neues Spiel kostet nichts.</p><button class="btn btn-jade" data-act="neuesSpielJetzt">Neues Spiel</button>`);
   }
@@ -1224,7 +1230,8 @@ function spielTick() {
 
 function spielBeenden() {
   if (!spielSitzung) return;
-  protokoll(S, 'spiel_ende', { sekunden: spielSitzung.sekunden, punkte: S.spiel.punkte, maxKachel: S.spiel.maxKachel, rest: S.guthaben });
+  if (spielSitzung.art === 'runenfeld') protokoll(S, 'spiel_ende', { spiel: 'runenfeld', sekunden: spielSitzung.sekunden, punkte: S.bloecke ? S.bloecke.punkte : 0, rest: S.guthaben });
+  else protokoll(S, 'spiel_ende', { spiel: '2048', sekunden: spielSitzung.sekunden, punkte: S.spiel.punkte, maxKachel: S.spiel.maxKachel, rest: S.guthaben });
   spielSitzung = null;
   sichern();
 }
@@ -1243,7 +1250,7 @@ function wischen(el) {
 }
 
 function taste(e) {
-  if (ansicht === 'spiel') {
+  if (ansicht === 'spiel' && spielSitzung && spielSitzung.art === '2048') {
     const m = { ArrowLeft: 'links', ArrowRight: 'rechts', ArrowUp: 'hoch', ArrowDown: 'runter' }[e.key];
     if (m) { e.preventDefault(); zug(m); }
   } else if (ansicht === 'aufgabe' && A && !A.fertig && !$modal.classList.contains('offen')) {
@@ -1257,6 +1264,172 @@ function taste(e) {
       else antwortGeben();
     }
   }
+}
+
+// ============ Runenfeld (Formen legen, Reihen und Spalten abräumen) ============
+
+let RF = null; // gerade gezogene Form
+
+function zeigeRunenfeld() {
+  setzeAnsicht('spiel');
+  if (S.serie.pos) { protokoll(S, 'serie_ende', { laenge: S.serie.pos }); S.serie.pos = 0; }
+  if (!S.bloecke || !S.bloecke.feld) S.bloecke = { ...B.neuesSpiel(), rekord: (S.bloecke && S.bloecke.rekord) || 0 };
+  if (spielSitzung && spielSitzung.art !== 'runenfeld') spielBeenden();
+  if (!spielSitzung) {
+    spielSitzung = { start: Date.now(), sekunden: 0, art: 'runenfeld' };
+    protokoll(S, 'spiel_start', { guthaben: S.guthaben, spiel: 'runenfeld' });
+  }
+  sichern();
+  const zellen = Array.from({ length: B.N * B.N }, (_, i) => `<div class="rf-zelle" data-i="${i}"></div>`).join('');
+  $app.innerHTML = `
+  <div class="screen spiel-screen runenfeld">
+    <header class="topbar spiel-kopf">
+      <button class="btn-text" data-act="spielZurueck">← Zurück</button>
+      <div class="rune-uhr${S.guthaben < 60 ? ' knapp' : ''}" id="uhr"><span class="uhr-ring"></span><span id="spielzeit">${L.formatZeit(S.guthaben)}</span></div>
+      <div class="punkte-box"><span>Punkte</span><b id="punkte">${S.bloecke.punkte}</b><i id="punkte-plus"></i></div>
+    </header>
+    <div class="spiel-zeile">
+      <span>Rekord <b id="rekord">${S.bloecke.rekord || 0}</b></span>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="runenfeldNeu">Neu</button><button class="btn-text klein" data-act="spielen">2048</button></span>
+    </div>
+    <div class="brett-rahmen" id="rahmen">
+      <span class="orn o1"></span><span class="orn o2"></span><span class="orn o3"></span><span class="orn o4"></span>
+      <div class="rf-brett" id="rf-brett">${zellen}</div>
+      <div id="spiel-overlay"></div>
+    </div>
+    <div class="rf-ablage" id="rf-ablage"></div>
+    <button class="btn spiel-btn" data-act="aufgaben">Mehr Spielzeit: Aufgaben machen</button>
+    <p class="spiel-tipp">Ziehe die Steine aufs Feld. Volle Reihen und Spalten verschwinden.</p>
+  </div>`;
+  rfFeldZeichnen();
+  rfAblageZeichnen();
+  rfZiehenEinrichten();
+  overlayPruefen();
+}
+
+function runenfeldNeu() {
+  if (S.bloecke) protokoll(S, 'spiel_neu', { spiel: 'runenfeld', altePunkte: S.bloecke.punkte });
+  S.bloecke = { ...B.neuesSpiel(), rekord: (S.bloecke && S.bloecke.rekord) || 0 };
+  sichern();
+  const o = $id('spiel-overlay'); if (o) o.innerHTML = '';
+  rfFeldZeichnen(); rfAblageZeichnen(); anzeigeRunenfeld(); overlayPruefen();
+}
+
+function anzeigeRunenfeld() {
+  const p = $id('punkte'); if (p) p.textContent = S.bloecke.punkte;
+  const r = $id('rekord'); if (r) r.textContent = S.bloecke.rekord || 0;
+}
+
+// farbenAlt: Farben gerade abgeräumter Felder, damit sie noch kurz aufleuchten
+function rfFeldZeichnen(markieren = {}, farbenAlt = {}) {
+  const brett = $id('rf-brett');
+  if (!brett) return;
+  const f = S.bloecke.feld;
+  brett.querySelectorAll('.rf-zelle').forEach((z, i) => {
+    const farbe = f[i] || farbenAlt[i] || 0;
+    z.className = 'rf-zelle' + (farbe ? ` voll rf${farbe}` : '') + (markieren[i] ? ' ' + markieren[i] : '');
+  });
+}
+
+function formHtml(t, gross = 0) {
+  const f = B.FORMEN.find(x => x.name === t.form);
+  const zellen = f.zellen.map(([r, c]) => `<span class="rf-stein rf${t.farbe}" style="grid-row:${r + 1};grid-column:${c + 1}"></span>`).join('');
+  const groesse = gross ? `width:${f.breite * gross}px;height:${f.hoehe * gross}px;` : '';
+  return `<span class="rf-form" style="grid-template-columns:repeat(${f.breite},1fr);grid-template-rows:repeat(${f.hoehe},1fr);--b:${f.breite};--h:${f.hoehe};${groesse}">${zellen}</span>`;
+}
+
+function rfAblageZeichnen() {
+  const ab = $id('rf-ablage');
+  if (!ab) return;
+  ab.innerHTML = S.bloecke.teile.map((t, nr) => {
+    if (!t) return '<div class="rf-platz leer"></div>';
+    const passt = B.irgendwoPassend(S.bloecke.feld, t);
+    return `<div class="rf-platz"><div class="rf-teil${passt ? '' : ' passt-nicht'}" data-nr="${nr}" role="button" aria-label="Form ${nr + 1}">${formHtml(t)}</div></div>`;
+  }).join('');
+}
+
+function rfZiehenEinrichten() {
+  const ab = $id('rf-ablage');
+  if (!ab) return;
+  ab.addEventListener('pointerdown', (e) => {
+    const el = e.target.closest('.rf-teil');
+    if (!el || RF || document.querySelector('#spiel-overlay .overlay') || S.guthaben <= 0) return;
+    const nr = Number(el.dataset.nr), t = S.bloecke.teile[nr];
+    if (!t) return;
+    e.preventDefault();
+    const rect = $id('rf-brett').getBoundingClientRect();
+    const zelle = rect.width / B.N;
+    const f = B.FORMEN.find(x => x.name === t.form);
+    const geist = document.createElement('div');
+    geist.className = 'rf-geist';
+    geist.innerHTML = formHtml(t, zelle);
+    document.querySelector('.spiel-screen').appendChild(geist);
+    // Die Form schwebt über dem Finger, damit man sie sieht
+    RF = { nr, t, f, el, geist, zelle, abstand: Math.min(90, zelle * 1.6), ziel: null, id: e.pointerId };
+    el.classList.add('gezogen');
+    try { el.setPointerCapture(e.pointerId); } catch (err) { /* egal */ }
+    rfBewegen(e);
+  });
+  ab.addEventListener('pointermove', (e) => { if (RF && e.pointerId === RF.id) { e.preventDefault(); rfBewegen(e); } });
+  const ende = (e) => { if (RF && e.pointerId === RF.id) rfLoslassen(); };
+  ab.addEventListener('pointerup', ende);
+  ab.addEventListener('pointercancel', ende);
+}
+
+function rfBewegen(e) {
+  const { f, geist, zelle } = RF;
+  const x = e.clientX - f.breite * zelle / 2;
+  const y = e.clientY - f.hoehe * zelle - RF.abstand;
+  geist.style.transform = `translate(${x}px, ${y}px)`;
+  const rect = $id('rf-brett').getBoundingClientRect();
+  const c = Math.round((x - rect.left) / zelle), r = Math.round((y - rect.top) / zelle);
+  const markieren = {};
+  RF.ziel = null;
+  if (B.passt(S.bloecke.feld, RF.t, r, c)) {
+    RF.ziel = [r, c];
+    const erg = B.legen(S.bloecke.feld, RF.t, r, c);
+    for (const i of erg.gelegt) markieren[i] = `vorschau rf${RF.t.farbe}`;
+    for (const i of erg.geloescht) markieren[i] = (markieren[i] ? markieren[i] + ' ' : '') + 'wird-frei';
+  }
+  rfFeldZeichnen(markieren);
+}
+
+function rfLoslassen() {
+  const { nr, el, geist, ziel } = RF;
+  geist.remove();
+  el.classList.remove('gezogen');
+  RF = null;
+  if (ziel) rfLegen(nr, ziel[0], ziel[1]);
+  else rfFeldZeichnen();
+}
+
+function rfLegen(nr, r, c) {
+  const z = B.zug(S.bloecke, nr, r, c);
+  if (!z) return rfFeldZeichnen();
+  const rekordVorher = S.bloecke.rekord || 0;
+  S.bloecke = { ...z.stand, rekord: Math.max(rekordVorher, z.stand.punkte) };
+  // Erst kurz die abgeräumten Felder aufleuchten lassen, dann leeren
+  const markieren = {};
+  for (const i of z.gelegt) markieren[i] = 'neu';
+  if (z.geloescht.length && !ruhig()) {
+    for (const i of z.geloescht) markieren[i] = 'blitz';
+    rfFeldZeichnen(markieren, z.farben);
+    setTimeout(() => rfFeldZeichnen(), 340);
+  } else rfFeldZeichnen(markieren);
+  rfAblageZeichnen();
+  anzeigeRunenfeld();
+  punktePop(z.plus);
+  if (z.linien) {
+    const rahmen = $id('rahmen');
+    if (rahmen && !ruhig()) { rahmen.classList.remove('entfacht'); void rahmen.offsetWidth; rahmen.classList.add('entfacht'); }
+    if (z.feldLeer) schwebeText('Feld leer!', 'meilenstein', 1600);
+    else if (z.kombo >= 2) schwebeText(`Kombo ×${z.kombo}`, 'gold');
+    else if (z.linien >= 2) schwebeText(`${z.linien} Linien`, '');
+  }
+  if (S.bloecke.punkte > rekordVorher && rekordVorher > 0 && S.bloecke.punkte - z.plus <= rekordVorher) schwebeText('Neuer Rekord', 'kette', 1400);
+  if (z.vorbei) protokoll(S, 'spiel_vorbei', { spiel: 'runenfeld', punkte: S.bloecke.punkte });
+  sichern();
+  overlayPruefen();
 }
 
 // ============ Elternbereich ============
@@ -1514,6 +1687,14 @@ function klick(e) {
       neueAufgabe(); break;
     case 'spielen':
       zeigeSpiel(); break;
+    case 'runenfeld':
+      zeigeRunenfeld(); break;
+    case 'runenfeldNeu':
+      if (S.bloecke && S.bloecke.punkte > 0 && !B.spielVorbei(S.bloecke.feld, S.bloecke.teile)) {
+        oeffneModal(`<h2 class="modal-titel">Neues Spiel?</h2><p>Das aktuelle Spiel ist dann weg. Deine Spielzeit bleibt.</p><div class="knopf-reihe"><button class="btn btn-haupt" data-act="runenfeldNeuJetzt">Neues Spiel</button><button class="btn" data-act="modalZu">Abbrechen</button></div>`);
+      } else runenfeldNeu();
+      break;
+    case 'runenfeldNeuJetzt': schliesseModal(); runenfeldNeu(); break;
     case 'basis': {
       const slot = L.basisSlotJetzt(new Date(), S.einstellungen, S.basisSlot);
       if (slot && R().basisMin > 0) { S.basisSlot = slot; S.guthaben += Math.round(R().basisMin * 60); protokoll(S, 'basis', { slot }); sichern(); }

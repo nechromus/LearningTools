@@ -500,3 +500,32 @@ textarea { font-family: ui-monospace, monospace; font-size: 14px; margin-bottom:
 .feld.tippbar:active { background: var(--teal-hell); }
 .aufblinken { animation: aufblinken 0.4s ease-in-out 3; }
 @keyframes aufblinken { 50% { transform: scale(1.06); box-shadow: 0 0 0 5px var(--amber); background: var(--amber-hell); } }
+
+/* ---------- Spielauswahl und Runenfeld ---------- */
+.spiel-wahl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.spiel-knoepfe { display: inline-flex; gap: 16px; }
+.rf-brett { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); gap: 3px; aspect-ratio: 1; touch-action: none; }
+.rf-zelle { border-radius: 6px; background: #1F2627; box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.55), inset 0 -1px 0 rgba(255, 255, 255, 0.04); position: relative; }
+.rf-zelle.voll, .rf-stein { box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.28), inset 0 -3px 0 rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.45); }
+.rf-zelle.voll::before, .rf-stein::before { content: ''; position: absolute; inset: 22%; border-radius: 3px; border: 1px solid rgba(255, 255, 255, 0.22); }
+.rf-stein { position: relative; border-radius: 5px; }
+.rf1 { background: linear-gradient(160deg, #6FF0C0, #1E7A5F); }
+.rf2 { background: linear-gradient(160deg, #F6DFA2, #A87C2A); }
+.rf3 { background: linear-gradient(160deg, #8FD3F0, #2B6E8F); }
+.rf4 { background: linear-gradient(160deg, #F0A88F, #9A4A2E); }
+.rf5 { background: linear-gradient(160deg, #C9B3F0, #5E4A9A); }
+.rf6 { background: linear-gradient(160deg, #B9C4B8, #5F6B5E); }
+.rf-zelle.vorschau { opacity: 0.55; }
+.rf-zelle.wird-frei { box-shadow: 0 0 0 2px var(--jade-hell), 0 0 12px var(--jade); }
+.rf-zelle.neu { animation: rfNeu 0.18s ease-out; }
+.rf-zelle.blitz { animation: rfBlitz 0.34s ease-out forwards; }
+@keyframes rfNeu { from { transform: scale(0.75); } }
+@keyframes rfBlitz { 0% { filter: brightness(1.8); box-shadow: 0 0 14px var(--jade-hell); } 100% { filter: brightness(2.4); transform: scale(0.3); opacity: 0; } }
+.rf-ablage { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; min-height: 120px; touch-action: none; user-select: none; -webkit-user-select: none; }
+.rf-platz { display: flex; align-items: center; justify-content: center; min-height: 120px; border-radius: 14px; background: rgba(255, 255, 255, 0.03); border: 1px dashed rgba(95, 232, 180, 0.18); }
+.rf-teil { padding: 10px; cursor: grab; touch-action: none; }
+.rf-teil .rf-form { display: grid; gap: 2px; width: calc(var(--b) * 20px); height: calc(var(--h) * 20px); }
+.rf-teil.gezogen { opacity: 0.15; }
+.rf-teil.passt-nicht { opacity: 0.4; filter: grayscale(0.7); }
+.rf-geist { position: fixed; left: 0; top: 0; z-index: 50; pointer-events: none; filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.5)); }
+.rf-geist .rf-form { display: grid; gap: 3px; }
