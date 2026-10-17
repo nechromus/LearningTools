@@ -5,7 +5,7 @@ import * as U from './sync.js';
 import { esc, mathe, bruchHtml, bildSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.2.3';
+export const APP_VERSION = '1.2.4';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [];
@@ -132,13 +132,13 @@ function standDaten() {
 
 async function syncen(erzwingen = false) {
   const u = S.upload;
-  if (!u.repo || !u.token || syncLaeuft) return null;
+  if (u.testgeraet || !u.repo || !u.token || syncLaeuft) return null;
   if (!erzwingen && Date.now() - (u.versuch || 0) < 10 * 60 * 1000) return null;
   syncLaeuft = true;
   u.versuch = Date.now();
   let anzahl = 0;
   try {
-    const tage = U.nachTagen(S.log, d => L.tagKey(d));
+    const tage = U.nachTagen(U.ohneTestphasen(S.log), d => L.tagKey(d));
     const offen = Object.keys(tage).sort().filter(k => tage[k].length > (u.tage[k] || 0)).slice(-14);
     for (const tag of offen) {
       const inhalt = JSON.stringify({ app: 'lernapp-2048', version: APP_VERSION, geraetId: S.geraetId, tag, hochgeladen: new Date().toISOString(), eintraege: tage[tag] });
@@ -1225,7 +1225,13 @@ function zeigeEltern(meldung = '') {
     </section>
 
     <section class="karte">
+      <h3>Testgerät</h3>
+      <label class="schalter-zeile"><input type="checkbox" id="u-test" data-act="testgeraet" ${S.upload.testgeraet ? 'checked' : ''}><span><b>Dieses Handy ist ein Testgerät</b><br><span class="gedaempft klein">Es werden keine Lerndaten übertragen. Exporte werden als Test markiert.</span></span></label>
+    </section>
+
+    <section class="karte">
       <h3>Automatische Übertragung</h3>
+      ${S.upload.testgeraet ? '<p class="meldung">Testgerät: Übertragung ist ausgeschaltet.</p>' : ''}
       ${S.upload.token ? `
         <p>Repo: <b>${esc(S.upload.repo)}</b> · Schlüssel endet auf …${esc(S.upload.token.slice(-4))}</p>
         <p class="gedaempft klein">Letzte Übertragung: ${S.upload.letzter ? new Date(S.upload.letzter).toLocaleString('de-DE') : 'noch keine'}</p>
@@ -1290,7 +1296,7 @@ function zeigeEltern(meldung = '') {
 async function exportieren() {
   const { pin, ...einstellungen } = S.einstellungen;
   const daten = {
-    app: 'lernapp-2048', version: APP_VERSION, exportiertAm: new Date().toISOString(), geraetId: S.geraetId,
+    app: 'lernapp-2048', version: APP_VERSION, exportiertAm: new Date().toISOString(), geraetId: S.geraetId, testgeraet: !!S.upload.testgeraet,
     seitLetztemExport: S.letzterExport, einstellungen, guthaben: S.guthaben, spiel: { rekord: S.spiel.rekord, maxKachel: S.spiel.maxKachel },
     zusammenfassung7Tage: zusammenfassung(7), genStufen: S.genStufen, statistik: S.statistik, log: S.log
   };
@@ -1488,11 +1494,19 @@ function klick(e) {
         S.upload = { ...S.upload, repo, token, fehler: null, tage: {} };
         protokoll(S, 'upload_eingerichtet', { repo });
         sichern();
+        if (S.upload.testgeraet) { zeigeEltern('Verbindung klappt und ist gespeichert. Testgerät: Es wird nichts übertragen.'); return; }
         return syncen(true).then(() => zeigeEltern(S.upload.fehler ? `Gespeichert, aber: ${S.upload.fehler}` : 'Übertragung eingerichtet und Daten übertragen.'));
       }).catch(e => { f.textContent = e.message; });
       break;
     }
+    case 'testgeraet':
+      S.upload.testgeraet = el.checked;
+      protokoll(S, 'testgeraet', { an: el.checked });
+      sichern();
+      zeigeEltern(el.checked ? 'Testgerät: Es werden keine Daten übertragen.' : 'Testgerät aus: Daten werden wieder übertragen (wenn eingerichtet).');
+      break;
     case 'syncJetzt':
+      if (S.upload.testgeraet) { zeigeEltern('Testgerät: Übertragung ist ausgeschaltet.'); break; }
       el.textContent = 'Wird übertragen …';
       syncen(true).then(n => zeigeEltern(S.upload.fehler ? S.upload.fehler : `Übertragen${n ? ` (${n} ${n === 1 ? 'Tag' : 'Tage'})` : ''}.`));
       break;

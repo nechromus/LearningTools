@@ -489,3 +489,5 @@ textarea { font-family: ui-monospace, monospace; font-size: 14px; margin-bottom:
 .rechner-panel .r-uebernehmen { font-size: 14px; }
 .r-antwort { margin-top: 8px; padding: 12px; }
 .r-aufklappen { display: block; width: 100%; margin-bottom: 8px; padding: 8px; border-radius: 10px; border: 1.5px dashed var(--teal); background: var(--teal-hell); color: var(--teal-dunkel); font-weight: 700; }
+.schalter-zeile { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
+.schalter-zeile input { width: 26px; height: 26px; margin: 2px 0 0; flex: none; accent-color: var(--teal); }

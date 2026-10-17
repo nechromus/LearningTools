@@ -20,7 +20,7 @@ function standard() {
     extraAufgaben: [],
     genStufen: {},          // Baukasten → { stufe, folge }
     wiederholen: [],        // erzeugte Aufgaben, die nochmal kommen
-    upload: { repo: '', token: '', letzter: null, versuch: 0, fehler: null, tage: {} },
+    upload: { repo: '', token: '', letzter: null, versuch: 0, fehler: null, tage: {}, testgeraet: false },
     log: [],
     letzterExport: null
   };

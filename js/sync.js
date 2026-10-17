@@ -73,3 +73,14 @@ export function nachTagen(log, tagKey) {
   }
   return tage;
 }
+
+// Einträge aus Zeiten, in denen das Gerät als Testgerät markiert war, nie übertragen.
+export function ohneTestphasen(log) {
+  let test = false;
+  const out = [];
+  for (const e of log) {
+    if (e.typ === 'testgeraet') { test = !!e.an; continue; }
+    if (!test) out.push(e);
+  }
+  return out;
+}
