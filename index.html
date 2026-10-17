@@ -24,9 +24,15 @@
         var touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
         var quer = window.matchMedia && window.matchMedia('(orientation: landscape)').matches;
         var breite = quer ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
-        document.documentElement.style.zoom = '';
+        var html = document.documentElement;
+        html.style.zoom = '';
+        html.style.removeProperty('--zoom');
         var verhaeltnis = window.innerWidth / breite;
-        if (touch && breite && verhaeltnis > 1.15) document.documentElement.style.zoom = verhaeltnis.toFixed(3);
+        if (touch && breite && verhaeltnis > 1.15) {
+          html.style.zoom = verhaeltnis.toFixed(3);
+          // Höhen wie 100dvh werden mit vergrößert: wieder herausrechnen, sonst wird die Seite scrollbar
+          html.style.setProperty('--zoom', verhaeltnis.toFixed(3));
+        }
       }
       anpassen();
       window.addEventListener('resize', anpassen);

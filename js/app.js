@@ -8,7 +8,7 @@ import * as P from './paket.js';
 import * as B from './bloecke.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.6.2';
+export const APP_VERSION = '1.6.3';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [], BASIS_IDS = new Set();
@@ -1365,10 +1365,18 @@ function rfZiehenEinrichten() {
     const f = B.FORMEN.find(x => x.name === t.form);
     const geist = document.createElement('div');
     geist.className = 'rf-geist';
-    geist.innerHTML = formHtml(t, zelle);
     document.querySelector('.spiel-screen').appendChild(geist);
+    // Maßstab messen: Bei vergrößerter Darstellung (Desktop-Modus, zoom) sind Bildschirm- und Seitenpixel verschieden
+    geist.style.transform = 'translate(0px, 0px)';
+    geist.innerHTML = '<span style="display:block;width:100px;height:100px"></span>';
+    const r0 = geist.getBoundingClientRect();
+    geist.style.transform = 'translate(100px, 100px)';
+    const r1 = geist.getBoundingClientRect();
+    const q = (r1.left - r0.left) / 100 || 1;   // Bildschirmpixel pro Seitenpixel bei Verschiebung
+    const g = r0.width / 100 || 1;              // Bildschirmpixel pro Seitenpixel bei Größe
+    geist.innerHTML = formHtml(t, zelle / g);
     // Die Form schwebt über dem Finger, damit man sie sieht
-    RF = { nr, t, f, el, geist, zelle, abstand: Math.min(90, zelle * 1.6), ziel: null, id: e.pointerId };
+    RF = { nr, t, f, el, geist, zelle, q, x0: r0.left, y0: r0.top, abstand: Math.min(90 * g, zelle * 1.6), ziel: null, id: e.pointerId };
     el.classList.add('gezogen');
     try { platz.setPointerCapture(e.pointerId); } catch (err) { /* egal */ }
     rfBewegen(e);
@@ -1383,7 +1391,7 @@ function rfBewegen(e) {
   const { f, geist, zelle } = RF;
   const x = e.clientX - f.breite * zelle / 2;
   const y = e.clientY - f.hoehe * zelle - RF.abstand;
-  geist.style.transform = `translate(${x}px, ${y}px)`;
+  geist.style.transform = `translate(${(x - RF.x0) / RF.q}px, ${(y - RF.y0) / RF.q}px)`;
   const rect = $id('rf-brett').getBoundingClientRect();
   const c = Math.round((x - rect.left) / zelle), r = Math.round((y - rect.top) / zelle);
   const markieren = {};
