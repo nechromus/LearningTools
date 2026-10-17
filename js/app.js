@@ -92,7 +92,7 @@ async function updatePruefen() {
   } catch (e) { /* offline: später nochmal */ }
 }
 
-// Nur neu laden, wenn Tobias nicht mitten in einer Aufgabe oder im Spiel ist
+// Nur neu laden, wenn niemand mitten in einer Aufgabe oder im Spiel ist
 function neuLadenWennRuhig() {
   if (!neuLadenGeplant) return;
   if (ansicht === 'start' || ansicht === 'eltern') {
