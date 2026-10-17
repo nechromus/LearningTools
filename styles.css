@@ -527,6 +527,32 @@ textarea { font-family: ui-monospace, monospace; font-size: 14px; margin-bottom:
 .rf-platz:has(.rf-teil) { cursor: grab; }
 .rf-teil .rf-form { display: grid; gap: 2px; width: calc(var(--b) * 20px); height: calc(var(--h) * 20px); }
 .rf-teil.gezogen { opacity: 0.15; }
-.rf-teil.passt-nicht { opacity: 0.4; filter: grayscale(0.7); }
+.rf-teil.passt-nicht { opacity: 0.75; filter: saturate(0.5); }
+.rf-platz:has(.passt-nicht) { border-color: rgba(216, 176, 90, 0.55); background: rgba(216, 176, 90, 0.06); }
+.rf-platz:has(.passt-nicht)::after { content: 'kein Platz'; position: absolute; bottom: 6px; font-size: 11px; color: var(--gold); letter-spacing: 0.5px; }
+.rf-platz { position: relative; }
 .rf-geist { position: fixed; left: 0; top: 0; z-index: 50; pointer-events: none; filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.5)); }
 .rf-geist .rf-form { display: grid; gap: 3px; }
+
+/* Runenfeld: Vorschau, wenn die Form nicht passt */
+.rf-brett { position: relative; }
+.rf-zelle.geht-nicht { box-shadow: inset 0 0 0 2px rgba(216, 176, 90, 0.75); background: rgba(216, 176, 90, 0.10); }
+.rf-zelle.stoesst { box-shadow: 0 0 0 2px var(--gold), 0 0 10px rgba(216, 176, 90, 0.8); filter: brightness(1.15); }
+.rf-geist.ungueltig { opacity: 0.55; filter: saturate(0.4) drop-shadow(0 8px 12px rgba(0, 0, 0, 0.5)); }
+.rf-zelle.wird-frei { animation: rfPuls 0.7s ease-in-out infinite; }
+@keyframes rfPuls { 50% { box-shadow: 0 0 0 2px var(--jade-hell), 0 0 18px var(--jade); filter: brightness(1.35); } }
+
+/* Runenfeld: Effekte */
+.rf-strahl { position: absolute; pointer-events: none; z-index: 3; border-radius: 6px; opacity: 0; animation: rfStrahl 0.7s ease-out forwards; }
+.rf-strahl.waag { left: -4px; right: -4px; background: linear-gradient(90deg, transparent, rgba(185, 255, 226, 0.95), #fff, rgba(185, 255, 226, 0.95), transparent); box-shadow: 0 0 18px var(--jade), 0 0 40px rgba(95, 232, 180, 0.6); transform-origin: left center; }
+.rf-strahl.senk { top: -4px; bottom: -4px; background: linear-gradient(180deg, transparent, rgba(185, 255, 226, 0.95), #fff, rgba(185, 255, 226, 0.95), transparent); box-shadow: 0 0 18px var(--jade), 0 0 40px rgba(95, 232, 180, 0.6); transform-origin: center top; }
+.rf-strahl.gold.waag { background: linear-gradient(90deg, transparent, rgba(246, 223, 162, 0.95), #fff, rgba(246, 223, 162, 0.95), transparent); box-shadow: 0 0 20px var(--gold), 0 0 44px rgba(216, 176, 90, 0.7); }
+.rf-strahl.gold.senk { background: linear-gradient(180deg, transparent, rgba(246, 223, 162, 0.95), #fff, rgba(246, 223, 162, 0.95), transparent); box-shadow: 0 0 20px var(--gold), 0 0 44px rgba(216, 176, 90, 0.7); }
+@keyframes rfStrahl { 0% { opacity: 0; transform: scale(0.1, 0.6); } 25% { opacity: 1; transform: scale(1, 1.15); } 100% { opacity: 0; transform: scale(1, 0.2); } }
+.rf-funke { position: absolute; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 2px; pointer-events: none; z-index: 4; box-shadow: 0 0 8px rgba(255, 255, 255, 0.7); animation: rfFunke 0.75s ease-out forwards; }
+@keyframes rfFunke { 0% { transform: translate(0, 0) rotate(0) scale(1.2); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) rotate(200deg) scale(0.2); opacity: 0; } }
+.rf-ring { position: absolute; pointer-events: none; z-index: 2; border-radius: 6px; border: 2px solid var(--jade-hell); box-shadow: 0 0 10px var(--jade); animation: rfRing 0.45s ease-out forwards; }
+@keyframes rfRing { from { transform: scale(0.8); opacity: 1; } to { transform: scale(1.35); opacity: 0; } }
+.rf-leer-blitz { position: absolute; inset: -8px; border-radius: 16px; pointer-events: none; z-index: 5; background: radial-gradient(circle, rgba(255, 244, 214, 0.95) 0%, rgba(216, 176, 90, 0.5) 40%, transparent 72%); animation: rfLeer 1.3s ease-out forwards; }
+@keyframes rfLeer { 0% { opacity: 0; transform: scale(0.4); } 25% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0; transform: scale(1.3); } }
+@media (prefers-reduced-motion: reduce) { .rf-zelle.wird-frei { animation: none; box-shadow: 0 0 0 2px var(--jade-hell); } }

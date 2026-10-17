@@ -8,7 +8,7 @@ import * as P from './paket.js';
 import * as B from './bloecke.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.6.1';
+export const APP_VERSION = '1.6.2';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [], BASIS_IDS = new Set();
@@ -1304,6 +1304,7 @@ function zeigeRunenfeld() {
   rfFeldZeichnen();
   rfAblageZeichnen();
   rfZiehenEinrichten();
+  rfGlut();
   overlayPruefen();
 }
 
@@ -1392,8 +1393,88 @@ function rfBewegen(e) {
     const erg = B.legen(S.bloecke.feld, RF.t, r, c);
     for (const i of erg.gelegt) markieren[i] = `vorschau rf${RF.t.farbe}`;
     for (const i of erg.geloescht) markieren[i] = (markieren[i] ? markieren[i] + ' ' : '') + 'wird-frei';
+  } else {
+    // Passt hier nicht: Umriss trotzdem zeigen, nur anders (gestrichelt, belegte Felder glühen)
+    for (const [dr, dc] of f.zellen) {
+      const rr = r + dr, cc = c + dc;
+      if (rr < 0 || cc < 0 || rr >= B.N || cc >= B.N) continue;
+      const i = rr * B.N + cc;
+      markieren[i] = S.bloecke.feld[i] ? 'stoesst' : 'geht-nicht';
+    }
   }
+  geist.classList.toggle('ungueltig', !RF.ziel && Object.keys(markieren).length > 0);
   rfFeldZeichnen(markieren);
+}
+
+// ---------- Runenfeld: Effekte ----------
+
+function rfEffekte(z) {
+  const brett = $id('rf-brett');
+  if (!brett || ruhig()) return;
+  const zelleEl = (i) => brett.querySelector(`.rf-zelle[data-i="${i}"]`);
+  const weg = (el, ms) => setTimeout(() => el.remove(), ms);
+  // Lichtstrahl über jede abgeräumte Reihe und Spalte
+  z.reihen.forEach((r, k) => {
+    const a = zelleEl(r * B.N);
+    const d = document.createElement('div');
+    d.className = 'rf-strahl waag' + (z.kombo >= 2 ? ' gold' : '');
+    d.style.top = a.offsetTop + 'px'; d.style.height = a.offsetHeight + 'px';
+    d.style.animationDelay = k * 60 + 'ms';
+    brett.appendChild(d); weg(d, 900);
+  });
+  z.spalten.forEach((c, k) => {
+    const a = zelleEl(c);
+    const d = document.createElement('div');
+    d.className = 'rf-strahl senk' + (z.kombo >= 2 ? ' gold' : '');
+    d.style.left = a.offsetLeft + 'px'; d.style.width = a.offsetWidth + 'px';
+    d.style.animationDelay = (z.reihen.length + k) * 60 + 'ms';
+    brett.appendChild(d); weg(d, 900);
+  });
+  // Funken aus den abgeräumten Steinen
+  const felder = z.geloescht.slice().sort(() => Math.random() - 0.5).slice(0, 28);
+  for (const i of felder) {
+    const a = zelleEl(i);
+    for (let n = 0; n < 2; n++) {
+      const d = document.createElement('div');
+      d.className = `rf-funke rf${z.farben[i] || 1}`;
+      d.style.left = a.offsetLeft + a.offsetWidth / 2 + 'px';
+      d.style.top = a.offsetTop + a.offsetHeight / 2 + 'px';
+      const winkel = Math.random() * Math.PI * 2, weite = 30 + Math.random() * 60;
+      d.style.setProperty('--dx', Math.cos(winkel) * weite + 'px');
+      d.style.setProperty('--dy', Math.sin(winkel) * weite - 20 + 'px');
+      d.style.animationDelay = Math.random() * 120 + 'ms';
+      brett.appendChild(d); weg(d, 900);
+    }
+  }
+  // Viele Linien auf einmal: das Feld bebt
+  const rahmen = $id('rahmen');
+  if (rahmen && z.linien >= 2) { rahmen.classList.remove('beben'); void rahmen.offsetWidth; rahmen.classList.add('beben'); }
+  // Leeres Feld: alles leuchtet golden auf
+  if (z.feldLeer) {
+    const d = document.createElement('div');
+    d.className = 'rf-leer-blitz';
+    brett.appendChild(d); weg(d, 1400);
+  }
+}
+
+// Rahmen glüht stärker, je länger die Kombo läuft
+function rfGlut() {
+  const rahmen = $id('rahmen');
+  if (rahmen) rahmen.style.setProperty('--glut', Math.min(1, (S.bloecke.kombo || 0) * 0.25));
+}
+
+// Landeplatz: kurzer Lichtring um die gelegte Form
+function rfLandung(gelegt) {
+  const brett = $id('rf-brett');
+  if (!brett || ruhig()) return;
+  for (const i of gelegt) {
+    const a = brett.querySelector(`.rf-zelle[data-i="${i}"]`);
+    const d = document.createElement('div');
+    d.className = 'rf-ring';
+    d.style.left = a.offsetLeft + 'px'; d.style.top = a.offsetTop + 'px';
+    d.style.width = a.offsetWidth + 'px'; d.style.height = a.offsetHeight + 'px';
+    brett.appendChild(d); setTimeout(() => d.remove(), 500);
+  }
 }
 
 function rfLoslassen() {
@@ -1421,6 +1502,9 @@ function rfLegen(nr, r, c) {
   rfAblageZeichnen();
   anzeigeRunenfeld();
   punktePop(z.plus);
+  rfLandung(z.gelegt);
+  if (z.linien) rfEffekte(z);
+  rfGlut();
   if (z.linien) {
     const rahmen = $id('rahmen');
     if (rahmen && !ruhig()) { rahmen.classList.remove('entfacht'); void rahmen.offsetWidth; rahmen.classList.add('entfacht'); }
