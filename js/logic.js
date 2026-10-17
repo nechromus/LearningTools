@@ -110,7 +110,9 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
 
   // Runden: richtige Stelle, aber nicht gerundet (abgeschnitten)
   if ((teil && teil.runden) || aufgabe.thema === 'runden') {
-    return { typ: 'runden', text: 'Schau auf die 2. Stelle nach dem Komma. 5 bis 9 heißt aufrunden.' };
+    const d = aufgabe.generator === 'runden' ? aufgabe.parameter[1] : (teil && teil.runden) || 1;
+    const stelle = d === 0 ? 'die 1. Stelle nach dem Komma' : `die ${d + 1}. Stelle nach dem Komma`;
+    return { typ: 'runden', text: `Schau auf ${stelle}. 5 bis 9 heißt aufrunden.` };
   }
 
   return null;

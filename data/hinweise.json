@@ -1,5 +1,5 @@
 {
-  "info": "Hinweise (Sheikah-Zeichen). Kopie von app-uebergabe/02-hinweise.json aus dem Claude-Projekt. Reihenfolge ist fest. Neue Hinweise nur hinten anfügen. Stand 17.10.2026 (Hinweise 12 und 13 neu).",
+  "info": "Hinweise (Sheikah-Zeichen). Kopie von app-uebergabe/02-hinweise.json aus dem Claude-Projekt. Reihenfolge ist fest. Neue Hinweise nur hinten anfügen. Stand 17.10.2026 (Hinweise 12, 13 und 14 neu).",
   "icon_form": {
     "beschreibung": "Sechseck, viewBox 0 0 24 24, Füllung = farbe_hell, Rand = farbe (1.6 px), Symbol mittig in farbe_text, Schrift Atkinson Hyperlegible fett",
     "polygon": "12,1.5 21.5,7 21.5,17 12,22.5 2.5,17 2.5,7"
@@ -233,6 +233,23 @@
         "Endet die Zahl auf 0? Durch 10 → die Null weg"
       ],
       "beispiel": "7 · 10 = 70   3,5 · 10 = 35   45 : 10 = 4,5"
+    },
+    {
+      "nr": 14,
+      "id": "runden2",
+      "titel": "Runden auf andere Stellen",
+      "symbol": ",00",
+      "farbe": "#46586B",
+      "farbe_hell": "#E2E8EE",
+      "farbe_text": "#2C3A48",
+      "regeln": [
+        "Auf eine ganze Zahl: schau auf die 1. Stelle nach dem Komma",
+        "Auf 2 Stellen: schau auf die 3. Stelle nach dem Komma",
+        "Auf 3 Stellen: schau auf die 4. Stelle nach dem Komma",
+        "0, 1, 2, 3, 4 → abrunden",
+        "5, 6, 7, 8, 9 → aufrunden"
+      ],
+      "beispiel": "4,6 ≈ 5   3,146 ≈ 3,15   2,0004 ≈ 2,000"
     }
   ]
 }

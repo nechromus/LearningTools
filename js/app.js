@@ -5,7 +5,7 @@ import * as U from './sync.js';
 import { esc, mathe, bruchHtml, bildSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.2.1';
+export const APP_VERSION = '1.2.2';
 
 const S = laden();
 let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [];
@@ -16,7 +16,6 @@ let ansicht = 'start';
 function setzeAnsicht(name) { ansicht = name; document.body.dataset.ansicht = name; }
 let A = null;                // aktive Aufgabe
 let modalSchliessen = null;  // Callback beim Schließen
-let rechner = null;          // { ausdruck, ergebnis }
 let spielSitzung = null;     // { start, sekunden }
 let versteckt = null;        // Zeitpunkt, an dem die App verlassen wurde
 
@@ -470,8 +469,10 @@ function fussHtml() {
   const t = aktuellerTeil();
   if (A.phase === 'tipp') return `<button class="btn btn-haupt btn-gross" data-act="verstanden">Verstanden</button>`;
   if (A.phase === 'aufgeloest') return `<button class="btn btn-haupt btn-gross" data-act="weiter">Weiter</button>`;
+  if (A.rechnerOffen && A.rechner && t.art !== 'zuordnung') return rechnerPanelHtml(t);
+  const aufklappen = A.rechner && !A.rechnerOffen ? '<button class="r-aufklappen" data-act="rAufklappen">Taschenrechner ▲</button>' : '';
   if (t.art === 'zahl' || t.art === 'bruch') {
-    return `${t.bonus ? '<button class="btn-text klein ueberspringen" data-act="teilUeberspringen">Bonus überspringen</button>' : ''}
+    return `${aufklappen}${t.bonus ? '<button class="btn-text klein ueberspringen" data-act="teilUeberspringen">Bonus überspringen</button>' : ''}
     <div class="tastatur">
       ${['7', '8', '9', '⌫', '4', '5', '6', '−', '1', '2', '3', ','].map(k => `<button class="taste${k === '⌫' || k === '−' || k === ',' ? ' taste-sonder' : ''}" data-act="taste" data-k="${k}" ${t.art === 'bruch' && (k === '−' || k === ',') ? 'disabled' : ''} aria-label="${k === '⌫' ? 'Löschen' : k === '−' ? 'Minus' : k}">${k}</button>`).join('')}
       <button class="taste taste-null" data-act="taste" data-k="0">0</button>
@@ -479,7 +480,7 @@ function fussHtml() {
     </div>`;
   }
   if (t.art === 'zuordnung') return `<button class="btn btn-haupt btn-gross" data-act="antwort">Antwort geben</button>`;
-  return '';
+  return aufklappen;
 }
 
 function ergebnisHtml() {
@@ -742,46 +743,76 @@ function hinweisOeffnen(id) {
 }
 
 function rechnerOeffnen() {
-  rechner = { ausdruck: '', ergebnis: null };
-  protokoll(S, 'rechner_offen', { id: A.aufgabe.id });
-  zeigeRechner();
+  if (!A.rechner) A.rechner = { ausdruck: '', ergebnis: null };
+  A.rechnerOffen = true;
+  protokoll(S, 'rechner_offen', { id: A.aufgabe.id, teil: A.idx });
+  zeigeAufgabe();
 }
 
-function zeigeRechner() {
-  const tasten = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', ',', 'π', '=', 'x²', 'x³', '⌫'];
-  const anzeige = rechner.ergebnis != null ? L.formatRechnerZahl(rechner.ergebnis) : '';
-  oeffneModal(`
-    <div class="rechner">
-      <div class="rechner-anzeige"><div class="rechner-ausdruck">${esc(rechner.ausdruck) || '&nbsp;'}</div><div class="rechner-ergebnis">${esc(anzeige) || '&nbsp;'}</div></div>
-      <div class="rechner-tasten">${tasten.map(k => `<button class="r-taste${'÷×−+='.includes(k) && k.length === 1 ? ' r-op' : ''}${k === '=' ? ' r-gleich' : ''}" data-act="rTaste" data-k="${k}">${k === 'x²' ? 'x²' : k === 'x³' ? 'x³' : k}</button>`).join('')}
-        <button class="r-taste r-uebernehmen" data-act="rUebernehmen" ${rechner.ergebnis == null ? 'disabled' : ''}>Ergebnis eintragen</button>
-      </div>
-    </div>`, () => { rechner = null; });
+const R_TASTEN = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', ',', 'π', '=', 'x²', 'x³', '⌫'];
+
+function rechnerPanelHtml(t) {
+  const r = A.rechner;
+  const anzeige = r.ergebnis != null ? L.formatRechnerZahl(r.ergebnis) : '';
+  const schritt = t && t.art === 'zahl'
+    ? `<div class="r-schritt"><span class="r-schritt-label">${mathe(t.label || A.aufgabe.rechnung || 'Antwort')}</span><span class="r-schritt-feld${t.eingabe ? '' : ' leer'}">${esc((t.eingabe || '?').replace('-', '−'))}</span>${t.einheit ? `<span class="r-schritt-einheit">${esc(t.einheit)}</span>` : ''}</div>`
+    : `<div class="r-schritt"><span class="r-schritt-label">${mathe((t && t.label) || '')}</span></div>`;
+  return `
+  <div class="rechner-panel">
+    <div class="r-kopf">${schritt}<button class="r-einklappen" data-act="rEinklappen" aria-label="Taschenrechner einklappen">▼</button></div>
+    <div class="rechner-anzeige"><div class="rechner-ausdruck">${esc(r.ausdruck) || '&nbsp;'}</div><div class="rechner-ergebnis">${esc(anzeige) || '&nbsp;'}</div></div>
+    <div class="rechner-tasten">${R_TASTEN.map(k => `<button class="r-taste${'÷×−+'.includes(k) && k.length === 1 ? ' r-op' : ''}${k === '=' ? ' r-gleich' : ''}" data-act="rTaste" data-k="${k}">${k}</button>`).join('')}
+      <button class="r-taste r-uebernehmen" data-act="rUebernehmen" ${rechnerWert() == null || !t || t.art !== 'zahl' ? 'disabled' : ''}>Eintragen</button>
+    </div>
+    ${t && t.art === 'zahl' ? '<button class="btn btn-haupt r-antwort" data-act="antwort">Antwort geben</button>' : ''}
+  </div>`;
+}
+
+function rechnerAnzeigeAktualisieren() {
+  const p = document.querySelector('.rechner-panel');
+  if (!p) return zeigeAufgabe();
+  const r = A.rechner;
+  p.querySelector('.rechner-ausdruck').innerHTML = esc(r.ausdruck) || '&nbsp;';
+  p.querySelector('.rechner-ergebnis').innerHTML = r.ergebnis != null ? esc(L.formatRechnerZahl(r.ergebnis)) : '&nbsp;';
+  const t = aktuellerTeil();
+  const u = p.querySelector('.r-uebernehmen');
+  if (u) u.disabled = rechnerWert() == null || !t || t.art !== 'zahl';
+}
+
+// Ergebnis oder – ohne „=“ – der eingetippte Ausdruck
+function rechnerWert() {
+  const r = A && A.rechner;
+  if (!r) return null;
+  return r.ergebnis != null ? r.ergebnis : (r.ausdruck ? L.rechne(r.ausdruck) : null);
 }
 
 function rechnerTaste(k) {
-  if (!rechner) return;
-  if (k === 'C') { rechner.ausdruck = ''; rechner.ergebnis = null; }
-  else if (k === '⌫') { rechner.ausdruck = rechner.ausdruck.slice(0, -1); }
+  const r = A && A.rechner;
+  if (!r) return;
+  if (k === 'C') { r.ausdruck = ''; r.ergebnis = null; }
+  else if (k === '⌫') { r.ausdruck = r.ausdruck.slice(0, -1); }
   else if (k === '=') {
-    rechner.ergebnis = L.rechne(rechner.ausdruck);
-    protokoll(S, 'rechner', { id: A && A.aufgabe.id, ausdruck: rechner.ausdruck, ergebnis: rechner.ergebnis });
+    r.ergebnis = L.rechne(r.ausdruck);
+    protokoll(S, 'rechner', { id: A.aufgabe.id, teil: A.idx, ausdruck: r.ausdruck, ergebnis: r.ergebnis });
     sichern();
   } else {
-    if (rechner.ergebnis != null && /^[0-9,π(]$/.test(k)) rechner.ausdruck = '';
-    else if (rechner.ergebnis != null && /^[÷×−+]$/.test(k)) rechner.ausdruck = L.formatRechnerZahl(rechner.ergebnis);
-    rechner.ergebnis = null;
-    rechner.ausdruck += k === 'x²' ? '²' : k === 'x³' ? '³' : k;
+    if (r.ergebnis != null && /^[0-9,π(]$/.test(k)) r.ausdruck = '';
+    else if (r.ergebnis != null && /^[÷×−+]$/.test(k)) r.ausdruck = L.formatRechnerZahl(r.ergebnis);
+    r.ergebnis = null;
+    r.ausdruck += k === 'x²' ? '²' : k === 'x³' ? '³' : k;
   }
-  zeigeRechner();
+  rechnerAnzeigeAktualisieren();
 }
 
 function rechnerUebernehmen() {
   const t = aktuellerTeil();
-  if (rechner && rechner.ergebnis != null && t && t.art === 'zahl' && A.phase === 'eingabe') {
-    t.eingabe = L.formatRechnerZahl(rechner.ergebnis).replace('−', '-');
+  const r = A && A.rechner;
+  const w = rechnerWert();
+  if (r && w != null && t && t.art === 'zahl' && A.phase === 'eingabe') {
+    t.eingabe = L.formatRechnerZahl(w).replace('−', '-');
+    if (r.ergebnis == null) protokoll(S, 'rechner', { id: A.aufgabe.id, teil: A.idx, ausdruck: r.ausdruck, ergebnis: w, ohneGleich: true });
+    r.ausdruck = ''; r.ergebnis = null;
   }
-  schliesseModal();
   zeigeAufgabe();
 }
 
@@ -1398,6 +1429,8 @@ function klick(e) {
       break;
     case 'rTaste': rechnerTaste(el.dataset.k); break;
     case 'rUebernehmen': rechnerUebernehmen(); break;
+    case 'rEinklappen': A.rechnerOffen = false; zeigeAufgabe(); break;
+    case 'rAufklappen': A.rechnerOffen = true; zeigeAufgabe(); break;
     case 'zuoSlot': zuoAuswahl(Number(el.dataset.g), el.dataset.s); break;
     case 'zuoWahl': zuoWaehlen(Number(el.dataset.g), el.dataset.s, Number(el.dataset.o)); break;
     case 'modalZu': schliesseModal(); break;

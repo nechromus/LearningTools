@@ -211,26 +211,32 @@ export function baukasten(stufe, rng, opts = {}) {
 // ---------- Runden ----------
 
 export function runden(stufe, rng) {
-  let ganz, stellen, ziffern;
+  // Stellen nach dem Komma, auf die gerundet wird (0 = ganze Zahl)
+  const d = stufe === 1 ? wahl(rng, [1, 1, 0]) : stufe === 2 ? wahl(rng, [0, 1, 1, 2]) : wahl(rng, [0, 1, 2, 2, 3]);
+  const extra = stufe === 1 ? 1 : wahl(rng, [1, 1, 2]);
+  const m = d + extra;
+  let ganz = stufe === 3 ? wahl(rng, [zufall(rng, 1, 99), 9, 19, 99]) : zufall(rng, 1, 60);
+  let ziffern;
   for (let v = 0; v < 200; v++) {
-    ganz = stufe === 3 ? wahl(rng, [zufall(rng, 1, 99), 9, 19, 99]) : zufall(rng, 1, 60);
-    stellen = stufe === 1 ? 2 : wahl(rng, [2, 2, 3]);
-    ziffern = Array.from({ length: stellen }, () => zufall(rng, 0, 9));
-    const neunSprung = ziffern[0] === 9 && ziffern[1] >= 5;
-    if (stufe === 1 && (neunSprung || ziffern[1] === 5)) continue;
-    if (stufe === 3 && rng() < 0.6) { ziffern[0] = 9; ziffern[1] = zufall(rng, 5, 9); }
-    if (stufe === 2 && rng() < 0.25) ziffern[1] = 5;
+    ziffern = Array.from({ length: m }, () => zufall(rng, 0, 9));
+    const sprung = d === 0 ? (ganz % 10 === 9 && ziffern[0] >= 5) : (ziffern[d - 1] === 9 && ziffern[d] >= 5);
+    if (stufe === 1 && (sprung || ziffern[d] === 5)) continue;
+    if (stufe === 3 && rng() < 0.5) { if (d > 0) ziffern[d - 1] = 9; else ganz = ganz - (ganz % 10) + 9; ziffern[d] = zufall(rng, 5, 9); }
+    if (stufe === 2 && rng() < 0.25) ziffern[d] = 5;
+    if (ziffern[m - 1] === 0) ziffern[m - 1] = zufall(rng, 1, 9) === ziffern[d] && m - 1 === d ? 1 : (m - 1 === d ? ziffern[d] || 1 : zufall(rng, 1, 9));
     break;
   }
-  const tausend = ganz * 10 ** stellen + Number(ziffern.join(''));
-  const zehntel = Math.floor(tausend / 10 ** (stellen - 1));
-  const auf = ziffern[1] >= 5;
-  const wertZehntel = auf ? zehntel + 1 : zehntel;
-  const wert = wertZehntel / 10;
+  const N = ganz * 10 ** m + Number(ziffern.join(''));
+  const q = Math.floor(N / 10 ** (m - d)) + (ziffern[d] >= 5 ? 1 : 0);
+  const wert = q / 10 ** d;
+  const auf = ziffern[d] >= 5;
   const zahl = `${ganz},${ziffern.join('')}`;
-  const anzeige = zahlText(wert, 1);
-  const erkl = auf ? `Die ${ziffern[1]} heißt aufrunden.` + (ziffern[0] === 9 ? ' Aus 9 wird 10, darum springt die Stelle davor.' : '') : `Die ${ziffern[1]} heißt abrunden.`;
-  return neu('runden', [zahl], { thema: 'runden', typ: 'zahl', stufe, rechnung: `${zahl} ≈ ?`, frage: 'Runde auf eine Stelle nach dem Komma.', antwort: { wert }, hinweise: ['runden'], loesungsweg: [`${ganz},${ziffern[0]}|${ziffern.slice(1).join('')} → ${auf ? 'aufrunden' : 'abrunden'} → ${anzeige}`], erklaerung: erkl + (stellen === 3 ? ' Nur die 2. Stelle nach dem Komma entscheidet.' : '') });
+  const anzeige = zahlText(wert, d);
+  const frage = d === 0 ? 'Runde auf eine ganze Zahl.' : d === 1 ? 'Runde auf eine Stelle nach dem Komma.' : `Runde auf ${d} Stellen nach dem Komma.`;
+  const strich = d === 0 ? `${ganz}|,${ziffern.join('')}` : `${ganz},${ziffern.slice(0, d).join('')}|${ziffern.slice(d).join('')}`;
+  const schau = d === 0 ? 'Schau auf die 1. Stelle nach dem Komma.' : `Schau auf die ${d + 1}. Stelle nach dem Komma.`;
+  const erkl = `${schau} Die ${ziffern[d]} heißt ${auf ? 'aufrunden' : 'abrunden'}.` + (auf && ((d > 0 && ziffern[d - 1] === 9) || (d === 0 && ganz % 10 === 9)) ? ' Aus 9 wird 10, darum springt die Stelle davor.' : '');
+  return neu('runden', [zahl, d], { thema: 'runden', typ: 'zahl', stufe, rechnung: `${zahl} ≈ ?`, frage, antwort: { wert }, hinweise: d === 1 ? ['runden'] : ['runden', 'runden2'], loesungsweg: [`${strich} → ${auf ? 'aufrunden' : 'abrunden'} → ${anzeige}`], erklaerung: erkl });
 }
 
 // ---------- Bruch aus Bild ----------

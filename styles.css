@@ -471,3 +471,21 @@ textarea { font-family: ui-monospace, monospace; font-size: 14px; margin-bottom:
   background: var(--teal); color: #fff; border-radius: 10px; padding: 10px 14px; font-weight: 700; font-size: 15px; text-align: center;
 }
 .btn-rechner.optional { border-style: dashed; border-color: var(--amber); color: var(--amber-dunkel); background: var(--amber-hell); }
+
+/* Angedockter Taschenrechner */
+.rechner-panel { background: var(--karte); border: 1.5px solid var(--teal); border-radius: 14px 14px 10px 10px; padding: 8px 10px 10px; }
+.r-kopf { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.r-schritt { flex: 1; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 16px; min-width: 0; }
+.r-schritt-label { font-weight: 700; color: var(--teal-dunkel); }
+.r-schritt-feld { min-width: 64px; padding: 2px 8px; border: 2px solid var(--teal); border-radius: 6px; background: var(--flaeche); font-weight: 700; font-size: 18px; text-align: center; }
+.r-schritt-feld.leer { color: var(--linie); border-style: dashed; }
+.r-schritt-einheit { font-weight: 700; color: var(--gedaempft); }
+.r-einklappen { flex: none; width: 44px; height: 36px; border-radius: 8px; border: 1px solid var(--linie); background: var(--flaeche); font-size: 16px; color: var(--teal-dunkel); }
+.rechner-panel .rechner-anzeige { margin: 0 0 8px; padding: 6px 10px; }
+.rechner-panel .rechner-ausdruck { font-size: 17px; min-height: 22px; }
+.rechner-panel .rechner-ergebnis { font-size: 26px; min-height: 32px; }
+.rechner-panel .rechner-tasten { gap: 6px; }
+.rechner-panel .r-taste { height: 44px; font-size: 20px; }
+.rechner-panel .r-uebernehmen { font-size: 14px; }
+.r-antwort { margin-top: 8px; padding: 12px; }
+.r-aufklappen { display: block; width: 100%; margin-bottom: 8px; padding: 8px; border-radius: 10px; border: 1.5px dashed var(--teal); background: var(--teal-hell); color: var(--teal-dunkel); font-weight: 700; }
