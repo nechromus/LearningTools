@@ -9,7 +9,7 @@ import * as P from '../js/paket.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.4.0';
+export const ELTERN_VERSION = '1.5.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -846,6 +846,77 @@ function minutenSetzen(feld, wert) {
   if (feld === 'basis') r.basisMin = v; else r.staffel[Number(feld.slice(1))] = v;
 }
 
+// ---------- Neue Version suchen ----------
+// Prüft beim Start, beim Zurückkehren in die App und alle 15 Minuten eltern/version.json
+// und die Version der Übungs-App (die Eltern-App nutzt deren Dateien in ../js/ mit).
+// Ohne Offline-Speicher: Vor dem Neuladen werden alle Dateien mit cache: 'reload' frisch geholt,
+// damit der Browser nicht die alten Dateien aus seinem Zwischenspeicher nimmt.
+const DATEIEN = ['./', 'index.html', 'eltern.js', 'eltern.css', 'auswertung.js', 'vendor/qrcode.mjs', 'manifest.webmanifest',
+  '../js/sync.js', '../js/logic.js', '../js/namen.js', '../js/render.js', '../js/paket.js', '../js/einrichtung.js'];
+let basisVersion = null;   // Version der Übungs-App beim Laden dieser Seite
+let neueVersion = null;
+let updateSpaeter = false;
+let letztePruefung = 0;
+
+async function versionHolen(url) {
+  const r = await fetch(`${url}?t=${Date.now()}`, { cache: 'no-store' });
+  if (!r.ok) return null;
+  return (await r.json()).version || null;
+}
+
+async function updatePruefen() {
+  letztePruefung = Date.now();
+  try {
+    const [eigene, basis] = await Promise.all([versionHolen('version.json'), versionHolen('../version.json').catch(() => null)]);
+    if (basisVersion === null) basisVersion = basis;
+    let neu = null;
+    if (eigene && eigene !== ELTERN_VERSION) neu = eigene;
+    else if (basis && basisVersion && basis !== basisVersion) neu = ELTERN_VERSION + ' (Übungs-App ' + basis + ')';
+    if (!neu) return;
+    neueVersion = neu;
+    updateAnbieten();
+  } catch (e) { /* offline: später nochmal */ }
+}
+
+// Gerade wird etwas eingegeben oder bearbeitet? Dann nicht einfach neu laden.
+function inArbeit() {
+  const a = document.activeElement;
+  if (a && ['INPUT', 'TEXTAREA', 'SELECT'].includes(a.tagName) && a.name !== 'nutzer-wahl') return true;
+  if (paketEntwurf || qr.token || qr.link || scanStopp || laedt) return true;
+  if (['spielzeit', 'gewichte', 'paket', 'qr'].includes(route.seite)) return true;
+  if (!C.token && document.querySelector('#r-token')?.value) return true;
+  return false;
+}
+
+function updateAnbieten() {
+  if (!neueVersion) return;
+  if (!inArbeit()) { updateLaden(); return; }
+  if (updateSpaeter || document.getElementById('update-leiste')) return;
+  const d = document.createElement('div');
+  d.id = 'update-leiste';
+  d.className = 'update-leiste';
+  d.setAttribute('role', 'status');
+  d.innerHTML = `<span>Neue Version der Eltern-App ist da.</span>
+    <button class="knopf haupt" data-act="updateLaden">Jetzt laden</button>
+    <button class="knopf-text" data-act="updateSpaeter">Später</button>`;
+  document.body.appendChild(d);
+}
+
+async function updateLaden() {
+  // Schutz gegen Neuladen in Dauerschleife, falls der Server noch alte Dateien liefert
+  let versuch = null;
+  try { versuch = JSON.parse(sessionStorage.getItem('eltern-update') || 'null'); } catch (e) { /* egal */ }
+  if (versuch && versuch.v === neueVersion && Date.now() - versuch.t < 10 * 60 * 1000) return;
+  try { sessionStorage.setItem('eltern-update', JSON.stringify({ v: neueVersion, t: Date.now() })); } catch (e) { /* egal */ }
+  document.getElementById('update-leiste')?.remove();
+  const d = document.createElement('div');
+  d.className = 'update-leiste';
+  d.innerHTML = '<span>Neue Version wird geladen …</span>';
+  document.body.appendChild(d);
+  await Promise.all(DATEIEN.map(u => fetch(u, { cache: 'reload' }).catch(() => null)));
+  location.reload();
+}
+
 document.addEventListener('click', (ev) => {
   const el = ev.target.closest('[data-act]');
   if (!el) return;
@@ -853,6 +924,8 @@ document.addEventListener('click', (ev) => {
   switch (act) {
     case 'verbinden': verbinden(); break;
     case 'neuLaden': allesLaden({ nutzerliste: true }); break;
+    case 'updateLaden': updateLaden(); break;
+    case 'updateSpaeter': updateSpaeter = true; document.getElementById('update-leiste')?.remove(); break;
     case 'zeitraum': C.zeitraum = Number(el.dataset.n); konfigSichern(); zeichne(); break;
     case 'filter': filter = el.dataset.f; zeichne(); break;
     case 'stufe': {
@@ -1000,8 +1073,14 @@ document.addEventListener('keydown', (ev) => {
 window.addEventListener('hashchange', () => { if (location.hash.includes('einrichten=')) return linkPruefen(); leseRoute(); if (route.seite !== 'qr') qr = { name: '', token: '', link: '', art: 'kind' }; meldung = ['einstellungen', 'spielzeit', 'gewichte', 'pakete'].includes(route.seite) ? meldung : null; zeichne(); window.scrollTo(0, 0); });
 breit.addEventListener('change', zeichne);
 document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && Date.now() - letztePruefung > 60 * 1000) updatePruefen();
   if (document.visibilityState === 'visible' && C.token && D.daten && Date.now() - (D.daten.geladen || 0) > 2 * 60 * 1000) allesLaden();
 });
 
+// Bei jeder Änderung der Ansicht: ein wartendes Update laden, sobald nichts mehr bearbeitet wird
+window.addEventListener('hashchange', () => setTimeout(updateAnbieten, 300));
+setInterval(updatePruefen, 15 * 60 * 1000);
+
 leseRoute();
+updatePruefen();
 if (!linkPruefen()) { if (C.token) allesLaden(); else zeichneEinrichten(); }

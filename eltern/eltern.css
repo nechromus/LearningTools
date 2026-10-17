@@ -236,3 +236,10 @@ textarea { width: 100%; border-radius: 10px; border: 1.5px solid #8A9696; backgr
 .scan-bild video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .scan-rahmen { position: absolute; inset: 14%; border: 3px solid var(--amber); border-radius: 12px; box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.35); }
 .qr-karte + .segmente, .seite > .segmente { margin-bottom: 10px; }
+
+/* Hinweis auf neue Version */
+.update-leiste { position: fixed; left: 12px; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 8px); z-index: 80; max-width: 540px; margin: 0 auto;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--teal-hell); border: 1.5px solid var(--teal); border-radius: var(--radius);
+  padding: 8px 14px; font-weight: 700; box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+.update-leiste span { flex: 1 1 180px; }
+.update-leiste .knopf { min-height: 40px; }
