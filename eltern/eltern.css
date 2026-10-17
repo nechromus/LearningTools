@@ -249,3 +249,10 @@ textarea { width: 100%; border-radius: 10px; border: 1.5px solid #8A9696; backgr
 .liste-karte > .baukasten-zeile:first-child { border-top: 0; }
 .baukasten-kopf { display: flex; align-items: center; gap: 10px; }
 .baukasten-haeufig { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-top: 6px; }
+
+/* Hinweis auf neue Lerndaten: unten über der Tab-Leiste, damit er nicht mit dem Update-Hinweis kollidiert */
+.daten-leiste { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 76px); }
+@media (min-width: 760px) { .daten-leiste { bottom: 16px; } }
+.update-leiste { flex-wrap: nowrap; }
+.update-leiste span { flex: 1 1 auto; min-width: 0; }
+.update-leiste .knopf, .update-leiste .knopf-text { flex: 0 0 auto; }

@@ -9,7 +9,7 @@ import * as P from '../js/paket.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.6.0';
+export const ELTERN_VERSION = '1.7.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -121,8 +121,10 @@ async function datenLaden() {
   const proGeraet = {}, staende = [];
   // Geräte-Ordner frisch lesen (es können neue dazugekommen sein)
   const geraete = (await U.ordnerLesen(C, `daten/${n.ordner}`)).filter(x => x.type === 'dir');
+  const kennung = [];
   await Promise.all(geraete.map(async g => {
     const dateien = await U.ordnerLesen(C, g.path);
+    kennung.push(...tageKennung(g.name, dateien, ab));
     const standDatei = dateien.find(f => f.name === 'stand.json');
     const tage = dateien.filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f.name) && f.name.slice(0, 10) >= ab);
     const [stand, ...tagInhalte] = await Promise.all([
@@ -143,9 +145,48 @@ async function datenLaden() {
     name: (staende[0] && staende[0].stand.nutzer) || n.name,
     staende, proGeraet, eintraege,
     aufgaben: A.alleAufgaben(proGeraet),
-    einst, geladen: Date.now()
+    einst, geladen: Date.now(), kennung: kennung.sort().join('|')
   };
+  datenHinweisWeg();
 }
+
+// ---------- Neue Daten melden ----------
+// Fingerabdruck der Tagesdateien (Name + sha). Ändert er sich, hat ein Handy neue Lerndaten übertragen.
+function tageKennung(geraet, dateien, ab) {
+  return dateien.filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f.name) && f.name.slice(0, 10) >= ab).map(f => `${geraet}/${f.name}:${f.sha}`);
+}
+
+let datenGemeldet = null;   // Fingerabdruck, der schon gemeldet (oder mit „Später“ weggeklickt) wurde
+let datenPruefungLaeuft = false;
+let letzteDatenPruefung = 0;
+
+async function neueDatenPruefen() {
+  if (!C.token || laedt || datenPruefungLaeuft || !D.daten || D.daten.leer || D.daten.kennung === undefined) return;
+  if (document.visibilityState !== 'visible') return;
+  datenPruefungLaeuft = true; letzteDatenPruefung = Date.now();
+  try {
+    const ordner = D.daten.ordner, ab = A.letzteTage(31)[0];
+    const geraete = (await U.ordnerLesen(C, `daten/${ordner}`)).filter(x => x.type === 'dir');
+    const listen = await Promise.all(geraete.map(async g => tageKennung(g.name, await U.ordnerLesen(C, g.path), ab)));
+    const kennung = listen.flat().sort().join('|');
+    if (!D.daten || D.daten.ordner !== ordner || laedt) return;
+    if (kennung !== D.daten.kennung && kennung !== datenGemeldet) { datenGemeldet = kennung; datenHinweisZeigen(); }
+  } catch (e) { /* offline: später nochmal */ }
+  finally { datenPruefungLaeuft = false; }
+}
+
+function datenHinweisZeigen() {
+  if (document.getElementById('daten-leiste')) return;
+  const d = document.createElement('div');
+  d.id = 'daten-leiste';
+  d.className = 'update-leiste daten-leiste';
+  d.setAttribute('role', 'status');
+  d.innerHTML = `<span>Neue Daten von ${esc(name())} sind da.</span>
+    <button class="knopf haupt" data-act="datenLaden">Laden</button>
+    <button class="knopf-text" data-act="datenSpaeter">Später</button>`;
+  document.body.appendChild(d);
+}
+function datenHinweisWeg() { document.getElementById('daten-leiste')?.remove(); }
 
 async function allesLaden({ nutzerliste = false } = {}) {
   if (laedt) return;
@@ -954,6 +995,8 @@ document.addEventListener('click', (ev) => {
     case 'verbinden': verbinden(); break;
     case 'neuLaden': allesLaden({ nutzerliste: true }); break;
     case 'updateLaden': updateLaden(); break;
+    case 'datenLaden': datenHinweisWeg(); allesLaden(); break;
+    case 'datenSpaeter': datenHinweisWeg(); break;
     case 'updateSpaeter': updateSpaeter = true; document.getElementById('update-leiste')?.remove(); break;
     case 'zeitraum': C.zeitraum = Number(el.dataset.n); konfigSichern(); zeichne(); break;
     case 'filter': filter = el.dataset.f; zeichne(); break;
@@ -1103,12 +1146,14 @@ window.addEventListener('hashchange', () => { if (location.hash.includes('einric
 breit.addEventListener('change', zeichne);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && Date.now() - letztePruefung > 60 * 1000) updatePruefen();
-  if (document.visibilityState === 'visible' && C.token && D.daten && Date.now() - (D.daten.geladen || 0) > 2 * 60 * 1000) allesLaden();
+  // Zurück in der App: nachsehen, ob es neue Daten gibt, und das melden (geladen wird erst nach „Laden“)
+  if (document.visibilityState === 'visible' && C.token && D.daten && Date.now() - letzteDatenPruefung > 20 * 1000) neueDatenPruefen();
 });
 
 // Bei jeder Änderung der Ansicht: ein wartendes Update laden, sobald nichts mehr bearbeitet wird
 window.addEventListener('hashchange', () => setTimeout(updateAnbieten, 300));
 setInterval(updatePruefen, 15 * 60 * 1000);
+setInterval(neueDatenPruefen, 60 * 1000); // solange die Eltern-App offen ist: jede Minute nach neuen Daten sehen
 
 leseRoute();
 updatePruefen();
