@@ -136,6 +136,8 @@ export function kristallmineStarten(wurzel, opt = {}) {
       case '*': return 'z leer kristall' + variante(i);
       case 'E': return 'z ausgang' + (K.offen(s) ? ' offen' : ' zu');
       case 'X': return 'z explo';
+      case 'f': return 'z leer gluehwurm';
+      case 'b': return 'z leer falter';
       default: return 'z leer';
     }
   }
@@ -244,9 +246,11 @@ export function kristallmineStarten(wurzel, opt = {}) {
   }
 
   // Kristalle (und der offene Ausgang) leuchten ihre Umgebung an. Die Lichter wandern mit.
+  const LICHT_ART = { '*': 'kristall', E: 'tor', f: 'wurm', b: 'falter' };
   function lichtEl(i, art) {
     const d = document.createElement('div');
     d.className = 'licht-' + art;
+    d.dataset.ch = Object.keys(LICHT_ART).find(k => LICHT_ART[k] === art);
     d.style.transform = lichtPos(i);
     d.style.animationDelay = (-(i * 0.37) % 3) + 's';
     $('effekte').appendChild(d);
@@ -255,17 +259,20 @@ export function kristallmineStarten(wurzel, opt = {}) {
   const lichtPos = (i) => `translate(${(i % s.w) * (g + 1) + g / 2}px, ${Math.floor(i / s.w) * (g + 1) + g / 2}px)`;
   function lichterAbgleichen() {
     if (!$('effekte')) return;
+    // Lichter wandern mit (fallende Kristalle, laufende Gegner)
+    const umzug = [];
     for (const { von, nach } of s.bewegt || []) {
       const d = lichter.get(von);
-      if (d && s.feld[nach] === '*') { lichter.delete(von); lichter.set(nach, d); d.style.transform = lichtPos(nach); }
+      if (d && s.feld[nach] === d.dataset.ch) { lichter.delete(von); umzug.push([nach, d]); d.style.transform = lichtPos(nach); }
     }
+    for (const [nach, d] of umzug) lichter.set(nach, d);
     for (const [i, d] of lichter) {
-      const soll = d.classList.contains('licht-tor') ? 'E' : '*';
-      if (s.feld[i] !== soll) { lichter.delete(i); d.classList.add('aus'); setTimeout(() => d.remove(), 700); }
+      if (s.feld[i] !== d.dataset.ch) { lichter.delete(i); d.classList.add('aus'); setTimeout(() => d.remove(), 700); }
     }
     s.feld.forEach((ch, i) => {
-      if (ch === '*' && !lichter.has(i)) lichter.set(i, lichtEl(i, 'kristall'));
-      if (ch === 'E' && K.offen(s) && !lichter.has(i)) lichter.set(i, lichtEl(i, 'tor'));
+      if (lichter.has(i)) return;
+      if (ch === '*' || ch === 'f' || ch === 'b') lichter.set(i, lichtEl(i, LICHT_ART[ch]));
+      if (ch === 'E' && K.offen(s)) lichter.set(i, lichtEl(i, 'tor'));
     });
   }
 
@@ -356,7 +363,8 @@ export function kristallmineStarten(wurzel, opt = {}) {
     }
     spiel.leben--;
     const zeit = s.ende === 'zeit', neu = s.ende === 'neu';
-    melden('km_hoehle', { hoehle: nr + 1, name: s.name, ergebnis: zeit ? 'zeit' : neu ? 'neu' : 'treffer', kristalle: s.kristalle, leben: spiel.leben });
+    melden('km_hoehle', { hoehle: nr + 1, name: s.name, ergebnis: zeit ? 'zeit' : neu ? 'neu' : 'treffer', grund: s.grund || null, kristalle: s.kristalle, leben: spiel.leben });
+    const TITEL = { stein: 'Bumm! Ein Stein.', kristall: 'Bumm! Ein Kristall.', gluehwurm: 'Bumm! Ein Glühwurm.', schmetterling: 'Ein Schmetterling!', explosion: 'Bumm! Eine Explosion.' };
     setTimeout(() => {
       if (beendet) return;
       if (spiel.leben <= 0) {
@@ -371,7 +379,7 @@ export function kristallmineStarten(wurzel, opt = {}) {
         return;
       }
       sichern();
-      tafel(`<div class="tafel"><div class="bild-stein"></div><h2>${zeit ? 'Zeit ist um!' : neu ? 'Höhle neu' : 'Bumm! Ein Stein.'}</h2>
+      tafel(`<div class="tafel"><div class="bild-stein"></div><h2>${zeit ? 'Zeit ist um!' : neu ? 'Höhle neu' : (TITEL[s.grund] || 'Bumm!')}</h2>
         <p>Noch ${spiel.leben} Leben. Die Höhle beginnt von vorn.</p>
         <button class="haupt" data-km="weiter">Weiter</button></div>`);
     }, zeit || neu ? 200 : 700);
@@ -421,7 +429,7 @@ export function kristallmineStarten(wurzel, opt = {}) {
         if (e.was === 'o') effektEl(`<span style="--dx:-14px;--dy:-4px"></span><span style="--dx:14px;--dy:-5px"></span><span style="--dx:-7px;--dy:-9px"></span><span style="--dx:8px;--dy:-8px"></span>`, e.r + 0.4, e.c, 'staubwolke', 1300);
         break;
       case 'explosion':
-        effektEl(`<span class="ring"></span>${funken(10, 46)}`, e.r, e.c, 'einschlag', 1900);
+        effektEl(`<span class="ring"></span>${funken(10, 46)}`, e.r, e.c, 'einschlag' + (e.kristalle ? ' jade' : ''), 1900);
         rahmen.classList.remove('beben'); void rahmen.offsetWidth; rahmen.classList.add('beben');
         break;
       case 'geschafft': blitz(); break;

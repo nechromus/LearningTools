@@ -78,7 +78,8 @@ export function alleSpiele(eintraegeProGeraet) {
 }
 
 export const SPIEL_NAMEN = { '2048': '2048', runenfeld: 'Runenfeld', kristallmine: 'Kristallmine' };
-const KM_ERGEBNIS = { geschafft: 'geschafft', treffer: 'von einem Stein getroffen', zeit: 'Zeit der Höhle um', neu: 'neu begonnen' };
+const KM_ERGEBNIS = { geschafft: 'geschafft', treffer: 'getroffen', zeit: 'Zeit der Höhle um', neu: 'neu begonnen' };
+const KM_GRUND = { stein: 'von einem Stein getroffen', kristall: 'von einem Kristall getroffen', gluehwurm: 'Glühwurm berührt', schmetterling: 'Schmetterling berührt', explosion: 'in eine Explosion geraten' };
 export const punkteText = (n) => n == null ? '' : Number(n).toLocaleString('de-DE');
 
 // Ereignisse einer Spiel-Sitzung als Zeitleiste
@@ -93,7 +94,7 @@ export function spielZeitleiste(sp) {
       case 'spiel_meilenstein': p.titel = `Stein ${e.stein} erreicht`; p.text = e.punkte != null ? `${punkteText(e.punkte)} Punkte` : ''; p.art = 'ok'; break;
       case 'spiel_vorbei': p.titel = sp.spiel === 'runenfeld' ? 'Kein Platz mehr' : 'Spiel vorbei'; p.text = [e.punkte != null ? `${punkteText(e.punkte)} Punkte` : '', e.maxKachel ? `höchster Stein ${e.maxKachel}` : ''].filter(Boolean).join(' · '); break;
       case 'km_hoehle':
-        p.titel = `Höhle ${e.hoehle}${e.name ? ' · ' + e.name : ''}: ${KM_ERGEBNIS[e.ergebnis] || e.ergebnis}`;
+        p.titel = `Höhle ${e.hoehle}${e.name ? ' · ' + e.name : ''}: ${(e.ergebnis === 'treffer' && KM_GRUND[e.grund || 'stein']) || KM_ERGEBNIS[e.ergebnis] || e.ergebnis}`;
         p.text = [e.kristalle != null ? `${e.kristalle} Kristalle` : '', e.ergebnis === 'geschafft' && e.punkte != null ? `${punkteText(e.punkte)} Punkte` : '', e.ergebnis !== 'geschafft' && e.leben != null ? `noch ${e.leben} Leben` : ''].filter(Boolean).join(' · ');
         p.art = e.ergebnis === 'geschafft' ? 'ok' : 'info';
         break;

@@ -225,3 +225,20 @@
 .km .knopf.klein { flex: 1; min-height: 42px; font-size: 15px; padding: 0 6px; white-space: nowrap; }
 .km #km-kreuz-schalter[aria-pressed="true"] { background: linear-gradient(160deg, #2a9c76, #1E7A5F); border-color: var(--jade); color: #fff; }
 .km.mit-kreuz .kreuz { grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(3, 56px); }
+
+/* Gegner */
+.km .gluehwurm .in { width: 46%; height: 46%; }
+.km .falter::before { content: ''; position: absolute; inset: -4px; border-radius: 50%; background: radial-gradient(circle, rgba(140, 245, 205, 0.45), transparent 65%); animation: km-halo 1.6s ease-in-out infinite; }
+.km .falter .in { width: 80%; height: 64%; display: flex; align-items: center; justify-content: center; }
+.km .falter .in::before, .km .falter .in::after { content: ''; position: absolute; top: 0; width: 48%; height: 100%; background: radial-gradient(circle at 70% 40%, #ffffff 0 14%, #9ff7d6 38%, #2fae84 85%); box-shadow: 0 0 10px rgba(95, 232, 180, 0.95); }
+.km .falter .in::before { left: 0; border-radius: 70% 20% 60% 30%; transform-origin: 100% 50%; animation: km-fluegel-l 0.32s ease-in-out infinite alternate; }
+.km .falter .in::after { right: 0; border-radius: 20% 70% 30% 60%; transform-origin: 0% 50%; animation: km-fluegel-r 0.32s ease-in-out infinite alternate; }
+@keyframes km-fluegel-l { from { transform: scaleX(1); } to { transform: scaleX(0.35); } }
+@keyframes km-fluegel-r { from { transform: scaleX(1); } to { transform: scaleX(0.35); } }
+.km .licht-wurm, .km .licht-falter { position: absolute; left: 0; top: 0; width: calc(var(--g) * 2.2); height: calc(var(--g) * 2.2); margin: calc(var(--g) * -1.1) 0 0 calc(var(--g) * -1.1); border-radius: 50%; pointer-events: none; mix-blend-mode: screen; transition: transform 140ms linear, opacity 0.6s; animation: km-kristall-licht 0.9s ease-in-out infinite; }
+.km .licht-wurm { background: radial-gradient(circle, rgba(255, 244, 208, 0.5) 0, rgba(216, 176, 90, 0.18) 35%, transparent 68%); }
+.km .licht-falter { background: radial-gradient(circle, rgba(200, 255, 235, 0.5) 0, rgba(95, 232, 180, 0.18) 35%, transparent 68%); }
+.km .licht-wurm.aus, .km .licht-falter.aus { opacity: 0; }
+.km .einschlag.jade .ring { border-color: #B9FFE2; box-shadow: 0 0 22px #5FE8B4; }
+.km .einschlag.jade .fu { background: #E9FFF6; box-shadow: 0 0 8px #5FE8B4; }
+@media (prefers-reduced-motion: reduce) { .km .falter .in::before, .km .falter .in::after { animation: none; } }

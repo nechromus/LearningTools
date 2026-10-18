@@ -3,6 +3,7 @@
 //
 // Zeichen:  # Stahlwand (unzerstörbar)   w Mauer (rund, Steine rollen ab)   . Erde   (Leerzeichen) leer
 //           o Stein   * Kristall   E Ausgang   X Explosion
+//           f Glühwurm (explodiert)   b Schmetterling (wird zu Kristallen)
 
 export const TAKT_MS = 140;
 export const RICHTUNGEN = { hoch: [-1, 0], runter: [1, 0], links: [0, -1], rechts: [0, 1] };
@@ -66,12 +67,23 @@ export const HOEHLEN = NAMEN.map((name, n) => {
   const ausgaenge = [[h - 3, w - 3], [2, w - 3], [h - 3, Math.floor(w / 2)], [h - 3, 3]];
   const ausgang = ausgaenge[n % 4];
   const zeit = Math.round((w * h) / 3.4 + brauche * 2.5 - n * 1.2);
-  return { name, w, h, saat: 11 + n * 97, stein, kristall: 0.065, leer: 0.03, brauche, zeit, start: [2, 2], ausgang, mauern: mauernFuer(MUSTER[n], w, h, n) };
+  return { name, w, h, saat: 11 + n * 97, stein, kristall: 0.065, leer: 0.03, brauche, zeit, start: [2, 2], ausgang, mauern: mauernFuer(MUSTER[n], w, h, n), gegner: gegnerZahl(n) };
 });
 
 const FAELLT = new Set(['o', '*']);
 const RUND = new Set(['o', '*', 'w']);
-const SPRENGBAR = new Set(['.', ' ', 'o', '*', 'w', 'E']);
+const SPRENGBAR = new Set(['.', ' ', 'o', '*', 'w', 'E', 'f', 'b']);
+const GEGNER = new Set(['f', 'b']);
+// Richtungen der Gegner: 0 hoch, 1 rechts, 2 runter, 3 links
+const DR = [-1, 0, 1, 0], DC = [0, 1, 0, -1];
+
+// Wie viele Gegner in Höhle n (0-basiert): ab Höhle 6 Glühwürmer, ab Höhle 11 auch Schmetterlinge
+export function gegnerZahl(n) {
+  if (n < 5) return { f: 0, b: 0 };
+  if (n < 10) return { f: n < 7 ? 1 : 2, b: 0 };
+  if (n < 20) return { f: 2, b: n < 14 ? 1 : 2 };
+  return { f: 3, b: 2 };
+}
 
 function zufall(saat) {
   let a = saat >>> 0;
@@ -112,13 +124,38 @@ export function karteBauen(def) {
       if (art === 'h') setze(a, k, 'w'); else setze(k, a, 'w');
     }
   }
+  // Gegner in kleinen Hohlräumen („Nestern“), umgeben von Erde. Sie kommen erst heraus, wenn man zu ihnen gräbt.
+  const [sr, sc] = def.start, [ar0, ac0] = def.ausgang;
+  const nester = [];
+  const gegner = def.gegner || { f: 0, b: 0 };
+  const arten = [...Array(gegner.f).fill('f'), ...Array(gegner.b).fill('b')];
+  for (const art of arten) {
+    for (let versuch = 0; versuch < 60; versuch++) {
+      const lang = 3 + Math.floor(rnd() * 3), hoch = rnd() < 0.35 ? 2 : 1;
+      const r0 = 3 + Math.floor(rnd() * (h - 6 - hoch)), c0 = 3 + Math.floor(rnd() * (w - 6 - lang));
+      const weitStart = Math.abs(r0 - sr) + Math.abs(c0 - sc) >= 12;
+      const weitAusgang = Math.abs(r0 - ar0) + Math.abs(c0 - ac0) >= 5;
+      let frei = weitStart && weitAusgang;
+      // Rand aus Erde (oder Wand), keine anderen Nester in der Nähe
+      for (let r = r0 - 1; frei && r <= r0 + hoch; r++) for (let c = c0 - 1; frei && c <= c0 + lang; c++) {
+        const ch = feld[r * w + c];
+        if (ch === 'w' || ch === '#' || nester.some(n => r >= n.r0 - 2 && r <= n.r0 + n.hoch + 1 && c >= n.c0 - 2 && c <= n.c0 + n.lang + 1)) frei = false;
+      }
+      if (!frei) continue;
+      for (let r = r0 - 1; r <= r0 + hoch; r++) for (let c = c0 - 1; c <= c0 + lang; c++) {
+        const innen = r >= r0 && r < r0 + hoch && c >= c0 && c < c0 + lang;
+        setze(r, c, innen ? ' ' : '.');
+      }
+      setze(r0, c0, art);
+      nester.push({ r0, c0, lang, hoch });
+      break;
+    }
+  }
   // Start: ringsum Erde, damit zu Beginn nichts herunterfällt
-  const [sr, sc] = def.start;
   for (let r = sr - 1; r <= sr + 1; r++) for (let c = sc - 1; c <= sc + 1; c++) setze(r, c, '.');
   for (let r = 1; r < sr - 1; r++) if (feld[r * w + sc] === 'o' || feld[r * w + sc] === '*') setze(r, sc, '.');
   setze(sr, sc, ' ');
-  const [ar, ac] = def.ausgang;
-  setze(ar, ac, 'E');
+  setze(ar0, ac0, 'E');
   return feld;
 }
 
@@ -152,7 +189,9 @@ function rohStand(def, feld, nr) {
     pr: def.start[0], pc: def.start[1],
     kristalle: 0, brauche: Math.min(def.brauche, gesamt), gesamt,
     punkte: 0, zeit: def.zeit, zeitMs: 0, takte: 0,
-    schieben: 0, explosion: [], bewegt: [], lebt: true, ende: null
+    schieben: 0, explosion: [], bewegt: [], lebt: true, ende: null, grund: null,
+    // Blickrichtung der Gegner je Feld (wandert mit dem Gegner)
+    richtung: feld.map(ch => GEGNER.has(ch) ? 3 : -1)
   };
 }
 
@@ -175,9 +214,13 @@ export function takt(s, richtung) {
   if (s.explosion.length) {
     s.explosion = s.explosion.filter(x => { x.t--; if (x.t <= 0) { if (s.feld[x.i] === 'X') s.feld[x.i] = x.danach || ' '; return false; } return true; });
     if (!s.lebt && !s.explosion.length) { s.ende = 'treffer'; return ev; }
+    if (!s.lebt) return ev; // während der Explosion steht alles
   }
   if (s.lebt) figurBewegen(s, richtung, ev);
   if (s.ende) return ev;
+  if (s.lebt) beruehrung(s, ev);
+  gegnerBewegen(s, ev);
+  if (s.lebt) beruehrung(s, ev);
   schwerkraft(s, ev);
   // Zeit
   if (s.lebt) {
@@ -235,7 +278,12 @@ function schwerkraft(s, ev) {
       const fiel = s.faellt[i];
       const unten = an(s, r + 1, c);
       if (unten === ' ' && figur(r + 1, c)) {
-        if (fiel) explodieren(s, r + 1, c, ev);
+        if (fiel) { s.grund = ch === 'o' ? 'stein' : 'kristall'; explodieren(s, r + 1, c, ev, ' '); }
+        continue;
+      }
+      if (fiel && GEGNER.has(unten)) {
+        // Fallender Stein trifft einen Gegner: Glühwurm explodiert, Schmetterling wird zu Kristallen
+        explodieren(s, r + 1, c, ev, unten === 'b' ? '*' : ' ');
         continue;
       }
       let ziel = null;
@@ -257,14 +305,73 @@ function schwerkraft(s, ev) {
   s.faellt = neuFaellt;
 }
 
-function explodieren(s, r, c, ev) {
-  s.lebt = false;
-  ev.push({ art: 'explosion', r, c });
+// Explosion 3 × 3 (Stahlwände bleiben). danach: ' ' (leer) oder '*' (Schmetterling: Kristalle).
+// Liegt ein anderer Gegner im Bereich, explodiert er mit. Steht die Figur im Bereich, ist sie getroffen.
+function explodieren(s, r, c, ev, danach = ' ') {
+  const ketten = [];
+  ev.push({ art: 'explosion', r, c, kristalle: danach === '*' });
   for (let rr = r - 1; rr <= r + 1; rr++) for (let cc = c - 1; cc <= c + 1; cc++) {
     const i = rr * s.w + cc;
-    if (!SPRENGBAR.has(an(s, rr, cc))) continue;
-    s.explosion.push({ i, t: 5, danach: s.feld[i] === 'E' ? 'E' : ' ' });
+    const ch = an(s, rr, cc);
+    if (s.lebt && rr === s.pr && cc === s.pc) { s.lebt = false; if (!s.grund) s.grund = 'explosion'; }
+    if (!SPRENGBAR.has(ch)) continue;
+    if (GEGNER.has(ch) && !(rr === r && cc === c)) ketten.push([rr, cc, ch === 'b' ? '*' : ' ']);
+    s.explosion.push({ i, t: 5, danach: ch === 'E' ? 'E' : danach });
     s.feld[i] = 'X';
+    s.richtung[i] = -1;
+    s.faellt[i] = false;
+  }
+  for (const [rr, cc, d] of ketten) explodierenNachbar(s, rr, cc, ev, d);
+}
+function explodierenNachbar(s, r, c, ev, danach) {
+  // Gegner im Explosionsbereich: eigene Explosion (Felder, die schon explodieren, bleiben)
+  ev.push({ art: 'explosion', r, c, kristalle: danach === '*' });
+  for (let rr = r - 1; rr <= r + 1; rr++) for (let cc = c - 1; cc <= c + 1; cc++) {
+    const i = rr * s.w + cc, ch = an(s, rr, cc);
+    if (s.lebt && rr === s.pr && cc === s.pc) { s.lebt = false; if (!s.grund) s.grund = 'explosion'; }
+    if (!SPRENGBAR.has(ch)) continue;
+    if (GEGNER.has(ch)) { s.feld[i] = 'X'; explodierenNachbar(s, rr, cc, ev, ch === 'b' ? '*' : ' '); }
+    s.explosion.push({ i, t: 5, danach: ch === 'E' ? 'E' : danach });
+    s.feld[i] = 'X'; s.richtung[i] = -1; s.faellt[i] = false;
+  }
+}
+
+// Gegner bewegen sich jeden Takt: Glühwürmer halten sich links (drehen zuerst nach links),
+// Schmetterlinge halten sich rechts. So laufen sie an Wänden und Gängen entlang, wie beim Vorbild.
+function gegnerBewegen(s, ev) {
+  const bewegt = new Set();
+  for (let i = 0; i < s.feld.length; i++) {
+    const ch = s.feld[i];
+    if (!GEGNER.has(ch) || bewegt.has(i)) continue;
+    const r = Math.floor(i / s.w), c = i % s.w;
+    let d = s.richtung[i] < 0 ? 3 : s.richtung[i];
+    const dreh = ch === 'f' ? 3 : 1; // f: links (+3 = -1), b: rechts
+    const frei = (dd) => {
+      const rr = r + DR[dd], cc = c + DC[dd];
+      return an(s, rr, cc) === ' ' && !(s.lebt && rr === s.pr && cc === s.pc);
+    };
+    const seite = (d + dreh) % 4;
+    let ziel = -1;
+    if (frei(seite)) { d = seite; ziel = i + DR[d] * s.w + DC[d]; }
+    else if (frei(d)) ziel = i + DR[d] * s.w + DC[d];
+    else d = (d + 4 - dreh) % 4; // andersherum drehen, stehen bleiben
+    if (ziel >= 0) {
+      s.feld[ziel] = ch; s.feld[i] = ' ';
+      s.richtung[ziel] = d; s.richtung[i] = -1;
+      bewegt.add(ziel);
+      s.bewegt.push({ von: i, nach: ziel });
+    } else {
+      s.richtung[i] = d;
+    }
+  }
+}
+
+// Berührt die Figur einen Gegner (oben, unten, links, rechts), explodiert er
+function beruehrung(s, ev) {
+  for (let d = 0; d < 4; d++) {
+    const rr = s.pr + DR[d], cc = s.pc + DC[d];
+    const ch = an(s, rr, cc);
+    if (GEGNER.has(ch)) { s.grund = ch === 'f' ? 'gluehwurm' : 'schmetterling'; explodieren(s, rr, cc, ev, ch === 'b' ? '*' : ' '); return; }
   }
 }
 
@@ -281,7 +388,7 @@ export function erreichbar(s, streng = false) {
     for (const [dr, dc] of Object.values(RICHTUNGEN)) {
       const rr = r + dr, cc = c + dc, i = rr * s.w + cc;
       const ch = an(s, rr, cc);
-      if (seen.has(i) || ch === '#' || ch === 'w' || (streng && ch === 'o')) continue;
+      if (seen.has(i) || ch === '#' || ch === 'w' || (streng && (ch === 'o' || ch === 'f' || ch === 'b'))) continue;
       seen.add(i);
       if (ch === '*') kristalle++;
       if (ch === 'E') { ausgang = true; continue; }
