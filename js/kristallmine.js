@@ -62,7 +62,7 @@ export function hoehleLaden(nr) {
     pr: def.start[0], pc: def.start[1],
     kristalle: 0, brauche: Math.min(def.brauche, gesamt), gesamt,
     punkte: 0, zeit: def.zeit, zeitMs: 0, takte: 0,
-    schieben: 0, explosion: [], lebt: true, ende: null // null | 'treffer' | 'zeit' | 'geschafft'
+    schieben: 0, explosion: [], bewegt: [], lebt: true, ende: null // null | 'treffer' | 'zeit' | 'geschafft'
   };
 }
 
@@ -75,6 +75,7 @@ export function takt(s, richtung) {
   const ev = [];
   if (s.ende) return ev;
   s.takte++;
+  s.bewegt = []; // [{ von, nach }] für weiche Bewegungen in der Anzeige
   // Explosionen klingen ab
   if (s.explosion.length) {
     s.explosion = s.explosion.filter(x => { x.t--; if (x.t <= 0) { if (s.feld[x.i] === 'X') s.feld[x.i] = x.danach || ' '; return false; } return true; });
@@ -117,6 +118,7 @@ function figurBewegen(s, richtung, ev) {
     s.schieben++;
     if (s.schieben >= 2) {
       s.feld[r * s.w + c + dc] = 'o'; s.feld[i] = ' ';
+      s.bewegt.push({ von: i, nach: i + dc });
       s.pr = r; s.pc = c; s.schieben = 0;
       ev.push({ art: 'schieben', r, c: c + dc });
     }
@@ -154,6 +156,7 @@ function schwerkraft(s, ev) {
       }
       s.feld[ziel] = ch; s.feld[i] = ' ';
       neuFaellt[ziel] = true;
+      if (s.bewegt) s.bewegt.push({ von: i, nach: ziel });
     }
   }
   s.faellt = neuFaellt;

@@ -6,7 +6,8 @@ const LEBEN_START = 3;
 const EXTRA_LEBEN = 500; // alle 500 Punkte ein Leben dazu (wie beim Vorbild)
 
 const $ = (id) => document.getElementById(id);
-const welt = $('welt'), rahmen = $('rahmen'), schein = $('schein'), stick = $('stick');
+const welt = $('welt'), rahmen = $('rahmen'), stick = $('stick'), pfeil = $('pfeil');
+let figur = null;             // Figur als eigenes Element, gleitet von Feld zu Feld
 
 let spiel = laden();          // { hoehle, leben, punkte, naechstesLeben, rekord }
 let s = null;                 // Stand der aktuellen Höhle
@@ -47,13 +48,16 @@ function hoehleStarten() {
   const eff = document.createElement('div');
   eff.className = 'effekte'; eff.id = 'effekte';
   frag.appendChild(eff);
+  figur = document.createElement('div');
+  figur.className = 'sprite figur erscheint';
+  figur.innerHTML = '<div class="in"></div><div class="laterne"></div>';
+  frag.appendChild(figur);
   welt.appendChild(frag);
-  welt.style.transition = 'none';
+  welt.style.transition = 'none'; figur.style.transition = 'none';
   zeichnen(true);
-  kameraSetzen(true);
-  requestAnimationFrame(() => { welt.style.transition = ''; });
-  const f = zellen[s.pr * s.w + s.pc];
-  f.classList.add('erscheint');
+  figurSetzen();
+  kameraSetzen();
+  requestAnimationFrame(() => requestAnimationFrame(() => { welt.style.transition = ''; figur.style.transition = ''; }));
   anzeige();
   tafel(`<div class="tafel jade"><div class="bild-raute"></div><h2>Höhle ${spiel.hoehle + 1} · ${s.name}</h2>
     <p>Sammle <b>${s.brauche} Kristalle</b>. Dann öffnet sich der Ausgang.</p><p>Zeit: ${s.zeit} Sekunden</p>
@@ -70,15 +74,15 @@ const variante = (i) => ' v' + ((i * 7 + (i >> 2)) % 3);
 
 function klasseVon(i) {
   const r = Math.floor(i / s.w), c = i % s.w;
-  if (s.lebt && r === s.pr && c === s.pc) return 'z leer figur';
   const ch = s.feld[i];
+  if (s.lebt && r === s.pr && c === s.pc) return ch === 'E' ? 'z leer ausgang offen' : 'z leer';
   switch (ch) {
     case '#': return 'z wand stahl';
     case 'w': return 'z wand mauer' + variante(i) + ((i * 31) % 23 === 0 ? ' rune' : '');
     case '.': return 'z erde' + variante(i);
     case 'o': return 'z leer stein' + variante(i) + (s.faellt[i] ? ' faellt' : '');
     case '*': return 'z leer kristall' + variante(i);
-    case 'E': return 'z leer ausgang' + (K.offen(s) ? ' offen' : '');
+    case 'E': return 'z ausgang' + (K.offen(s) ? ' offen' : ' zu');
     case 'X': return 'z leer explo';
     default: return 'z leer';
   }
@@ -95,22 +99,55 @@ function zeichnen(alles = false) {
   }
 }
 
-// Kamera wie beim Vorbild: rückt nach, wenn die Figur nah an den Rand kommt
-function kameraSetzen(sofort = false) {
+// Figur gleitet in einem Takt zum nächsten Feld
+function figurSetzen() {
+  if (!figur) return;
+  figur.style.transform = `translate(${s.pc * (g + 1)}px, ${s.pr * (g + 1)}px)`;
+  figur.style.display = s.lebt || s.ende === 'geschafft' ? '' : 'none';
+}
+
+// Steine und Kristalle, die sich bewegt haben, gleiten von ihrem alten Feld herüber
+function bewegungenGleiten() {
+  const sp = g + 1;
+  for (const { von, nach } of s.bewegt || []) {
+    const el = zellen[nach] && zellen[nach].firstChild;
+    if (!el) continue;
+    const dx = (von % s.w - nach % s.w) * sp, dy = (Math.floor(von / s.w) - Math.floor(nach / s.w)) * sp;
+    el.style.transition = 'none';
+    el.style.translate = `${dx}px ${dy}px`;
+    void el.offsetWidth;
+    el.style.transition = `translate ${K.TAKT_MS}ms linear`;
+    el.style.translate = '0px 0px';
+  }
+}
+
+// Kamera folgt der Figur gleichmäßig (gleitet mit), am Rand der Höhle bleibt sie stehen
+function kameraSetzen() {
   const vw = rahmen.clientWidth, vh = rahmen.clientHeight;
   const sp = g + 1;
   const weltB = s.w * sp - 1, weltH = s.h * sp - 1;
   const px = s.pc * sp + g / 2, py = s.pr * sp + g / 2;
-  const rand = sp * 3.5;
-  let { x, y } = kamera;
-  if (sofort || px - x < rand || px - x > vw - rand) x = px - vw / 2;
-  if (sofort || py - y < rand || py - y > vh - rand) y = py - vh / 2;
+  let x = px - vw / 2, y = py - vh / 2;
   x = weltB <= vw ? -(vw - weltB) / 2 : Math.max(0, Math.min(weltB - vw, x));
   y = weltH <= vh ? -(vh - weltH) / 2 : Math.max(0, Math.min(weltH - vh, y));
   kamera = { x, y };
   welt.style.transform = `translate(${-x}px, ${-y}px)`;
-  const lx = px - x, ly = py - y;
-  schein.style.background = `radial-gradient(circle at ${lx}px ${ly}px, rgba(246,223,162,.10) 0, transparent ${g * 3}px, rgba(0,0,0,.18) ${g * 6}px, rgba(0,0,0,.42) ${g * 10}px)`;
+  pfeilSetzen();
+}
+
+// Ist der Ausgang offen und nicht zu sehen, zeigt ein goldener Pfeil am Rand die Richtung
+function pfeilSetzen() {
+  const ai = s.feld.indexOf('E');
+  if (!K.offen(s) || ai < 0 || s.ende) { pfeil.classList.remove('an'); return; }
+  const vw = rahmen.clientWidth, vh = rahmen.clientHeight, sp = g + 1;
+  const ax = (ai % s.w) * sp + g / 2 - kamera.x, ay = Math.floor(ai / s.w) * sp + g / 2 - kamera.y;
+  if (ax > 0 && ay > 0 && ax < vw && ay < vh) { pfeil.classList.remove('an'); return; }
+  const mx = vw / 2, my = vh / 2, dx = ax - mx, dy = ay - my;
+  const k = Math.min((vw / 2 - 26) / Math.abs(dx || 1), (vh / 2 - 26) / Math.abs(dy || 1));
+  pfeil.style.left = (mx + dx * k) + 'px';
+  pfeil.style.top = (my + dy * k) + 'px';
+  pfeil.style.setProperty('--w', Math.atan2(dy, dx) + 'rad');
+  pfeil.classList.add('an');
 }
 
 function anzeige() {
@@ -140,6 +177,8 @@ function schritt() {
   const ev = K.takt(s, richtung);
   if (s.punkte !== vorher) extraLeben();
   zeichnen();
+  bewegungenGleiten();
+  figurSetzen();
   kameraSetzen();
   for (const e of ev) effekt(e);
   anzeige();
@@ -345,6 +384,9 @@ const zugEnde = (e) => { if (zug && e.pointerId === zug.id) { zug = null; gehalt
 rahmen.addEventListener('pointerup', zugEnde);
 rahmen.addEventListener('pointercancel', zugEnde);
 
-window.addEventListener('resize', () => { if (s) kameraSetzen(true); });
+window.addEventListener('resize', () => { if (s) kameraSetzen(); });
 
 hoehleStarten();
+
+// Nur für Tests im Browser
+window.kristallmineStand = () => s;
