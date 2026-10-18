@@ -36,12 +36,15 @@ export function jadeschlangeStarten(wurzel, opt = {}) {
     <div class="feld-rahmen" id="jsg-rahmen">
       <span class="ecke" style="left:-7px;top:-7px"></span><span class="ecke" style="right:-7px;top:-7px"></span>
       <span class="ecke" style="left:-7px;bottom:-7px"></span><span class="ecke" style="right:-7px;bottom:-7px"></span>
+      <div class="jsg-lichter" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="jsg-brett" id="jsg-brett">
         <div class="jsg-dinge" id="jsg-dinge"></div>
         <div class="jsg-spur" id="jsg-spur"></div>
         <div class="jsg-schlange" id="jsg-schlange"></div>
         <div class="jsg-effekte" id="jsg-effekte"></div>
+        <div class="jsg-tor oben"></div><div class="jsg-tor unten"></div><div class="jsg-tor links"></div><div class="jsg-tor rechts"></div>
       </div>
+      <div class="jsg-staub" aria-hidden="true">${Array.from({ length: 24 }, (_, k) => `<span class="${k % 3 === 0 ? 'gold' : 'jade'}" style="left:${(k * 41 + 7) % 100}%;--dauer:${(8 + (k * 13) % 9)}s;--verz:-${(k * 1.9) % 15}s;--drift:${((k * 29) % 40) - 20}px;--gr:${2 + (k % 3)}px"></span>`).join('')}</div>
     </div>
     <div class="steuer">
       <div class="kreuz" id="jsg-kreuz">
@@ -118,8 +121,9 @@ export function jadeschlangeStarten(wurzel, opt = {}) {
     for (let k = 0; k < glieder.length; k++) {
       const ziel = s.schlange[k], start = von[Math.min(k, von.length - 1)] ?? ziel;
       let [x1, y1] = xy(ziel), [x0, y0] = xy(start);
-      if (Math.abs(x1 - x0) > g * 1.5) x0 = x1 + (x1 > x0 ? -g : g);
-      if (Math.abs(y1 - y0) > g * 1.5) y0 = y1 + (y1 > y0 ? -g : g);
+      // Sprung über den Rand: das Glied kommt von außen auf der neuen Seite herein (in Laufrichtung)
+      if (Math.abs(x1 - x0) > g * 1.5) x0 = x1 + (x0 > x1 ? -g : g);
+      if (Math.abs(y1 - y0) > g * 1.5) y0 = y1 + (y0 > y1 ? -g : g);
       const x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t;
       const welle = ruhig() || k === 0 ? 1 : 1 + 0.06 * Math.sin(zeit * 4 - k * 0.7);
       if (k === 0) glieder[k].style.transform = `translate(${x}px, ${y}px) rotate(${kopfWinkel}deg)`;

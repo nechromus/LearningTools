@@ -91,3 +91,38 @@
 @media (prefers-reduced-motion: reduce) {
   .js-spiel .jsg-brett::before, .js-spiel .jsg-kristall::before, .js-spiel .jsg-kristall i, .js-spiel .jsg-stein i { animation: none; }
 }
+
+/* ---------- Mehr Magie: Lichtstrahlen, Feenstaub, leuchtende Tore, schimmernde Schuppen ---------- */
+.js-spiel .feld-rahmen { background: radial-gradient(ellipse at 50% 30%, #1b2a2a 0%, #0f1617 55%, #060809 100%); }
+.js-spiel .jsg-brett { background-color: rgba(10, 16, 17, 0.82); }
+.js-spiel .jsg-brett::before { border: 0; box-shadow: inset 0 0 26px rgba(95, 232, 180, 0.18); }
+.js-spiel .jsg-lichter { position: absolute; inset: 0; pointer-events: none; overflow: hidden; mix-blend-mode: screen; }
+.js-spiel .jsg-lichter i { position: absolute; top: -20%; width: 26%; height: 140%; left: var(--x); transform: rotate(18deg); transform-origin: top center;
+  background: linear-gradient(180deg, rgba(185, 255, 226, 0.16), rgba(246, 223, 162, 0.05) 55%, transparent 85%); filter: blur(6px); animation: jsg-strahlen 10s ease-in-out infinite; }
+.js-spiel .jsg-lichter i:nth-child(1) { --x: 4%; animation-delay: -3s; }
+.js-spiel .jsg-lichter i:nth-child(2) { --x: 42%; width: 16%; animation-delay: -6s; }
+.js-spiel .jsg-lichter i:nth-child(3) { --x: 72%; animation-delay: -1s; }
+@keyframes jsg-strahlen { 0%, 100% { opacity: 0.35; transform: rotate(15deg); } 50% { opacity: 1; transform: rotate(21deg); } }
+.js-spiel .jsg-staub { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 6; }
+.js-spiel .jsg-staub span { position: absolute; top: -10px; width: var(--gr); height: var(--gr); border-radius: 50%; background: #fff; opacity: 0;
+  animation: jsg-staub var(--dauer) linear infinite, jsg-glitzer 1.7s ease-in-out infinite; animation-delay: var(--verz), var(--verz); }
+.js-spiel .jsg-staub span.gold { background: #FFF4D0; box-shadow: 0 0 6px 1px #D8B05A; }
+.js-spiel .jsg-staub span.jade { background: #E9FFF6; box-shadow: 0 0 6px 1px #5FE8B4; }
+@keyframes jsg-staub { 0% { transform: translate(0, 0); } 50% { transform: translate(var(--drift), 50vh); } 100% { transform: translate(0, 105vh); } }
+@keyframes jsg-glitzer { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.9; } }
+/* Tore: schimmernde Lichtbänder an allen Rändern */
+.js-spiel .jsg-tor { position: absolute; z-index: 5; pointer-events: none; background-size: 200% 200%; animation: jsg-tor 3.2s linear infinite; }
+.js-spiel .jsg-tor.oben, .js-spiel .jsg-tor.unten { left: 0; right: 0; height: 4px; background-image: linear-gradient(90deg, transparent, rgba(185, 255, 226, 0.9), rgba(246, 223, 162, 0.9), transparent); }
+.js-spiel .jsg-tor.links, .js-spiel .jsg-tor.rechts { top: 0; bottom: 0; width: 4px; background-image: linear-gradient(180deg, transparent, rgba(185, 255, 226, 0.9), rgba(246, 223, 162, 0.9), transparent); }
+.js-spiel .jsg-tor.oben { top: 0; } .js-spiel .jsg-tor.unten { bottom: 0; } .js-spiel .jsg-tor.links { left: 0; } .js-spiel .jsg-tor.rechts { right: 0; }
+.js-spiel .jsg-tor { box-shadow: 0 0 12px rgba(95, 232, 180, 0.6); opacity: 0.75; }
+@keyframes jsg-tor { from { background-position: 0% 0%; } to { background-position: 200% 200%; } }
+/* Schimmer, der über den Körper läuft */
+.js-spiel .jsg-glied:not(.kopf) i { animation: jsg-schimmer 2.4s ease-in-out infinite; animation-delay: calc(var(--d, 1) * -3s); }
+@keyframes jsg-schimmer { 0%, 70%, 100% { filter: brightness(1); } 80% { filter: brightness(1.6) drop-shadow(0 0 4px #B9FFE2); } }
+.js-spiel .jsg-glied.kopf { filter: drop-shadow(0 0 8px rgba(95, 232, 180, 0.8)); }
+.js-spiel .jsg-kristall::before { inset: -45%; background: radial-gradient(circle, rgba(95, 232, 180, 0.55), transparent 62%); }
+@media (prefers-reduced-motion: reduce) {
+  .js-spiel .jsg-lichter i, .js-spiel .jsg-staub span, .js-spiel .jsg-tor, .js-spiel .jsg-glied i { animation: none; }
+  .js-spiel .jsg-staub { display: none; }
+}

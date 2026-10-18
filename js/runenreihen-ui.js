@@ -9,6 +9,7 @@
 //   hinweisZusatz,
 // }) → { beenden(), anhalten(), stand(), ruht() }
 import * as R from './runenreihen.js';
+import { edelstein, LEUCHTEN } from './runenreihen-steine.js';
 
 const ruhig = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const TIPP_MS = 6000;
@@ -26,6 +27,14 @@ export function runenreihenStarten(wurzel, opt = {}) {
   let tippTimer = 0, laufende = [];
 
   wurzel.classList.add('km', 'rr');
+  const funkelTimer = setInterval(() => {
+    if (beendet || gestoppt || document.hidden || ruhig() || !sprites.size) return;
+    const liste = [...sprites.values()];
+    const d = liste[Math.floor(Math.random() * liste.length)];
+    if (!d || d.dataset.art === 's') return;
+    const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec(d.style.transform);
+    if (m) effekt('<span></span>', 'rr-stern-funkeln', Number(m[1]) + p * 0.32, Number(m[2]) + p * 0.3, 1100);
+  }, 380);
   wurzel.innerHTML = `
     <div class="kopf"><span class="titel">Runenreihen</span><button class="knopf klein leise" id="rr-neu">Neues Spiel</button></div>
     <div class="chips">
@@ -35,6 +44,8 @@ export function runenreihenStarten(wurzel, opt = {}) {
     <div class="feld-rahmen" id="rr-rahmen">
       <span class="ecke" style="left:-7px;top:-7px"></span><span class="ecke" style="right:-7px;top:-7px"></span>
       <span class="ecke" style="left:-7px;bottom:-7px"></span><span class="ecke" style="right:-7px;bottom:-7px"></span>
+      <div class="rr-lichter" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="rr-staub" aria-hidden="true">${Array.from({ length: 26 }, (_, k) => `<span class="${k % 3 === 0 ? 'gold' : k % 3 === 1 ? 'jade' : 'weiss'}" style="left:${(k * 37 + 11) % 100}%;--dauer:${(7 + (k * 13) % 9)}s;--verz:-${(k * 1.7) % 14}s;--drift:${((k * 29) % 40) - 20}px;--gr:${2 + (k % 3)}px"></span>`).join('')}</div>
       <div class="rr-brett" id="rr-brett"><div class="rr-gitter" id="rr-gitter"></div><div class="rr-steine" id="rr-steine"></div><div class="rr-effekte" id="rr-effekte"></div></div>
       <div class="rr-meldung" id="rr-meldung" aria-live="polite"></div>
     </div>
@@ -50,6 +61,15 @@ export function runenreihenStarten(wurzel, opt = {}) {
   // ---------- Aufbau und Zeichnen ----------
 
   const pos = (i) => [R.spalte(i) * p, R.zeile(i) * p];
+  // Aussehen eines Steins: Klasse und (bei neuer Art) das passende Edelstein-Bild
+  const artVon = (x) => (x.s === R.STERN ? 's' : String(x.a));
+  function aussehen(d, x, extra = '') {
+    d.className = klasse(x) + extra;
+    const art = artVon(x);
+    if (d.dataset.art !== art) { d.dataset.art = art; d.innerHTML = `<i>${art === 's' ? '' : edelstein(x.a)}</i>`; }
+    d.style.setProperty('--d', ((x.id * 0.731) % 5).toFixed(2) + 's');
+    if (art !== 's') d.style.setProperty('--leucht', LEUCHTEN[x.a]);
+  }
   const klasse = (x) => `rr-stein a${x.s === R.STERN ? 's' : x.a}${x.s === 1 ? ' funke-h' : x.s === 2 ? ' funke-v' : x.s === R.STERN ? ' stern' : ''}`;
 
   function aufbauen() {
@@ -70,8 +90,7 @@ export function runenreihenStarten(wurzel, opt = {}) {
 
   function spriteNeu(x, i, vonZeile = null) {
     const d = document.createElement('div');
-    d.className = klasse(x);
-    d.innerHTML = '<i></i>';
+    aussehen(d, x);
     const [px, py] = pos(i);
     d.style.transition = 'none';
     d.style.transform = `translate(${px}px, ${vonZeile == null ? py : vonZeile * p}px)`;
@@ -95,7 +114,7 @@ export function runenreihenStarten(wurzel, opt = {}) {
       da.add(x.id);
       let d = sprites.get(x.id);
       if (!d) d = spriteNeu(x, i);
-      d.className = klasse(x);
+      aussehen(d, x);
       setzen(x.id, i, 0);
     });
     for (const [id, d] of sprites) if (!da.has(id)) { d.remove(); sprites.delete(id); }
@@ -131,6 +150,7 @@ export function runenreihenStarten(wurzel, opt = {}) {
   function funken(i, art) {
     const [x, y] = mitte(i);
     effekt(Array.from({ length: 7 }, (_, k) => `<span style="--w:${k * 51 + (i * 13) % 50}deg"></span>`).join(''), 'rr-funken a' + art, x, y, 700);
+    effekt('', 'rr-licht a' + art, x, y, 650);
   }
 
   // ---------- Ablauf der Schritte ----------
@@ -151,7 +171,7 @@ export function runenreihenStarten(wurzel, opt = {}) {
         });
         for (const n of st.neuSpezial) {
           const d = sprites.get(n.id);
-          if (d) { d.className = klasse(n) + ' entsteht'; }
+          if (d) { aussehen(d, n, ' entsteht'); }
         }
         const z0 = st.zellen.reduce((a, b) => a + b, 0) / st.zellen.length;
         const [mx, my] = mitte(Math.round(z0));
@@ -250,7 +270,7 @@ export function runenreihenStarten(wurzel, opt = {}) {
 
   function stufeFeiern(stufe) {
     tippWeg();
-    tafel(`<div class="tafel jade"><div class="rr-bild"><span class="rr-stein a0"><i></i></span><span class="rr-stein as stern"><i></i></span><span class="rr-stein a1"><i></i></span></div>
+    tafel(`<div class="tafel jade"><div class="rr-bild"><span class="rr-stein a0"><i>${edelstein(0)}</i></span><span class="rr-stein as stern"><i></i></span><span class="rr-stein a5"><i>${edelstein(5)}</i></span></div>
       <h2>Stufe ${stufe} geschafft!</h2><p>${s.punkte.toLocaleString('de-DE')} Punkte.</p>
       <p>Nächstes Ziel: ${R.zielPunkte(s.stufe).toLocaleString('de-DE')} Punkte in Stufe ${s.stufe}.</p>
       <button class="haupt" data-rrt="weiter">Weiter</button></div>`);
@@ -338,7 +358,7 @@ export function runenreihenStarten(wurzel, opt = {}) {
     tafel(`<div class="tafel jade"><h2>Runenreihen</h2><p>Dein Spiel ist gespeichert: Stufe ${s.stufe}, ${s.punkte.toLocaleString('de-DE')} Punkte.</p>
       <button class="haupt" data-rrt="weiter">Weiter</button><button class="neben" data-rrt="neu">Neues Spiel</button></div>`);
   } else {
-    tafel(`<div class="tafel jade"><div class="rr-bild"><span class="rr-stein a0"><i></i></span><span class="rr-stein a0"><i></i></span><span class="rr-stein a0"><i></i></span></div>
+    tafel(`<div class="tafel jade"><div class="rr-bild"><span class="rr-stein a0"><i>${edelstein(0)}</i></span><span class="rr-stein a0"><i>${edelstein(0)}</i></span><span class="rr-stein a0"><i>${edelstein(0)}</i></span></div>
       <h2>Runenreihen</h2>
       <p>Tausche zwei Nachbarn. <b>Drei gleiche</b> in einer Reihe verschwinden.</p>
       <p>Vier gleiche geben eine <b>Funkenrune</b>, fünf eine <b>Sternrune</b>. Es gibt keine Zeit und keine Zuggrenze.</p>
@@ -346,7 +366,7 @@ export function runenreihenStarten(wurzel, opt = {}) {
   }
 
   return {
-    beenden() { if (beendet) return; beendet = true; tippWeg(); laufende.forEach(clearTimeout); sichern(); aus.abort(); },
+    beenden() { if (beendet) return; beendet = true; clearInterval(funkelTimer); tippWeg(); laufende.forEach(clearTimeout); sichern(); aus.abort(); },
     anhalten() { gestoppt = true; tippWeg(); laufende.forEach(clearTimeout); laufende = []; beschaeftigt = false; abgleichen(); sichern(); },
     stand: () => JSON.parse(JSON.stringify(s)),
     ruht: () => !!$('tafel').innerHTML
