@@ -10,7 +10,7 @@ import * as SP from '../js/splitter.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.14.0';
+export const ELTERN_VERSION = '1.15.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -688,7 +688,7 @@ function splitterSeite() {
 // Welches Thema die Häufigkeit eines Baukastens steuert. Geschichten hängen an einem anderen Baukasten-Thema.
 const GEN_THEMA = {
   'minus-plus': 'minus-zahlen', 'reihenfolge': 'reihenfolge', 'potenz': 'potenzen', 'einmaleins': 'einmaleins', 'mal10': 'mal-10',
-  'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'runden': 'runden', 'bruch-bild': 'bruch-bild', 'kugel': 'kugel'
+  'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'runden': 'runden', 'bruch-bild': 'bruch-bild', 'kugel': 'kugel', 'zylinder': 'zylinder'
 };
 const GEN_WIE = { 'geld-geschichte': ['minus-zahlen'], 'rabatt-geschichte': ['rabatt', 'neuer-preis'] };
 

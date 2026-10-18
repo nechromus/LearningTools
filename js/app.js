@@ -20,7 +20,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.5.0';
+export const APP_VERSION = '2.6.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -748,6 +748,13 @@ function waehleAufgabe(kategorie) {
     return passend.length ? Math.max(...passend.map(a => g[a.thema])) : 0;
   };
   const fokus = fokusOptionen();
+  // Zylinder, Kegel, Pyramide: auf den Plätzen Schritte und Abschluss, je nach Gewicht im Paket.
+  // Zylinder halb aus dem Pool, halb aus dem Baukasten; Kegel und Pyramide nur aus dem Pool.
+  const koerperOptionen = (gw) => ['zylinder', 'kegel', 'pyramide'].map(t => ({ w: gw[t] || 0, koerper: t }));
+  const koerperAufgabe = (t) => {
+    if (t === 'zylinder' && Math.random() < 0.5) return erzeuge('zylinder', genStufe('zylinder'));
+    return ausPool('thema', t) || (t === 'zylinder' ? erzeuge('zylinder', genStufe('zylinder')) : null);
+  };
   let a = null;
   switch (kategorie) {
     case 'leicht': a = kurzeAufgabe(g, fokus, { leicht: true }); break;
@@ -767,8 +774,10 @@ function waehleAufgabe(kategorie) {
       const o = P.ziehe([
         { w: poolGewicht('struktur'), art: 'pool' },
         { w: g['prozent-baukasten'], art: 'baukasten' },
-        { w: g['bruch-bild'], art: 'bruch-bild' }
+        { w: g['bruch-bild'], art: 'bruch-bild' },
+        ...koerperOptionen(g)
       ]);
+      if (o && o.koerper) { a = koerperAufgabe(o.koerper); break; }
       if (o && o.art === 'pool') a = ausPool('struktur');
       if (a && a.thema === 'kugel') a = null;
       if (!a && o && o.art !== 'pool') a = erzeuge(o.art, o.art === 'baukasten' ? 1 : genStufe(o.art));
@@ -788,9 +797,11 @@ function waehleAufgabe(kategorie) {
         const o = P.ziehe([
           { w: poolGewicht('abschluss') / 2, art: 'pool' },
           { w: g.kugel, art: 'kugel' },
-          { w: g.runden, art: 'runden' }
+          { w: g.runden, art: 'runden' },
+          ...koerperOptionen(g)
         ]);
-        if (o && o.art === 'pool') a = ausPool('abschluss');
+        if (o && o.koerper) a = koerperAufgabe(o.koerper);
+        else if (o && o.art === 'pool') a = ausPool('abschluss');
         else if (o) a = erzeuge(o.art, genStufe(o.art));
       }
       break;
@@ -957,7 +968,7 @@ function teileHtml() {
     let zusatz = '';
     if (aktiv && A.phase === 'tipp') zusatz = `<div class="tipp"><b>Noch nicht.</b> ${esc(t.tipp)}</div>`;
     if (aktiv && t.hilfe && A.phase !== 'tipp') zusatz += hilfeBox(t);
-    if (i === A.idx && A.phase === 'aufgeloest') zusatz = `<div class="aufloesung">So ist es richtig: <b>${loesungText(t)}</b></div>`;
+    if (i === A.idx && A.phase === 'aufgeloest') zusatz = `<div class="aufloesung">So ist es richtig: <b>${loesungText(t)}</b>${t.loesungTipp ? `<br>${mathe(t.loesungTipp)}` : ''}</div>`;
     if (t.merk && i > A.idx && !A.fertig) {
       inhalt = `<div class="teil-label"><span>${mathe(t.label)}</span></div><div class="feld-zeile"><button class="feld leer tippbar" data-act="springe" data-i="${i}" aria-label="Zu diesem Feld springen">?</button>${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}</div>`;
     }
@@ -1196,6 +1207,7 @@ function versuchMerken(t, eingabe, richtig, fehler) {
     t.eingabe = ''; t.z = ''; t.n = '';
   } else {
     t.status = 'loesung';
+    t.loesungTipp = fehler ? fehler.text : null;
     A.phase = 'aufgeloest';
     protokoll(S, 'loesung_gezeigt', { id: a.id, teil: A.idx });
   }
@@ -2563,7 +2575,7 @@ function klick(e) {
       if (!t || A.phase !== 'eingabe') break;
       const k = Number(el.dataset.k);
       t.gewaehlt = k;
-      versuchMerken(t, String(k), k === t.richtig, null);
+      versuchMerken(t, String(k), k === t.richtig, k === t.richtig ? null : L.erkenneWahlFehler(A.aufgabe, t.quelle, k));
       break;
     }
     case 'verstanden':

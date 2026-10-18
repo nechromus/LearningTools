@@ -731,3 +731,13 @@ body[data-ansicht="spiele"] { background: radial-gradient(ellipse at 50% -10%, #
   .sz-lichter i, .sz-staub span, .sz-rune, .spiel-karte.offen, .spiele-knopf::after { animation: none; }
   .sz-staub { display: none; }
 }
+
+/* Hinweiskarten in der App: etwas größer als auf Papier, Kopf frei für das Schließen-Kreuz */
+.hinweis-blatt .hinweiskarte .card { gap: 7px; padding: 10px 12px; }
+.hinweis-blatt .hinweiskarte .ch { margin-right: 30px; }
+.hinweis-blatt .hinweiskarte .ch svg { width: 48px; height: 48px; flex-shrink: 0; }
+.hinweis-blatt .hinweiskarte .ct { font-size: 20px; }
+.hinweis-blatt .hinweiskarte .rb, .hinweis-blatt .hinweiskarte .bx { font-size: 17px; padding: 6px 9px; }
+.hinweis-blatt .hinweiskarte .ex { font-size: 16px; }
+.hinweis-blatt .hinweiskarte .bw .rb, .hinweis-blatt .hinweiskarte .bw .bx { font-size: 15.5px; padding: 5px 7px; }
+.hinweis-blatt .hinweiskarte svg { max-width: 100%; height: auto; }

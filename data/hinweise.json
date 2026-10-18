@@ -1,5 +1,5 @@
 {
-  "info": "Hinweise (Sheikah-Zeichen). Kopie von app-uebergabe/02-hinweise.json aus dem Claude-Projekt. Reihenfolge ist fest. Neue Hinweise nur hinten anfügen. Stand 17.10.2026 (Hinweise 12, 13 und 14 neu).",
+  "info": "Hinweise (Sheikah-Zeichen). Kopie von app-uebergabe/02-hinweise.json aus dem Claude-Projekt. Reihenfolge ist fest. Neue Hinweise nur hinten anfügen. Stand 17.10.2026 (Hinweise 12, 13 und 14 neu). Stand 18.10.2026: Hinweise 15 (Zylinder) und 16 (Bruch von einer Zahl) aus dem Woche-5-Chat. Aussehen in der App wie die Karten aus 07-hinweiskarten.html (js/hinweiskarten.js). Hinweise 17 (Kegel) und 18 (Pyramide) aus dem Aufgaben-Chat.",
   "icon_form": {
     "beschreibung": "Sechseck, viewBox 0 0 24 24, Füllung = farbe_hell, Rand = farbe (1.6 px), Symbol mittig in farbe_text, Schrift Atkinson Hyperlegible fett",
     "polygon": "12,1.5 21.5,7 21.5,17 12,22.5 2.5,17 2.5,7"
@@ -250,6 +250,116 @@
         "5, 6, 7, 8, 9 → aufrunden"
       ],
       "beispiel": "4,6 ≈ 5   3,146 ≈ 3,15   2,0004 ≈ 2,000"
+    },
+    {
+      "nr": 15,
+      "id": "zylinder",
+      "titel": "Zylinder",
+      "symbol": "Dose (kleiner Zylinder)",
+      "farbe": "#0B6E8A",
+      "farbe_hell": "#D7ECF3",
+      "farbe_text": "#08506A",
+      "bild": {
+        "form": "zylinder",
+        "beschriftung": [
+          "Radius r (Mitte bis Rand)",
+          "Höhe h (Boden bis Deckel)",
+          "Grundfläche A_G (Kreis unten)",
+          "Mantel A_M (außen herum)"
+        ]
+      },
+      "regeln": [
+        "V = π · r² · h",
+        "A_G = π · r²  (der Kreis unten)",
+        "A_M = 2 · π · r · h  (die Fläche außen herum)",
+        "A_O = 2 · A_G + A_M  (2 Kreise und der Mantel)",
+        "„passt hinein“ → Volumen, „Material außen“ → Oberfläche"
+      ],
+      "beispiel": "r = 3 cm, h = 5 cm → r² = 9 → π × 9 × 5 = 141,37… → V ≈ 141,4 cm³",
+      "hinweis_schreibweise": "Gleiche Zeichen wie die Formelübersicht Berlin Sek I (A_G, A_M, A_O)"
+    },
+    {
+      "nr": 16,
+      "id": "bruchvon",
+      "titel": "Bruch von einer Zahl",
+      "symbol": "Streifen, 3 von 4 Teilen gefärbt",
+      "farbe": "#8E3A8C",
+      "farbe_hell": "#F3DDF2",
+      "farbe_text": "#6A2468",
+      "layout": "zwei Spalten: links Regeln, rechts in derselben Zeile der passende Rechenschritt (Pfeil dazwischen)",
+      "regeln": [
+        "Nenner (unten): in so viele gleiche Teile teilen",
+        "1 Teil = die Zahl durch den Nenner",
+        "Zähler (oben): so viele Teile nimmst du",
+        "Mehrere Teile = 1 Teil mal Zähler",
+        "Prozent: gleicher Weg wie beim Bruch"
+      ],
+      "beispiel_titel": "3/4 von 80 €",
+      "beispiel_zeilen": [
+        "Nenner 4 → 80 € in 4 Teile (Bild: 4 leere Teile)",
+        "80 : 4 = 20 €",
+        "Zähler 3 → 3 Teile nehmen (Bild: 3 von 4 gefärbt)",
+        "20 € · 3 = 60 €",
+        "75 % = 3 von 4 Teilen → 75 % von 80 € = 60 €"
+      ]
+    },
+    {
+      "nr": 17,
+      "id": "kegel",
+      "titel": "Kegel",
+      "symbol": "Kegel (kleine Spitze mit Kreis unten)",
+      "farbe": "#C2410C",
+      "farbe_hell": "#FCE3D3",
+      "farbe_text": "#8A2E08",
+      "bild": {
+        "form": "kegel",
+        "beschriftung": [
+          "Radius r (Mitte bis Rand)",
+          "Höhe h (Spitze gerade nach unten, innen)",
+          "Mantellinie s (schräg außen)",
+          "Grundfläche A_G (Kreis unten)"
+        ]
+      },
+      "regeln": [
+        "V = 1/3 · π · r² · h",
+        "Erst rechnen wie beim Zylinder, dann durch 3",
+        "A_G = π · r²  (der Kreis unten)",
+        "A_M = π · r · s  (die Fläche außen herum)",
+        "A_O = A_G + A_M  (1 Kreis und der Mantel)",
+        "Volumen → h, Mantel → s"
+      ],
+      "achtung": "Das Drittel nicht vergessen!",
+      "beispiel": "r = 3 cm, h = 12 cm → π × 9 × 12 = 339,29… → : 3 = 113,10… → V ≈ 113,1 cm³",
+      "hinweis_schreibweise": "Gleiche Zeichen wie die Formelübersicht Berlin Sek I (A_G, A_M, A_O)"
+    },
+    {
+      "nr": 18,
+      "id": "pyramide",
+      "titel": "Pyramide",
+      "symbol": "Pyramide (Spitze auf Quadrat)",
+      "farbe": "#8C6D1F",
+      "farbe_hell": "#F3EBD3",
+      "farbe_text": "#5E4810",
+      "bild": {
+        "form": "pyramide",
+        "beschriftung": [
+          "Seite a (Quadrat unten)",
+          "Höhe h (Spitze gerade nach unten, innen)",
+          "Höhe der Seitenfläche hₛ (außen, schräg)"
+        ]
+      },
+      "regeln": [
+        "V = 1/3 · A_G · h",
+        "A_G = a · a = a²  (das Quadrat unten)",
+        "Volumen → h (innen, gerade nach unten)",
+        "Seitenflächen → hₛ (außen, schräg)",
+        "1 Dreieck = 1/2 · a · hₛ",
+        "A_M = 4 Dreiecke",
+        "A_O = A_G + A_M  (Quadrat und 4 Dreiecke)"
+      ],
+      "achtung": "Das Drittel nicht vergessen!",
+      "beispiel": "a = 12 cm, h = 8 cm → A_G = 144 → 144 · 8 = 1152 → : 3 → V = 384 cm³",
+      "hinweis_schreibweise": "Gleiche Zeichen wie die Formelübersicht Berlin Sek I (A_G, A_M, A_O)"
     }
   ]
 }

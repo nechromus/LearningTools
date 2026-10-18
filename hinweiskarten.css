@@ -1,0 +1,14 @@
+/* Hinweiskarten (erzeugt von tools/hinweiskarten.mjs aus der Vorlage) */
+.hinweiskarte { font-family: 'Atkinson Hyperlegible', 'Segoe UI', sans-serif; color: #1E2A2B; }
+.hinweiskarte .card{border-radius:10px;background:#FBFAF5;padding:8px 12px;display:flex;flex-direction:column;gap:5px;box-sizing:border-box}
+.hinweiskarte .ch{display:flex;align-items:center;gap:10px}
+.hinweiskarte .ct{font-family:Cinzel,Georgia,serif;font-weight:700;font-size:17px;margin:0;letter-spacing:0.3px}
+.hinweiskarte .rb{background:#FFFFFF;border:1.5px solid #C9CFCF;border-radius:7px;padding:3px 8px;font-size:14.5px;line-height:1.3}
+.hinweiskarte .ex{font-size:14px;color:#4F5E5E;line-height:1.35}
+.hinweiskarte .two{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:6px}
+.hinweiskarte .fr{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;line-height:1.05;font-size:0.85em;margin:0 2px}
+.hinweiskarte .fr span{display:block;height:1.2em;line-height:1.2em}
+.hinweiskarte .fr span:first-child{border-bottom:1.5px solid currentColor;padding:0 3px;align-self:stretch;text-align:center}
+.hinweiskarte .bw{display:grid;grid-template-columns:minmax(0, 1fr) 14px minmax(0, 1fr);gap:5px 3px;align-items:stretch}
+.hinweiskarte .bx{background:#F3DDF2;border:1.5px solid #D6A9D4;border-radius:7px;padding:3px 8px;font-size:14.5px;line-height:1.3;display:flex;flex-direction:column;justify-content:center;gap:3px}
+.hinweiskarte .ar{display:flex;align-items:center;justify-content:center;color:#8E3A8C;font-weight:700;font-size:16px}

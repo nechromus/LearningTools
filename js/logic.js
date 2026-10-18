@@ -51,6 +51,16 @@ export function potenzWert(ausdruck) {
 }
 
 // ---------- Typische Fehler erkennen ----------
+
+// Auswahl-Schritte bei Körpern: falsche Länge gewählt. Gibt { typ, text } oder null zurück.
+export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
+  if (!teil || !Array.isArray(teil.optionen) || gewaehlt === teil.richtig) return null;
+  const o = String(teil.optionen[gewaehlt] || ''), frage = teil.text || '';
+  if (aufgabe.thema === 'pyramide' && /Volumen/.test(frage) && /^hₛ/.test(o)) return { typ: 'pyramide-hs-statt-h', text: 'hₛ liegt außen auf der Seitenfläche. Für das Volumen brauchst du h: von der Spitze gerade nach unten.' };
+  if (aufgabe.thema === 'pyramide' && /Seitenfl/.test(frage) && /^h\s*=/.test(o)) return { typ: 'pyramide-h-statt-hs', text: 'Die Seitenfläche ist ein Dreieck außen. Seine Höhe ist hₛ.' };
+  if (aufgabe.thema === 'kegel' && /Mantel/.test(frage) && /^h\s*=/.test(o)) return { typ: 'kegel-h-statt-s', text: 'Für den Mantel brauchst du s, die schräge Linie außen.' };
+  return null;
+}
 // Gibt { typ, text } oder null zurück. teil = Schritt/Frage-Objekt oder null.
 
 export function erkenneFehler(aufgabe, teil, eingabeText) {
@@ -72,8 +82,54 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
     return { typ: 'potenz-mal', text: `Hoch ${pot.exp} heißt: ${Array(pot.exp).fill(pot.basis).join(' · ')}, nicht ${pot.basis} · ${pot.exp}.` };
   }
 
-  // Kugel: mit d statt r gerechnet
+  // Hoch 3: Endergebnis = Zwischenergebnis (erst zweimal malgenommen)
+  const t3 = teil ? teil.text || '' : aufgabe.rechnung || '';
+  if (/³\s*=?\s*$/.test(t3) && ziel > 1) {
+    const b = Math.round(Math.cbrt(ziel));
+    if (b ** 3 === ziel && gleich(w, b * b)) return { typ: 'potenz-zweimal', text: 'Du hast erst zweimal malgenommen. Hoch 3 heißt dreimal.' };
+  }
+
   const bild = aufgabe.bild || {};
+  const nah = (a, b) => Math.abs(a - b) <= Math.max(Math.abs(b) * 0.01, 0.05);
+  const ttext = teil ? teil.text || '' : '';
+  const koerper = ['zylinder', 'kegel', 'pyramide'].includes(aufgabe.thema);
+  const schritte = aufgabe.schritte || [];
+  const vorher = teil ? schritte[schritte.indexOf(teil) - 1] : null;
+
+  if (koerper && teil && teil.wert != null) {
+    // Kegel/Pyramide: Drittel vergessen
+    if (/Drittel/.test(ttext) && vorher && vorher.wert != null && nah(w, vorher.wert)) {
+      return { typ: 'drittel-vergessen', text: 'Hast du an das Drittel gedacht? Teile durch 3.' };
+    }
+    if (aufgabe.thema !== 'zylinder' && /\bV\s*[=≈]\s*$/.test(ttext) && nah(w, teil.wert * 3)) {
+      return { typ: 'drittel-vergessen', text: aufgabe.thema === 'kegel' ? 'Ein Kegel ist nur ein Drittel. Teile durch 3.' : 'Eine Pyramide ist nur ein Drittel. Teile durch 3.' };
+    }
+    // Pyramide: Mantel nur 1 Dreieck
+    if (aufgabe.thema === 'pyramide' && /A_M/.test(ttext) && nah(w, teil.wert / 4)) {
+      return { typ: 'pyramide-ein-dreieck', text: 'Die Pyramide hat 4 Dreiecke außen.' };
+    }
+    const r = bild.r != null ? bild.r : bild.d != null ? bild.d / 2 : null;
+    if (r != null) {
+      // Kegel: Mantel mit h statt s
+      if (aufgabe.thema === 'kegel' && /A_M/.test(ttext) && bild.h != null && nah(w, Math.PI * r * bild.h)) {
+        return { typ: 'kegel-h-statt-s', text: 'Für den Mantel brauchst du s, die schräge Linie außen.' };
+      }
+      // Oberfläche: Zahl der Kreise
+      if (/A_O/.test(ttext) && aufgabe.thema === 'kegel' && nah(w, teil.wert + Math.PI * r * r)) {
+        return { typ: 'kegel-zwei-kreise', text: 'Ein Kegel hat nur einen Kreis: unten.' };
+      }
+      if (/A_O/.test(ttext) && aufgabe.thema === 'zylinder' && nah(w, teil.wert - Math.PI * r * r)) {
+        return { typ: 'zylinder-ein-kreis', text: 'Ein Zylinder hat zwei Kreise: Boden und Deckel.' };
+      }
+      // Mit d statt r gerechnet
+      if (bild.d != null && ((/A_G/.test(ttext) && nah(w, teil.wert * 4)) || (/A_M/.test(ttext) && aufgabe.thema !== 'pyramide' && nah(w, teil.wert * 2)) ||
+        (/^r²/.test(ttext) && gleich(w, bild.d * bild.d)))) {
+        return { typ: 'd-statt-r', text: 'Schau nochmal: In der Formel steht r, nicht d.' };
+      }
+    }
+  }
+
+  // Kugel: mit d statt r gerechnet
   if (aufgabe.thema === 'kugel' && bild.d && teil && teil.wert != null) {
     const r = bild.d / 2, d = bild.d;
     const text = teil.text || '';
@@ -224,10 +280,10 @@ export function passtKategorie(a, kategorie, thema) {
   switch (kategorie) {
     case 'aufwaermen': return !a.bonus && AUFWAERM_THEMEN.includes(a.thema) && a.stufe <= 2 && a.thema !== thema;
     case 'thema': return !a.bonus && a.thema === thema;
-    case 'text': return !a.bonus && !!a.geschichte && a.thema !== 'kugel';
+    case 'text': return !a.bonus && !!a.geschichte && !KOERPER.includes(a.thema);
     case 'abschluss': return !a.bonus && (a.thema === 'runden' || a.thema === 'kugel');
     case 'bonus': return !!a.bonus;
-    case 'struktur': return !a.bonus && a.thema !== 'kugel' && (['schritte', 'zuordnung', 'bruch'].includes(a.typ) || (a.typ === 'mehrfrage' && !!a.bild));
+    case 'struktur': return !a.bonus && !KOERPER.includes(a.thema) && (['schritte', 'zuordnung', 'bruch'].includes(a.typ) || (a.typ === 'mehrfrage' && !!a.bild));
     default: return !a.bonus;
   }
 }
@@ -417,7 +473,10 @@ export function hoechsteKachel(feld) {
 // ---------- Aufgaben aus JSON kontrollieren (Elternbereich, Tools) ----------
 
 export const TYPEN = ['zahl', 'auswahl', 'bruch', 'schritte', 'zuordnung', 'mehrfrage'];
-export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10'];
+export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide'];
+// Körper mit Taschenrechner: eigene Plätze (Schritte und Abschluss), nicht bei Text und Struktur aus dem allgemeinen Pool
+export const KOERPER = ['kugel', 'zylinder', 'kegel', 'pyramide'];
+export const BILDFORMEN = ['streifen', 'kreis', 'quadrat', 'rechteck', 'kreisdiagramm', 'kugel', 'zylinder', 'kegel', 'pyramide'];
 
 export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
   const f = [];
@@ -434,6 +493,7 @@ export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
   if (Array.isArray(a.hinweise)) {
     for (const h of a.hinweise) if (!hinweisIds.includes(h)) f.push(`${id}: Hinweis „${h}“ gibt es nicht`);
   } else if (a.hinweise != null) f.push(`${id}: hinweise muss eine Liste sein`);
+  if (a.bild && a.bild.form && !BILDFORMEN.includes(a.bild.form)) f.push(`${id}: unbekannte Bildform „${a.bild.form}“`);
   if (a.taschenrechner != null && typeof a.taschenrechner !== 'boolean') f.push(`${id}: taschenrechner muss true oder false sein`);
   if (a.gegeben != null) {
     if (!Array.isArray(a.gegeben)) f.push(`${id}: gegeben muss eine Liste sein`);

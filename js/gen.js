@@ -107,7 +107,7 @@ export function potenz(stufe, rng, opts = {}) {
     if (rng() < 0.5) {
       const [basis, exp] = wahl(rng, [[2, 4], [3, 4], [10, 4]]);
       const wert = basis ** exp;
-      return neu('potenz', [basis, exp], { thema: 'potenzen', typ: 'zahl', stufe: 3, bonus: true, rechnung: `${basis}${HOCH[exp]}`, frage: 'Hoch 4 heißt 4-mal malnehmen. Rechne aus.', antwort: { wert }, hinweise: ['potenz'], loesungsweg: [`${basis}${HOCH[exp]} = ${Array(exp).fill(basis).join(' · ')} = ${wert}`], erklaerung: `Viermal die ${basis} malnehmen.` });
+      return neu('potenz', [basis, exp], { thema: 'potenzen', typ: 'schritte', stufe: 3, bonus: true, rechnung: `${basis}${HOCH[exp]}`, frage: 'Hoch 4 heißt 4-mal malnehmen. Rechne aus. Schreib die Zwischenergebnisse auf.', schritte: potenzSchritte(basis, exp), hinweise: ['potenz'], loesungsweg: potenzWeg(basis, exp), erklaerung: `Viermal die ${basis} malnehmen.` });
     }
     const [x, y] = wahl(rng, [[[3, 2], [2, 3]], [[5, 2], [3, 3]], [[10, 2], [5, 3]], [[6, 2], [3, 3]], [[4, 3], [7, 2]], [[9, 2], [4, 3]]]);
     const opt = [x, y].map(([b, e]) => `${b}${HOCH[e]}`);
@@ -124,7 +124,22 @@ export function potenz(stufe, rng, opts = {}) {
   if (basis === 11 && exp === 2) erkl = 'Tipp: 10 · 11 = 110, dann noch 11 dazu.';
   if (basis === 12 && exp === 2) erkl = 'Tipp: 10 · 12 = 120, dann 2 · 12 = 24 dazu.';
   const kette = Array(exp).fill(basis).join(' · ');
+  // Ab Hoch 3 mit Zwischenergebnis (Wunsch Vater, 03 Abschnitt 6.1)
+  if (exp >= 3) return neu('potenz', [basis, exp], { thema: 'potenzen', typ: 'schritte', stufe, rechnung: `${basis}${HOCH[exp]}`, frage: 'Rechne aus. Schreib das Zwischenergebnis auf.', schritte: potenzSchritte(basis, exp), hinweise: ['potenz'], loesungsweg: potenzWeg(basis, exp), erklaerung: erkl });
   return neu('potenz', [basis, exp], { thema: 'potenzen', typ: 'zahl', stufe, rechnung: `${basis}${HOCH[exp]}`, frage: 'Rechne aus.', antwort: { wert }, hinweise: ['potenz'], loesungsweg: [`${basis}${HOCH[exp]} = ${kette} = ${wert}`], erklaerung: erkl });
+}
+
+// Hoch 3: „Zwischenergebnis =“, Hoch 4: „1. Zwischenergebnis =“, „2. Zwischenergebnis =“; zuletzt „4³ =“
+function potenzSchritte(basis, exp) {
+  const zw = [];
+  for (let k = 2; k < exp; k++) zw.push(basis ** k);
+  const schritte = zw.map((w, i) => ({ text: zw.length === 1 ? 'Zwischenergebnis =' : `${i + 1}. Zwischenergebnis =`, wert: w }));
+  return [...schritte, { text: `${basis}${HOCH[exp]} =`, wert: basis ** exp }];
+}
+function potenzWeg(basis, exp) {
+  const weg = [];
+  for (let k = 1; k < exp; k++) weg.push(`${basis ** k} · ${basis} = ${basis ** (k + 1)}`);
+  return weg;
 }
 
 // ---------- Einmaleins ----------
@@ -279,8 +294,8 @@ export function kugel(stufe, rng) {
   let x;
   if (art === 'V') {
     x = 4 / 3 * Math.PI * r ** 3;
-    schritte.push({ text: 'r³ =', wert: r ** 3 }, { text: `4 ÷ 3 × π × ${r ** 3} =`, wert: r3(x), toleranz: 0.01 }, { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(x), einheit: 'cm³', runden: 1 });
-    weg.push(`r³ = ${r} · ${r} · ${r} = ${r ** 3}`, `4 ÷ 3 × π × ${r ** 3} = ${zahlText(r3(x))}…`, `V ≈ ${zahlText(r1(x), 1)} cm³`);
+    schritte.push({ text: 'Zwischenergebnis =', wert: r * r }, { text: 'r³ =', wert: r ** 3 }, { text: `4 ÷ 3 × π × ${r ** 3} =`, wert: r3(x), toleranz: 0.01 }, { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(x), einheit: 'cm³', runden: 1 });
+    weg.push(`${r} · ${r} = ${r * r}`, `r³ = ${r * r} · ${r} = ${r ** 3}`, `4 ÷ 3 × π × ${r ** 3} = ${zahlText(r3(x))}…`, `V ≈ ${zahlText(r1(x), 1)} cm³`);
   } else {
     x = 4 * Math.PI * r ** 2;
     schritte.push({ text: 'r² =', wert: r ** 2 }, { text: `4 × π × ${r ** 2} =`, wert: r3(x), toleranz: 0.01 }, { text: 'Runde auf eine Stelle nach dem Komma. O ≈', wert: r1(x), einheit: 'cm²', runden: 1 });
@@ -296,6 +311,86 @@ export function kugel(stufe, rng) {
   if (g) { felder.geschichte = `${g.ding} hat ${mass}. ${g.satz}`; felder.frage = g.frage; }
   else felder.frage = mitD ? `Eine Kugel hat den Durchmesser d = ${2 * r} cm. Wie groß ist ${art === 'V' ? 'das Volumen' : 'die Oberfläche'}?` : `Kugel mit r = ${r} cm: Wie groß ist ${art === 'V' ? 'das Volumen' : 'die Oberfläche'}?`;
   return neu('kugel', [art, mitD ? 'd' : 'r', mitD ? 2 * r : r, g ? KUGEL_GESCHICHTEN.indexOf(g) : 'x'], felder);
+}
+
+
+// ---------- Zylinder (03 Abschnitt 6.2) ----------
+// Stufe 1: Volumen mit r. Stufe 2: Volumen mit d („Radius r =“ ohne „d : 2“) und Geschichten.
+// Stufe 3: Oberfläche (A_G, A_M, A_O) oder Mantel, mit „Was ist gesucht?“. Rechenweg wie auf dem Rechner: π × r² × h.
+
+const ZYL_VOLUMEN = [
+  { ding: 'Eine Dose hat die Form eines Zylinders.', pr: 'Sie', frage: 'Wie viel cm³ passen in die Dose?', r: [3, 6], h: [8, 15] },
+  { ding: 'Ein Trinkglas hat die Form eines Zylinders.', pr: 'Es', frage: 'Wie viel cm³ Wasser passen in das Glas?', r: [3, 5], h: [8, 14] },
+  { ding: 'Eine Regentonne hat die Form eines Zylinders.', pr: 'Sie', frage: 'Wie viel cm³ Wasser passen in die Regentonne?', r: [20, 40, 5], h: [50, 100, 10] },
+  { ding: 'Eine Kerze hat die Form eines Zylinders.', pr: 'Sie', frage: 'Wie viel cm³ Wachs hat die Kerze?', r: [2, 5], h: [5, 20] },
+  { ding: 'Ein kleiner Pool hat die Form eines Zylinders.', pr: 'Er', frage: 'Wie viel m³ Wasser passen in den Pool?', r: [1, 3], h: [1, 2], m: true }
+];
+// text(hoch, mass): hoch = „10 cm hoch“, mass = „Der Radius ist 4 cm.“
+const ZYL_AUSSEN = [
+  { art: 'O', frage: 'Wie viel cm² Blech braucht man für eine Dose?', text: (h, m) => `Eine Fabrik macht Dosen aus Blech. Eine Dose ist ${h}. ${m} Die Dose hat einen Boden und einen Deckel.` },
+  { art: 'O', frage: 'Wie viel cm² Papier braucht man?', text: (h, m) => `Eine Geschenkdose ist ${h}. ${m} Die ganze Dose wird mit Papier beklebt, auch Boden und Deckel.` },
+  { art: 'M', frage: 'Wie viel cm² Papier braucht man?', text: (h, m) => `Eine Dose ist ${h}. ${m} Um die Dose wird ein Etikett geklebt. Es geht einmal außen herum, nicht auf Boden und Deckel.` },
+  { art: 'M', frage: 'Wie viel cm² Papier braucht man?', text: (h, m) => `Eine Laterne hat die Form eines Zylinders. Sie ist ${h}. ${m} Das Papier geht nur einmal außen herum.` },
+  { art: 'V', frage: 'Wie viel cm³ Wasser passen in die Vase?', text: (h, m) => `Eine Vase hat die Form eines Zylinders. Sie ist ${h}. ${m}` }
+];
+const ausBereich = (rng, [a, b, schritt = 1]) => a + schritt * zufall(rng, 0, Math.floor((b - a) / schritt));
+
+export function zylinder(stufe, rng) {
+  let art = 'V', g = null, r = zufall(rng, 2, 10), h = zufall(rng, 3, 20), mitD = false, m = false;
+  if (stufe === 2) {
+    mitD = rng() < 0.7;
+    if (rng() < 0.6) { g = wahl(rng, ZYL_VOLUMEN); r = ausBereich(rng, g.r); h = ausBereich(rng, g.h); m = !!g.m; }
+  } else if (stufe === 3) {
+    if (rng() < 0.35) art = 'O';
+    else { g = wahl(rng, ZYL_AUSSEN); art = g.art; r = zufall(rng, 2, 8); h = zufall(rng, 5, 20); mitD = rng() < 0.5; }
+  }
+  const e = m ? 'm' : 'cm';
+  const schritte = [], weg = [];
+  if (g && stufe === 3) {
+    const opt = art === 'M' ? ['Volumen', 'Mantel'] : ['Volumen', 'Oberfläche'];
+    if (art === 'V' && rng() < 0.5) opt[1] = 'Mantel';
+    schritte.push({ text: 'Was ist gesucht?', optionen: opt, richtig: art === 'V' ? 0 : 1 });
+    weg.push(art === 'V' ? 'passt hinein → Volumen' : art === 'M' ? 'außen herum → Mantel' : 'Boden, Deckel und Mantel → Oberfläche');
+  }
+  if (mitD) { schritte.push({ text: 'Radius r =', wert: r, einheit: e }); weg.push(`r = ${2 * r} : 2 = ${r} ${e}`); }
+  let x, erkl;
+  if (art === 'V') {
+    x = Math.PI * r * r * h;
+    schritte.push({ text: 'r² =', wert: r * r }, { text: `V = π × ${r * r} × ${h} =`, wert: r3(x), toleranz: 0.01 }, { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(x), einheit: `${e}³`, runden: 1 });
+    weg.push(`r² = ${r} · ${r} = ${r * r}`, `π × ${r * r} × ${h} = ${zahlText(r3(x))}…`, `V ≈ ${zahlText(r1(x), 1)} ${e}³`);
+    erkl = 'Formel V = π · r² · h. Erst r², dann mal π und mal h.' + (mitD ? ' In der Formel steht r, nicht d.' : '');
+  } else {
+    const ag = Math.PI * r * r, am = 2 * Math.PI * r * h, ao = 2 * ag + am;
+    const formel = !g; // ohne Geschichte: Formeln stehen in der Beschriftung (Einsetzen ist der Lerninhalt)
+    if (art === 'O') schritte.push({ text: formel ? 'A_G = π · r² =' : 'A_G =', wert: r3(ag), toleranz: 0.01, einheit: 'cm²' });
+    schritte.push({ text: formel ? 'A_M = 2 · π · r · h =' : 'A_M =', wert: r3(am), toleranz: 0.01, einheit: 'cm²' });
+    if (art === 'O') {
+      schritte.push({ text: formel ? 'A_O = 2 · A_G + A_M =' : 'A_O =', wert: r3(ao), toleranz: 0.02, einheit: 'cm²' });
+      weg.push(`A_G = π × ${r * r} = ${zahlText(r3(ag))}… cm²`);
+    }
+    weg.push(`A_M = 2 × π × ${r} × ${h} = ${zahlText(r3(am))}… cm²`);
+    x = art === 'O' ? ao : am;
+    const n = art === 'O' ? 'A_O' : 'A_M';
+    if (art === 'O') weg.push(`A_O = 2 × ${zahlText(ag, 2)} + ${zahlText(am, 2)} = ${zahlText(2 * Math.round(ag * 100) / 100 + Math.round(am * 100) / 100, 2)} cm²`);
+    schritte.push({ text: `Runde auf eine Stelle nach dem Komma. ${n} ≈`, wert: r1(x), einheit: 'cm²', runden: 1 });
+    weg.push(`${n} ≈ ${zahlText(r1(x), 1)} cm²`);
+    erkl = art === 'O' ? 'Ein Zylinder hat zwei Kreise (Boden und Deckel) und den Mantel.' : 'Nur außen herum, also nur der Mantel.';
+  }
+  const mass = mitD ? `Der Durchmesser ist ${2 * r} ${e}.` : `Der Radius ist ${r} ${e}.`;
+  const felder = {
+    thema: 'zylinder', typ: 'schritte', stufe, taschenrechner: true,
+    bild: { form: 'zylinder', ...(mitD ? { d: 2 * r } : { r }), h, ...(m ? { einheit: 'm' } : {}) },
+    gegeben: [mitD ? { name: 'Durchmesser d', wert: 2 * r, einheit: e } : { name: 'Radius r', wert: r, einheit: e }, { name: 'Höhe h', wert: h, einheit: e }],
+    schritte, hinweise: g ? ['zylinder', 'runden', 'lang'] : ['zylinder', 'runden'], loesungsweg: weg, erklaerung: erkl
+  };
+  if (g) {
+    felder.geschichte = g.text ? g.text(`${h} ${e} hoch`, mass) : `${g.ding} ${g.pr} ist ${h} ${e} hoch. ${mass}`;
+    felder.frage = g.frage;
+  } else {
+    const was = art === 'V' ? 'sein Volumen' : 'seine Oberfläche';
+    felder.frage = `Ein Zylinder hat ${mitD ? `den Durchmesser d = ${2 * r}` : `den Radius r = ${r}`} ${e} und die Höhe h = ${h} ${e}. Wie groß ist ${was}?`;
+  }
+  return neu('zylinder', [art, mitD ? 'd' : 'r', mitD ? 2 * r : r, h, g ? (stufe === 3 ? ZYL_AUSSEN : ZYL_VOLUMEN).indexOf(g) : 'x'], felder);
 }
 
 // ---------- Geschichten ----------
@@ -436,7 +531,7 @@ export function block(gen, rng) {
 
 export const GENERATOREN = {
   'minus-plus': minusPlus, 'reihenfolge': reihenfolge, 'potenz': potenz, 'einmaleins': einmaleins, 'mal10': mal10,
-  'prozent': prozent, 'baukasten': baukasten, 'runden': runden, 'bruch-bild': bruchBild, 'kugel': kugel,
+  'prozent': prozent, 'baukasten': baukasten, 'runden': runden, 'bruch-bild': bruchBild, 'kugel': kugel, 'zylinder': zylinder,
   'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte
 };
 
@@ -445,7 +540,7 @@ export const THEMA_GENERATOREN = {
   'minus-zahlen': ['minus-plus', 'minus-plus', 'reihenfolge'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'],
   'bruch-bild': ['bruch-bild'], 'zuordnung': ['bruch-bild'], 'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'],
   'rabatt': ['prozent', 'baukasten'], 'neuer-preis': ['prozent', 'baukasten'], 'kreisdiagramm': ['prozent'],
-  'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10']
+  'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'zylinder': ['zylinder'], 'kegel': ['potenz', 'runden'], 'pyramide': ['potenz'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10']
 };
 export const MIX_GENERATOREN = ['einmaleins', 'potenz', 'mal10', 'prozent', 'runden', 'bruch-bild', 'minus-plus', 'reihenfolge', 'baukasten', 'einmaleins'];
 export const BLOCK_GENERATOREN = ['einmaleins', 'potenz', 'mal10', 'minus-plus', 'einmaleins'];
