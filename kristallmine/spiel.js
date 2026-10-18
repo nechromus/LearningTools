@@ -50,7 +50,7 @@ function hoehleStarten() {
   frag.appendChild(eff);
   figur = document.createElement('div');
   figur.className = 'sprite figur erscheint';
-  figur.innerHTML = '<div class="in"></div><div class="laterne"></div>';
+  figur.innerHTML = '<div class="koerper"><div class="in"></div></div><div class="laterne"></div>';
   frag.appendChild(figur);
   welt.appendChild(frag);
   welt.style.transition = 'none'; figur.style.transition = 'none';
@@ -174,7 +174,9 @@ function schritt() {
   const richtung = gehalten || einmal;
   einmal = null;
   const vorher = s.punkte;
+  const alt = { r: s.pr, c: s.pc };
   const ev = K.takt(s, richtung);
+  haltung(alt, richtung);
   if (s.punkte !== vorher) extraLeben();
   zeichnen();
   bewegungenGleiten();
@@ -183,6 +185,33 @@ function schritt() {
   for (const e of ev) effekt(e);
   anzeige();
   if (s.ende) ende();
+}
+
+// Figur lehnt sich in die Bewegung und hinterlässt eine verblassende Leuchtspur
+const LAUF = ['lauf-links', 'lauf-rechts', 'lauf-hoch', 'lauf-runter', 'laeuft', 'drueckt'];
+function haltung(alt, richtung) {
+  if (!figur) return;
+  const bewegt = alt.r !== s.pr || alt.c !== s.pc;
+  figur.classList.remove(...LAUF);
+  if (bewegt) {
+    const r = s.pr - alt.r, c = s.pc - alt.c;
+    figur.classList.add('laeuft', c > 0 ? 'lauf-rechts' : c < 0 ? 'lauf-links' : r < 0 ? 'lauf-hoch' : 'lauf-runter');
+    spur(alt.r, alt.c);
+  } else if (richtung && s.lebt) {
+    // drückt gegen etwas (z. B. einen Stein): leicht hineinlehnen
+    figur.classList.add('drueckt', 'lauf-' + richtung);
+  }
+}
+
+function spur(r, c) {
+  const eff = $('effekte');
+  if (!eff || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const d = document.createElement('div');
+  d.className = 'spur';
+  d.style.left = (c * (g + 1) + g / 2) + 'px';
+  d.style.top = (r * (g + 1) + g / 2) + 'px';
+  eff.appendChild(d);
+  setTimeout(() => d.remove(), 1500);
 }
 
 function extraLeben() {

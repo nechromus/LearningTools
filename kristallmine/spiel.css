@@ -26,7 +26,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .feld-rahmen .ecke { position: absolute; z-index: 5; width: 12px; height: 12px; transform: rotate(45deg); background: #101415; border: 1.5px solid var(--jade); box-shadow: 0 0 8px var(--jade); }
 .welt { position: absolute; left: 0; top: 0; display: grid; gap: 1px; transition: transform 140ms linear; will-change: transform; }
 .welt .z { transition: none; }
-.effekte { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 3; }
+.effekte { position: absolute; left: 0; top: 0; pointer-events: none; }
+.effekte > * { z-index: 3; }
 .blitz { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(circle, rgba(246, 223, 162, 0.55), rgba(246, 223, 162, 0) 70%); animation: blitz 0.9s ease-out forwards; }
 @keyframes blitz { from { opacity: 1; } to { opacity: 0; } }
 .beben { animation: beben 0.45s ease-in-out; }
@@ -81,7 +82,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background: radial-gradient(circle, rgba(246,223,162,.08) 0, transparent calc(var(--g) * 2.5), rgba(0,0,0,.16) calc(var(--g) * 5), rgba(0,0,0,.38) calc(var(--g) * 9), rgba(0,0,0,.5) calc(var(--g) * 13)); }
 .sprite.figur::before { z-index: 0; }
 .sprite .in { z-index: 1; }
-.sprite.erscheint .in { animation: erscheinen 0.9s ease-out; }
+.sprite.erscheint .koerper { animation: erscheinen 0.9s ease-out; }
 
 /* Ausgang: deutlich zu erkennen. Zu: goldener Rahmen mit Rune. Offen: hell, Strahlen, pulsiert. */
 .z.ausgang { background: radial-gradient(circle, #3a3020 0%, #171c1c 75%); box-shadow: inset 0 0 0 2px #b8984f, 0 0 12px rgba(216, 176, 90, 0.6); border-radius: 5px; overflow: visible; z-index: 1; }
@@ -104,3 +105,33 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .pfeil::after { content: ''; position: absolute; left: 50%; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -12px; background: #F6DFA2; clip-path: polygon(0 0, 100% 50%, 0 100%, 28% 50%); transform: rotate(var(--w, 0rad)); }
 @keyframes tor-pfeil { 50% { transform: scale(1.15); } }
 @media (prefers-reduced-motion: reduce) { .sprite, .welt .z .in { transition: none !important; } }
+
+/* Lebendige Figur: Atmen, in die Bewegung lehnen, Blickrichtung, Leuchtspur */
+.sprite .koerper { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; transition: transform 160ms ease-out; transform-origin: 50% 85%; position: relative; z-index: 1; }
+.sprite.figur .in { animation: atmen 2.6s ease-in-out infinite; transform-origin: 50% 90%; }
+@keyframes atmen { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.035, 0.965) translateY(0.5px); } 52% { transform: scale(0.99, 1.04) translateY(-1px); } }
+.sprite.laeuft .in { animation: schritt 280ms ease-in-out infinite; }
+@keyframes schritt { 0%, 100% { transform: translateY(0) scale(1, 1); } 25% { transform: translateY(-2px) scale(0.97, 1.04); } 50% { transform: translateY(0) scale(1.04, 0.96); } 75% { transform: translateY(-1.5px) scale(0.98, 1.03); } }
+.sprite.lauf-rechts .koerper { transform: rotate(9deg) translateX(1px); }
+.sprite.lauf-links .koerper { transform: rotate(-9deg) translateX(-1px); }
+.sprite.lauf-hoch .koerper { transform: scale(0.94, 1.07) translateY(-1px); }
+.sprite.lauf-runter .koerper { transform: scale(1.06, 0.93) translateY(1px); }
+.sprite.drueckt.lauf-rechts .koerper { transform: rotate(16deg) translateX(3px); }
+.sprite.drueckt.lauf-links .koerper { transform: rotate(-16deg) translateX(-3px); }
+/* Augen schauen in Laufrichtung */
+.sprite.figur .in::after { transition: transform 160ms ease-out; }
+.sprite.lauf-rechts .in::after { transform: translateX(2px); }
+.sprite.lauf-links .in::after { transform: translateX(-2px); }
+.sprite.lauf-hoch .in::after { transform: translateY(-2px); }
+.sprite.lauf-runter .in::after { transform: translateY(1.5px); }
+/* Laterne leuchtet beim Laufen etwas heller */
+.sprite.figur::before { transition: inset 200ms, opacity 200ms; }
+.sprite.laeuft::before { inset: calc(var(--g) * -0.45); }
+/* Leuchtspur: hellt die Umgebung auf und verblasst */
+.spur { position: absolute; width: calc(var(--g) * 2.6); height: calc(var(--g) * 2.6); margin: calc(var(--g) * -1.3) 0 0 calc(var(--g) * -1.3); border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 244, 208, 0.6) 0, rgba(246, 223, 162, 0.32) 22%, rgba(95, 232, 180, 0.18) 45%, transparent 70%);
+  mix-blend-mode: screen; animation: spur 1.4s ease-out forwards; }
+.spur::after { content: ''; position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: #FFF4D0; box-shadow: 0 0 8px #D8B05A, 0 0 3px #fff; animation: spur-funke 1.4s ease-out forwards; }
+@keyframes spur { 0% { opacity: 1; transform: scale(0.8); } 100% { opacity: 0; transform: scale(1.25); } }
+@keyframes spur-funke { 0% { opacity: 0.9; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-10px); } }
+@media (prefers-reduced-motion: reduce) { .sprite .in, .sprite.laeuft .in { animation: none !important; } }
