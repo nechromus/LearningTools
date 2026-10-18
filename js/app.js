@@ -15,10 +15,11 @@ import { hoehlenkarteStarten } from './hoehlenkarte-ui.js';
 import { runenbrecherStarten } from './runenbrecher-ui.js';
 import { jadeschlangeStarten } from './jadeschlange-ui.js';
 import * as SP from './splitter.js';
+import { ANLEITUNGEN } from './anleitungen.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.4.0';
+export const APP_VERSION = '2.4.1';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -518,10 +519,11 @@ function spielKarte(g, sp, n) {
   if (frei) {
     return `<button class="spiel-karte offen${zuletzt ? ' zuletzt' : ''}" data-act="neuspiel" data-id="${g.id}">
       ${spielBild(g.id)}<b>${esc(g.name)}</b><span class="klein">${zuletzt ? 'Zuletzt gespielt' : esc(info.text || '')}</span></button>`;
+  // (Anleitung offener Spiele über das Fragezeichen im Spiel)
   }
   const istNaechstes = n && n.spiel.id === g.id;
   const preis = SP.preise(sp)[SP.NEUE_SPIELE.findIndex(x => x.id === g.id)];
-  const test = offen ? `<button class="spiel-test" data-act="neuspiel" data-id="${g.id}">Test: jetzt spielen</button>` : '';
+  const test = (ANLEITUNGEN[g.id] ? `<button class="spiel-test anl" data-act="anleitung" data-id="${g.id}">So geht's</button>` : '') + (offen ? `<button class="spiel-test" data-act="neuspiel" data-id="${g.id}">Test: jetzt spielen</button>` : '');
   if (istNaechstes) {
     const anteil = Math.min(100, Math.round(sp.stand / Math.max(1, preis) * 100));
     const bereit = n.fehlt === 0 && g.fertig;
@@ -1505,7 +1507,7 @@ function zeigeSpiel() {
     <div class="spiel-zeile">
       <span>Rekord <b id="rekord">${S.spiel.rekord}</b></span>
       <span>Höchster Stein <b id="maxk">${S.spiel.maxKachel || 0}</b></span>
-      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="neuesSpiel">Neu</button><button class="btn-text klein" data-act="spielauswahl">Spiele</button></span>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="neuesSpiel">Neu</button><button class="btn-text klein" data-act="spielauswahl">Spiele</button><button class="anl-knopf" data-act="anleitung" aria-label="So geht's">?</button></span>
     </div>
     <div class="brett-rahmen" id="rahmen">
       <span class="orn o1"></span><span class="orn o2"></span><span class="orn o3"></span><span class="orn o4"></span>
@@ -1519,6 +1521,7 @@ function zeigeSpiel() {
   brettZeichnen();
   wischen($id('rahmen'));
   overlayPruefen();
+  anleitungErstmals('2048');
 }
 
 function neuesSpielFeld() {
@@ -1713,6 +1716,7 @@ function overlayPruefen() {
 
 function spielTick() {
   if (ansicht !== 'spiel' || document.hidden || S.guthaben <= 0) return;
+  if (anleitungOffen()) return;
   if (document.querySelector('#spiel-overlay .overlay')) return;
   if (km && km.ruht()) return;
   if (ss && ss.ruht()) return;
@@ -1805,7 +1809,7 @@ function zeigeRunenfeld() {
     </header>
     <div class="spiel-zeile">
       <span>Rekord <b id="rekord">${S.bloecke.rekord || 0}</b></span>
-      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="runenfeldNeu">Neu</button><button class="btn-text klein" data-act="spielauswahl">Spiele</button></span>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="runenfeldNeu">Neu</button><button class="btn-text klein" data-act="spielauswahl">Spiele</button><button class="anl-knopf" data-act="anleitung" aria-label="So geht's">?</button></span>
     </div>
     <div class="brett-rahmen" id="rahmen">
       <span class="orn o1"></span><span class="orn o2"></span><span class="orn o3"></span><span class="orn o4"></span>
@@ -1821,6 +1825,7 @@ function zeigeRunenfeld() {
   rfZiehenEinrichten();
   rfGlut();
   overlayPruefen();
+  anleitungErstmals('runenfeld');
 }
 
 // ---------- Kristallmine (drittes Spiel, Logik und Anzeige in kristallmine.js / kristallmine-ui.js) ----------
@@ -1840,7 +1845,7 @@ function zeigeKristallmine() {
     <header class="topbar spiel-kopf">
       <button class="btn-text" data-act="spielZurueck">← Zurück</button>
       <div class="rune-uhr${S.guthaben < 60 ? ' knapp' : ''}" id="uhr"><span class="uhr-ring"></span><span id="spielzeit">${L.formatZeit(S.guthaben)}</span></div>
-      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="spielauswahl">Spiele</button></span>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="spielauswahl">Spiele</button><button class="anl-knopf" data-act="anleitung" aria-label="So geht's">?</button></span>
     </header>
     <div class="km-huelle" id="km-huelle"></div>
     <div class="km-overlay" id="spiel-overlay"></div>
@@ -1849,9 +1854,10 @@ function zeigeKristallmine() {
     stand: S.kristallmine,
     sichern: (st) => { S.kristallmine = st; sichern(); },
     melden: (typ, daten) => { protokoll(S, typ, daten); sichern(); },
-    darfLaufen: () => S.guthaben > 0 && ansicht === 'spiel' && !document.querySelector('#spiel-overlay .overlay')
+    darfLaufen: spielDarfLaufen
   });
   overlayPruefen();
+  anleitungErstmals('kristallmine');
 }
 
 // ---------- Steinschieber (erstes freischaltbares Spiel, Logik in steinschieber.js / steinschieber-ui.js) ----------
@@ -1871,7 +1877,7 @@ function zeigeSteinschieber() {
     <header class="topbar spiel-kopf">
       <button class="btn-text" data-act="spielZurueck">← Zurück</button>
       <div class="rune-uhr${S.guthaben < 60 ? ' knapp' : ''}" id="uhr"><span class="uhr-ring"></span><span id="spielzeit">${L.formatZeit(S.guthaben)}</span></div>
-      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="spielauswahl">Spiele</button></span>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="spielauswahl">Spiele</button><button class="anl-knopf" data-act="anleitung" aria-label="So geht's">?</button></span>
     </header>
     <div class="km-huelle" id="ss-huelle"></div>
     <div class="km-overlay" id="spiel-overlay"></div>
@@ -1880,9 +1886,10 @@ function zeigeSteinschieber() {
     stand: S.steinschieber,
     sichern: (st) => { S.steinschieber = st; sichern(); },
     melden: (typ, daten) => { protokoll(S, typ, daten); sichern(); },
-    darfLaufen: () => S.guthaben > 0 && ansicht === 'spiel' && !document.querySelector('#spiel-overlay .overlay')
+    darfLaufen: spielDarfLaufen
   });
   overlayPruefen();
+  anleitungErstmals('steinschieber');
 }
 
 // ---------- Runenfall (zweites freischaltbares Spiel, Logik in runenfall.js / runenfall-ui.js) ----------
@@ -1895,6 +1902,55 @@ const MODUL_SPIELE = {
   runenbrecher: { starten: runenbrecherStarten, feld: 'runenbrecher', ende: (k) => ({ punkte: k.punkte || 0, level: (k.level || 0) + 1, hoechstes: (k.hoechstes || 0) + 1 }) },
   jadeschlange: { starten: jadeschlangeStarten, feld: 'jadeschlange', ende: (k) => ({ punkte: k.punkte || 0, laenge: Array.isArray(k.schlange) ? k.schlange.length : (k.laenge || 0), stufe: k.stufe || 1, kristalle: k.kristalle || 0, rekord: k.rekord || 0 }) }
 };
+
+// ---------- Anleitungen („So geht's“) ----------
+
+const anleitungOffen = () => !!document.getElementById('anleitung');
+const spielDarfLaufen = () => S.guthaben > 0 && ansicht === 'spiel' && !document.querySelector('#spiel-overlay .overlay') && !anleitungOffen();
+
+function anleitungZeigen(id, seite = 0) {
+  const a = ANLEITUNGEN[id];
+  if (!a) return;
+  let el = document.getElementById('anleitung');
+  if (!el) { el = document.createElement('div'); el.id = 'anleitung'; el.className = 'anleitung'; document.body.appendChild(el); }
+  const n = a.seiten.length, p = a.seiten[seite];
+  el.dataset.id = id; el.dataset.seite = seite;
+  el.innerHTML = `<div class="anl-box" role="dialog" aria-modal="true" aria-label="So geht ${esc(a.titel)}">
+    <div class="anl-kopf"><span class="anl-titel">So geht ${esc(a.titel)}</span><button class="anl-zu" data-act="anleitungZu" aria-label="Schließen">✕</button></div>
+    <div class="anl-seite">${p.bild}<div class="anl-text">${p.text.map(x => `<p>${esc(x)}</p>`).join('')}</div></div>
+    <div class="anl-punkte">${a.seiten.map((_, i) => `<i class="${i === seite ? 'an' : ''}"></i>`).join('')}</div>
+    <div class="anl-knoepfe">
+      ${seite > 0 ? '<button class="anl-neben" data-act="anleitungZurueck">Zurück</button>' : '<span></span>'}
+      ${seite < n - 1 ? '<button class="anl-haupt" data-act="anleitungWeiter">Weiter</button>' : '<button class="anl-haupt" data-act="anleitungZu">Los geht\'s!</button>'}
+    </div></div>`;
+  // Wischen blättert
+  if (!el._wisch) {
+    el._wisch = true;
+    let x0 = null;
+    el.addEventListener('pointerdown', (e) => { x0 = e.clientX; });
+    el.addEventListener('pointerup', (e) => {
+      if (x0 == null) return;
+      const dx = e.clientX - x0; x0 = null;
+      const s0 = Number(el.dataset.seite), m = ANLEITUNGEN[el.dataset.id].seiten.length;
+      if (dx < -50 && s0 < m - 1) anleitungZeigen(el.dataset.id, s0 + 1);
+      if (dx > 50 && s0 > 0) anleitungZeigen(el.dataset.id, s0 - 1);
+    });
+  }
+}
+
+function anleitungSchliessen() {
+  const el = document.getElementById('anleitung');
+  if (!el) return;
+  const id = el.dataset.id;
+  el.remove();
+  S.anleitungen = { ...(S.anleitungen || {}), [id]: true };
+  sichern();
+}
+
+// Beim ersten Öffnen eines Spiels die Anleitung zeigen
+function anleitungErstmals(id) {
+  if (!(S.anleitungen && S.anleitungen[id])) anleitungZeigen(id);
+}
 
 function zeigeModulSpiel(id) {
   const m = MODUL_SPIELE[id];
@@ -1912,7 +1968,7 @@ function zeigeModulSpiel(id) {
     <header class="topbar spiel-kopf">
       <button class="btn-text" data-act="spielZurueck">← Zurück</button>
       <div class="rune-uhr${S.guthaben < 60 ? ' knapp' : ''}" id="uhr"><span class="uhr-ring"></span><span id="spielzeit">${L.formatZeit(S.guthaben)}</span></div>
-      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="spielauswahl">Spiele</button></span>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="spielauswahl">Spiele</button><button class="anl-knopf" data-act="anleitung" aria-label="So geht's">?</button></span>
     </header>
     <div class="km-huelle" id="modul-huelle"></div>
     <div class="km-overlay" id="spiel-overlay"></div>
@@ -1921,9 +1977,10 @@ function zeigeModulSpiel(id) {
     stand: S[m.feld],
     sichern: (st) => { S[m.feld] = st; sichern(); },
     melden: (typ, daten) => { protokoll(S, typ, daten); sichern(); },
-    darfLaufen: () => S.guthaben > 0 && ansicht === 'spiel' && !document.querySelector('#spiel-overlay .overlay')
+    darfLaufen: spielDarfLaufen
   }) };
   overlayPruefen();
+  anleitungErstmals(id);
 }
 
 function zeigeRunenfallSpiel() {
@@ -1941,7 +1998,7 @@ function zeigeRunenfallSpiel() {
     <header class="topbar spiel-kopf">
       <button class="btn-text" data-act="spielZurueck">← Zurück</button>
       <div class="rune-uhr${S.guthaben < 60 ? ' knapp' : ''}" id="uhr"><span class="uhr-ring"></span><span id="spielzeit">${L.formatZeit(S.guthaben)}</span></div>
-      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="spielauswahl">Spiele</button></span>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="spielauswahl">Spiele</button><button class="anl-knopf" data-act="anleitung" aria-label="So geht's">?</button></span>
     </header>
     <div class="km-huelle" id="rn-huelle"></div>
     <div class="km-overlay" id="spiel-overlay"></div>
@@ -1950,9 +2007,10 @@ function zeigeRunenfallSpiel() {
     stand: S.runenfall,
     sichern: (st) => { S.runenfall = st; sichern(); },
     melden: (typ, daten) => { protokoll(S, typ, daten); sichern(); },
-    darfLaufen: () => S.guthaben > 0 && ansicht === 'spiel' && !document.querySelector('#spiel-overlay .overlay')
+    darfLaufen: spielDarfLaufen
   });
   overlayPruefen();
+  anleitungErstmals('runenfall');
 }
 
 function runenfeldNeu() {
@@ -2447,6 +2505,10 @@ function klick(e) {
       zeigeKristallmine(); break;
     case 'erfolge': erfolgeZurueck = ansicht === 'spiele' ? 'spielauswahl' : 'start'; if (ansicht === 'spiel') spielBeenden(); zeigeErfolge(); break;
     case 'spielauswahl': zeigeSpieleSeite(); break;
+    case 'anleitung': anleitungZeigen(el.dataset.id || S.letztesSpiel || '2048'); break;
+    case 'anleitungWeiter': { const a = document.getElementById('anleitung'); anleitungZeigen(a.dataset.id, Number(a.dataset.seite) + 1); break; }
+    case 'anleitungZurueck': { const a = document.getElementById('anleitung'); anleitungZeigen(a.dataset.id, Number(a.dataset.seite) - 1); break; }
+    case 'anleitungZu': anleitungSchliessen(); break;
     case 'freischalten': freischaltenJetzt(el.dataset.id); break;
     case 'neuspiel': {
       const id = el.dataset.id, sp = SP.splitterVon(S.splitter);

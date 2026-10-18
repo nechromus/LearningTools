@@ -17,6 +17,7 @@ function standard() {
     splitter: null,         // Runensplitter: Stand, Verlauf, freigeschaltete Spiele (js/splitter.js)
     steinschieber: null,
     runenfall: null,
+    anleitungen: {},        // Anleitungen schon gesehen: { spiel: true }
     runenreihen: null, hoehlenkarte: null, runenbrecher: null, jadeschlange: null, // weitere Spiele: gespeicherter Stand        // Runenfall: laufendes Spiel mit Feld, Teil, Punkten und Rekord    // Steinschieber: { level, geschafft: [...], zuege: {...}, levelStand }
     einstellungen: { thema: 'minus-zahlen', basisVon: 14, basisBis: 21, pin: null, name: '', rechnerAngebot: true },
     spielzeit: null,        // Spielzeit-Regeln aus der Eltern-App (null = Standard)
@@ -89,7 +90,7 @@ export async function dauerhaftSpeichernAnfragen() {
 // Gesichert wird, was Kind und Spiele erreicht haben. Nicht dabei: PIN, Zugangsschlüssel, Geräte-ID, Protokoll.
 export const STAND_FORMAT = 'lernapp-spielstand-1';
 const STAND_FELDER = ['guthaben', 'basisSlot', 'spiel', 'bloecke', 'statistik', 'verlauf', 'serie', 'tag', 'extraAufgaben',
-  'genStufen', 'wiederholen', 'spielzeit', 'paket', 'fern', 'wartet', 'kristallmine', 'splitter', 'steinschieber', 'runenfall', 'runenreihen', 'hoehlenkarte', 'runenbrecher', 'jadeschlange'];
+  'genStufen', 'wiederholen', 'spielzeit', 'paket', 'fern', 'wartet', 'kristallmine', 'splitter', 'anleitungen', 'steinschieber', 'runenfall', 'runenreihen', 'hoehlenkarte', 'runenbrecher', 'jadeschlange'];
 
 export function spielstandAus(s, jetzt = new Date()) {
   const zustand = {};

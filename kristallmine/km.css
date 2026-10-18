@@ -111,7 +111,8 @@
 .km .stick { position: absolute; z-index: 6; width: 84px; height: 84px; margin: -42px 0 0 -42px; border-radius: 50%; border: 2px dashed rgba(95, 232, 180, 0.6); pointer-events: none; display: none; }
 .km .stick.an { display: block; }
 .km .stick i { position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #E9FFF6, #5FE8B4 50%, #1E7A5F); box-shadow: 0 0 14px rgba(95, 232, 180, 0.7); }
-.km .tafel-grund { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(5, 8, 9, 0.6); }
+.km .tafel-grund { position: absolute; inset: 0; z-index: 20; overflow: auto; border-radius: 14px; display: flex; padding: 12px; background: rgba(5, 8, 9, 0.6); }
+.km .tafel-grund > * { margin: auto; }
 .km .tafel { width: 100%; max-width: 360px; padding: 24px 20px 20px; border-radius: 18px; background: linear-gradient(170deg, #1f2828, #141a1b); border: 1px solid var(--gold); box-shadow: 0 0 34px rgba(216, 176, 90, 0.35); display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
 .km .tafel.jade { border-color: var(--jade); box-shadow: 0 0 34px rgba(95, 232, 180, 0.35); }
 .km .tafel h2 { margin: 0; font-family: Cinzel, serif; font-size: 25px; color: var(--gold-hell); text-shadow: 0 0 12px rgba(216, 176, 90, 0.5); }
