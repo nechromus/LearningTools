@@ -179,3 +179,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
   70% { opacity: 0.8; }
   100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.8); }
 }
+
+/* Steuerkreuz nur bei Bedarf: sonst bekommt die Höhle den Platz */
+.steuer { display: none; justify-content: center; }
+.mit-kreuz .steuer { display: flex; }
+.leiste { display: flex; gap: 8px; }
+.knopf.klein { flex: 1; min-height: 42px; font-size: 15px; padding: 0 6px; white-space: nowrap; }
+#kreuz-schalter[aria-pressed="true"] { background: linear-gradient(160deg, #2a9c76, #1E7A5F); border-color: var(--jade); color: #fff; }
+.mit-kreuz .kreuz { grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(3, 56px); }

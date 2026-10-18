@@ -1,5 +1,5 @@
 // Kristallmine (Testseite): Anzeige, Steuerung und Ablauf. Regeln in ../js/kristallmine.js
-import * as K from '../js/kristallmine.js?v=1.9.8';
+import * as K from '../js/kristallmine.js?v=1.9.9';
 
 const SPEICHER = 'kristallmine-test-v1';
 const LEBEN_START = 3;
@@ -435,6 +435,18 @@ document.addEventListener('keydown', (e) => {
   gehalten = r;
 });
 document.addEventListener('keyup', (e) => { if (TASTEN[e.key] === gehalten) gehalten = null; });
+
+// Steuerkreuz ein- und ausblenden (gemerkt)
+const seite = document.querySelector('.seite');
+function kreuzAnzeigen(an) {
+  seite.classList.toggle('mit-kreuz', an);
+  $('kreuz-schalter').setAttribute('aria-pressed', String(an));
+  $('hinweis').textContent = (an ? 'Steuerkreuz halten oder aus der Mitte ziehen · oder auf dem Feld ziehen' : 'Auf dem Feld ziehen und halten') + ' · Test 1.9.9';
+  try { localStorage.setItem('kristallmine-kreuz', an ? '1' : '0'); } catch (e) { /* egal */ }
+  if (s) requestAnimationFrame(() => kameraSetzen());
+}
+$('kreuz-schalter').addEventListener('click', () => kreuzAnzeigen(!seite.classList.contains('mit-kreuz')));
+try { kreuzAnzeigen(localStorage.getItem('kristallmine-kreuz') === '1'); } catch (e) { kreuzAnzeigen(false); }
 
 // Steuerkreuz: antippen und halten, oder aus der Mitte heraus in eine Richtung ziehen
 const kreuz = $('kreuz');

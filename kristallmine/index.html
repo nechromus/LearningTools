@@ -12,8 +12,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="kacheln.css?v=1.9.8">
-  <link rel="stylesheet" href="spiel.css?v=1.9.8">
+  <link rel="stylesheet" href="kacheln.css?v=1.9.9">
+  <link rel="stylesheet" href="spiel.css?v=1.9.9">
   <script>
     // Wie in der Übungs-App: Wird die Seite als Desktop-Website dargestellt, passend vergrößern.
     (function () {
@@ -52,20 +52,21 @@
       <div class="pfeil" id="pfeil" aria-hidden="true"></div>
       <div class="stick" id="stick"><i></i></div>
     </div>
-    <div class="steuer">
-      <div class="links">
-        <button class="knopf" id="pause">Pause</button>
-        <button class="knopf leise" id="neu">Höhle neu</button>
-      </div>
+    <div class="steuer" id="steuer">
       <div class="kreuz" id="kreuz">
         <span></span><button class="taste" data-r="hoch" aria-label="Hoch">▲</button><span></span>
         <button class="taste" data-r="links" aria-label="Links">◀</button><span class="mitte"></span><button class="taste" data-r="rechts" aria-label="Rechts">▶</button>
         <span></span><button class="taste" data-r="runter" aria-label="Runter">▼</button><span></span>
       </div>
     </div>
-    <p class="hinweis">Steuerkreuz halten oder aus der Mitte ziehen · oder auf dem Feld ziehen · Test 1.9.8</p>
+    <div class="leiste">
+      <button class="knopf klein" id="pause">Pause</button>
+      <button class="knopf klein leise" id="neu">Höhle neu</button>
+      <button class="knopf klein" id="kreuz-schalter" aria-pressed="false">Steuerkreuz</button>
+    </div>
+    <p class="hinweis" id="hinweis">Auf dem Feld ziehen und halten · Test 1.9.9</p>
   </div>
   <div id="tafel"></div>
-  <script type="module" src="spiel.js?v=1.9.8"></script>
+  <script type="module" src="spiel.js?v=1.9.9"></script>
 </body>
 </html>
