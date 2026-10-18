@@ -11,6 +11,8 @@
 import * as R from './runenreihen.js';
 import { edelstein, LEUCHTEN } from './runenreihen-steine.js';
 
+const ZIER = 22; // Breite des verzierten Rahmens um das Brett
+
 const ruhig = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const TIPP_MS = 6000;
 const ZEIT = { tausch: 190, weg: 260, fallProZeile: 70, fallMin: 160, fallMax: 420, wackeln: 320 };
@@ -46,6 +48,7 @@ export function runenreihenStarten(wurzel, opt = {}) {
       <span class="ecke" style="left:-7px;bottom:-7px"></span><span class="ecke" style="right:-7px;bottom:-7px"></span>
       <div class="rr-lichter" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="rr-staub" aria-hidden="true">${Array.from({ length: 26 }, (_, k) => `<span class="${k % 3 === 0 ? 'gold' : k % 3 === 1 ? 'jade' : 'weiss'}" style="left:${(k * 37 + 11) % 100}%;--dauer:${(7 + (k * 13) % 9)}s;--verz:-${(k * 1.7) % 14}s;--drift:${((k * 29) % 40) - 20}px;--gr:${2 + (k % 3)}px"></span>`).join('')}</div>
+      <div class="rr-zier" id="rr-zier"></div>
       <div class="rr-brett" id="rr-brett"><div class="rr-gitter" id="rr-gitter"></div><div class="rr-steine" id="rr-steine"></div><div class="rr-effekte" id="rr-effekte"></div></div>
       <div class="rr-meldung" id="rr-meldung" aria-live="polite"></div>
     </div>
@@ -73,7 +76,7 @@ export function runenreihenStarten(wurzel, opt = {}) {
   const klasse = (x) => `rr-stein a${x.s === R.STERN ? 's' : x.a}${x.s === 1 ? ' funke-h' : x.s === 2 ? ' funke-v' : x.s === R.STERN ? ' stern' : ''}`;
 
   function aufbauen() {
-    const breite = rahmen.clientWidth - 16, hoehe = rahmen.clientHeight - 16;
+    const breite = rahmen.clientWidth - 2 * ZIER - 8, hoehe = rahmen.clientHeight - 2 * ZIER - 8;
     p = Math.max(30, Math.min(62, Math.floor(Math.min(breite, hoehe) / R.N)));
     g = p - 3;
     brett.style.setProperty('--g', g + 'px');
@@ -81,11 +84,45 @@ export function runenreihenStarten(wurzel, opt = {}) {
     brett.style.width = brett.style.height = R.N * p + 'px';
     brett.style.left = Math.round((rahmen.clientWidth - R.N * p) / 2) + 'px';
     brett.style.top = Math.round((rahmen.clientHeight - R.N * p) / 2) + 'px';
+    zierZeichnen(Math.round((rahmen.clientWidth - R.N * p) / 2), Math.round((rahmen.clientHeight - R.N * p) / 2), R.N * p);
     $('gitter').innerHTML = Array.from({ length: R.N * R.N }, (_, i) => `<i class="${(R.zeile(i) + R.spalte(i)) % 2 ? 'dunkel' : ''}"></i>`).join('');
     steineEbene.innerHTML = '';
     sprites = new Map();
     s.feld.forEach((x, i) => spriteNeu(x, i));
     anzeige();
+  }
+
+  // Verzierter Steinrahmen um das Brett: Steinband, goldene Ecken, leuchtende Runen in der Mitte jeder Seite
+  function zierZeichnen(bx, by, b) {
+    const z = ZIER, w = b + 2 * z;
+    const el = $('zier');
+    el.style.left = bx - z + 'px'; el.style.top = by - z + 'px';
+    el.style.width = el.style.height = w + 'px';
+    const ecke = (x, y, dreh) => `<g transform="translate(${x} ${y}) rotate(${dreh})">
+      <path d="M0 0 L40 0 L40 8 L8 8 L8 40 L0 40 Z" fill="url(#rrz-gold)" stroke="#5a3e10" stroke-width=".8"/>
+      <path d="M22 8 q6 6 0 14 M8 22 q6 6 14 0" fill="none" stroke="#F6DFA2" stroke-width="1.4" opacity=".85"/>
+      <circle cx="11" cy="11" r="9" fill="url(#rrz-gold)" stroke="#5a3e10" stroke-width=".8"/>
+      <circle cx="11" cy="11" r="5" fill="#0f3a2f"/>
+      <polygon points="11,6.5 14.2,11 11,15.5 7.8,11" fill="#5FE8B4" class="rrz-auge"/></g>`;
+    const rune = (x, y, dreh, k) => `<g transform="translate(${x} ${y}) rotate(${dreh})">
+      <path d="M-30 0 Q-18 -9 -10 -3 M30 0 Q18 -9 10 -3" fill="none" stroke="url(#rrz-gold)" stroke-width="2.4" stroke-linecap="round"/>
+      <circle r="10.5" fill="url(#rrz-gold)" stroke="#5a3e10" stroke-width=".8"/><circle r="7.5" fill="#0f2a25"/>
+      <path class="rrz-rune" style="animation-delay:${k * 0.9}s" d="M-4.5 3 h9 M0 -4.5 v9 M-3.5 -3.5 l3.5 3.5 l3.5 -3.5" fill="none" stroke="#B9FFE2" stroke-width="1.6" stroke-linecap="round"/></g>`;
+    const m = w / 2, h = z / 2;
+    el.innerHTML = `<svg width="${w}" height="${w}" viewBox="0 0 ${w} ${w}" aria-hidden="true">
+      <defs>
+        <linearGradient id="rrz-stein" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6f7d76"/><stop offset=".5" stop-color="#3d4946"/><stop offset="1" stop-color="#262e2d"/></linearGradient>
+        <linearGradient id="rrz-gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff2c4"/><stop offset=".45" stop-color="#D8B05A"/><stop offset="1" stop-color="#7a5418"/></linearGradient>
+        <pattern id="rrz-muster" width="22" height="22" patternUnits="userSpaceOnUse"><path d="M0 11 h22 M11 0 v22" stroke="rgba(0,0,0,.28)" stroke-width="1"/><circle cx="5" cy="5" r="1" fill="rgba(255,255,255,.12)"/></pattern>
+      </defs>
+      <path fill-rule="evenodd" d="M6 0 H${w - 6} Q${w} 0 ${w} 6 V${w - 6} Q${w} ${w} ${w - 6} ${w} H6 Q0 ${w} 0 ${w - 6} V6 Q0 0 6 0 Z M${z} ${z} V${w - z} H${w - z} V${z} Z" fill="url(#rrz-stein)"/>
+      <path fill-rule="evenodd" d="M0 0 H${w} V${w} H0 Z M${z} ${z} V${w - z} H${w - z} V${z} Z" fill="url(#rrz-muster)"/>
+      <rect x="2.5" y="2.5" width="${w - 5}" height="${w - 5}" rx="5" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+      <rect x="${z - 3.5}" y="${z - 3.5}" width="${b + 7}" height="${b + 7}" rx="4" fill="none" stroke="#5FE8B4" stroke-width="1.6" class="rrz-linie"/>
+      <rect x="${h - 1}" y="${h - 1}" width="${w - z + 2}" height="${w - z + 2}" rx="3" fill="none" stroke="#D8B05A" stroke-width=".8" stroke-dasharray="2 5" opacity=".7"/>
+      ${ecke(0, 0, 0)}${ecke(w, 0, 90)}${ecke(w, w, 180)}${ecke(0, w, 270)}
+      ${rune(m, h, 0, 0)}${rune(w - h, m, 90, 1)}${rune(m, w - h, 180, 2)}${rune(h, m, 270, 3)}
+    </svg>`;
   }
 
   function spriteNeu(x, i, vonZeile = null) {

@@ -148,3 +148,13 @@
 }
 .rr .a0 { --leucht: #5FE8B4; } .rr .a1 { --leucht: #F6D26A; } .rr .a2 { --leucht: #FF9A4D; } .rr .a3 { --leucht: #6FD0FF; } .rr .a4 { --leucht: #C49BFF; } .rr .a5 { --leucht: #FF6E98; }
 .rr .rr-steine { clip-path: inset(0 -24px -24px -24px); }
+
+/* Verzierter Steinrahmen um das Brett */
+.rr .rr-zier { position: absolute; z-index: 1; pointer-events: none; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 14px rgba(95, 232, 180, 0.18)); }
+.rr .rr-zier svg { display: block; }
+.rr .rrz-rune { animation: rrz-rune 3.6s ease-in-out infinite; filter: drop-shadow(0 0 3px #5FE8B4); }
+@keyframes rrz-rune { 0%, 100% { opacity: 0.35; } 40% { opacity: 1; } }
+.rr .rrz-linie { filter: drop-shadow(0 0 4px #5FE8B4); animation: rrz-linie 4s ease-in-out infinite; }
+@keyframes rrz-linie { 50% { opacity: 0.55; } }
+.rr .rrz-auge { filter: drop-shadow(0 0 3px #5FE8B4); }
+@media (prefers-reduced-motion: reduce) { .rr .rrz-rune, .rr .rrz-linie { animation: none; } }
