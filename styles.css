@@ -613,7 +613,7 @@ textarea { font-family: ui-monospace, monospace; font-size: 14px; margin-bottom:
 .spiel-start { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
 .weiter-spiel { display: flex; align-items: center; gap: 10px; padding: 12px; text-align: left; min-height: 76px; }
 .weiter-spiel > span { display: flex; flex-direction: column; min-width: 0; }
-.weiter-spiel b { font-size: 18px; line-height: 1.15; overflow-wrap: anywhere; -webkit-hyphens: auto; hyphens: auto; }
+.weiter-spiel b { font-size: 18px; line-height: 1.15; -webkit-hyphens: manual; hyphens: manual; }
 .weiter-spiel .klein { font-size: 13px; font-weight: 400; }
 .spiele-knopf { display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 10px 12px; border-radius: 14px; text-align: left; cursor: pointer;
   background: linear-gradient(160deg, #1d2526, #151b1c); color: #E8F1EC; border: 1px solid #3F5450; box-shadow: 0 0 14px rgba(95, 232, 180, 0.15); font: inherit; }
@@ -677,3 +677,57 @@ body[data-ansicht="spiele"] { background: radial-gradient(ellipse at 50% 0%, #17
 .anl-knoepfe { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
 .anl-haupt { min-height: 52px; border-radius: 14px; background: linear-gradient(160deg, #2a9c76, #1E7A5F); border: 1px solid #5FE8B4; color: #F2FFF9; font-weight: 700; font-size: 18px; cursor: pointer; }
 .anl-neben { min-height: 52px; border-radius: 14px; background: none; border: 1px solid #3F5450; color: #8FA39B; font-weight: 700; font-size: 16px; cursor: pointer; }
+
+/* ---------- Spieleseite mit magischem Charme ---------- */
+body[data-ansicht="spiele"] { background: radial-gradient(ellipse at 50% -10%, #1f3330 0%, #111a1a 45%, #070909 100%) fixed, #0b0e0f; }
+.spiele-zauber { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.spiele-seite { position: relative; z-index: 1; }
+.sz-lichter { position: absolute; inset: 0; mix-blend-mode: screen; }
+.sz-lichter i { position: absolute; top: -25%; width: 30%; height: 150%; left: var(--x); transform: rotate(16deg); transform-origin: top center;
+  background: linear-gradient(180deg, rgba(246, 223, 162, 0.13), rgba(185, 255, 226, 0.05) 55%, transparent 85%); filter: blur(8px); animation: sz-strahl 11s ease-in-out infinite; }
+.sz-lichter i:nth-child(1) { --x: 0%; animation-delay: -2s; }
+.sz-lichter i:nth-child(2) { --x: 30%; width: 18%; animation-delay: -6s; }
+.sz-lichter i:nth-child(3) { --x: 58%; animation-delay: -9s; }
+.sz-lichter i:nth-child(4) { --x: 82%; width: 16%; animation-delay: -4s; }
+@keyframes sz-strahl { 0%, 100% { opacity: 0.35; transform: rotate(14deg); } 50% { opacity: 1; transform: rotate(20deg); } }
+.sz-staub span { position: absolute; top: -10px; width: var(--gr); height: var(--gr); border-radius: 50%; background: #fff; opacity: 0;
+  animation: sz-fall var(--dauer) linear infinite, sz-glitzer 1.8s ease-in-out infinite; animation-delay: var(--verz), var(--verz); }
+.sz-staub span.gold { background: #FFF4D0; box-shadow: 0 0 6px 1px #D8B05A; }
+.sz-staub span.jade { background: #E9FFF6; box-shadow: 0 0 6px 1px #5FE8B4; }
+@keyframes sz-fall { 0% { transform: translate(0, 0); } 50% { transform: translate(var(--drift), 55vh); } 100% { transform: translate(0, 110vh); } }
+@keyframes sz-glitzer { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.9; } }
+.spiele-titel { display: inline-flex; align-items: center; gap: 10px; font-size: 24px; }
+.sz-rune { font-size: 14px; color: #5FE8B4; text-shadow: 0 0 10px #5FE8B4; animation: sz-rune 3s ease-in-out infinite; }
+.sz-rune:last-child { animation-delay: -1.5s; }
+@keyframes sz-rune { 50% { opacity: 0.4; } }
+.spiele-abschnitt { display: flex; align-items: center; gap: 10px; }
+.spiele-abschnitt::before, .spiele-abschnitt::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(216, 176, 90, 0.7), transparent); }
+.spiele-abschnitt span { text-shadow: 0 0 12px rgba(95, 232, 180, 0.6); }
+/* Karten: Glas, Goldecken, Lichtschimmer */
+.spiel-karte { overflow: hidden; background: linear-gradient(160deg, rgba(36, 50, 48, 0.92), rgba(16, 22, 23, 0.95)); border-color: rgba(95, 232, 180, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 6px 18px rgba(0, 0, 0, 0.45); }
+.spiel-karte::before, .spiel-karte::after { content: ''; position: absolute; width: 14px; height: 14px; border: 2px solid #D8B05A; pointer-events: none; opacity: 0.85; }
+.spiel-karte::before { left: 5px; top: 5px; border-right: 0; border-bottom: 0; border-radius: 4px 0 0 0; }
+.spiel-karte::after { right: 5px; bottom: 5px; border-left: 0; border-top: 0; border-radius: 0 0 4px 0; }
+.spiel-karte.offen { --schimmer-verz: 0s; }
+.spiel-karte.offen .spiel-bild { position: relative; z-index: 1; }
+.spiel-karte.offen > * { position: relative; z-index: 1; }
+.spiel-karte.offen { background-image: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.10) 50%, transparent 60%), linear-gradient(160deg, rgba(36, 50, 48, 0.92), rgba(16, 22, 23, 0.95));
+  background-size: 250% 100%, 100% 100%; background-position: 150% 0, 0 0; animation: sz-schimmer 6s ease-in-out infinite; }
+.spiele-gitter .spiel-karte.offen:nth-child(2n) { animation-delay: -2s; }
+.spiele-gitter .spiel-karte.offen:nth-child(3n) { animation-delay: -4s; }
+@keyframes sz-schimmer { 0%, 60% { background-position: 150% 0, 0 0; } 100% { background-position: -60% 0, 0 0; } }
+.spiel-karte.zuletzt { border-color: #5FE8B4; box-shadow: 0 0 22px rgba(95, 232, 180, 0.4), inset 0 0 18px rgba(95, 232, 180, 0.12); }
+.spiel-karte.naechstes { background: radial-gradient(ellipse at 30% 0%, rgba(95, 232, 180, 0.18), transparent 60%), linear-gradient(160deg, rgba(30, 44, 42, 0.95), rgba(14, 19, 20, 0.97)); }
+.spiel-karte.naechstes::before, .spiel-karte.naechstes::after { width: 22px; height: 22px; }
+.spiel-karte.zu { background: linear-gradient(160deg, rgba(26, 32, 33, 0.92), rgba(12, 15, 16, 0.95)); }
+.spiel-karte.zu::before, .spiel-karte.zu::after { border-color: rgba(143, 163, 155, 0.5); }
+/* Startbildschirm: Knopf „Alle Spiele“ funkelt */
+.spiele-knopf { position: relative; overflow: hidden; background: radial-gradient(ellipse at 20% 0%, rgba(95, 232, 180, 0.2), transparent 60%), linear-gradient(160deg, #1d2526, #151b1c); }
+.spiele-knopf::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 15% 30%, #fff 0 1px, transparent 1.6px), radial-gradient(circle at 70% 20%, #F6DFA2 0 1px, transparent 1.6px), radial-gradient(circle at 85% 75%, #B9FFE2 0 1.2px, transparent 1.8px), radial-gradient(circle at 40% 80%, #fff 0 0.8px, transparent 1.4px);
+  animation: sz-glitzer 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .sz-lichter i, .sz-staub span, .sz-rune, .spiel-karte.offen, .spiele-knopf::after { animation: none; }
+  .sz-staub { display: none; }
+}

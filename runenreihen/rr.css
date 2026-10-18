@@ -158,3 +158,28 @@
 @keyframes rrz-linie { 50% { opacity: 0.55; } }
 .rr .rrz-auge { filter: drop-shadow(0 0 3px #5FE8B4); }
 @media (prefers-reduced-motion: reduce) { .rr .rrz-rune, .rr .rrz-linie { animation: none; } }
+
+/* Siebter Stein, Aufgabe, Runenbann */
+.rr .a6 { --leucht: #DDF0FF; }
+.rr .rr-funken.a6, .rr .rr-licht.a6 { --glanz: #DDF0FF; }
+.rr .rr-aufgabe { display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 4px 12px; border-radius: 12px; background: rgba(22, 35, 31, 0.8); border: 1px solid #2f6b58; color: var(--text); font-size: 15px; }
+.rr .rr-aufgabe span:nth-child(2) { flex: 1; }
+.rr .rr-aufgabe b { color: var(--gold-hell); font-variant-numeric: tabular-nums; }
+.rr .rr-mini { display: inline-block; width: 22px; height: 22px; filter: drop-shadow(0 0 4px var(--leucht)); }
+.rr .rr-mini svg { width: 100%; height: 100%; }
+.rr .rr-ziel-stern { color: var(--gold-hell); text-shadow: 0 0 8px #D8B05A; }
+.rr .rr-stein.gebannt::after { content: ''; position: absolute; inset: 4%; border-radius: 22%; pointer-events: none;
+  background: radial-gradient(circle, rgba(120, 80, 200, 0.12) 30%, rgba(90, 50, 170, 0.45) 75%),
+    linear-gradient(45deg, transparent 46%, rgba(200, 170, 255, 0.75) 48%, rgba(200, 170, 255, 0.75) 52%, transparent 54%),
+    linear-gradient(-45deg, transparent 46%, rgba(200, 170, 255, 0.75) 48%, rgba(200, 170, 255, 0.75) 52%, transparent 54%);
+  box-shadow: inset 0 0 0 2px rgba(190, 160, 255, 0.8), 0 0 10px rgba(150, 110, 240, 0.6); animation: rr-bann 2.4s ease-in-out infinite; }
+.rr .rr-stein.gebannt i { filter: saturate(0.55) brightness(0.8) drop-shadow(0 0 4px rgba(150, 110, 240, 0.7)); }
+@keyframes rr-bann { 50% { box-shadow: inset 0 0 0 2px rgba(220, 200, 255, 1), 0 0 16px rgba(170, 130, 255, 0.85); } }
+.rr .rr-stein.wird-gebannt::after { animation: rr-bann-neu 0.6s ease-out, rr-bann 2.4s ease-in-out 0.6s infinite; }
+@keyframes rr-bann-neu { from { transform: scale(1.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.rr .rr-befreit { position: absolute; width: 0; height: 0; }
+.rr .rr-befreit span { position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: #e6dcff; box-shadow: 0 0 8px #a888ff; animation: rr-befreit 0.8s ease-out forwards; }
+.rr .rr-befreit span:nth-child(1) { --dx: -22px; --dy: -22px; } .rr .rr-befreit span:nth-child(2) { --dx: 22px; --dy: -22px; }
+.rr .rr-befreit span:nth-child(3) { --dx: -22px; --dy: 22px; } .rr .rr-befreit span:nth-child(4) { --dx: 22px; --dy: 22px; }
+@keyframes rr-befreit { to { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .rr .rr-stein.gebannt::after { animation: none; } }

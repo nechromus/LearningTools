@@ -7,7 +7,8 @@ const FARBEN = [
   ['#ffe0c2', '#ff7a2a', '#7a2a08', '#FF9A4D'],   // 2 Bernstein (breites Kissen)
   ['#e0f6ff', '#3fb4f0', '#0f3f6e', '#6FD0FF'],   // 3 Himmel (Dreieck)
   ['#f0e2ff', '#a46cf2', '#3a1878', '#C49BFF'],   // 4 Violett (Smaragdschliff)
-  ['#ffe0ea', '#f03a6e', '#6e0a28', '#FF6E98']    // 5 Rubin (Navette)
+  ['#ffe0ea', '#f03a6e', '#6e0a28', '#FF6E98'],   // 5 Rubin (Navette)
+  ['#ffffff', '#b8d4e8', '#3e5a74', '#DDF0FF']    // 6 Mondstein (Oval), ab Stufe 4
 ];
 
 // Umrisse (Viewbox 100 × 100), Tafel = verkleinerter Umriss
@@ -17,9 +18,10 @@ const UMRISS = [
   [[26, 14], [74, 14], [96, 50], [74, 86], [26, 86], [4, 50]],
   [[50, 6], [95, 88], [5, 88]],
   [[30, 8], [70, 8], [90, 28], [90, 72], [70, 92], [30, 92], [10, 72], [10, 28]],
-  [[50, 2], [80, 30], [86, 54], [50, 98], [14, 54], [20, 30]]
+  [[50, 2], [80, 30], [86, 54], [50, 98], [14, 54], [20, 30]],
+  Array.from({ length: 12 }, (_, k) => { const w = (k / 12) * Math.PI * 2 - Math.PI / 2; return [50 + 34 * Math.cos(w), 50 + 46 * Math.sin(w)]; })
 ];
-const TAFEL = [0.48, 0.52, 0.5, 0.42, 0.56, 0.42];
+const TAFEL = [0.48, 0.52, 0.5, 0.42, 0.56, 0.42, 0.6];
 
 const mischen = (a, b, t) => {
   const h = (x) => [1, 3, 5].map(i => parseInt(x.slice(i, i + 2), 16));

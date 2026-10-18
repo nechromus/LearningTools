@@ -1,0 +1,46 @@
+/* Szenen für Anleitungen und Spieleseite: echte Spielteile in kleinem Rahmen (siehe js/spielbilder.js) */
+.anl-szene.km { display: flex; align-items: center; justify-content: center; flex: none; gap: 0; width: 100%; max-width: 300px; min-height: 0;
+  margin: 0 auto; padding: 12px; box-sizing: border-box; color: #E8F1EC; font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+  border-radius: 12px; background: radial-gradient(ellipse at 50% 40%, #172022, #0b0f10 80%); border: 1px solid #2c3a37; -webkit-user-select: none; user-select: none; }
+.anl-szene.anl-rb { display: flex; align-items: center; justify-content: center; width: 100%; max-width: 300px; margin: 0 auto; padding: 10px; box-sizing: border-box;
+  border-radius: 12px; background: #07090a; border: 1px solid #2c3a37; }
+.anl-szene .anl-flaeche { position: relative; flex: none; }
+.anl-szene .anl-flaeche > img { display: block; border-radius: 6px; }
+.anl-szene .anl-c { position: absolute; width: var(--g); height: var(--g); }
+.anl-szene .anl-fig { z-index: 2; }
+.anl-szene .anl-notiz { position: absolute; left: 0; top: 0; z-index: 10; overflow: visible; pointer-events: none; }
+.anl-szene .anl-voll { position: absolute; inset: -4px; }
+.anl-szene .anl-ring { animation: anl-ring 1.6s ease-in-out infinite; }
+.anl-szene .anl-finger { animation: anl-finger 1.8s ease-in-out infinite; }
+@keyframes anl-ring { 50% { opacity: 0.45; } }
+@keyframes anl-finger { 50% { opacity: 0.6; } }
+
+/* 2048 */
+.anl-szene .anl-c > .zelle, .anl-szene .anl-c > .stein { width: 100%; height: 100%; border-radius: calc(var(--g) * 0.2); }
+.anl-szene .stein { font-size: calc(var(--g) * 0.36); }
+.anl-szene .stein.vierstellig { font-size: calc(var(--g) * 0.27); }
+.anl-szene .stein::before { inset: calc(var(--g) * 0.08); border-radius: calc(var(--g) * 0.14); }
+/* Runenfeld */
+.anl-szene .anl-c > .rf-zelle, .anl-szene .anl-c > .rf-stein { width: 100%; height: 100%; box-sizing: border-box; }
+/* Kristallmine, Steinschieber: Zellen und Figuren aus km.css */
+.anl-szene .anl-c > .z { width: 100%; height: 100%; }
+.anl-szene .sprite { transform: none; transition: none; }
+.anl-szene .sprite.figur::before { inset: -2px; }
+/* Runenfall */
+.anl-szene .anl-c > .rz { width: 100%; height: 100%; }
+/* Runenreihen */
+.anl-szene .anl-c > .rr-stein { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+/* Höhlenkarte */
+.anl-szene .anl-c > .hz { width: 100%; height: 100%; }
+/* Jadeschlange */
+.anl-szene .jsg-brett { background-size: var(--g) var(--g); }
+.anl-szene .jsg-glied, .anl-szene .jsg-kristall, .anl-szene .jsg-stein { transform-origin: 50% 50%; }
+
+/* Vorschau auf der Spieleseite: ohne eigenen Rahmen, quadratisch */
+.anl-szene.anl-vorschau { width: auto; max-width: none; padding: 5px; border-radius: 12px; background: radial-gradient(ellipse at 50% 40%, #1b2526, #0b0f10 85%); border: 1px solid #2c3a37; }
+.anl-szene.anl-vorschau .anl-flaeche { overflow: hidden; border-radius: 6px; }
+
+@media (prefers-reduced-motion: reduce) { .anl-szene .anl-ring, .anl-szene .anl-finger { animation: none; } }
+
+/* Runenreihen: Aufgaben-Leiste wie im Spiel */
+.anl-szene .anl-aufgabe { position: absolute; left: 0; right: 0; top: 0; height: calc(var(--g) - 6px); min-height: 0; padding: 2px 10px; font-size: 13px; box-sizing: border-box; }

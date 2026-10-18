@@ -43,6 +43,7 @@ export function runenreihenStarten(wurzel, opt = {}) {
       <span class="chip p" id="rr-punkte">0</span>
       <span class="chip k rr-stufe-chip"><span>Stufe <b id="rr-stufe">1</b></span><span class="rr-balken"><i id="rr-balken"></i></span></span>
     </div>
+    <div class="rr-aufgabe" id="rr-aufgabe"></div>
     <div class="feld-rahmen" id="rr-rahmen">
       <span class="ecke" style="left:-7px;top:-7px"></span><span class="ecke" style="right:-7px;top:-7px"></span>
       <span class="ecke" style="left:-7px;bottom:-7px"></span><span class="ecke" style="right:-7px;bottom:-7px"></span>
@@ -73,7 +74,7 @@ export function runenreihenStarten(wurzel, opt = {}) {
     d.style.setProperty('--d', ((x.id * 0.731) % 5).toFixed(2) + 's');
     if (art !== 's') d.style.setProperty('--leucht', LEUCHTEN[x.a]);
   }
-  const klasse = (x) => `rr-stein a${x.s === R.STERN ? 's' : x.a}${x.s === 1 ? ' funke-h' : x.s === 2 ? ' funke-v' : x.s === R.STERN ? ' stern' : ''}`;
+  const klasse = (x) => `rr-stein a${x.s === R.STERN ? 's' : x.a}${x.s === 1 ? ' funke-h' : x.s === 2 ? ' funke-v' : x.s === R.STERN ? ' stern' : ''}${x.b ? ' gebannt' : ''}`;
 
   function aufbauen() {
     const breite = rahmen.clientWidth - 2 * ZIER - 8, hoehe = rahmen.clientHeight - 2 * ZIER - 8;
@@ -161,7 +162,9 @@ export function runenreihenStarten(wurzel, opt = {}) {
   function anzeige() {
     $('punkte').textContent = s.punkte.toLocaleString('de-DE');
     $('stufe').textContent = s.stufe;
-    $('balken').style.width = Math.min(100, Math.round(s.stufePunkte / R.zielPunkte(s.stufe) * 100)) + '%';
+    const a = s.aufgabe || { ziel: R.zielPunkte(s.stufe), stand: s.stufePunkte || 0, typ: 'punkte' };
+    $('balken').style.width = Math.min(100, Math.round(a.stand / a.ziel * 100)) + '%';
+    $('aufgabe').innerHTML = `${a.typ === 'art' ? `<span class="rr-mini a${a.art}">${edelstein(a.art)}</span>` : '<span class="rr-ziel-stern">✦</span>'}<span>${R.aufgabeText(a)}</span><b>${a.typ === 'punkte' ? Math.min(a.stand, a.ziel).toLocaleString('de-DE') + ' / ' + a.ziel.toLocaleString('de-DE') : Math.min(a.stand, a.ziel) + ' / ' + a.ziel}</b>`;
     $('rekord').textContent = Math.max(s.rekord || 0, s.punkte).toLocaleString('de-DE');
   }
 
@@ -206,6 +209,10 @@ export function runenreihenStarten(wurzel, opt = {}) {
           const d = sprites.get(st.ids[k]);
           if (d) { const art = d.className.match(/ a(\w)/)?.[1]; d.classList.add('weg'); if (k % 2 === 0 || st.zellen.length < 7) funken(z, art); }
         });
+        for (const b of st.befreit || []) {
+          const d = sprites.get(b.id);
+          if (d) { d.classList.remove('gebannt'); const [bx, by] = mitte(b.zelle); effekt('<span></span><span></span><span></span><span></span>', 'rr-befreit', bx, by, 800); }
+        }
         for (const n of st.neuSpezial) {
           const d = sprites.get(n.id);
           if (d) { aussehen(d, n, ' entsteht'); }
@@ -230,6 +237,10 @@ export function runenreihenStarten(wurzel, opt = {}) {
         }
         for (const n of st.neu) { const ms = dauer(R.zeile(n.nach) - n.von); laengste = Math.max(laengste, ms); setzen(n.id, n.nach, ms); }
         await warten(laengste + 20);
+      } else if (st.typ === 'gebannt') {
+        for (const id of st.ids) { const d = sprites.get(id); if (d) { d.classList.add('gebannt', 'wird-gebannt'); } }
+        if (st.ids.length) meldung('Ein Runenbann liegt auf einigen Steinen. Räume daneben etwas ab, dann sind sie frei.', 3200);
+        await warten(500);
       } else if (st.typ === 'gemischt') {
         meldung('Kein Zug mehr möglich. Neu gemischt!', 2000);
         for (const o of st.orte) setzen(o.id, o.nach, 450);
@@ -254,7 +265,10 @@ export function runenreihenStarten(wurzel, opt = {}) {
     tippWeg();
     const ida = s.feld[a].id, idb = s.feld[b].id;
     const erg = R.tauschen(s, a, b);
-    if (!erg) { wackeln(ida, idb, a, b); return; }
+    if (!erg) {
+      if (s.feld[a].b || s.feld[b].b) meldung('Dieser Stein ist gebannt. Räume daneben etwas ab.', 2400);
+      wackeln(ida, idb, a, b); return;
+    }
     beschaeftigt = true;
     await abspielen(erg);
     beschaeftigt = false;
@@ -309,7 +323,9 @@ export function runenreihenStarten(wurzel, opt = {}) {
     tippWeg();
     tafel(`<div class="tafel jade"><div class="rr-bild"><span class="rr-stein a0"><i>${edelstein(0)}</i></span><span class="rr-stein as stern"><i></i></span><span class="rr-stein a5"><i>${edelstein(5)}</i></span></div>
       <h2>Stufe ${stufe} geschafft!</h2><p>${s.punkte.toLocaleString('de-DE')} Punkte.</p>
-      <p>Nächstes Ziel: ${R.zielPunkte(s.stufe).toLocaleString('de-DE')} Punkte in Stufe ${s.stufe}.</p>
+      <p>Stufe ${s.stufe}: <b>${R.aufgabeText(s.aufgabe)}</b>.</p>
+      ${s.stufe === 3 ? '<p>Neu: Ein Runenbann hält manche Steine fest. Räume daneben etwas ab, dann sind sie frei.</p>' : ''}
+      ${s.stufe === 4 ? `<p>Neu: Ein siebter Stein kommt dazu, der Mondstein.</p><div class="rr-bild"><span class="rr-stein a6"><i>${edelstein(6)}</i></span></div>` : ''}
       <button class="haupt" data-rrt="weiter">Weiter</button></div>`);
   }
 

@@ -16,10 +16,11 @@ import { runenbrecherStarten } from './runenbrecher-ui.js';
 import { jadeschlangeStarten } from './jadeschlange-ui.js';
 import * as SP from './splitter.js';
 import { ANLEITUNGEN } from './anleitungen.js';
+import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.4.5';
+export const APP_VERSION = '2.5.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -502,7 +503,7 @@ function spieleStartHtml() {
   const bereit = n && n.fehlt === 0 && n.spiel.fertig;
   const anteil = n ? Math.min(100, Math.round(sp.stand / Math.max(1, n.preis) * 100)) : 100;
   return `<div class="spiel-start">
-      <button class="btn btn-amber-rand weiter-spiel" data-act="zumSpiel">${spielBild(id, 40)}<span><span class="klein">Weiter mit</span><b>${esc(spielName(id)).replace('Kristallmine', 'Kristall&shy;mine').replace('Steinschieber', 'Stein&shy;schieber')}</b></span></button>
+      <button class="btn btn-amber-rand weiter-spiel" data-act="zumSpiel">${spielVorschau(id, 40)}<span><span class="klein">Weiter mit</span><b>${esc(spielName(id)).replace(/^(Kristall|Stein|Runen|Höhlen|Jade)(.{4,})$/, '$1&shy;$2')}</b></span></button>
       <button class="spiele-knopf${bereit ? ' bereit' : ''}" data-act="spielauswahl">
         <span class="spiele-knopf-kopf"><b>Alle Spiele</b><span class="splitter-mini">${splitterSymbol(16)}${sp.stand}</span></span>
         ${n ? `<span class="balken"><i style="width:${anteil}%"></i></span>
@@ -518,7 +519,7 @@ function spielKarte(g, sp, n) {
   const zuletzt = g.id === letztesOffenes();
   if (frei) {
     return `<button class="spiel-karte offen${zuletzt ? ' zuletzt' : ''}" data-act="neuspiel" data-id="${g.id}">
-      ${spielBild(g.id)}<b>${esc(g.name)}</b><span class="klein">${zuletzt ? 'Zuletzt gespielt' : esc(info.text || '')}</span></button>`;
+      ${spielVorschau(g.id, 64)}<b>${esc(g.name)}</b><span class="klein">${zuletzt ? 'Zuletzt gespielt' : esc(info.text || '')}</span></button>`;
   // (Anleitung offener Spiele über das Fragezeichen im Spiel)
   }
   const istNaechstes = n && n.spiel.id === g.id;
@@ -528,14 +529,14 @@ function spielKarte(g, sp, n) {
     const anteil = Math.min(100, Math.round(sp.stand / Math.max(1, preis) * 100));
     const bereit = n.fehlt === 0 && g.fertig;
     return `<div class="spiel-karte naechstes${bereit ? ' bereit' : ''}">
-      <div class="naechstes-kopf">${spielBild(g.id, 52)}<div><span class="klein">Nächstes Spiel</span><b>${esc(g.name)}</b><span class="klein">${esc(info.text || '')}</span></div></div>
+      <div class="naechstes-kopf">${spielVorschau(g.id, 56)}<div><span class="klein">Nächstes Spiel</span><b>${esc(g.name)}</b><span class="klein">${esc(info.text || '')}</span></div></div>
       <span class="balken" role="progressbar" aria-valuemin="0" aria-valuemax="${preis}" aria-valuenow="${Math.min(sp.stand, preis)}"><i style="width:${anteil}%"></i></span>
       <span class="klein">${bereit ? `Kostet ${preis} Runensplitter. Du hast genug!` : !g.fertig && n.fehlt === 0 ? 'Genug Splitter! Das Spiel ist noch in Arbeit.' : `Noch ${n.fehlt} Runensplitter · ${sp.stand} von ${preis}`}</span>
       ${bereit ? `<button class="btn btn-jade-hell" data-act="freischalten" data-id="${g.id}">Freischalten</button>` : ''}${test}
     </div>`;
   }
   return `<div class="spiel-karte zu">
-    <span class="schloss-bild">${spielBild(g.id)}</span><b>${esc(g.name)}</b>
+    <span class="schloss-bild">${spielVorschau(g.id, 64)}</span><b>${esc(g.name)}</b>
     <span class="klein">${g.fertig ? `${splitterSymbol(13)} ${preis}` : 'kommt bald'}</span>${test}
   </div>`;
 }
@@ -548,13 +549,15 @@ function zeigeSpieleSeite() {
   const offen = [...IMMER_OFFEN, ...SP.NEUE_SPIELE.filter(g => SP.istFrei(sp, g.id))];
   const gesperrt = SP.NEUE_SPIELE.filter(g => !SP.istFrei(sp, g.id));
   $app.innerHTML = `
+  <div class="spiele-zauber" aria-hidden="true"><div class="sz-lichter"><i></i><i></i><i></i><i></i></div>
+    <div class="sz-staub">${Array.from({ length: 30 }, (_, k) => `<span class="${k % 3 === 0 ? 'gold' : 'jade'}" style="left:${(k * 37 + 5) % 100}%;--dauer:${10 + (k * 13) % 10}s;--verz:-${(k * 1.9) % 18}s;--drift:${((k * 29) % 50) - 25}px;--gr:${2 + (k % 3)}px"></span>`).join('')}</div></div>
   <div class="screen spiele-seite">
-    <header class="topbar"><button class="btn-text" data-act="start">← Zurück</button><b class="spiele-titel">Spiele</b>
+    <header class="topbar"><button class="btn-text" data-act="start">← Zurück</button><b class="spiele-titel"><span class="sz-rune">✦</span>Spiele<span class="sz-rune">✦</span></b>
       <button class="splitter-chip dunkel" data-act="erfolge" aria-label="Runensplitter und Erfolge">${splitterSymbol(22)}<b>${sp.stand}</b></button></header>
     <div class="spiele-uhr">${zeitSymbol(22)} <b>${L.formatZeit(S.guthaben)}</b> Spielzeit</div>
-    <h2 class="spiele-abschnitt">Deine Spiele</h2>
+    <h2 class="spiele-abschnitt"><span>Deine Spiele</span></h2>
     <div class="spiele-gitter">${offen.map(g => spielKarte(g, sp, n)).join('')}</div>
-    ${gesperrt.length ? `<h2 class="spiele-abschnitt">Noch zu entdecken</h2>
+    ${gesperrt.length ? `<h2 class="spiele-abschnitt"><span>Noch zu entdecken</span></h2>
     <p class="spiele-hinweis">Mit Runensplittern aus deinen Aufgaben schaltest du sie nacheinander frei.</p>
     <div class="spiele-gitter">${gesperrt.map(g => spielKarte(g, sp, n)).join('')}</div>` : ''}
     ${S.guthaben <= 0 ? '<p class="spiele-hinweis">Keine Spielzeit mehr. Mach ein paar Aufgaben!</p>' : ''}

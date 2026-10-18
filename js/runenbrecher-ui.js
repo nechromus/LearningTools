@@ -21,6 +21,145 @@ const FARBEN = {
 };
 const EXTRA_TEXT = { breit: 'Breiter Schild', zwei: 'Zwei Kugeln', langsam: 'Langsamer' };
 
+// ---------- Zeichnen (auch für Vorschau und Anleitung, damit alles gleich aussieht) ----------
+
+// Steinbild einmal vorzeichnen (schneller als jedes Mal Verläufe)
+function steinBildMalen(art, riss, massstab, dpr) {
+  const w = Math.ceil(B.STEIN.breite * massstab * dpr), h = Math.ceil(B.STEIN.hoehe * massstab * dpr);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d');
+  const [c1, c2, c3] = FARBEN[art];
+  const r = Math.min(h * 0.28, 6 * dpr);
+  const gr = x.createLinearGradient(0, 0, w * 0.4, h);
+  gr.addColorStop(0, c1); gr.addColorStop(0.55, c2); gr.addColorStop(1, c3);
+  x.fillStyle = gr;
+  rund(x, 0, 0, w, h, r); x.fill();
+  // Kanten
+  x.strokeStyle = 'rgba(255,255,255,0.35)'; x.lineWidth = Math.max(1, dpr);
+  x.beginPath(); x.moveTo(r, dpr); x.lineTo(w - r, dpr); x.stroke();
+  x.strokeStyle = 'rgba(0,0,0,0.45)';
+  x.beginPath(); x.moveTo(r, h - dpr); x.lineTo(w - r, h - dpr); x.stroke();
+  // Rune in der Mitte
+  if (art !== 'x') {
+    x.fillStyle = art === 'g' ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.55)';
+    const cx = w / 2, cy = h / 2, rr = h * 0.32;
+    x.beginPath(); x.moveTo(cx, cy - rr); x.lineTo(cx + rr * 0.3, cy - rr * 0.3); x.lineTo(cx + rr, cy); x.lineTo(cx + rr * 0.3, cy + rr * 0.3);
+    x.lineTo(cx, cy + rr); x.lineTo(cx - rr * 0.3, cy + rr * 0.3); x.lineTo(cx - rr, cy); x.lineTo(cx - rr * 0.3, cy - rr * 0.3); x.closePath(); x.fill();
+  } else {
+    x.fillStyle = 'rgba(255,255,255,0.12)';
+    for (let k = 0; k < 4; k++) { x.beginPath(); x.arc(w * (0.18 + k * 0.21), h * (k % 2 ? 0.65 : 0.35), h * 0.09, 0, 7); x.fill(); }
+  }
+  if (riss) {
+    x.strokeStyle = 'rgba(15,10,30,0.8)'; x.lineWidth = Math.max(1.2, 1.4 * dpr);
+    x.beginPath(); x.moveTo(w * 0.22, 0); x.lineTo(w * 0.32, h * 0.45); x.lineTo(w * 0.24, h * 0.7); x.lineTo(w * 0.34, h);
+    x.moveTo(w * 0.32, h * 0.45); x.lineTo(w * 0.5, h * 0.55);
+    x.moveTo(w * 0.78, 0); x.lineTo(w * 0.7, h * 0.5); x.lineTo(w * 0.8, h); x.stroke();
+  }
+  return c;
+}
+
+function rund(x, a, b, w, h, r) {
+  x.beginPath();
+  x.moveTo(a + r, b); x.lineTo(a + w - r, b); x.quadraticCurveTo(a + w, b, a + w, b + r);
+  x.lineTo(a + w, b + h - r); x.quadraticCurveTo(a + w, b + h, a + w - r, b + h);
+  x.lineTo(a + r, b + h); x.quadraticCurveTo(a, b + h, a, b + h - r);
+  x.lineTo(a, b + r); x.quadraticCurveTo(a, b, a + r, b); x.closePath();
+}
+
+// Ganze Szene malen. z: { steine, extras, schild: { x, breite }, kugeln: [{x,y}], spuren: Map, teilchen, beben, blitz }
+// ansicht: { massstab, dpr, steinBild(art, riss), ausschnitt: { x, y } (optional, in Feld-Einheiten) }
+function szeneMalen(ctx, canvas, z, ansicht) {
+  const { massstab, dpr, steinBild } = ansicht;
+  const m = massstab * dpr;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (z.beben > 0 && !ruhig()) ctx.translate((Math.random() - 0.5) * z.beben * dpr, (Math.random() - 0.5) * z.beben * dpr);
+  // Hintergrund: dunkle Höhle mit leichtem Raster
+  const bg = ctx.createRadialGradient(canvas.width / 2, canvas.height * 0.35, 10, canvas.width / 2, canvas.height * 0.4, canvas.height * 0.8);
+  bg.addColorStop(0, '#141b1c'); bg.addColorStop(1, '#07090a');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (ansicht.ausschnitt) ctx.translate(-ansicht.ausschnitt.x * m, -ansicht.ausschnitt.y * m);
+  ctx.strokeStyle = 'rgba(95,232,180,0.04)'; ctx.lineWidth = 1;
+  for (let gx = 10; gx < B.BREITE; gx += 10) { ctx.beginPath(); ctx.moveTo(gx * m, 0); ctx.lineTo(gx * m, B.HOEHE * m); ctx.stroke(); }
+  // Steine
+  for (const st of z.steine || []) {
+    const q = B.steinRechteck(st);
+    const bild = steinBild(st.art, st.art === 's' && st.hp === 1);
+    if (st.art === 'g') { ctx.shadowColor = 'rgba(216,176,90,0.7)'; ctx.shadowBlur = 8 * dpr; }
+    ctx.drawImage(bild, q.x * m, q.y * m, q.w * m, q.h * m);
+    ctx.shadowBlur = 0;
+  }
+  // Extras
+  for (const e of z.extras || []) {
+    const x = e.x * m, y = e.y * m, r = 2.6 * m;
+    ctx.shadowColor = e.art === 'langsam' ? '#6ec6e8' : e.art === 'zwei' ? '#5FE8B4' : '#D8B05A'; ctx.shadowBlur = 10 * dpr;
+    ctx.fillStyle = ctx.shadowColor;
+    ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath(); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#0c1011'; ctx.font = `700 ${Math.round(2.6 * m)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(e.art === 'breit' ? '↔' : e.art === 'zwei' ? '2' : '~', x, y + 0.2 * m);
+  }
+  // Teilchen
+  for (const t of z.teilchen || []) {
+    ctx.globalAlpha = Math.max(0, t.leben / t.dauer);
+    ctx.fillStyle = t.farbe;
+    ctx.fillRect((t.x - t.g / 2) * m, (t.y - t.g / 2) * m, t.g * m, t.g * m);
+  }
+  ctx.globalAlpha = 1;
+  // Schild
+  if (z.schild) {
+    const b = z.schild.breite, sx = (z.schild.x - b / 2) * m, sy = B.SCHILD.y * m, sw = b * m, sh = B.SCHILD.hoehe * m;
+    ctx.shadowColor = 'rgba(216,176,90,0.6)'; ctx.shadowBlur = 12 * dpr;
+    const sg = ctx.createLinearGradient(0, sy, 0, sy + sh);
+    sg.addColorStop(0, '#fff2c4'); sg.addColorStop(0.45, '#d8b05a'); sg.addColorStop(1, '#6e5420');
+    ctx.fillStyle = sg; rund(ctx, sx, sy, sw, sh, sh / 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(60,40,10,0.55)';
+    for (let k = 1; k < 4; k++) { ctx.beginPath(); ctx.arc(sx + sw * k / 4, sy + sh / 2, sh * 0.16, 0, 7); ctx.fill(); }
+  }
+  // Kugeln mit Leuchtspur
+  (z.kugeln || []).forEach((k, i) => {
+    const spur = (z.spuren && z.spuren.get(i)) || [];
+    spur.forEach((p, j) => {
+      const a = (j + 1) / spur.length;
+      ctx.globalAlpha = a * 0.35;
+      ctx.fillStyle = '#5FE8B4';
+      ctx.beginPath(); ctx.arc(p.x * m, p.y * m, B.RADIUS * m * (0.4 + 0.6 * a), 0, 7); ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    const x = k.x * m, y = k.y * m, r = B.RADIUS * m;
+    const halo = ctx.createRadialGradient(x, y, 0, x, y, r * 4);
+    halo.addColorStop(0, 'rgba(185,255,226,0.55)'); halo.addColorStop(1, 'rgba(95,232,180,0)');
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(x, y, r * 4, 0, 7); ctx.fill();
+    const kg = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
+    kg.addColorStop(0, '#ffffff'); kg.addColorStop(0.5, '#7ff2c6'); kg.addColorStop(1, '#1E7A5F');
+    ctx.fillStyle = kg; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  });
+  // Blitz über allem (Level geschafft)
+  if (z.blitz > 0) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const g = ctx.createRadialGradient(canvas.width / 2, canvas.height * 0.3, 0, canvas.width / 2, canvas.height * 0.3, canvas.height * 0.7);
+    g.addColorStop(0, `rgba(246,223,162,${0.6 * z.blitz})`); g.addColorStop(1, 'rgba(246,223,162,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+}
+
+// Standbild für Vorschau und Anleitung (nur im Browser). szene: { steine, extras, schild, kugeln, spuren: { 0: [{x,y}] } }
+// ausschnitt { x, y, w, h } in Feld-Einheiten (Standard: ganzes Feld). Gibt eine Daten-URL zurück.
+export function runenbrecherBild(breitePx, hoehePx, szene = {}, ausschnitt = null) {
+  const dpr = Math.min(3, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+  const aus = ausschnitt || { x: 0, y: 0, w: B.BREITE, h: B.HOEHE };
+  const massstab = Math.min(breitePx / aus.w, hoehePx / aus.h);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(aus.w * massstab * dpr); canvas.height = Math.round(aus.h * massstab * dpr);
+  const ctx = canvas.getContext('2d');
+  const bilder = new Map();
+  const steinBild = (art, riss) => { const k = art + (riss ? 'r' : ''); if (!bilder.has(k)) bilder.set(k, steinBildMalen(art, riss, massstab, dpr)); return bilder.get(k); };
+  const spuren = new Map(Object.entries(szene.spuren || {}).map(([k, v]) => [Number(k), v]));
+  szeneMalen(ctx, canvas, { ...szene, spuren, beben: 0, blitz: 0 }, { massstab, dpr, steinBild, ausschnitt: aus });
+  return canvas.toDataURL('image/png');
+}
+
 export function runenbrecherStarten(wurzel, opt = {}) {
   const sichernExt = opt.sichern || (() => {});
   const melden = opt.melden || (() => {});
@@ -76,123 +215,14 @@ export function runenbrecherStarten(wurzel, opt = {}) {
   // ---------- Zeichnen ----------
 
   let steinBilder = new Map();
-  // Steinbild einmal vorzeichnen (schneller als jedes Mal Verläufe)
   function steinBild(art, riss) {
     const key = art + (riss ? 'r' : '');
-    if (steinBilder.has(key)) return steinBilder.get(key);
-    const w = Math.ceil(B.STEIN.breite * massstab * dpr), h = Math.ceil(B.STEIN.hoehe * massstab * dpr);
-    const c = document.createElement('canvas'); c.width = w; c.height = h;
-    const x = c.getContext('2d');
-    const [c1, c2, c3] = FARBEN[art];
-    const r = Math.min(h * 0.28, 6 * dpr);
-    const gr = x.createLinearGradient(0, 0, w * 0.4, h);
-    gr.addColorStop(0, c1); gr.addColorStop(0.55, c2); gr.addColorStop(1, c3);
-    x.fillStyle = gr;
-    rund(x, 0, 0, w, h, r); x.fill();
-    // Kanten
-    x.strokeStyle = 'rgba(255,255,255,0.35)'; x.lineWidth = Math.max(1, dpr);
-    x.beginPath(); x.moveTo(r, dpr); x.lineTo(w - r, dpr); x.stroke();
-    x.strokeStyle = 'rgba(0,0,0,0.45)';
-    x.beginPath(); x.moveTo(r, h - dpr); x.lineTo(w - r, h - dpr); x.stroke();
-    // Rune in der Mitte
-    if (art !== 'x') {
-      x.fillStyle = art === 'g' ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.55)';
-      const cx = w / 2, cy = h / 2, rr = h * 0.32;
-      x.beginPath(); x.moveTo(cx, cy - rr); x.lineTo(cx + rr * 0.3, cy - rr * 0.3); x.lineTo(cx + rr, cy); x.lineTo(cx + rr * 0.3, cy + rr * 0.3);
-      x.lineTo(cx, cy + rr); x.lineTo(cx - rr * 0.3, cy + rr * 0.3); x.lineTo(cx - rr, cy); x.lineTo(cx - rr * 0.3, cy - rr * 0.3); x.closePath(); x.fill();
-    } else {
-      x.fillStyle = 'rgba(255,255,255,0.12)';
-      for (let k = 0; k < 4; k++) { x.beginPath(); x.arc(w * (0.18 + k * 0.21), h * (k % 2 ? 0.65 : 0.35), h * 0.09, 0, 7); x.fill(); }
-    }
-    if (riss) {
-      x.strokeStyle = 'rgba(15,10,30,0.8)'; x.lineWidth = Math.max(1.2, 1.4 * dpr);
-      x.beginPath(); x.moveTo(w * 0.22, 0); x.lineTo(w * 0.32, h * 0.45); x.lineTo(w * 0.24, h * 0.7); x.lineTo(w * 0.34, h);
-      x.moveTo(w * 0.32, h * 0.45); x.lineTo(w * 0.5, h * 0.55);
-      x.moveTo(w * 0.78, 0); x.lineTo(w * 0.7, h * 0.5); x.lineTo(w * 0.8, h); x.stroke();
-    }
-    steinBilder.set(key, c);
-    return c;
-  }
-
-  function rund(x, a, b, w, h, r) {
-    x.beginPath();
-    x.moveTo(a + r, b); x.lineTo(a + w - r, b); x.quadraticCurveTo(a + w, b, a + w, b + r);
-    x.lineTo(a + w, b + h - r); x.quadraticCurveTo(a + w, b + h, a + w - r, b + h);
-    x.lineTo(a + r, b + h); x.quadraticCurveTo(a, b + h, a, b + h - r);
-    x.lineTo(a, b + r); x.quadraticCurveTo(a, b, a + r, b); x.closePath();
+    if (!steinBilder.has(key)) steinBilder.set(key, steinBildMalen(art, riss, massstab, dpr));
+    return steinBilder.get(key);
   }
 
   function zeichnen() {
-    const m = massstab * dpr;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // Beben
-    if (beben > 0 && !ruhig()) ctx.translate((Math.random() - 0.5) * beben * dpr, (Math.random() - 0.5) * beben * dpr);
-    // Hintergrund: dunkle Höhle mit leichtem Raster
-    const bg = ctx.createRadialGradient(canvas.width / 2, canvas.height * 0.35, 10, canvas.width / 2, canvas.height * 0.4, canvas.height * 0.8);
-    bg.addColorStop(0, '#141b1c'); bg.addColorStop(1, '#07090a');
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = 'rgba(95,232,180,0.04)'; ctx.lineWidth = 1;
-    for (let gx = 10; gx < B.BREITE; gx += 10) { ctx.beginPath(); ctx.moveTo(gx * m, 0); ctx.lineTo(gx * m, canvas.height); ctx.stroke(); }
-    // Steine
-    for (const st of s.steine) {
-      const q = B.steinRechteck(st);
-      const bild = steinBild(st.art, st.art === 's' && st.hp === 1);
-      if (st.art === 'g') { ctx.shadowColor = 'rgba(216,176,90,0.7)'; ctx.shadowBlur = 8 * dpr; }
-      ctx.drawImage(bild, q.x * m, q.y * m, q.w * m, q.h * m);
-      ctx.shadowBlur = 0;
-    }
-    // Extras
-    for (const e of s.extras) {
-      const x = e.x * m, y = e.y * m, r = 2.6 * m;
-      ctx.shadowColor = e.art === 'langsam' ? '#6ec6e8' : e.art === 'zwei' ? '#5FE8B4' : '#D8B05A'; ctx.shadowBlur = 10 * dpr;
-      ctx.fillStyle = ctx.shadowColor;
-      ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath(); ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = '#0c1011'; ctx.font = `700 ${Math.round(2.6 * m)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(e.art === 'breit' ? '↔' : e.art === 'zwei' ? '2' : '~', x, y + 0.2 * m);
-    }
-    // Teilchen
-    for (const t of teilchen) {
-      ctx.globalAlpha = Math.max(0, t.leben / t.dauer);
-      ctx.fillStyle = t.farbe;
-      ctx.fillRect((t.x - t.g / 2) * m, (t.y - t.g / 2) * m, t.g * m, t.g * m);
-    }
-    ctx.globalAlpha = 1;
-    // Schild
-    const b = s.schild.breite, sx = (s.schild.x - b / 2) * m, sy = B.SCHILD.y * m, sw = b * m, sh = B.SCHILD.hoehe * m;
-    ctx.shadowColor = 'rgba(216,176,90,0.6)'; ctx.shadowBlur = 12 * dpr;
-    const sg = ctx.createLinearGradient(0, sy, 0, sy + sh);
-    sg.addColorStop(0, '#fff2c4'); sg.addColorStop(0.45, '#d8b05a'); sg.addColorStop(1, '#6e5420');
-    ctx.fillStyle = sg; rund(ctx, sx, sy, sw, sh, sh / 2); ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = 'rgba(60,40,10,0.55)';
-    for (let k = 1; k < 4; k++) { ctx.beginPath(); ctx.arc(sx + sw * k / 4, sy + sh / 2, sh * 0.16, 0, 7); ctx.fill(); }
-    // Kugeln mit Leuchtspur
-    s.kugeln.forEach((k, i) => {
-      const spur = spuren.get(i) || [];
-      spur.forEach((p, j) => {
-        const a = (j + 1) / spur.length;
-        ctx.globalAlpha = a * 0.35;
-        ctx.fillStyle = '#5FE8B4';
-        ctx.beginPath(); ctx.arc(p.x * m, p.y * m, B.RADIUS * m * (0.4 + 0.6 * a), 0, 7); ctx.fill();
-      });
-      ctx.globalAlpha = 1;
-      const x = k.x * m, y = k.y * m, r = B.RADIUS * m;
-      const halo = ctx.createRadialGradient(x, y, 0, x, y, r * 4);
-      halo.addColorStop(0, 'rgba(185,255,226,0.55)'); halo.addColorStop(1, 'rgba(95,232,180,0)');
-      ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(x, y, r * 4, 0, 7); ctx.fill();
-      const kg = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
-      kg.addColorStop(0, '#ffffff'); kg.addColorStop(0.5, '#7ff2c6'); kg.addColorStop(1, '#1E7A5F');
-      ctx.fillStyle = kg; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
-    });
-    // Blitz über allem (Level geschafft)
-    if (blitz > 0) {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      const g = ctx.createRadialGradient(canvas.width / 2, canvas.height * 0.3, 0, canvas.width / 2, canvas.height * 0.3, canvas.height * 0.7);
-      g.addColorStop(0, `rgba(246,223,162,${0.6 * blitz})`); g.addColorStop(1, 'rgba(246,223,162,0)');
-      ctx.fillStyle = g; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
+    szeneMalen(ctx, canvas, { steine: s.steine, extras: s.extras, teilchen, schild: s.schild, kugeln: s.kugeln, spuren, beben, blitz }, { massstab, dpr, steinBild });
     anzeige();
   }
 

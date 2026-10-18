@@ -1,10 +1,16 @@
 // Runenreihen: drei gleiche Runensteine in eine Reihe tauschen (wie die klassischen Edelstein-Spiele).
 // Reine Logik ohne DOM (testbar mit node). Anzeige in runenreihen-ui.js.
 //
-// Stein: { id, a, s }  a = Art 0–5 (Sternrune: -1), s = 0 normal, 1 Funke waagerecht (räumt Zeile), 2 Funke senkrecht (räumt Spalte), 3 Sternrune
+// Stein: { id, a, s, b }  a = Art 0–6 (Sternrune: -1), s = 0 normal, 1 Funke waagerecht (räumt Zeile), 2 Funke senkrecht (räumt Spalte), 3 Sternrune
+// b = 1: gebannt (lässt sich nicht tauschen, bis neben ihm etwas abgeräumt wird)
+//
+// Steigerung ohne Zeitdruck: ab Stufe 3 gebannte Steine, ab Stufe 4 eine siebte Steinsorte,
+// jede zweite Stufe eine Aufgabe statt Punkten (Steine einer Sorte, Funkenrunen, Kette, Befreien).
 
 export const N = 8;
-export const ARTEN = 6;
+export const ARTEN = 7;              // höchstens (die siebte erst ab Stufe 4)
+export const artenFuer = (stufe) => (stufe >= 4 ? 7 : 6);
+export const ART_NAMEN = ['Jade-Kristalle', 'Goldsteine', 'Bernsteine', 'Himmelssteine', 'Amethyste', 'Rubine', 'Mondsteine'];
 export const STERN = 3;
 const PUNKTE_STEIN = 10;
 
@@ -18,8 +24,8 @@ function zufall(s) {
   t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
-const zufallArt = (s) => Math.floor(zufall(s) * ARTEN);
-const neuerStein = (s, a, sp = 0) => ({ id: s.naechsteId++, a, s: sp });
+const zufallArt = (s) => Math.floor(zufall(s) * artenFuer(s.stufe || 1));
+const neuerStein = (s, a, sp = 0) => ({ id: s.naechsteId++, a, s: sp, b: 0 });
 
 export const zeile = (i) => Math.floor(i / N);
 export const spalte = (i) => i % N;
@@ -71,6 +77,7 @@ function hatTreffer(feld, i) {
 export function tauschGueltig(s, a, b) {
   if (a < 0 || b < 0 || a >= N * N || b >= N * N || !nachbarn(a, b)) return false;
   const f = s.feld;
+  if (f[a].b || f[b].b) return false;
   if (f[a].s === STERN || f[b].s === STERN) return true;
   if (f[a].a === f[b].a) return false;
   [f[a], f[b]] = [f[b], f[a]];
@@ -105,9 +112,54 @@ function fuellen(s) {
 }
 
 export function neuesSpiel(startwert = Date.now(), rekord = 0) {
-  const s = { feld: new Array(N * N).fill(null), naechsteId: 1, zufall: startwert >>> 0, punkte: 0, rekord, stufe: 1, stufePunkte: 0, zuege: 0, besteKette: 0 };
+  const s = { feld: new Array(N * N).fill(null), naechsteId: 1, zufall: startwert >>> 0, punkte: 0, rekord, stufe: 1, stufePunkte: 0, zuege: 0, besteKette: 0, aufgabe: null };
   do fuellen(s); while (!zugFinden(s));
+  s.aufgabe = neueAufgabe(s);
   return s;
+}
+
+// ---------- Stufen: Aufgabe, gebannte Steine ----------
+
+// Ungerade Stufen: Punkte sammeln. Gerade Stufen: eine kleine Aufgabe.
+export function neueAufgabe(s) {
+  const st = s.stufe;
+  if (st % 2 === 1) return { typ: 'punkte', ziel: zielPunkte(st), stand: 0 };
+  const moeglich = ['art', 'funken', 'kette'];
+  if (st >= 4 && s.feld.some(x => x && x.b)) moeglich.push('bann', 'bann');
+  const typ = moeglich[Math.floor(zufall(s) * moeglich.length)];
+  if (typ === 'art') return { typ, art: Math.floor(zufall(s) * artenFuer(st)), ziel: Math.min(24, 12 + 2 * Math.floor(st / 2)), stand: 0 };
+  if (typ === 'funken') return { typ, ziel: st < 6 ? 2 : 3, stand: 0 };
+  if (typ === 'kette') return { typ, ziel: st < 6 ? 2 : 3, stand: 0 };
+  return { typ: 'bann', ziel: Math.min(s.feld.filter(x => x && x.b).length, 3 + Math.floor(st / 4)), stand: 0 };
+}
+
+export function aufgabeText(a) {
+  if (!a) return '';
+  switch (a.typ) {
+    case 'punkte': return `Sammle ${a.ziel} Punkte`;
+    case 'art': return `Räume ${a.ziel} ${ART_NAMEN[a.art]} ab`;
+    case 'funken': return `Mache ${a.ziel} Funken- oder Sternrunen`;
+    case 'kette': return `Schaffe eine Kette ×${a.ziel}`;
+    case 'bann': return `Befreie ${a.ziel} gebannte Steine`;
+    default: return '';
+  }
+}
+
+// Zu Beginn einer Stufe (ab Stufe 3) werden einige Steine gebannt
+export const bannZahl = (stufe) => (stufe >= 3 ? Math.min(8, stufe) : 0);
+function bannen(s) {
+  const frei = [];
+  s.feld.forEach((x, i) => { if (x && !x.b && !x.s) frei.push(i); });
+  let n = bannZahl(s.stufe) - s.feld.filter(x => x && x.b).length;
+  const gebannt = [];
+  while (n-- > 0 && frei.length) {
+    const k = Math.floor(zufall(s) * frei.length);
+    const i = frei.splice(k, 1)[0];
+    s.feld[i].b = 1; gebannt.push(i);
+  }
+  // Es muss immer ein Zug möglich bleiben
+  while (!zugFinden(s) && gebannt.length) s.feld[gebannt.pop()].b = 0;
+  return gebannt;
 }
 
 // Steine neu mischen, bis keine Reihe fertig liegt und ein Zug möglich ist
@@ -168,15 +220,43 @@ function fallen(s) {
   return { typ: 'fall', bewegt, neu };
 }
 
-function stufeZaehlen(s, punkte, erg) {
+// Fortschritt der Aufgabe nach einem Abräum-Schritt. info: { punkte, steine: [Arten], spezial: Anzahl, kette, befreit }
+function stufeZaehlen(s, punkte, erg, info = {}) {
   s.punkte += punkte;
-  s.stufePunkte += punkte;
-  while (s.stufePunkte >= zielPunkte(s.stufe)) {
-    s.stufePunkte -= zielPunkte(s.stufe);
+  if (s.punkte > s.rekord) s.rekord = s.punkte;
+  if (!s.aufgabe) s.aufgabe = { typ: 'punkte', ziel: zielPunkte(s.stufe), stand: s.stufePunkte || 0 };
+  const a = s.aufgabe;
+  if (a.typ === 'punkte') a.stand += punkte;
+  else if (a.typ === 'art') a.stand += (info.steine || []).filter(x => x === a.art).length;
+  else if (a.typ === 'funken') a.stand += info.spezial || 0;
+  else if (a.typ === 'kette') a.stand = Math.max(a.stand, info.kette || 0);
+  else if (a.typ === 'bann') a.stand += info.befreit || 0;
+  s.stufePunkte = a.typ === 'punkte' ? a.stand : 0;
+  while (s.aufgabe.stand >= s.aufgabe.ziel) {
+    const uebrig = s.aufgabe.typ === 'punkte' ? s.aufgabe.stand - s.aufgabe.ziel : 0;
     erg.stufen.push(s.stufe);
     s.stufe++;
+    erg.gebannt = [...(erg.gebannt || []), ...bannen(s)];
+    s.aufgabe = neueAufgabe(s);
+    if (s.aufgabe.typ === 'punkte') s.aufgabe.stand = uebrig;
+    s.stufePunkte = s.aufgabe.typ === 'punkte' ? s.aufgabe.stand : 0;
   }
-  if (s.punkte > s.rekord) s.rekord = s.punkte;
+}
+
+// Gebannte Steine neben abgeräumten Feldern werden frei
+function befreien(s, weg) {
+  const frei = [];
+  for (const i of weg) {
+    for (const j of [i - N, i + N, spalte(i) > 0 ? i - 1 : -1, spalte(i) < N - 1 ? i + 1 : -1]) {
+      if (j < 0 || j >= N * N || weg.has(j)) continue;
+      const x = s.feld[j];
+      if (x && x.b) { x.b = 0; frei.push({ id: x.id, zelle: j }); }
+    }
+  }
+  // Gebannte Steine, die selbst abgeräumt werden, zählen auch als befreit
+  let mitgenommen = 0;
+  for (const i of weg) if (s.feld[i] && s.feld[i].b) mitgenommen++;
+  return { frei, zahl: frei.length + mitgenommen };
 }
 
 // Tauschen und alles auflösen. Gibt null zurück, wenn der Tausch nicht geht.
@@ -204,8 +284,9 @@ export function tauschen(s, a, b) {
       weg.add(sterne[0]);
     }
     const punkte = weg.size * PUNKTE_STEIN + 50;
-    erg.schritte.push({ typ: 'weg', zellen: [...weg], ids: [...weg].map(i => f[i].id), kette, punkte, linien, neuSpezial: [] });
-    stufeZaehlen(s, punkte, erg); erg.punkte += punkte;
+    const bf = befreien(s, weg);
+    erg.schritte.push({ typ: 'weg', zellen: [...weg], ids: [...weg].map(i => f[i].id), kette, punkte, linien, neuSpezial: [], befreit: bf.frei });
+    stufeZaehlen(s, punkte, erg, { steine: [...weg].map(i => f[i].a), kette, befreit: bf.zahl }); erg.punkte += punkte;
     for (const i of weg) f[i] = null;
     erg.schritte.push(fallen(s));
   }
@@ -241,15 +322,17 @@ export function tauschen(s, a, b) {
     }
     ausloesen(s, weg, geschuetzt, linien);
     const punkte = weg.size * PUNKTE_STEIN * kette + bonus;
-    const schritt = { typ: 'weg', zellen: [...weg], ids: [...weg].map(i => f[i].id), kette, punkte, linien, neuSpezial: [] };
+    const bf = befreien(s, weg);
+    const schritt = { typ: 'weg', zellen: [...weg], ids: [...weg].map(i => f[i].id), kette, punkte, linien, neuSpezial: [], befreit: bf.frei };
+    const steine = [...weg].map(i => f[i].a);
     for (const { zelle, art } of neuSpezial) {
       const x = f[zelle];
-      x.s = art;
+      x.s = art; x.b = 0;
       if (art === STERN) x.a = -1;
       schritt.neuSpezial.push({ id: x.id, zelle, a: x.a, s: x.s });
     }
     erg.schritte.push(schritt);
-    stufeZaehlen(s, punkte, erg); erg.punkte += punkte;
+    stufeZaehlen(s, punkte, erg, { steine, spezial: neuSpezial.length, kette, befreit: bf.zahl }); erg.punkte += punkte;
     for (const i of weg) f[i] = null;
     erg.schritte.push(fallen(s));
     bevorzugt = [];
@@ -257,6 +340,7 @@ export function tauschen(s, a, b) {
   erg.kette = kette;
   s.besteKette = Math.max(s.besteKette || 0, kette);
 
+  if (erg.gebannt && erg.gebannt.length) erg.schritte.push({ typ: 'gebannt', ids: erg.gebannt.map(i => s.feld[i] && s.feld[i].id).filter(Boolean) });
   if (!zugFinden(s)) {
     mischen(s);
     erg.gemischt = true;
@@ -274,10 +358,12 @@ export function standPruefen(st) {
   if (!st || !Array.isArray(st.feld) || st.feld.length !== N * N) return null;
   for (const x of st.feld) {
     if (!x || typeof x.id !== 'number' || ![0, 1, 2, 3].includes(x.s)) return null;
+    if (x.b !== undefined && x.b !== 0 && x.b !== 1) return null;
     if (x.s === STERN ? x.a !== -1 : !(Number.isInteger(x.a) && x.a >= 0 && x.a < ARTEN)) return null;
   }
   if (!(st.stufe >= 1) || typeof st.punkte !== 'number') return null;
-  const s = { naechsteId: 1, zufall: 1, rekord: 0, stufePunkte: 0, zuege: 0, besteKette: 0, ...st, feld: st.feld.map(x => ({ ...x })) };
+  const s = { naechsteId: 1, zufall: 1, rekord: 0, stufePunkte: 0, zuege: 0, besteKette: 0, ...st, feld: st.feld.map(x => ({ b: 0, ...x })) };
+  if (!s.aufgabe || typeof s.aufgabe.ziel !== 'number') s.aufgabe = { typ: 'punkte', ziel: zielPunkte(s.stufe), stand: s.stufePunkte || 0 };
   s.naechsteId = Math.max(s.naechsteId, ...s.feld.map(x => x.id + 1));
   if (reihenFinden(s.feld).length || !zugFinden(s)) mischen(s);
   return s;
