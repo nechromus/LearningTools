@@ -9,11 +9,12 @@ import * as B from './bloecke.js';
 import { einrichtungLesen } from './einrichtung.js';
 import { kristallmineStarten } from './kristallmine-ui.js';
 import { steinschieberStarten } from './steinschieber-ui.js';
+import { runenfallStarten } from './runenfall-ui.js';
 import * as SP from './splitter.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.2.0';
+export const APP_VERSION = '2.3.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -25,9 +26,11 @@ const $modal = document.getElementById('modal');
 let ansicht = 'start';
 let km = null;               // laufende Kristallmine (wird bei jedem Bildschirmwechsel beendet und gespeichert)
 let ss = null;               // laufender Steinschieber (ebenso)
+let rn = null;               // laufender Runenfall (ebenso)
 function setzeAnsicht(name) {
   if (km) { const k = km; km = null; k.beenden(); }
   if (ss) { const k = ss; ss = null; k.beenden(); }
+  if (rn) { const k = rn; rn = null; k.beenden(); }
   ansicht = name; document.body.dataset.ansicht = name;
 }
 let A = null;                // aktive Aufgabe
@@ -247,7 +250,8 @@ let syncLaeuft = false;
 function splitterKurz() {
   const sp = SP.splitterVon(S.splitter);
   return { stand: sp.stand, gesamt: sp.gesamt, frei: sp.frei, preise: SP.preise(sp), tage: sp.tage, zielTag: sp.zielTag, boni: sp.boni, verlauf: sp.verlauf.slice(0, 60),
-    steinschieber: S.steinschieber ? { level: (S.steinschieber.level || 0) + 1, geschafft: (S.steinschieber.geschafft || []).length } : null };
+    steinschieber: S.steinschieber ? { level: (S.steinschieber.level || 0) + 1, geschafft: (S.steinschieber.geschafft || []).length } : null,
+    runenfall: S.runenfall ? { rekord: Math.max(S.runenfall.rekord || 0, S.runenfall.punkte || 0) } : null };
 }
 
 function standDaten() {
@@ -439,46 +443,132 @@ function anmelden() {
 
 // ---------- Neue Spiele freischalten (Runensplitter) ----------
 
-const SPIEL_START = { steinschieber: () => zeigeSteinschieber() };
+// Alle Spiele: die ersten drei sind immer offen, die übrigen werden mit Runensplittern freigeschaltet
+const SPIEL_INFO = {
+  '2048': { text: 'Steine verschmelzen', start: () => zeigeSpiel() },
+  runenfeld: { text: 'Formen legen', start: () => zeigeRunenfeld() },
+  kristallmine: { text: 'Kristalle sammeln', start: () => zeigeKristallmine() },
+  steinschieber: { text: 'Steine schieben', start: () => zeigeSteinschieber() },
+  runenfall: { text: 'Reihen füllen', start: () => zeigeRunenfallSpiel() },
+  runenreihen: { text: 'Drei gleiche', start: null },
+  hoehlenkarte: { text: 'Fallen finden', start: null },
+  runenbrecher: { text: 'Mauern brechen', start: null },
+  jadeschlange: { text: 'Schlange lenken', start: null }
+};
+const IMMER_OFFEN = [{ id: '2048', name: '2048' }, { id: 'runenfeld', name: 'Runenfeld' }, { id: 'kristallmine', name: 'Kristallmine' }];
+const SPIEL_START = Object.fromEntries(Object.entries(SPIEL_INFO).filter(([, v]) => v.start).map(([k, v]) => [k, v.start]));
 
-function neueSpieleHtml() {
+// Darf dieses Spiel gerade gespielt werden? (Test-Handys: alle fertigen Spiele)
+function spielOffen(id, sp = SP.splitterVon(S.splitter)) {
+  if (IMMER_OFFEN.some(g => g.id === id)) return true;
+  const g = SP.NEUE_SPIELE.find(x => x.id === id);
+  return !!g && g.fertig && !!SPIEL_START[id] && (SP.istFrei(sp, id) || !!S.upload.testgeraet);
+}
+const spielName = (id) => (IMMER_OFFEN.find(g => g.id === id) || SP.NEUE_SPIELE.find(g => g.id === id) || { name: id }).name;
+const letztesOffenes = () => (S.letztesSpiel && spielOffen(S.letztesSpiel) ? S.letztesSpiel : '2048');
+function spielStarten(id) { if (spielOffen(id) && SPIEL_START[id]) SPIEL_START[id](); }
+
+// Kleine Bilder der Spiele (eigene Zeichnungen)
+function spielBild(id, size = 44) {
+  const j = '#5FE8B4', jh = '#B9FFE2', jt = '#1E7A5F', go = '#D8B05A', gh = '#F6DFA2', st = '#3a4644', st2 = '#56645f';
+  const k = (x, y, w, h, f, r = 2) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${f}"/>`;
+  const raute = (cx, cy, r, f) => `<polygon points="${cx},${cy - r} ${cx + r * 0.8},${cy} ${cx},${cy + r} ${cx - r * 0.8},${cy}" fill="${f}"/>`;
+  const bilder = {
+    '2048': k(4, 4, 18, 18, st2) + k(26, 4, 18, 18, jt) + k(4, 26, 18, 18, go) + k(26, 26, 18, 18, j) + `<text x="35" y="39" font-size="9" font-weight="700" text-anchor="middle" fill="#0c1011">2048</text>`,
+    runenfeld: k(6, 6, 11, 11, j) + k(18, 6, 11, 11, j) + k(18, 18, 11, 11, j) + k(6, 30, 11, 11, go) + k(30, 30, 11, 11, go) + k(18, 30, 11, 11, go),
+    kristallmine: k(4, 30, 40, 14, '#3b2f21', 3) + `<circle cx="14" cy="22" r="8" fill="${st2}"/>` + raute(32, 18, 12, j) + raute(32, 18, 5, jh),
+    steinschieber: k(6, 10, 22, 22, '#8c7b5e', 5) + `<path d="M17 15v12M17 21l-5-4M17 21l5-4" stroke="#2a2219" stroke-width="2.5" fill="none"/>` + `<circle cx="38" cy="34" r="7" fill="none" stroke="${j}" stroke-width="2.5"/>` + `<path d="M30 21h10l-3-3m3 3l-3 3" stroke="${gh}" stroke-width="2" fill="none"/>`,
+    runenfall: k(16, 4, 10, 10, '#8569c9') + k(6, 14, 10, 10, '#8569c9') + k(16, 14, 10, 10, '#8569c9') + k(26, 14, 10, 10, '#8569c9') + k(4, 34, 10, 10, j) + k(14, 34, 10, 10, go) + k(24, 34, 10, 10, '#4a8fc0') + k(34, 34, 10, 10, j),
+    runenreihen: raute(12, 24, 9, j) + raute(24, 24, 9, j) + raute(36, 24, 9, j) + raute(24, 8, 6, go) + raute(24, 40, 6, '#c96a45'),
+    hoehlenkarte: [0, 1, 2].map(r => [0, 1, 2].map(c => k(5 + c * 13, 5 + r * 13, 11, 11, (r + c) % 2 ? st : st2))).flat().join('') + `<text x="23.5" y="27" font-size="10" font-weight="700" text-anchor="middle" fill="${jh}">2</text>` + raute(36, 36, 5, go),
+    runenbrecher: [0, 1, 2, 3].map(c => k(3 + c * 11, 6, 9, 6, c % 2 ? go : j)).join('') + [0, 1, 2].map(c => k(8 + c * 11, 14, 9, 6, jt)).join('') + `<circle cx="28" cy="30" r="4" fill="${jh}"/>` + k(12, 40, 22, 4, gh),
+    jadeschlange: `<path d="M8 38 C8 24, 22 30, 24 20 S38 8, 40 10" stroke="${j}" stroke-width="7" fill="none" stroke-linecap="round"/><circle cx="40" cy="10" r="5" fill="${jh}"/>` + raute(12, 12, 5, go)
+  };
+  return `<svg class="spiel-bild" width="${size}" height="${size}" viewBox="0 0 48 48" aria-hidden="true">${bilder[id] || ''}</svg>`;
+}
+
+// Startbildschirm: zuletzt gespieltes Spiel direkt, alle Spiele auf einer eigenen Seite
+function spieleStartHtml() {
   const sp = SP.splitterVon(S.splitter);
-  const test = !!S.upload.testgeraet;
-  const knoepfe = SP.NEUE_SPIELE.filter(g => g.fertig && (SP.istFrei(sp, g.id) || test)).map(g =>
-    `<button class="btn btn-amber-rand neu-spiel-btn" data-act="neuspiel" data-id="${g.id}">${esc(g.name)}${SP.istFrei(sp, g.id) ? '' : '<span class="test-marke">Test · noch nicht freigeschaltet</span>'}</button>`).join('');
+  const id = letztesOffenes();
   const n = SP.naechstes(sp);
-  let karte = '';
-  if (n) {
-    const anteil = Math.min(100, Math.round(sp.stand / Math.max(1, n.preis) * 100));
-    const bereit = n.fehlt === 0 && n.spiel.fertig;
-    const rest = SP.NEUE_SPIELE.length - SP.NEUE_SPIELE.findIndex(g => g.id === n.spiel.id) - 1;
-    karte = `<section class="freischalt-karte${bereit ? ' bereit' : ''}">
-      <div class="silhouette" aria-hidden="true">${splitterSymbol(30)}</div>
-      <div class="freischalt-text">
-        <b>${bereit ? 'Neues Spiel bereit' : 'Nächstes Spiel'}: ${esc(n.spiel.name)}</b>
-        <div class="balken" role="progressbar" aria-valuemin="0" aria-valuemax="${n.preis}" aria-valuenow="${Math.min(sp.stand, n.preis)}"><i style="width:${anteil}%"></i></div>
-        <span class="gedaempft klein">${bereit ? `Kostet ${n.preis} Runensplitter.` : !n.spiel.fertig && n.fehlt === 0 ? 'Genug Splitter! Das Spiel ist noch in Arbeit.' : `Noch ${n.fehlt} Runensplitter · ${sp.stand} von ${n.preis}`}${rest > 0 ? ` · danach noch ${rest} ${rest === 1 ? 'Spiel' : 'Spiele'}` : ''}</span>
-      </div>
-      ${bereit ? `<button class="btn btn-jade-hell" data-act="freischalten" data-id="${n.spiel.id}">Freischalten</button>` : ''}
-    </section>`;
+  const bereit = n && n.fehlt === 0 && n.spiel.fertig;
+  const anteil = n ? Math.min(100, Math.round(sp.stand / Math.max(1, n.preis) * 100)) : 100;
+  return `<div class="spiel-start">
+      <button class="btn btn-amber-rand weiter-spiel" data-act="zumSpiel">${spielBild(id, 40)}<span><span class="klein">Weiter mit</span><b>${esc(spielName(id)).replace('Kristallmine', 'Kristall&shy;mine').replace('Steinschieber', 'Stein&shy;schieber')}</b></span></button>
+      <button class="spiele-knopf${bereit ? ' bereit' : ''}" data-act="spielauswahl">
+        <span class="spiele-knopf-kopf"><b>Alle Spiele</b><span class="splitter-mini">${splitterSymbol(16)}${sp.stand}</span></span>
+        ${n ? `<span class="balken"><i style="width:${anteil}%"></i></span>
+        <span class="klein">${bereit ? `Neues Spiel bereit: ${esc(n.spiel.name)}!` : `Nächstes: ${esc(n.spiel.name)} · noch ${n.fehlt}`}</span>` : '<span class="klein">Alle Spiele frei!</span>'}
+      </button>
+    </div>`;
+}
+
+function spielKarte(g, sp, n) {
+  const offen = spielOffen(g.id, sp);
+  const frei = IMMER_OFFEN.some(x => x.id === g.id) || SP.istFrei(sp, g.id);
+  const info = SPIEL_INFO[g.id] || {};
+  const zuletzt = g.id === letztesOffenes();
+  if (frei) {
+    return `<button class="spiel-karte offen${zuletzt ? ' zuletzt' : ''}" data-act="neuspiel" data-id="${g.id}">
+      ${spielBild(g.id)}<b>${esc(g.name)}</b><span class="klein">${zuletzt ? 'Zuletzt gespielt' : esc(info.text || '')}</span></button>`;
   }
-  return (knoepfe ? `<div class="neue-spiele">${knoepfe}</div>` : '') + karte;
+  const istNaechstes = n && n.spiel.id === g.id;
+  const preis = SP.preise(sp)[SP.NEUE_SPIELE.findIndex(x => x.id === g.id)];
+  const test = offen ? `<button class="spiel-test" data-act="neuspiel" data-id="${g.id}">Test: jetzt spielen</button>` : '';
+  if (istNaechstes) {
+    const anteil = Math.min(100, Math.round(sp.stand / Math.max(1, preis) * 100));
+    const bereit = n.fehlt === 0 && g.fertig;
+    return `<div class="spiel-karte naechstes${bereit ? ' bereit' : ''}">
+      <div class="naechstes-kopf">${spielBild(g.id, 52)}<div><span class="klein">Nächstes Spiel</span><b>${esc(g.name)}</b><span class="klein">${esc(info.text || '')}</span></div></div>
+      <span class="balken" role="progressbar" aria-valuemin="0" aria-valuemax="${preis}" aria-valuenow="${Math.min(sp.stand, preis)}"><i style="width:${anteil}%"></i></span>
+      <span class="klein">${bereit ? `Kostet ${preis} Runensplitter. Du hast genug!` : !g.fertig && n.fehlt === 0 ? 'Genug Splitter! Das Spiel ist noch in Arbeit.' : `Noch ${n.fehlt} Runensplitter · ${sp.stand} von ${preis}`}</span>
+      ${bereit ? `<button class="btn btn-jade-hell" data-act="freischalten" data-id="${g.id}">Freischalten</button>` : ''}${test}
+    </div>`;
+  }
+  return `<div class="spiel-karte zu">
+    <span class="schloss-bild">${spielBild(g.id)}</span><b>${esc(g.name)}</b>
+    <span class="klein">${g.fertig ? `${splitterSymbol(13)} ${preis}` : 'kommt bald'}</span>${test}
+  </div>`;
+}
+
+function zeigeSpieleSeite() {
+  if (ansicht === 'spiel') spielBeenden();
+  setzeAnsicht('spiele');
+  const sp = SP.splitterVon(S.splitter);
+  const n = SP.naechstes(sp);
+  const offen = [...IMMER_OFFEN, ...SP.NEUE_SPIELE.filter(g => SP.istFrei(sp, g.id))];
+  const gesperrt = SP.NEUE_SPIELE.filter(g => !SP.istFrei(sp, g.id));
+  $app.innerHTML = `
+  <div class="screen spiele-seite">
+    <header class="topbar"><button class="btn-text" data-act="start">← Zurück</button><b class="spiele-titel">Spiele</b>
+      <button class="splitter-chip dunkel" data-act="erfolge" aria-label="Runensplitter und Erfolge">${splitterSymbol(22)}<b>${sp.stand}</b></button></header>
+    <div class="spiele-uhr">${zeitSymbol(22)} <b>${L.formatZeit(S.guthaben)}</b> Spielzeit</div>
+    <h2 class="spiele-abschnitt">Deine Spiele</h2>
+    <div class="spiele-gitter">${offen.map(g => spielKarte(g, sp, n)).join('')}</div>
+    ${gesperrt.length ? `<h2 class="spiele-abschnitt">Noch zu entdecken</h2>
+    <p class="spiele-hinweis">Mit Runensplittern aus deinen Aufgaben schaltest du sie nacheinander frei.</p>
+    <div class="spiele-gitter">${gesperrt.map(g => spielKarte(g, sp, n)).join('')}</div>` : ''}
+    ${S.guthaben <= 0 ? '<p class="spiele-hinweis">Keine Spielzeit mehr. Mach ein paar Aufgaben!</p>' : ''}
+    <button class="btn btn-haupt btn-gross" data-act="aufgaben">Aufgaben machen</button>
+  </div>`;
 }
 
 function freischaltenJetzt(id) {
   S.splitter = SP.splitterVon(S.splitter);
   const n = SP.naechstes(S.splitter);
   const e = SP.freischalten(S.splitter, id);
-  if (!e) return zeigeStart();
+  if (!e) return ansicht === 'spiele' ? zeigeSpieleSeite() : zeigeStart();
   protokoll(S, 'freigeschaltet', { spiel: id, preis: n.preis, stand: S.splitter.stand });
   sichern();
   standHochladen(true);
   oeffneModal(`<div class="freischalt-feier"><div class="strahlen" aria-hidden="true"></div>${splitterSymbol(64)}
     <h2 class="modal-titel">${esc(n.spiel.name)} ist frei!</h2>
     <p>Das hast du dir mit deinen Aufgaben verdient.</p>
-    <div class="knopf-reihe"><button class="btn btn-haupt" data-act="neuspiel" data-id="${id}">Jetzt spielen</button><button class="btn" data-act="modalZu">Später</button></div></div>`, () => zeigeStart());
+    <div class="knopf-reihe"><button class="btn btn-haupt" data-act="neuspiel" data-id="${id}">Jetzt spielen</button><button class="btn" data-act="modalZu">Später</button></div></div>`, () => (ansicht === 'spiele' ? zeigeSpieleSeite() : zeigeStart()));
 }
 
+let erfolgeZurueck = 'start';
 function zeigeErfolge() {
   setzeAnsicht('erfolge');
   const sp = SP.splitterVon(S.splitter);
@@ -492,7 +582,7 @@ function zeigeErfolge() {
     ['3 Tage am Stück', 10], ['7 Tage am Stück', 25], ['Aufgabe von früher jetzt gelöst', 2], ['Wartende Aufgabe gelöst', 2], ['Eine Stufe aufgestiegen', 5], ['Thema auf höchster Stufe', 15]];
   $app.innerHTML = `
   <div class="screen erfolge">
-    <header class="topbar"><button class="btn-text" data-act="start">← Zurück</button><b>Erfolge</b><span></span></header>
+    <header class="topbar"><button class="btn-text" data-act="${erfolgeZurueck}">← Zurück</button><b>Erfolge</b><span></span></header>
     <section class="splitter-gross">${splitterSymbol(52)}<div><div class="guthaben-zahl">${sp.stand}</div><div class="gedaempft">Runensplitter · insgesamt ${sp.gesamt} verdient</div></div></section>
     <section class="info-karte">
       <div class="info-zeile"><span>Tage am Stück mit Tagesziel</span><b>${tage}</b></div>
@@ -536,12 +626,7 @@ function zeigeStart() {
     </section>` : ''}
 
     <button class="btn btn-haupt btn-gross" data-act="aufgaben">${S.wartet ? 'Weiter mit deiner Aufgabe' : 'Aufgaben machen'}</button>
-    <div class="spiel-wahl drei">
-      <button class="btn btn-amber-rand btn-gross" data-act="spielen">2048</button>
-      <button class="btn btn-amber-rand btn-gross" data-act="runenfeld">Runenfeld</button>
-      <button class="btn btn-amber-rand btn-gross" data-act="kristallmine">Kristall&shy;mine</button>
-    </div>
-    ${neueSpieleHtml()}
+    ${spieleStartHtml()}
 
     <section class="info-karte">
       <div class="info-zeile"><span>Heute geschafft</span><b>${S.tag.aufgaben} ${S.tag.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}</b></div>
@@ -1414,7 +1499,7 @@ function zeigeSpiel() {
     <div class="spiel-zeile">
       <span>Rekord <b id="rekord">${S.spiel.rekord}</b></span>
       <span>Höchster Stein <b id="maxk">${S.spiel.maxKachel || 0}</b></span>
-      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="neuesSpiel">Neu</button><button class="btn-text klein" data-act="runenfeld">Runenfeld</button><button class="btn-text klein" data-act="kristallmine">Mine</button></span>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="neuesSpiel">Neu</button><button class="btn-text klein" data-act="spielauswahl">Spiele</button></span>
     </div>
     <div class="brett-rahmen" id="rahmen">
       <span class="orn o1"></span><span class="orn o2"></span><span class="orn o3"></span><span class="orn o4"></span>
@@ -1611,7 +1696,7 @@ function overlay(html) {
 function overlayPruefen() {
   if (S.guthaben <= 0) {
     overlay(`<div class="overlay-titel">Spielzeit ist um</div><p>Dein Spiel bleibt gespeichert.</p><button class="btn btn-jade" data-act="aufgaben">Aufgaben machen</button>`);
-  } else if (spielSitzung && (spielSitzung.art === 'kristallmine' || spielSitzung.art === 'steinschieber')) {
+  } else if (spielSitzung && ['kristallmine', 'steinschieber', 'runenfall'].includes(spielSitzung.art)) {
     // eigene Tafeln im Spiel
   } else if (spielSitzung && spielSitzung.art === 'runenfeld') {
     if (S.bloecke && B.spielVorbei(S.bloecke.feld, S.bloecke.teile)) overlay(`<div class="overlay-titel">Kein Platz mehr</div><p>${S.bloecke.punkte} Punkte. Ein neues Spiel kostet nichts.</p><button class="btn btn-jade" data-act="runenfeldNeuJetzt">Neues Spiel</button>`);
@@ -1625,6 +1710,7 @@ function spielTick() {
   if (document.querySelector('#spiel-overlay .overlay')) return;
   if (km && km.ruht()) return;
   if (ss && ss.ruht()) return;
+  if (rn && rn.ruht()) return;
   S.guthaben = Math.max(0, S.guthaben - 1);
   if (spielSitzung) spielSitzung.sekunden++;
   const el = $id('spielzeit');
@@ -1632,7 +1718,7 @@ function spielTick() {
   const uhr = $id('uhr');
   if (uhr) uhr.classList.toggle('knapp', S.guthaben < 60);
   if (S.guthaben % 10 === 0) sichern();
-  if (S.guthaben <= 0) { if (km) km.anhalten(); spielBeenden(); overlayPruefen(); }
+  if (S.guthaben <= 0) { if (km) km.anhalten(); if (rn) rn.anhalten(); spielBeenden(); overlayPruefen(); }
 }
 
 function spielBeenden() {
@@ -1641,6 +1727,9 @@ function spielBeenden() {
   else if (spielSitzung.art === 'kristallmine') {
     const k = (km && km.stand()) || S.kristallmine || {};
     protokoll(S, 'spiel_ende', { spiel: 'kristallmine', sekunden: spielSitzung.sekunden, punkte: k.punkte || 0, hoehle: (k.hoehle || 0) + 1, rest: S.guthaben });
+  } else if (spielSitzung.art === 'runenfall') {
+    const k = (rn && rn.stand()) || S.runenfall || {};
+    protokoll(S, 'spiel_ende', { spiel: 'runenfall', sekunden: spielSitzung.sekunden, punkte: k.punkte || 0, reihen: k.reihen || 0, rekord: k.rekord || 0, rest: S.guthaben });
   } else if (spielSitzung.art === 'steinschieber') {
     const k = (ss && ss.stand()) || S.steinschieber || {};
     protokoll(S, 'spiel_ende', { spiel: 'steinschieber', sekunden: spielSitzung.sekunden, level: (k.level || 0) + 1, geschafft: (k.geschafft || []).length, rest: S.guthaben });
@@ -1705,7 +1794,7 @@ function zeigeRunenfeld() {
     </header>
     <div class="spiel-zeile">
       <span>Rekord <b id="rekord">${S.bloecke.rekord || 0}</b></span>
-      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="runenfeldNeu">Neu</button><button class="btn-text klein" data-act="spielen">2048</button><button class="btn-text klein" data-act="kristallmine">Mine</button></span>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="runenfeldNeu">Neu</button><button class="btn-text klein" data-act="spielauswahl">Spiele</button></span>
     </div>
     <div class="brett-rahmen" id="rahmen">
       <span class="orn o1"></span><span class="orn o2"></span><span class="orn o3"></span><span class="orn o4"></span>
@@ -1740,7 +1829,7 @@ function zeigeKristallmine() {
     <header class="topbar spiel-kopf">
       <button class="btn-text" data-act="spielZurueck">← Zurück</button>
       <div class="rune-uhr${S.guthaben < 60 ? ' knapp' : ''}" id="uhr"><span class="uhr-ring"></span><span id="spielzeit">${L.formatZeit(S.guthaben)}</span></div>
-      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="spielen">2048</button><button class="btn-text klein" data-act="runenfeld">Runenfeld</button></span>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="spielauswahl">Spiele</button></span>
     </header>
     <div class="km-huelle" id="km-huelle"></div>
     <div class="km-overlay" id="spiel-overlay"></div>
@@ -1771,7 +1860,7 @@ function zeigeSteinschieber() {
     <header class="topbar spiel-kopf">
       <button class="btn-text" data-act="spielZurueck">← Zurück</button>
       <div class="rune-uhr${S.guthaben < 60 ? ' knapp' : ''}" id="uhr"><span class="uhr-ring"></span><span id="spielzeit">${L.formatZeit(S.guthaben)}</span></div>
-      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="spielen">2048</button><button class="btn-text klein" data-act="kristallmine">Mine</button></span>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="spielauswahl">Spiele</button></span>
     </header>
     <div class="km-huelle" id="ss-huelle"></div>
     <div class="km-overlay" id="spiel-overlay"></div>
@@ -1779,6 +1868,37 @@ function zeigeSteinschieber() {
   ss = steinschieberStarten($id('ss-huelle'), {
     stand: S.steinschieber,
     sichern: (st) => { S.steinschieber = st; sichern(); },
+    melden: (typ, daten) => { protokoll(S, typ, daten); sichern(); },
+    darfLaufen: () => S.guthaben > 0 && ansicht === 'spiel' && !document.querySelector('#spiel-overlay .overlay')
+  });
+  overlayPruefen();
+}
+
+// ---------- Runenfall (zweites freischaltbares Spiel, Logik in runenfall.js / runenfall-ui.js) ----------
+
+function zeigeRunenfallSpiel() {
+  setzeAnsicht('spiel');
+  S.letztesSpiel = 'runenfall';
+  if (S.serie.pos) { protokoll(S, 'serie_ende', { laenge: S.serie.pos }); S.serie.pos = 0; }
+  if (spielSitzung && spielSitzung.art !== 'runenfall') spielBeenden();
+  if (!spielSitzung) {
+    spielSitzung = { start: Date.now(), sekunden: 0, art: 'runenfall' };
+    protokoll(S, 'spiel_start', { guthaben: S.guthaben, spiel: 'runenfall', test: !SP.istFrei(SP.splitterVon(S.splitter), 'runenfall') || undefined });
+  }
+  sichern();
+  $app.innerHTML = `
+  <div class="screen spiel-screen kristallmine-screen">
+    <header class="topbar spiel-kopf">
+      <button class="btn-text" data-act="spielZurueck">← Zurück</button>
+      <div class="rune-uhr${S.guthaben < 60 ? ' knapp' : ''}" id="uhr"><span class="uhr-ring"></span><span id="spielzeit">${L.formatZeit(S.guthaben)}</span></div>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="spielauswahl">Spiele</button></span>
+    </header>
+    <div class="km-huelle" id="rn-huelle"></div>
+    <div class="km-overlay" id="spiel-overlay"></div>
+  </div>`;
+  rn = runenfallStarten($id('rn-huelle'), {
+    stand: S.runenfall,
+    sichern: (st) => { S.runenfall = st; sichern(); },
     melden: (typ, daten) => { protokoll(S, typ, daten); sichern(); },
     darfLaufen: () => S.guthaben > 0 && ansicht === 'spiel' && !document.querySelector('#spiel-overlay .overlay')
   });
@@ -2271,19 +2391,17 @@ function klick(e) {
     case 'spielen':
       zeigeSpiel(); break;
     case 'zumSpiel':
-      if (S.letztesSpiel === 'runenfeld') zeigeRunenfeld();
-      else if (S.letztesSpiel === 'kristallmine') zeigeKristallmine();
-      else if (SPIEL_START[S.letztesSpiel]) SPIEL_START[S.letztesSpiel]();
-      else zeigeSpiel();
+      spielStarten(letztesOffenes());
       break;
     case 'kristallmine':
       zeigeKristallmine(); break;
-    case 'erfolge': zeigeErfolge(); break;
+    case 'erfolge': erfolgeZurueck = ansicht === 'spiele' ? 'spielauswahl' : 'start'; if (ansicht === 'spiel') spielBeenden(); zeigeErfolge(); break;
+    case 'spielauswahl': zeigeSpieleSeite(); break;
     case 'freischalten': freischaltenJetzt(el.dataset.id); break;
     case 'neuspiel': {
       const id = el.dataset.id, sp = SP.splitterVon(S.splitter);
       if ($modal.classList.contains('offen')) { modalSchliessen = null; schliesseModal(); }
-      if (SPIEL_START[id] && (SP.istFrei(sp, id) || S.upload.testgeraet)) SPIEL_START[id]();
+      if (sp) spielStarten(id);
       break;
     }
     case 'runenfeld':

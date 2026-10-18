@@ -4,7 +4,7 @@
 // Neue Spiele in der Reihenfolge, in der sie freigeschaltet werden (Wunsch Vater)
 export const NEUE_SPIELE = [
   { id: 'steinschieber', name: 'Steinschieber', fertig: true },
-  { id: 'runenfall', name: 'Runenfall', fertig: false },
+  { id: 'runenfall', name: 'Runenfall', fertig: true },
   { id: 'runenreihen', name: 'Runenreihen', fertig: false },
   { id: 'hoehlenkarte', name: 'Höhlenkarte', fertig: false },
   { id: 'runenbrecher', name: 'Runenbrecher', fertig: false },

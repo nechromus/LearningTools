@@ -10,7 +10,7 @@ import * as SP from '../js/splitter.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.12.0';
+export const ELTERN_VERSION = '1.13.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -388,6 +388,8 @@ function spielZeile(sp, gewaehlt) {
   if (sp.maxKachel) info.push(`höchster Stein ${sp.maxKachel}`);
   const hoehlen = sp.events.filter(e => e.typ === 'km_hoehle' && e.ergebnis === 'geschafft').length;
   const level = sp.events.filter(e => e.typ === 'ss_level').length;
+  const runden = sp.events.filter(e => e.typ === 'rn_spiel');
+  if (sp.spiel === 'runenfall' && runden.length) info.push(`${runden.length} ${runden.length === 1 ? 'Runde' : 'Runden'}, beste ${A.punkteText(Math.max(...runden.map(e => e.punkte || 0)))} Punkte`);
   if (sp.spiel === 'steinschieber') info.push(level ? `${level} Level geschafft` : (sp.ende && sp.ende.level ? `bei Level ${sp.ende.level}` : ''));
   if (sp.spiel === 'kristallmine') info.push(hoehlen ? `${hoehlen} ${hoehlen === 1 ? 'Höhle' : 'Höhlen'} geschafft` : (sp.hoehle ? `in Höhle ${sp.hoehle}` : ''));
   const neu = sp.events.filter(e => e.typ === 'spiel_neu').length;
@@ -643,7 +645,7 @@ function splitterSeite() {
   const zeit = (iso) => new Date(iso).toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' }) + ' ' + uhr(iso);
   const stand = sp ? `<section class="info-box">
       <p><b>${sp.stand} Runensplitter</b> · insgesamt ${sp.gesamt} verdient</p>
-      <p class="klein">Tagesziel (10 Aufgaben) an ${sp.tage && sp.tage.zahl ? sp.tage.zahl : 0} Tagen am Stück${sp.tage && sp.tage.letzter ? `, zuletzt am ${new Date(sp.tage.letzter + 'T12:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' })}` : ''}.${sp.steinschieber ? ` Steinschieber: ${sp.steinschieber.geschafft} von 30 Level geschafft.` : ''}</p>
+      <p class="klein">Tagesziel (10 Aufgaben) an ${sp.tage && sp.tage.zahl ? sp.tage.zahl : 0} Tagen am Stück${sp.tage && sp.tage.letzter ? `, zuletzt am ${new Date(sp.tage.letzter + 'T12:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' })}` : ''}.${sp.steinschieber ? ` Steinschieber: ${sp.steinschieber.geschafft} von 30 Level geschafft.` : ''}${sp.runenfall ? ` Runenfall: Rekord ${A.punkteText(sp.runenfall.rekord)} Punkte.` : ''}</p>
       <p class="klein gedaempft">Stand vom ${wann(st.stand)}.</p></section>`
     : `<section class="info-box"><p>Von ${esc(name())} kam noch kein Stand mit Runensplittern. Die App ab Version 2.2.0 schickt ihn mit.</p></section>`;
   const spiele = SP.NEUE_SPIELE.map((g, i) => {

@@ -592,16 +592,8 @@ textarea { font-family: ui-monospace, monospace; font-size: 14px; margin-bottom:
 .splitter-symbol { filter: drop-shadow(0 0 4px rgba(95, 232, 180, 0.7)); flex-shrink: 0; }
 .splitter-gewinn { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 8px; margin: 6px 0; font-weight: 700; color: #1E7A5F; }
 .splitter-gewinn span { flex-basis: 100%; text-align: center; font-weight: 400; font-size: 14px; color: var(--gedaempft); }
-.neue-spiele { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.neu-spiel-btn { font-size: 18px; padding: 14px 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.test-marke { font-size: 11px; font-weight: 400; color: var(--gedaempft); }
-.freischalt-karte { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: linear-gradient(160deg, #1d2526, #151b1c); color: #E8F1EC; border: 1px solid #3F5450; }
-.freischalt-karte .silhouette { width: 52px; height: 52px; flex-shrink: 0; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, #23332f, #121718); border: 1px dashed #5FE8B4; opacity: 0.8; }
-.freischalt-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.freischalt-text .gedaempft { color: #9fb3ab; }
-.balken { height: 10px; border-radius: 6px; background: #0c1011; border: 1px solid #2c3a37; overflow: hidden; }
+.balken { display: block; height: 10px; border-radius: 6px; background: #0c1011; border: 1px solid #2c3a37; overflow: hidden; }
 .balken i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, #1E7A5F, #5FE8B4); box-shadow: 0 0 8px rgba(95, 232, 180, 0.7); }
-.freischalt-karte.bereit { border-color: #D8B05A; box-shadow: 0 0 18px rgba(216, 176, 90, 0.45); animation: bereit-glimmen 1.6s ease-in-out infinite; }
 @keyframes bereit-glimmen { 50% { box-shadow: 0 0 28px rgba(216, 176, 90, 0.75); } }
 .btn-jade-hell { background: linear-gradient(160deg, #2a9c76, #1E7A5F); border: 1px solid #5FE8B4; color: #fff; font-weight: 700; border-radius: 12px; padding: 12px 14px; white-space: nowrap; }
 .freischalt-feier { position: relative; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; overflow: hidden; padding-top: 8px; }
@@ -615,5 +607,54 @@ textarea { font-family: ui-monospace, monospace; font-size: 14px; margin-bottom:
 .erfolg-zeile:first-child { border-top: 0; }
 .erfolg-n { font-weight: 700; color: #1E7A5F; text-align: right; }
 .erfolg-n.minus { color: var(--gedaempft); }
-@media (prefers-reduced-motion: reduce) { .freischalt-karte.bereit, .freischalt-feier .strahlen { animation: none; } }
-.freischalt-karte .btn-jade-hell { flex: 1 0 100%; min-height: 50px; font-size: 18px; }
+
+
+/* Spiele: Start-Knöpfe und eigene Seite im dunklen Jade-Stil */
+.spiel-start { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.weiter-spiel { display: flex; align-items: center; gap: 10px; padding: 12px; text-align: left; min-height: 76px; }
+.weiter-spiel > span { display: flex; flex-direction: column; min-width: 0; }
+.weiter-spiel b { font-size: 18px; line-height: 1.15; overflow-wrap: anywhere; -webkit-hyphens: auto; hyphens: auto; }
+.weiter-spiel .klein { font-size: 13px; font-weight: 400; }
+.spiele-knopf { display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 10px 12px; border-radius: 14px; text-align: left; cursor: pointer;
+  background: linear-gradient(160deg, #1d2526, #151b1c); color: #E8F1EC; border: 1px solid #3F5450; box-shadow: 0 0 14px rgba(95, 232, 180, 0.15); font: inherit; }
+.spiele-knopf-kopf { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.spiele-knopf-kopf b { font-size: 18px; color: #B9FFE2; }
+.spiele-knopf .klein { font-size: 13px; color: #9fb3ab; line-height: 1.25; }
+.spiele-knopf.bereit { border-color: #D8B05A; animation: bereit-glimmen 1.6s ease-in-out infinite; }
+.spiele-knopf.bereit .klein { color: #F6DFA2; font-weight: 700; }
+.splitter-mini { display: inline-flex; align-items: center; gap: 3px; font-weight: 700; color: #B9FFE2; font-size: 15px; }
+.spiel-bild { flex-shrink: 0; filter: drop-shadow(0 0 4px rgba(95, 232, 180, 0.35)); }
+
+body[data-ansicht="spiele"] { background: radial-gradient(ellipse at 50% 0%, #172022 0%, #0e1213 60%, #070909 100%) fixed, #0b0e0f; color: #E8F1EC; }
+.spiele-seite { gap: 12px; padding-bottom: calc(var(--unten, 0px) + 20px); }
+.spiele-seite .btn-text { color: #5FE8B4; }
+.spiele-titel { font-family: Cinzel, serif; font-size: 22px; color: #F6DFA2; text-shadow: 0 0 10px rgba(216, 176, 90, 0.4); }
+.splitter-chip.dunkel { margin: 0; background: #16231F; border-color: #2f6b58; color: #B9FFE2; }
+.spiele-uhr { display: flex; align-items: center; gap: 8px; color: #9fb3ab; font-size: 15px; }
+.spiele-uhr b { color: #F6DFA2; font-size: 18px; }
+.spiele-abschnitt { margin: 8px 0 0; font-family: Cinzel, serif; font-size: 17px; color: #B9FFE2; }
+.spiele-hinweis { margin: -4px 0 0; color: #9fb3ab; font-size: 14px; }
+.spiele-gitter { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.spiel-karte { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 8px 12px; border-radius: 14px; text-align: center;
+  background: linear-gradient(160deg, #1d2526, #151b1c); border: 1px solid #3F5450; color: #E8F1EC; font: inherit; }
+.spiel-karte b { font-size: 17px; }
+.spiel-karte .klein { font-size: 13px; color: #9fb3ab; display: inline-flex; align-items: center; gap: 4px; }
+.spiel-karte.offen { cursor: pointer; box-shadow: 0 0 14px rgba(95, 232, 180, 0.12); }
+.spiel-karte.offen:active { transform: scale(0.98); }
+.spiel-karte.zuletzt { border-color: #5FE8B4; box-shadow: 0 0 18px rgba(95, 232, 180, 0.35); }
+.spiel-karte.zuletzt .klein { color: #B9FFE2; }
+.spiel-karte.zu { opacity: 0.75; }
+.spiel-karte.zu .schloss-bild { position: relative; filter: grayscale(1) brightness(0.55); }
+.spiel-karte.zu .schloss-bild::after { content: ''; position: absolute; right: -6px; bottom: -2px; width: 16px; height: 13px; border-radius: 3px; background: #8FA39B;
+  box-shadow: 0 -7px 0 -3px transparent; }
+.spiel-karte.zu .schloss-bild::before { content: ''; position: absolute; right: -3px; bottom: 8px; width: 10px; height: 10px; border: 2.5px solid #8FA39B; border-bottom: 0; border-radius: 7px 7px 0 0; box-sizing: border-box; }
+.spiel-karte.naechstes { grid-column: 1 / -1; align-items: stretch; text-align: left; gap: 8px; padding: 14px; border-color: #5FE8B4; box-shadow: 0 0 20px rgba(95, 232, 180, 0.22); }
+.naechstes-kopf { display: flex; align-items: center; gap: 12px; }
+.naechstes-kopf > div { display: flex; flex-direction: column; }
+.naechstes-kopf b { font-size: 20px; color: #B9FFE2; }
+.spiel-karte.naechstes.bereit { border-color: #D8B05A; animation: bereit-glimmen 1.6s ease-in-out infinite; }
+.spiel-karte.naechstes .btn-jade-hell { min-height: 50px; font-size: 18px; }
+.spiel-test { margin-top: 4px; padding: 6px 10px; border-radius: 10px; background: none; border: 1px dashed #5FE8B4; color: #B9FFE2; font: inherit; font-size: 13px; cursor: pointer; }
+.spiele-seite .btn-haupt { margin-top: 6px; }
+@media (prefers-reduced-motion: reduce) { .spiele-knopf.bereit, .spiel-karte.naechstes.bereit, .freischalt-feier .strahlen { animation: none; } }
+.modal-box .modal-x { z-index: 3; }

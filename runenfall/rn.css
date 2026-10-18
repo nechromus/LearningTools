@@ -1,0 +1,61 @@
+/* Runenfall: baut auf den Grundstilen der Kristallmine auf (.km), eigene Regeln unter .rnf */
+.rnf .kopf .knopf.klein { flex: 0 0 auto; min-height: 36px; padding: 0 14px; }
+.rnf .chip b { margin-left: 4px; font-variant-numeric: tabular-nums; }
+.rnf .rn-buehne { flex: 1 1 auto; min-height: 0; display: flex; gap: 8px; }
+.rnf .rn-buehne .feld-rahmen { flex: 1 1 auto; background: radial-gradient(ellipse at 50% 40%, #121819, #090c0d 80%); }
+.rnf .rn-brett, .rnf .rn-effekte { position: absolute; left: 0; top: 0; }
+.rnf .rn-brett { display: grid; gap: 1px; }
+.rnf .rn-effekte { width: calc(var(--g) * 10 + 10px); height: calc(var(--g) * 20 + 20px); pointer-events: none; z-index: 3; }
+.rnf .rn-seite { flex: 0 0 64px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 4px; }
+.rnf .rn-klein { font-size: 12px; color: var(--matt); text-align: center; }
+.rnf .rn-rekord { font-family: Cinzel, serif; color: var(--gold-hell); font-size: 15px; }
+.rnf .rn-vorschau { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 8px 6px; width: 100%; box-sizing: border-box; border-radius: 10px; background: #0d1112; border: 1px solid var(--rand); margin-bottom: 8px; }
+.rnf .rn-mini { display: grid; gap: 1px; width: 48px; }
+.rnf .rn-mini.zweit { width: 34px; opacity: 0.6; }
+.rnf .rn-mini i { display: block; aspect-ratio: 1; border-radius: 3px; position: relative; }
+
+/* Zellen */
+.rnf .rz { position: relative; border-radius: 3px; background: rgba(255, 255, 255, 0.025); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02); }
+.rnf .rz { --c1: #9fb0a8; --c2: #4c5a55; --c3: #2a3330; --glanz: rgba(255, 255, 255, 0.35); }
+.rnf .rz[class*=" f"] {
+  background: linear-gradient(150deg, var(--c1), var(--c2) 55%, var(--c3)); box-shadow: inset 1.5px 1.5px 0 var(--glanz), inset -1.5px -2px 0 rgba(0, 0, 0, 0.45), 0 0 6px var(--leuchten, transparent); }
+.rnf .rz[class*=" f"]::after { content: ''; position: absolute; inset: 30%; background: rgba(255, 255, 255, 0.55); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); opacity: 0.7; }
+.rnf .rz.f1 { --c1: #8ff5d2; --c2: #2a9c76; --c3: #155a45; --leuchten: rgba(95, 232, 180, 0.45); }
+.rnf .rz.f2 { --c1: #ffe6a8; --c2: #c9a04a; --c3: #6e5420; --leuchten: rgba(216, 176, 90, 0.4); }
+.rnf .rz.f3 { --c1: #d9c2ff; --c2: #8569c9; --c3: #45346e; --leuchten: rgba(168, 139, 232, 0.4); }
+.rnf .rz.f4 { --c1: #b6f0a0; --c2: #5e9e45; --c3: #2f5522; --leuchten: rgba(140, 220, 110, 0.35); }
+.rnf .rz.f5 { --c1: #ffc2a8; --c2: #c96a45; --c3: #6e3320; --leuchten: rgba(232, 130, 90, 0.4); }
+.rnf .rz.f6 { --c1: #b2e6ff; --c2: #4a8fc0; --c3: #234c6b; --leuchten: rgba(110, 198, 232, 0.4); }
+.rnf .rz.f7 { --c1: #ffd0a0; --c2: #d08a3c; --c3: #6e4318; --leuchten: rgba(224, 138, 60, 0.4); }
+.rnf .rz.aktiv { --leuchten: rgba(255, 255, 255, 0.35); z-index: 1; }
+.rnf .rz.aktiv::after { opacity: 1; }
+.rnf .rz.geist { background: none; box-shadow: inset 0 0 0 1.5px rgba(185, 255, 226, 0.35); }
+.rnf .rz.geist::after { content: ''; position: absolute; inset: 3px; border-radius: 2px; background: rgba(95, 232, 180, 0.06); }
+.rnf .rz.landet { animation: rn-landen 0.32s ease-out; }
+@keyframes rn-landen { 0% { filter: brightness(1.9); } 100% { filter: none; } }
+
+/* Effekte */
+.rnf .rn-strahl { position: absolute; left: -6px; right: -6px; height: var(--g); border-radius: 4px;
+  background: linear-gradient(90deg, transparent, rgba(185, 255, 226, 0.95) 20%, #ffffff 50%, rgba(185, 255, 226, 0.95) 80%, transparent);
+  box-shadow: 0 0 22px rgba(95, 232, 180, 0.9); animation: rn-strahl 0.7s ease-out forwards; }
+.rnf .rn-strahl.gold { background: linear-gradient(90deg, transparent, rgba(246, 223, 162, 0.95) 20%, #fff 50%, rgba(246, 223, 162, 0.95) 80%, transparent); box-shadow: 0 0 28px rgba(216, 176, 90, 1); }
+@keyframes rn-strahl { 0% { opacity: 1; transform: scaleY(1.1); } 100% { opacity: 0; transform: scaleY(0.1); } }
+.rnf .rn-funken { position: absolute; left: 0; width: 100%; height: 0; }
+.rnf .rn-funken span { position: absolute; top: 0; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: #E9FFF6; box-shadow: 0 0 6px #5FE8B4; animation: rn-funke 0.9s ease-out forwards; }
+@keyframes rn-funke { from { transform: translate(0, 0); opacity: 1; } to { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+.rnf .rn-plus { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; white-space: nowrap; animation: rn-plus 1.3s ease-out forwards;
+  font-family: Cinzel, serif; font-weight: 700; color: #E9FFF6; text-shadow: 0 0 12px #5FE8B4, 0 2px 0 #0c1011; }
+.rnf .rn-plus b { font-size: 22px; color: var(--gold-hell); text-shadow: 0 0 14px #D8B05A, 0 2px 0 #0c1011; }
+.rnf .rn-plus span { font-size: 18px; }
+.rnf .rn-plus.gross b { font-size: 30px; }
+.rnf .rn-plus.stufe b { font-size: 26px; color: var(--jade-hell); text-shadow: 0 0 14px #5FE8B4, 0 2px 0 #0c1011; }
+@keyframes rn-plus { 0% { opacity: 0; transform: translate(-50%, -30%) scale(0.7); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -120%) scale(1); } }
+
+/* Tasten */
+.rnf .rn-steuer { display: grid; grid-template-columns: repeat(4, 1fr) 1.3fr; gap: 6px; touch-action: none; }
+.rnf .rn-steuer .taste { min-height: 58px; border-radius: 14px; background: linear-gradient(160deg, #2a3436, #1d2425); border: 1px solid var(--rand); color: var(--jade-hell); font-size: 24px; font-weight: 700; -webkit-user-select: none; user-select: none; }
+.rnf .rn-steuer .taste.breit { color: var(--gold-hell); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rnf .rz.landet { animation: none; }
+}
