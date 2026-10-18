@@ -1,5 +1,5 @@
 // Kristallmine (Testseite): Anzeige, Steuerung und Ablauf. Regeln in ../js/kristallmine.js
-import * as K from '../js/kristallmine.js?v=1.9.6';
+import * as K from '../js/kristallmine.js?v=1.9.7';
 
 const SPEICHER = 'kristallmine-test-v1';
 const LEBEN_START = 3;
@@ -232,6 +232,32 @@ function haltung(alt, richtung) {
     figur.classList.add('drueckt', 'lauf-' + richtung);
   }
 }
+
+// Glühwürmchen: tauchen im sichtbaren Bereich auf (gern bei Kristallen), schweben ein Stück und verblassen
+let wuermchenZahl = 0;
+function wuermchen() {
+  const eff = $('effekte');
+  if (!eff || !s || document.hidden || wuermchenZahl >= 14 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const vw = rahmen.clientWidth, vh = rahmen.clientHeight, sp = g + 1;
+  let x = kamera.x + Math.random() * vw, y = kamera.y + Math.random() * vh;
+  const kristalle = [...lichter.keys()].filter(i => s.feld[i] === '*');
+  if (kristalle.length && Math.random() < 0.45) {
+    const i = kristalle[Math.floor(Math.random() * kristalle.length)];
+    x = (i % s.w) * sp + g / 2 + (Math.random() - 0.5) * g * 1.6;
+    y = Math.floor(i / s.w) * sp + g / 2 + (Math.random() - 0.5) * g * 1.6;
+  }
+  const d = document.createElement('div');
+  d.className = 'wuermchen' + (Math.random() < 0.3 ? ' gold' : '') + (Math.random() < 0.4 ? ' klein' : '');
+  const dauer = 3 + Math.random() * 3;
+  d.style.left = x + 'px'; d.style.top = y + 'px';
+  d.style.setProperty('--dx', ((Math.random() - 0.5) * g * 1.8).toFixed(1) + 'px');
+  d.style.setProperty('--dy', (-(0.3 + Math.random()) * g).toFixed(1) + 'px');
+  d.style.setProperty('--dauer', dauer.toFixed(2) + 's');
+  eff.appendChild(d);
+  wuermchenZahl++;
+  setTimeout(() => { d.remove(); wuermchenZahl--; }, dauer * 1000 + 100);
+}
+setInterval(() => { if (Math.random() < 0.7) wuermchen(); }, 380);
 
 function spur(r, c) {
   const eff = $('effekte');
