@@ -1,5 +1,5 @@
 // Kristallmine (Testseite): Anzeige, Steuerung und Ablauf. Regeln in ../js/kristallmine.js
-import * as K from '../js/kristallmine.js?v=1.9.7';
+import * as K from '../js/kristallmine.js?v=1.9.8';
 
 const SPEICHER = 'kristallmine-test-v1';
 const LEBEN_START = 3;
@@ -259,15 +259,25 @@ function wuermchen() {
 }
 setInterval(() => { if (Math.random() < 0.7) wuermchen(); }, 380);
 
+// Leuchtspur aus Fünkchen: auf dem verlassenen Feld tauchen ein paar Glühwürmchen auf und verblassen
 function spur(r, c) {
   const eff = $('effekte');
   if (!eff || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const d = document.createElement('div');
-  d.className = 'spur';
-  d.style.left = (c * (g + 1) + g / 2) + 'px';
-  d.style.top = (r * (g + 1) + g / 2) + 'px';
-  eff.appendChild(d);
-  setTimeout(() => d.remove(), 3300);
+  const sp = g + 1;
+  const n = 3 + (Math.random() < 0.5 ? 1 : 0);
+  for (let k = 0; k < n; k++) {
+    const d = document.createElement('div');
+    d.className = 'wuermchen spur-funke' + (Math.random() < 0.4 ? ' gold' : '') + (Math.random() < 0.5 ? ' klein' : '');
+    const dauer = 1.8 + Math.random() * 1.6;
+    d.style.left = (c * sp + g / 2 + (Math.random() - 0.5) * g * 0.9) + 'px';
+    d.style.top = (r * sp + g / 2 + (Math.random() - 0.5) * g * 0.9) + 'px';
+    d.style.setProperty('--dx', ((Math.random() - 0.5) * g * 1.1).toFixed(1) + 'px');
+    d.style.setProperty('--dy', (-(0.2 + Math.random() * 0.8) * g).toFixed(1) + 'px');
+    d.style.setProperty('--dauer', dauer.toFixed(2) + 's');
+    d.style.animationDelay = (Math.random() * 0.25).toFixed(2) + 's';
+    eff.appendChild(d);
+    setTimeout(() => d.remove(), (dauer + 0.4) * 1000);
+  }
 }
 
 function extraLeben() {
