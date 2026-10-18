@@ -48,6 +48,7 @@ function hoehleStarten() {
   const eff = document.createElement('div');
   eff.className = 'effekte'; eff.id = 'effekte';
   frag.appendChild(eff);
+  lichter = new Map();
   figur = document.createElement('div');
   figur.className = 'sprite figur erscheint';
   figur.innerHTML = '<div class="koerper"><div class="in"></div></div><div class="laterne"></div>';
@@ -55,6 +56,7 @@ function hoehleStarten() {
   welt.appendChild(frag);
   welt.style.transition = 'none'; figur.style.transition = 'none';
   zeichnen(true);
+  lichterAbgleichen();
   figurSetzen();
   kameraSetzen();
   requestAnimationFrame(() => requestAnimationFrame(() => { welt.style.transition = ''; figur.style.transition = ''; }));
@@ -179,12 +181,40 @@ function schritt() {
   haltung(alt, richtung);
   if (s.punkte !== vorher) extraLeben();
   zeichnen();
+  lichterAbgleichen();
   bewegungenGleiten();
   figurSetzen();
   kameraSetzen();
   for (const e of ev) effekt(e);
   anzeige();
   if (s.ende) ende();
+}
+
+// Kristalle (und der offene Ausgang) leuchten ihre Umgebung an. Die Lichter wandern mit, wenn Kristalle fallen.
+let lichter = new Map();
+function lichtEl(i, art) {
+  const d = document.createElement('div');
+  d.className = 'licht-' + art;
+  d.style.transform = lichtPos(i);
+  d.style.animationDelay = (-(i * 0.37) % 3) + 's';
+  $('effekte').appendChild(d);
+  return d;
+}
+const lichtPos = (i) => `translate(${(i % s.w) * (g + 1) + g / 2}px, ${Math.floor(i / s.w) * (g + 1) + g / 2}px)`;
+function lichterAbgleichen() {
+  if (!$('effekte')) return;
+  for (const { von, nach } of s.bewegt || []) {
+    const d = lichter.get(von);
+    if (d && s.feld[nach] === '*') { lichter.delete(von); lichter.set(nach, d); d.style.transform = lichtPos(nach); }
+  }
+  for (const [i, d] of lichter) {
+    const soll = d.classList.contains('licht-tor') ? 'E' : '*';
+    if (s.feld[i] !== soll) { lichter.delete(i); d.classList.add('aus'); setTimeout(() => d.remove(), 700); }
+  }
+  s.feld.forEach((ch, i) => {
+    if (ch === '*' && !lichter.has(i)) lichter.set(i, lichtEl(i, 'kristall'));
+    if (ch === 'E' && K.offen(s) && !lichter.has(i)) lichter.set(i, lichtEl(i, 'tor'));
+  });
 }
 
 // Figur lehnt sich in die Bewegung und hinterlässt eine verblassende Leuchtspur
@@ -211,7 +241,7 @@ function spur(r, c) {
   d.style.left = (c * (g + 1) + g / 2) + 'px';
   d.style.top = (r * (g + 1) + g / 2) + 'px';
   eff.appendChild(d);
-  setTimeout(() => d.remove(), 1500);
+  setTimeout(() => d.remove(), 3300);
 }
 
 function extraLeben() {
@@ -370,19 +400,38 @@ document.addEventListener('keydown', (e) => {
 });
 document.addEventListener('keyup', (e) => { if (TASTEN[e.key] === gehalten) gehalten = null; });
 
-// Steuerkreuz: gedrückt halten
-for (const b of document.querySelectorAll('.taste')) {
-  b.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    try { b.setPointerCapture(e.pointerId); } catch (x) { /* egal */ }
-    gehalten = b.dataset.r; einmal = b.dataset.r;
-    b.classList.add('an');
-  });
-  const los = () => { if (gehalten === b.dataset.r) gehalten = null; b.classList.remove('an'); };
-  b.addEventListener('pointerup', los);
-  b.addEventListener('pointercancel', los);
-  b.addEventListener('lostpointercapture', los);
+// Steuerkreuz: antippen und halten, oder aus der Mitte heraus in eine Richtung ziehen
+const kreuz = $('kreuz');
+let kreuzZug = null;
+function kreuzRichtung(e) {
+  const b = kreuz.getBoundingClientRect();
+  const dx = e.clientX - (b.left + b.width / 2), dy = e.clientY - (b.top + b.height / 2);
+  const zoom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--zoom')) || 1;
+  if (Math.hypot(dx, dy) / zoom < 12) return null; // tote Mitte
+  return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'rechts' : 'links') : (dy > 0 ? 'runter' : 'hoch');
 }
+function kreuzZeigen(r) {
+  for (const t of kreuz.querySelectorAll('.taste')) t.classList.toggle('an', t.dataset.r === r);
+}
+kreuz.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  try { kreuz.setPointerCapture(e.pointerId); } catch (x) { /* egal */ }
+  kreuzZug = e.pointerId;
+  const r = kreuzRichtung(e);
+  if (r) { gehalten = r; einmal = r; }
+  kreuzZeigen(r);
+});
+kreuz.addEventListener('pointermove', (e) => {
+  if (kreuzZug !== e.pointerId) return;
+  const r = kreuzRichtung(e);
+  if (r && r !== gehalten) einmal = r;
+  gehalten = r;
+  kreuzZeigen(r);
+});
+const kreuzEnde = (e) => { if (kreuzZug !== e.pointerId) return; kreuzZug = null; gehalten = null; kreuzZeigen(null); };
+kreuz.addEventListener('pointerup', kreuzEnde);
+kreuz.addEventListener('pointercancel', kreuzEnde);
+kreuz.addEventListener('lostpointercapture', kreuzEnde);
 
 // Auf dem Feld ziehen: wirkt wie ein Stick, solange der Finger liegt
 let zug = null;
