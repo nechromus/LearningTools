@@ -6,10 +6,11 @@ import { THEMA_NAMEN, GEN_NAMEN } from '../js/namen.js';
 import { esc, mathe, bildSvg } from '../js/render.js';
 import * as A from './auswertung.js';
 import * as P from '../js/paket.js';
+import * as SP from '../js/splitter.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.11.0';
+export const ELTERN_VERSION = '1.12.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -265,6 +266,7 @@ function seiteHtml() {
     case 'einstellungen': return einstellungenSeite();
     case 'spielzeit': return spielzeitSeite();
     case 'gewichte': return gewichteSeite();
+    case 'splitter': return splitterSeite();
     case 'pakete': return paketeSeite();
     case 'paket': return paketSeite(route.arg);
     case 'qr': return qrSeite();
@@ -385,6 +387,8 @@ function spielZeile(sp, gewaehlt) {
   if (sp.punkte != null) info.push(`${A.punkteText(sp.punkte)} Punkte`);
   if (sp.maxKachel) info.push(`höchster Stein ${sp.maxKachel}`);
   const hoehlen = sp.events.filter(e => e.typ === 'km_hoehle' && e.ergebnis === 'geschafft').length;
+  const level = sp.events.filter(e => e.typ === 'ss_level').length;
+  if (sp.spiel === 'steinschieber') info.push(level ? `${level} Level geschafft` : (sp.ende && sp.ende.level ? `bei Level ${sp.ende.level}` : ''));
   if (sp.spiel === 'kristallmine') info.push(hoehlen ? `${hoehlen} ${hoehlen === 1 ? 'Höhle' : 'Höhlen'} geschafft` : (sp.hoehle ? `in Höhle ${sp.hoehle}` : ''));
   const neu = sp.events.filter(e => e.typ === 'spiel_neu').length;
   if (neu) info.push(`${neu}-mal neu begonnen`);
@@ -605,6 +609,7 @@ function einstellungenSeite() {
       <label class="einstell-zeile"><span>Aufgabenpaket</span><select id="e-paket">${optPaket}</select></label>
       <a class="einstell-zeile" href="#gewichte"><span>Themen und Gewichte</span><span class="wert">${gewichteKurz(w.gewichte)}</span>${svg('weiter', 16)}</a>
       <div class="einstell-zeile"><span>Geschenkte Spielzeit</span><span class="zwei-felder"><label><span class="unsichtbar">ab</span><select id="e-von">${stunden(w.basisVon)}</select></label><span>bis</span><label><span class="unsichtbar">bis</span><select id="e-bis">${stunden(w.basisBis)}</select></label></span></div>
+      <a class="einstell-zeile" href="#splitter"><span>Runensplitter und neue Spiele</span><span class="wert">${splitterKurzText()}</span>${svg('weiter', 16)}</a>
       <a class="einstell-zeile" href="#spielzeit"><span>Spielzeit pro Aufgabe</span><span class="wert">${w.spielzeit.staffel.map(zahlText).join(' / ')} Min.</span>${svg('weiter', 16)}</a>
       <label class="einstell-zeile"><span>Freiwilliger Taschenrechner<span class="klein gedaempft block">bei großen Zahlen, kostet Spielzeit</span></span><input type="checkbox" class="schalter" id="e-rechner"${w.rechnerAngebot ? ' checked' : ''}></label>
     </section>
@@ -618,6 +623,57 @@ function einstellungenSeite() {
     <section class="karte liste-karte"><a class="einstell-zeile" href="#pakete"><span>Aufgabenpakete verwalten<span class="klein gedaempft block">anlegen, ändern, mit Claude erstellen</span></span>${svg('weiter', 16)}</a>
       <a class="einstell-zeile" href="#qr"><span>Handy mit QR-Code einrichten<span class="klein gedaempft block">nach dem Löschen der App oder für ein neues Handy</span></span>${svg('weiter', 16)}</a></section>
     ${schluesselKarte()}
+  </div>`;
+}
+
+// ---------- Runensplitter und neue Spiele ----------
+
+function splitterKurzText() {
+  const st = neuesterStand(), sp = st && st.splitter;
+  if (!sp) return 'noch keine Daten';
+  return `${sp.stand} Splitter · ${sp.frei.length} von ${SP.NEUE_SPIELE.length} frei`;
+}
+
+function splitterSeite() {
+  const w = entwurfHolen().splitter;
+  const st = neuesterStand(), sp = st && st.splitter;
+  const frei = new Set([...(sp ? sp.frei : []), ...w.frei]);
+  const angekommen = new Set(sp ? sp.boni || [] : []);
+  const offeneBoni = w.boni.filter(b => !angekommen.has(b.id));
+  const zeit = (iso) => new Date(iso).toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' }) + ' ' + uhr(iso);
+  const stand = sp ? `<section class="info-box">
+      <p><b>${sp.stand} Runensplitter</b> · insgesamt ${sp.gesamt} verdient</p>
+      <p class="klein">Tagesziel (10 Aufgaben) an ${sp.tage && sp.tage.zahl ? sp.tage.zahl : 0} Tagen am Stück${sp.tage && sp.tage.letzter ? `, zuletzt am ${new Date(sp.tage.letzter + 'T12:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' })}` : ''}.${sp.steinschieber ? ` Steinschieber: ${sp.steinschieber.geschafft} von 30 Level geschafft.` : ''}</p>
+      <p class="klein gedaempft">Stand vom ${wann(st.stand)}.</p></section>`
+    : `<section class="info-box"><p>Von ${esc(name())} kam noch kein Stand mit Runensplittern. Die App ab Version 2.2.0 schickt ihn mit.</p></section>`;
+  const spiele = SP.NEUE_SPIELE.map((g, i) => {
+    const istFrei = frei.has(g.id), vonHand = w.frei.includes(g.id) && !(sp && sp.frei.includes(g.id));
+    return `<div class="einstell-block baukasten-zeile"><div class="baukasten-kopf">
+      <span class="gewicht-name"><b>${i + 1}. ${esc(g.name)}</b> <span class="klein ${istFrei ? 'gruen' : 'gedaempft'}">${istFrei ? (vonHand ? 'wird freigeschaltet' : 'freigeschaltet') : g.fertig ? 'gesperrt' : 'kommt bald'}</span></span>
+      ${stepper('splitterPreis', `data-i="${i}"`, `${w.preise[i]} Splitter`, 'Preis ' + g.name)}</div>
+      ${!istFrei ? `<div class="baukasten-haeufig"><button class="knopf-text klein" data-act="splitterFrei" data-id="${g.id}">Ohne Splitter freischalten</button></div>` : ''}
+    </div>`;
+  }).join('');
+  const verlauf = sp && sp.verlauf && sp.verlauf.length ? sp.verlauf.slice(0, 30).map(e => `<div class="gewicht-zeile"><span class="gewicht-name">${esc(e.text)}</span><span class="klein ${e.n < 0 ? 'gedaempft' : 'gruen'}">${e.n > 0 ? '+' : ''}${e.n}</span><span class="klein gedaempft">${zeit(e.t)}</span></div>`).join('') : '<p class="klein gedaempft">Noch nichts.</p>';
+  return `<div class="seite schmal-inhalt">
+    <a class="zurueck" href="#einstellungen">${svg('zurueck', 20)}Einstellungen</a>
+    <h1>Runensplitter für ${esc(name())}</h1>
+    ${stand}
+    <h2 class="abschnitt">Neue Spiele und Preise</h2>
+    <p class="klein gedaempft">Die Spiele werden der Reihe nach freigeschaltet. Der Preis gilt für das jeweilige Spiel. Auf Test-Handys kann man alle fertigen Spiele schon ausprobieren.</p>
+    <section class="karte liste-karte">${spiele}</section>
+    ${JSON.stringify(w.preise) !== JSON.stringify(SP.PREISE_STANDARD) ? '<button class="knopf-text" data-act="splitterPreiseStandard">Preise zurücksetzen</button>' : ''}
+    <h2 class="abschnitt">Bonus schenken</h2>
+    <section class="karte klein-karte">
+      <div class="zwei-felder"><label class="feld">Splitter<input id="b-n" type="number" min="1" max="500" value="10" inputmode="numeric"></label>
+      <label class="feld breit-feld">Grund<input id="b-text" type="text" maxlength="60" placeholder="z. B. Super Woche!"></label></div>
+      <button class="knopf" data-act="splitterBonus">Bonus vormerken</button>
+      ${offeneBoni.length ? `<p class="klein amber">Wird gesendet: ${offeneBoni.map(b => `+${b.n} ${esc(b.text)}`).join(', ')}</p>` : ''}
+    </section>
+    ${speicherLeiste()}
+    <h2 class="abschnitt">Verlauf</h2>
+    <p class="klein gedaempft">Einzelne gelöste Aufgaben (+1) sind hier zusammen mit den besonderen Erfolgen aufgeführt.</p>
+    <section class="karte liste-karte">${verlauf}</section>
   </div>`;
 }
 
@@ -1087,6 +1143,20 @@ document.addEventListener('click', (ev) => {
       const ziel = Number(el.dataset.d) > 0 ? Math.floor(jetzt * 2 + 1e-9) / 2 + 0.5 : Math.ceil(jetzt * 2 - 1e-9) / 2 - 0.5;
       minutenSetzen(feld, ziel); meldung = null; zeichne(); break;
     }
+    case 'splitterPreis': {
+      const i = Number(el.dataset.i), p = entwurf.splitter.preise.slice();
+      p[i] = Math.max(0, Math.min(5000, p[i] + Number(el.dataset.d) * 10));
+      entwurf.splitter.preise = p; meldung = null; zeichne(); break;
+    }
+    case 'splitterPreiseStandard': entwurf.splitter.preise = SP.PREISE_STANDARD.slice(); meldung = null; zeichne(); break;
+    case 'splitterFrei': if (!entwurf.splitter.frei.includes(el.dataset.id)) entwurf.splitter.frei = [...entwurf.splitter.frei, el.dataset.id]; meldung = null; zeichne(); break;
+    case 'splitterBonus': {
+      const n = Math.round(Number(document.getElementById('b-n').value));
+      const text = document.getElementById('b-text').value.trim() || 'von den Eltern';
+      if (!(n > 0 && n <= 500)) { meldung = { art: 'fehler', text: 'Bitte 1 bis 500 Splitter eintragen.' }; zeichne(); break; }
+      entwurf.splitter.boni = [...entwurf.splitter.boni, { id: 'b' + Date.now().toString(36), n, text }];
+      meldung = null; zeichne(); break;
+    }
     case 'anteil': entwurf.spielzeit[el.dataset.k] = Number(el.dataset.v); meldung = null; zeichne(); break;
     case 'gewicht': {
       const t = el.dataset.t, v = Number(el.dataset.w), pk = paketVon(entwurf.paket.id);
@@ -1215,7 +1285,7 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Enter' && ev.target.classList && ev.target.classList.contains('min-feld')) ev.target.blur();
 });
 
-window.addEventListener('hashchange', () => { if (location.hash.includes('einrichten=')) return linkPruefen(); leseRoute(); if (route.seite !== 'qr') qr = { name: '', token: '', link: '', art: 'kind' }; meldung = ['einstellungen', 'spielzeit', 'gewichte', 'pakete'].includes(route.seite) ? meldung : null; zeichne(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', () => { if (location.hash.includes('einrichten=')) return linkPruefen(); leseRoute(); if (route.seite !== 'qr') qr = { name: '', token: '', link: '', art: 'kind' }; meldung = ['einstellungen', 'spielzeit', 'gewichte', 'pakete', 'splitter'].includes(route.seite) ? meldung : null; zeichne(); window.scrollTo(0, 0); });
 breit.addEventListener('change', zeichne);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && Date.now() - letztePruefung > 60 * 1000) updatePruefen();

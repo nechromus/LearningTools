@@ -2,6 +2,7 @@
 import { tagKey, potenzWert, SPIELZEIT_STANDARD, spielzeitRegeln } from '../js/logic.js';
 import { THEMA_NAMEN, FEHLER_NAMEN, GEN_NAMEN } from '../js/namen.js';
 import * as P from '../js/paket.js';
+import * as SP from '../js/splitter.js';
 
 const ZU_AUFGABE = new Set(['versuch', 'versuch_wiederholt', 'tipp_bestaetigt', 'hinweis', 'rechner', 'rechner_offen',
   'rechner_angeboten', 'rechner_optional', 'verlassen', 'sprung', 'loesung_gezeigt', 'bonus_teil_uebersprungen', 'hilfe']);
@@ -63,7 +64,7 @@ export function spieleAus(eintraege, geraet = '') {
     }
     if (!offen) continue;
     if (e.typ === 'spiel_ende') { offen.events.push(e); schliessen(e); continue; }
-    if (['spiel_meilenstein', 'spiel_vorbei', 'spiel_neu', 'km_hoehle'].includes(e.typ)) { offen.events.push(e); continue; }
+    if (['spiel_meilenstein', 'spiel_vorbei', 'spiel_neu', 'km_hoehle', 'ss_level'].includes(e.typ)) { offen.events.push(e); continue; }
     // Etwas anderes passiert (z. B. Aufgabe begonnen), ohne dass das Spiel beendet wurde: Sitzung endet hier
     if (e.typ === 'aufgabe_start') schliessen(null);
   }
@@ -77,7 +78,7 @@ export function alleSpiele(eintraegeProGeraet) {
   return out.sort((a, b) => a.start.t < b.start.t ? -1 : 1);
 }
 
-export const SPIEL_NAMEN = { '2048': '2048', runenfeld: 'Runenfeld', kristallmine: 'Kristallmine' };
+export const SPIEL_NAMEN = { '2048': '2048', runenfeld: 'Runenfeld', kristallmine: 'Kristallmine', steinschieber: 'Steinschieber' };
 const KM_ERGEBNIS = { geschafft: 'geschafft', treffer: 'getroffen', zeit: 'Zeit der Höhle um', neu: 'neu begonnen' };
 const KM_GRUND = { stein: 'von einem Stein getroffen', kristall: 'von einem Kristall getroffen', gluehwurm: 'Glühwurm berührt', schmetterling: 'Schmetterling berührt', explosion: 'in eine Explosion geraten' };
 export const punkteText = (n) => n == null ? '' : Number(n).toLocaleString('de-DE');
@@ -97,6 +98,11 @@ export function spielZeitleiste(sp) {
         p.titel = `Höhle ${e.hoehle}${e.name ? ' · ' + e.name : ''}: ${(e.ergebnis === 'treffer' && KM_GRUND[e.grund || 'stein']) || KM_ERGEBNIS[e.ergebnis] || e.ergebnis}`;
         p.text = [e.kristalle != null ? `${e.kristalle} Kristalle` : '', e.ergebnis === 'geschafft' && e.punkte != null ? `${punkteText(e.punkte)} Punkte` : '', e.ergebnis !== 'geschafft' && e.leben != null ? `noch ${e.leben} Leben` : ''].filter(Boolean).join(' · ');
         p.art = e.ergebnis === 'geschafft' ? 'ok' : 'info';
+        break;
+      case 'ss_level':
+        p.titel = `Level ${e.level}${e.name ? ' · ' + e.name : ''} geschafft`;
+        p.text = [`${e.schuebe} Schübe${e.optimal != null ? (e.schuebe <= e.optimal ? ' (bestmöglich)' : ` (bestmöglich ${e.optimal})`) : ''}`, e.zurueck ? `${e.zurueck}-mal zurück` : '', e.tipps ? `${e.tipps} ${e.tipps === 1 ? 'Tipp' : 'Tipps'}` : '', e.erstmals === false ? 'wiederholt' : ''].filter(Boolean).join(' · ');
+        p.art = 'ok';
         break;
       case 'spiel_neu': p.titel = 'Neues Spiel begonnen'; p.text = e.altePunkte != null ? `vorher ${punkteText(e.altePunkte)} Punkte` : ''; break;
       case 'spiel_ende': p.titel = 'Spiel verlassen'; p.text = [`${minutenText(e.sekunden)} gespielt`, e.rest != null ? `Spielzeit danach ${minutenText(e.rest)}` : ''].filter(Boolean).join(' · '); p.art = 'ok'; break;
@@ -325,7 +331,19 @@ export function startWerte(einst, stand, paketVon = () => null) {
     rechnerAngebot: w.rechnerAngebot ?? (e.rechnerAngebot !== false),
     spielzeit: spielzeitRegeln(w.spielzeit || (stand && stand.spielzeit) || SPIELZEIT_STANDARD),
     genStufen,
+    splitter: splitterWerte(w.splitter, stand),
     ...paketTeil(w, stand, e, paketVon)
+  };
+}
+
+// Runensplitter-Einstellungen: Preise der neuen Spiele, Boni und von Hand freigeschaltete Spiele
+export function splitterWerte(w, stand) {
+  const st = (stand && stand.splitter) || {};
+  const ok = (p) => Array.isArray(p) && p.length === SP.NEUE_SPIELE.length;
+  return {
+    preise: ok(w && w.preise) ? w.preise.slice() : ok(st.preise) ? st.preise.slice() : SP.PREISE_STANDARD.slice(),
+    boni: (w && Array.isArray(w.boni) ? w.boni : []).map(b => ({ ...b })),
+    frei: (w && Array.isArray(w.frei) ? w.frei : []).slice()
   };
 }
 
@@ -347,7 +365,8 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
   for (const g of geaenderteStufen) genStufen[g] = { stufe: werte.genStufen[g], v: version };
   return {
     app: 'lernapp-2048-eltern', version, geaendert: jetzt.toISOString(),
-    werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, spielzeit: spielzeitRegeln(werte.spielzeit), genStufen }
+    werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, spielzeit: spielzeitRegeln(werte.spielzeit), genStufen,
+      ...(werte.splitter ? { splitter: { preise: werte.splitter.preise, boni: werte.splitter.boni.slice(-50), frei: werte.splitter.frei } } : {}) }
   };
 }
 

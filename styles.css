@@ -584,3 +584,36 @@ textarea { font-family: ui-monospace, monospace; font-size: 14px; margin-bottom:
 .km-overlay { position: fixed; inset: 0; z-index: 40; pointer-events: none; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .km-overlay .overlay { position: relative; inset: auto; pointer-events: auto; width: 100%; max-width: 340px; border: 1px solid #D8B05A; box-shadow: 0 0 30px rgba(216, 176, 90, 0.35); }
 .km-overlay:empty { display: none; }
+
+/* Runensplitter und neue Spiele */
+.guthaben-karte { position: relative; }
+.splitter-chip { margin-left: auto; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 22px; border: 1.5px solid #2f8f70; background: #E6F7F0; color: #0E4A4F; font-size: 20px; cursor: pointer; }
+.splitter-chip b { font-variant-numeric: tabular-nums; }
+.splitter-symbol { filter: drop-shadow(0 0 4px rgba(95, 232, 180, 0.7)); flex-shrink: 0; }
+.splitter-gewinn { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 8px; margin: 6px 0; font-weight: 700; color: #1E7A5F; }
+.splitter-gewinn span { flex-basis: 100%; text-align: center; font-weight: 400; font-size: 14px; color: var(--gedaempft); }
+.neue-spiele { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.neu-spiel-btn { font-size: 18px; padding: 14px 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.test-marke { font-size: 11px; font-weight: 400; color: var(--gedaempft); }
+.freischalt-karte { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: linear-gradient(160deg, #1d2526, #151b1c); color: #E8F1EC; border: 1px solid #3F5450; }
+.freischalt-karte .silhouette { width: 52px; height: 52px; flex-shrink: 0; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, #23332f, #121718); border: 1px dashed #5FE8B4; opacity: 0.8; }
+.freischalt-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.freischalt-text .gedaempft { color: #9fb3ab; }
+.balken { height: 10px; border-radius: 6px; background: #0c1011; border: 1px solid #2c3a37; overflow: hidden; }
+.balken i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, #1E7A5F, #5FE8B4); box-shadow: 0 0 8px rgba(95, 232, 180, 0.7); }
+.freischalt-karte.bereit { border-color: #D8B05A; box-shadow: 0 0 18px rgba(216, 176, 90, 0.45); animation: bereit-glimmen 1.6s ease-in-out infinite; }
+@keyframes bereit-glimmen { 50% { box-shadow: 0 0 28px rgba(216, 176, 90, 0.75); } }
+.btn-jade-hell { background: linear-gradient(160deg, #2a9c76, #1E7A5F); border: 1px solid #5FE8B4; color: #fff; font-weight: 700; border-radius: 12px; padding: 12px 14px; white-space: nowrap; }
+.freischalt-feier { position: relative; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; overflow: hidden; padding-top: 8px; }
+.freischalt-feier .strahlen { position: absolute; left: 50%; top: 40px; width: 300px; height: 300px; margin: -150px 0 0 -150px; border-radius: 50%; background: repeating-conic-gradient(rgba(95, 232, 180, 0.22) 0 10deg, transparent 10deg 30deg); -webkit-mask: radial-gradient(circle, #000 20%, transparent 70%); mask: radial-gradient(circle, #000 20%, transparent 70%); animation: strahlen-drehen 8s linear infinite; pointer-events: none; }
+.freischalt-feier > * { position: relative; }
+@keyframes strahlen-drehen { to { transform: rotate(360deg); } }
+.splitter-gross { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 14px; background: #E6F7F0; border: 1.5px solid #2f8f70; }
+.abschnitt-titel { font-size: 18px; margin: 10px 0 0; }
+.erfolg-liste { display: flex; flex-direction: column; gap: 0; padding: 4px 14px; }
+.erfolg-zeile { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center; padding: 9px 0; border-top: 1px solid #E7E3D6; }
+.erfolg-zeile:first-child { border-top: 0; }
+.erfolg-n { font-weight: 700; color: #1E7A5F; text-align: right; }
+.erfolg-n.minus { color: var(--gedaempft); }
+@media (prefers-reduced-motion: reduce) { .freischalt-karte.bereit, .freischalt-feier .strahlen { animation: none; } }
+.freischalt-karte .btn-jade-hell { flex: 1 0 100%; min-height: 50px; font-size: 18px; }

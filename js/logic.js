@@ -542,6 +542,8 @@ export function rechnerOptional(a) {
 // Wendet daten/<name>/einstellungen.json auf den Zustand an (nur wenn die Version neuer ist).
 // Baukasten-Stufen werden nur übernommen, wenn sie in einer neueren Version geändert wurden,
 // damit die App sie zwischendurch weiter selbst anpassen kann.
+import { splitterVon, fernAnwenden as fernSplitter } from './splitter.js';
+
 export function fernAnwenden(z, datei) {
   const alt = (z.fern && z.fern.version) || 0;
   if (!datei || typeof datei !== 'object' || !(Number(datei.version) > alt)) return null;
@@ -577,6 +579,11 @@ export function fernAnwenden(z, datei) {
       z.genStufen[g] = { stufe, folge: 0 };
       geaendert.push('stufe:' + g);
     }
+  }
+  // Runensplitter: Preise, Bonus, von Hand freigeschaltete Spiele
+  if (w.splitter && typeof w.splitter === 'object') {
+    z.splitter = splitterVon(z.splitter);
+    if (fernSplitter(z.splitter, w.splitter).length) geaendert.push('splitter');
   }
   z.fern = { ...(z.fern || {}), version: Number(datei.version), geaendert: datei.geaendert || null, angewendet: new Date().toISOString() };
   return geaendert;
