@@ -86,3 +86,51 @@
 @media (prefers-reduced-motion: reduce) {
   .hk .hz.offen.neu, .hk .hz.gesetzt::after { animation: none; }
 }
+
+/* ---------- Geheimnisvoll und ein bisschen gruselig ---------- */
+.hk .feld-rahmen { background: radial-gradient(ellipse at 50% 45%, #121a1b 0%, #080b0c 60%, #030405 100%); }
+.hk .hk-brett { z-index: 2; }
+/* Dunkelheit mit Fackellicht um das zuletzt angetippte Feld */
+.hk .hk-dunkel { position: absolute; inset: 0; z-index: 3; pointer-events: none; mix-blend-mode: multiply; transition: --lx 0.4s, --ly 0.4s;
+  background: radial-gradient(circle var(--lr, 140px) at var(--lx, 50%) var(--ly, 50%), rgb(255, 222, 170) 0%, rgb(225, 210, 185) 30%, rgb(150, 160, 165) 65%, rgb(105, 115, 122) 100%);
+  animation: hk-flackern 2.8s ease-in-out infinite; }
+@keyframes hk-flackern { 0%, 100% { opacity: 1; } 20% { opacity: 0.93; } 45% { opacity: 1; } 60% { opacity: 0.9; } 75% { opacity: 0.97; } }
+/* Nebel zieht langsam vorbei */
+.hk .hk-nebel { position: absolute; inset: 0; z-index: 4; pointer-events: none; overflow: hidden; }
+.hk .hk-nebel i { position: absolute; width: 90%; height: 45%; border-radius: 50%; filter: blur(18px); opacity: 0.22;
+  background: radial-gradient(ellipse, rgba(170, 200, 190, 0.55), transparent 70%); animation: hk-nebel 26s linear infinite; }
+.hk .hk-nebel i:nth-child(1) { top: 5%; animation-delay: -4s; }
+.hk .hk-nebel i:nth-child(2) { top: 40%; animation-duration: 34s; animation-delay: -18s; opacity: 0.16; }
+.hk .hk-nebel i:nth-child(3) { top: 70%; animation-duration: 30s; animation-delay: -10s; }
+@keyframes hk-nebel { from { transform: translateX(-100%); } to { transform: translateX(120%); } }
+/* Augen in der Dunkelheit */
+.hk .hk-augen { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+.hk .hk-auge-paar { position: absolute; display: flex; gap: 7px; animation: hk-augen 4.2s ease-in-out forwards; }
+.hk .hk-auge-paar i { width: 7px; height: 4px; border-radius: 50% 50% 40% 40%; background: #F6C46A; box-shadow: 0 0 6px 2px rgba(246, 196, 106, 0.55); animation: hk-blinzeln 4.2s ease-in-out forwards; }
+.hk .hk-auge-paar.jade i { background: #9ff5d0; box-shadow: 0 0 6px 2px rgba(95, 232, 180, 0.55); }
+@keyframes hk-augen { 0% { opacity: 0; } 15%, 80% { opacity: 0.85; } 100% { opacity: 0; } }
+@keyframes hk-blinzeln { 0%, 40%, 46%, 100% { transform: scaleY(1); } 43% { transform: scaleY(0.1); } }
+/* Irrlicht */
+.hk .hk-irrlicht { position: absolute; left: -20px; width: 9px; height: 9px; border-radius: 50%; background: #d8fff0;
+  box-shadow: 0 0 10px 4px rgba(95, 232, 180, 0.6), 0 0 26px 10px rgba(95, 232, 180, 0.2); animation: hk-irr 9s ease-in-out forwards; }
+.hk .hk-irrlicht.rueck { animation-name: hk-irr-rueck; }
+@keyframes hk-irr { 0% { transform: translate(0, 0); opacity: 0; } 10% { opacity: 0.9; } 50% { transform: translate(55vw, var(--hub)); } 90% { opacity: 0.8; } 100% { transform: translate(110vw, 0); opacity: 0; } }
+@keyframes hk-irr-rueck { 0% { transform: translate(110vw, 0); opacity: 0; } 10% { opacity: 0.9; } 50% { transform: translate(55vw, var(--hub)); } 90% { opacity: 0.8; } 100% { transform: translate(0, 0); opacity: 0; } }
+/* Rune glimmt auf einem verdeckten Stein */
+.hk .hk-rune { position: absolute; width: var(--g); height: var(--g); pointer-events: none; animation: hk-rune 2.6s ease-in-out forwards; }
+.hk .hk-rune::after { content: ''; position: absolute; inset: 24%; border: 1.5px solid rgba(160, 255, 220, 0.9); filter: drop-shadow(0 0 4px #5FE8B4); }
+.hk .hk-rune.r0::after { border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); inset: 22% 32% 34% 32%; }
+.hk .hk-rune.r1::after { border-radius: 50%; border-top-color: transparent; }
+.hk .hk-rune.r2::after { border-width: 1.5px 0; inset: 30% 26%; }
+.hk .hk-rune.r3::after { border-radius: 0 0 50% 50%; border-top-width: 0; }
+@keyframes hk-rune { 0%, 100% { opacity: 0; } 40%, 60% { opacity: 0.85; } }
+/* Spinnweben in den oberen Ecken */
+.hk .hk-netz { position: absolute; top: 0; width: 54px; height: 54px; z-index: 5; pointer-events: none; }
+.hk .hk-netz.links { left: 0; }
+.hk .hk-netz.rechts { right: 0; transform: scaleX(-1); }
+/* Verdeckte Steine etwas dunkler und kühler */
+.hk .hz.zu { background: linear-gradient(150deg, #4c5a57, #323d3c 50%, #1e2525); }
+.hk .hz.offen { background: radial-gradient(ellipse at 50% 30%, #1e2827, #10161a 80%); }
+@media (prefers-reduced-motion: reduce) {
+  .hk .hk-dunkel, .hk .hk-nebel i { animation: none; }
+}

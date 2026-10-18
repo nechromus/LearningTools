@@ -36,6 +36,7 @@ export function steinschieberStarten(wurzel, opt = {}) {
   f.geschafft = Array.isArray(f.geschafft) ? f.geschafft : [];
   f.best = f.best && typeof f.best === 'object' ? f.best : {};
   if (!(f.level >= 0 && f.level < S.LEVEL.length)) f.level = 0;
+  let fackeln = [], lichtEl = null, glanzEl = null;
   let s = null, g = 40, figur = null, steine = [], schlange = [], schrittTimer = null, tippMarke = null, tippStand = null, arbeiter = null, beendet = false;
 
   wurzel.classList.add('km', 'ss');
@@ -50,6 +51,7 @@ export function steinschieberStarten(wurzel, opt = {}) {
       <span class="ecke" style="left:-7px;top:-7px"></span><span class="ecke" style="right:-7px;top:-7px"></span>
       <span class="ecke" style="left:-7px;bottom:-7px"></span><span class="ecke" style="right:-7px;bottom:-7px"></span>
       <div class="welt" id="ss-welt"></div>
+      <div class="ss-staub" aria-hidden="true">${Array.from({ length: 22 }, (_, k) => `<span style="left:${(k * 43 + 9) % 100}%;--dauer:${9 + (k * 13) % 8}s;--verz:-${(k * 2.1) % 16}s;--drift:${((k * 29) % 30) - 15}px;--gr:${1.5 + (k % 3)}px"></span>`).join('')}</div>
       <div class="ss-meldung" id="ss-meldung" aria-live="polite"></div>
     </div>
     <div class="leiste">
@@ -80,6 +82,7 @@ export function steinschieberStarten(wurzel, opt = {}) {
     welt.style.gridTemplateColumns = `repeat(${s.w}, ${g}px)`;
     welt.style.gridAutoRows = `${g}px`;
     const frag = document.createDocumentFragment();
+    fackeln = [];
     const boden = (i) => i >= 0 && i < s.w * s.h && !s.wand[i] && !s.aussen[i];
     for (let i = 0; i < s.w * s.h; i++) {
       const d = document.createElement('div');
@@ -92,7 +95,10 @@ export function steinschieberStarten(wurzel, opt = {}) {
           const rr = r + dr, cc = c + dc;
           if (rr >= 0 && cc >= 0 && rr < s.h && cc < s.w && boden(rr * s.w + cc)) nah = true;
         }
-        k += nah ? ' wand mauer' + variante(i) : ' nichts';
+        // Fackeln an Wänden, unter denen Boden liegt (mit Abstand zueinander, höchstens 4)
+        const unten = r + 1 < s.h && boden(i + s.w);
+        if (nah && unten && fackeln.length < 4 && fackeln.every(f => Math.abs(Math.floor(f / s.w) - r) + Math.abs((f % s.w) - c) >= 4) && (i * 7) % 3 !== 1) { fackeln.push(i); k += ' wand mauer fackel' + variante(i); }
+        else k += nah ? ' wand mauer' + variante(i) : ' nichts';
       } else if (s.aussen[i]) k += ' nichts';
       else k += ' leer boden' + (s.ziel[i] ? ' ziel' : '');
       d.className = k;
@@ -117,6 +123,12 @@ export function steinschieberStarten(wurzel, opt = {}) {
     tippMarke.className = 'ss-tipp-marke';
     frag.appendChild(tippStand);
     frag.appendChild(tippMarke);
+    lichtEl = document.createElement('div');
+    lichtEl.className = 'ss-licht';
+    frag.appendChild(lichtEl);
+    glanzEl = document.createElement('div');
+    glanzEl.className = 'ss-glanz';
+    frag.appendChild(glanzEl);
     welt.appendChild(frag);
     for (const el of [figur, ...steine]) el.style.transition = 'none';
     zeichnen();
@@ -143,8 +155,25 @@ export function steinschieberStarten(wurzel, opt = {}) {
     welt.style.transform = `translate(${Math.round((rahmen.clientWidth - bw) / 2)}px, ${Math.round((rahmen.clientHeight - bh) / 2)}px)`;
   }
 
+  // Licht: Fackeln, die Laterne der Figur und schwach die Runenfelder; der Rest liegt im Halbdunkel
+  function lichtZeichnen() {
+    if (!lichtEl) return;
+    const m = (i) => { const [x, y] = pos(i); return [x + g / 2, y + g / 2]; };
+    const teile = [], glanz = [];
+    const [fx, fy] = m(s.figur);
+    teile.push(`radial-gradient(circle ${g * 2.6}px at ${fx}px ${fy}px, rgb(255, 236, 200), rgba(255, 236, 200, 0) 100%)`);
+    for (const f of fackeln) { const [x, y] = m(f); teile.push(`radial-gradient(circle ${g * 3.8}px at ${x}px ${y + g * 0.6}px, rgb(255, 205, 135), rgba(255, 205, 135, 0) 100%)`); glanz.push(`radial-gradient(circle ${g * 2.2}px at ${x}px ${y + g * 0.3}px, rgba(255, 160, 70, 0.32), rgba(255, 160, 70, 0) 100%)`); }
+    s.ziel.forEach((z, i) => { if (z) { const [x, y] = m(i); teile.push(`radial-gradient(circle ${g * 1.3}px at ${x}px ${y}px, rgb(150, 255, 210), rgba(150, 255, 210, 0) 100%)`); } });
+    lichtEl.style.width = s.w * (g + 1) + 'px'; lichtEl.style.height = s.h * (g + 1) + 'px';
+    lichtEl.style.background = teile.join(', ') + ', rgb(54, 62, 70)';
+    glanz.push(`radial-gradient(circle ${g * 1.6}px at ${fx}px ${fy}px, rgba(255, 225, 170, 0.22), rgba(255, 225, 170, 0) 100%)`);
+    glanzEl.style.width = lichtEl.style.width; glanzEl.style.height = lichtEl.style.height;
+    glanzEl.style.background = glanz.join(', ');
+  }
+
   function zeichnen() {
     weltMitte();
+    lichtZeichnen();
     const [fx, fy] = pos(s.figur);
     figur.style.transform = `translate(${fx}px, ${fy}px)`;
     const fest = new Set(S.festeSteine(s));
@@ -179,6 +208,7 @@ export function steinschieberStarten(wurzel, opt = {}) {
     figur._t = setTimeout(() => figur.classList.remove('lauf-' + richtung, 'drueckt'), 220);
     zeichnen();
     const nachherAuf = s.kisten.filter(k => s.ziel[k]).length;
+    if (r.geschoben >= 0) staubwolke(s.kisten[r.geschoben], richtung);
     if (r.geschoben >= 0 && nachherAuf > vorherAuf) funke(s.kisten[r.geschoben]);
     if (s.zuege.length % 8 === 0) sichern();
     if (s.fertig) geschafft();
@@ -191,6 +221,19 @@ export function steinschieberStarten(wurzel, opt = {}) {
     void figur.offsetWidth;
     figur.classList.add('stoss-' + richtung);
     setTimeout(() => figur.classList.remove('stoss-' + richtung), 200);
+  }
+
+  // Staub, der beim Schieben hinter dem Stein aufwirbelt
+  function staubwolke(i, richtung) {
+    if (ruhig()) return;
+    const [x, y] = pos(i);
+    const [dr, dc] = S.RICHTUNGEN[richtung];
+    const e = document.createElement('div');
+    e.className = 'ss-staubwolke';
+    e.style.left = x + g / 2 - dc * g * 0.55 + 'px'; e.style.top = y + g * 0.75 - dr * g * 0.45 + 'px';
+    e.innerHTML = Array.from({ length: 7 }, (_, k) => `<span style="--dx:${(-dc * (10 + k * 4) + (k - 3) * 5 * (dr ? 1 : 0.4)).toFixed(0)}px;--dy:${(-dr * (10 + k * 4) - 6 - (k % 3) * 4).toFixed(0)}px;--gr:${5 + (k % 3) * 3}px;animation-delay:${k * 25}ms"></span>`).join('');
+    welt.appendChild(e);
+    setTimeout(() => e.remove(), 1000);
   }
 
   function funke(i) {

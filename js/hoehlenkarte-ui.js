@@ -21,7 +21,7 @@ export function hoehlenkarteStarten(wurzel, opt = {}) {
   const an = (ziel, typ, fn, o = {}) => ziel.addEventListener(typ, fn, { ...o, signal: aus.signal });
 
   let s = H.standPruefen(opt.stand);
-  let g = 32, zellen = [], klassen = [], markierModus = false, angehalten = false, beendet = false, gemeldet = false;
+  let g = 32, brettPos = null, licht = null, zellen = [], klassen = [], markierModus = false, angehalten = false, beendet = false, gemeldet = false;
   let letzteGroesse = (s && s.groesse) || 'klein';
 
   wurzel.classList.add('km', 'hk');
@@ -34,8 +34,13 @@ export function hoehlenkarteStarten(wurzel, opt = {}) {
     <div class="feld-rahmen" id="hk-rahmen">
       <span class="ecke" style="left:-7px;top:-7px"></span><span class="ecke" style="right:-7px;top:-7px"></span>
       <span class="ecke" style="left:-7px;bottom:-7px"></span><span class="ecke" style="right:-7px;bottom:-7px"></span>
+      <div class="hk-nebel" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="hk-augen" id="hk-augen" aria-hidden="true"></div>
       <div class="hk-brett" id="hk-brett"></div>
+      <div class="hk-dunkel" id="hk-dunkel" aria-hidden="true"></div>
       <div class="hk-effekte" id="hk-effekte"></div>
+      <svg class="hk-netz links" viewBox="0 0 60 60" aria-hidden="true"><path d="M0 0 L60 0 M0 0 L0 60 M0 0 L55 30 M0 0 L30 55 M0 0 L48 48 M14 0 Q12 12 0 14 M28 0 Q24 24 0 28 M44 0 Q36 36 0 44" fill="none" stroke="rgba(200,215,208,.22)" stroke-width=".8"/></svg>
+      <svg class="hk-netz rechts" viewBox="0 0 60 60" aria-hidden="true"><path d="M0 0 L60 0 M0 0 L0 60 M0 0 L55 30 M0 0 L30 55 M0 0 L48 48 M14 0 Q12 12 0 14 M28 0 Q24 24 0 28 M44 0 Q36 36 0 44" fill="none" stroke="rgba(200,215,208,.22)" stroke-width=".8"/></svg>
       <div class="hk-meldung" id="hk-meldung" aria-live="polite"></div>
     </div>
     <div class="leiste">
@@ -74,6 +79,9 @@ export function hoehlenkarteStarten(wurzel, opt = {}) {
     const bw = s.w * (g + 1), bh = s.h * (g + 1);
     const x = Math.round((rahmen.clientWidth - bw) / 2), y = Math.round((rahmen.clientHeight - bh) / 2);
     brett.style.transform = effekte.style.transform = `translate(${x}px, ${y}px)`;
+    brettPos = { x, y, bw, bh };
+    if (!licht) licht = { x: x + bw / 2, y: y + bh / 2 };
+    lichtSetzen();
     zeichnen();
   }
 
@@ -147,8 +155,63 @@ export function hoehlenkarteStarten(wurzel, opt = {}) {
     } else if (erg.geschafft) gewonnen();
   }
 
+  // Fackellicht: folgt dem zuletzt angetippten Feld, der Rest der Höhle liegt im Dunkeln
+  function lichtSetzen(i = null) {
+    if (i != null && brettPos) {
+      licht = { x: brettPos.x + (i % s.w) * (g + 1) + g / 2, y: brettPos.y + Math.floor(i / s.w) * (g + 1) + g / 2 };
+    }
+    if (!licht) return;
+    const d = $('dunkel');
+    d.style.setProperty('--lx', licht.x + 'px');
+    d.style.setProperty('--ly', licht.y + 'px');
+    d.style.setProperty('--lr', Math.max(110, g * 4.2) + 'px');
+  }
+
+  // Geheimnisvolles: Augen im Dunkeln, Irrlichter, aufglimmende Runen auf verdeckten Steinen
+  const sputen = setInterval(() => {
+    if (beendet || document.hidden || ruhig() || !s || !brettPos) return;
+    const r = Math.random();
+    if (r < 0.22) {
+      // Augenpaar am Rand der Höhle (außerhalb des Bretts)
+      const aug = $('augen'), w = rahmen.clientWidth, h = rahmen.clientHeight;
+      const oben = brettPos.y > 34, unten = h - (brettPos.y + brettPos.bh) > 34;
+      let x, y;
+      if (oben && Math.random() < 0.5) { x = 20 + Math.random() * (w - 40); y = 10 + Math.random() * (brettPos.y - 26); }
+      else if (unten) { x = 20 + Math.random() * (w - 40); y = brettPos.y + brettPos.bh + 8 + Math.random() * (h - brettPos.y - brettPos.bh - 26); }
+      else return;
+      const e = document.createElement('div');
+      e.className = 'hk-auge-paar' + (Math.random() < 0.3 ? ' jade' : '');
+      e.style.left = x + 'px'; e.style.top = y + 'px';
+      e.innerHTML = '<i></i><i></i>';
+      aug.appendChild(e);
+      setTimeout(() => e.remove(), 4200);
+    } else if (r < 0.5) {
+      // Irrlicht schwebt quer durch die Höhle
+      const e = document.createElement('div');
+      e.className = 'hk-irrlicht';
+      e.style.top = brettPos.y + Math.random() * brettPos.bh + 'px';
+      e.style.setProperty('--hub', (Math.random() * 60 - 30) + 'px');
+      if (Math.random() < 0.5) e.classList.add('rueck');
+      $('augen').appendChild(e);
+      setTimeout(() => e.remove(), 9000);
+    } else {
+      // Rune glimmt auf einem verdeckten Stein auf
+      const zu = [];
+      for (let i = 0; i < s.offen.length; i++) if (!s.offen[i] && !s.markiert[i]) zu.push(i);
+      if (!zu.length) return;
+      const i = zu[Math.floor(Math.random() * zu.length)];
+      const x = (i % s.w) * (g + 1), y = Math.floor(i / s.w) * (g + 1);
+      const e = document.createElement('div');
+      e.className = 'hk-rune r' + (i % 4);
+      e.style.left = x + 'px'; e.style.top = y + 'px';
+      effekte.appendChild(e);
+      setTimeout(() => e.remove(), 2600);
+    }
+  }, 900);
+
   function tippen(i) {
     if (!kannSpielen()) return;
+    lichtSetzen(i);
     if (markierModus && !s.offen[i]) { if (H.markieren(s, i)) { zeichnen(); sichern(); } return; }
     nachZug(H.aufdecken(s, i));
   }
@@ -264,7 +327,7 @@ export function hoehlenkarteStarten(wurzel, opt = {}) {
   } else groessenWahl(false);
 
   return {
-    beenden() { if (beendet) return; druckEnde(); sichern(); beendet = true; aus.abort(); },
+    beenden() { if (beendet) return; clearInterval(sputen); druckEnde(); sichern(); beendet = true; aus.abort(); },
     anhalten() { angehalten = true; },
     stand: () => (s ? JSON.parse(JSON.stringify(s)) : null),
     ruht: () => !!$('tafel').innerHTML
