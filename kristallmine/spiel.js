@@ -1,5 +1,5 @@
 // Kristallmine (Testseite): Anzeige, Steuerung und Ablauf. Regeln in ../js/kristallmine.js
-import * as K from '../js/kristallmine.js';
+import * as K from '../js/kristallmine.js?v=1.9.6';
 
 const SPEICHER = 'kristallmine-test-v1';
 const LEBEN_START = 3;
