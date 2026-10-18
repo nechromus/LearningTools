@@ -13,7 +13,7 @@ import * as R from './runenfall.js';
 const ruhig = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const HALTEN_MS = 500;     // so lange darf ein aufliegender Stein noch geschoben werden
 const HALTEN_MAX = 15;     // höchstens so oft neu
-const WIEDERHOLEN = { start: 170, schritt: 55, runter: 45 };
+const WIEDERHOLEN = { start: 280, schritt: 110, runter: 50 };
 
 export function runenfallStarten(wurzel, opt = {}) {
   const sichernExt = opt.sichern || (() => {});
@@ -249,12 +249,17 @@ export function runenfallStarten(wurzel, opt = {}) {
   an(rahmen, 'pointerdown', (e) => { zug = { x: e.clientX, y: e.clientY, t: performance.now(), dx: 0, dy: 0, bewegt: false }; });
   an(rahmen, 'pointermove', (e) => {
     if (!zug) return;
-    const schritt = Math.max(14, g * 0.9);
-    let dx = e.clientX - zug.x - zug.dx * schritt;
-    while (Math.abs(dx) >= schritt) { const r = dx > 0 ? 1 : -1; tun(r > 0 ? 'rechts' : 'links'); zug.dx += r; zug.bewegt = true; dx -= r * schritt; }
-    let dy = e.clientY - zug.y - zug.dy * schritt;
+    // Seitlich: etwa 1,3 Felder Weg pro Schritt, der erste Schritt braucht etwas mehr (kein Verrutschen beim Tippen)
+    const schritt = Math.max(30, g * 1.3), anlauf = schritt * 0.3;
+    const gx = e.clientX - zug.x, gy = e.clientY - zug.y;
+    if (Math.abs(gx) > Math.abs(gy) * 1.2) {
+      const weg = Math.abs(gx) - anlauf, soll = weg >= schritt ? Math.sign(gx) * Math.floor(weg / schritt) : 0;
+      while (zug.dx !== soll) { const r = soll > zug.dx ? 1 : -1; tun(r > 0 ? 'rechts' : 'links'); zug.dx += r; zug.bewegt = true; }
+    }
+    const runterSchritt = Math.max(16, g);
+    let dy = e.clientY - zug.y - zug.dy * runterSchritt;
     if (Math.abs(e.clientY - zug.y) > Math.abs(e.clientX - zug.x) * 1.4) {
-      while (dy >= schritt) { tun('runter'); zug.dy++; zug.bewegt = true; dy -= schritt; }
+      while (dy >= runterSchritt) { tun('runter'); zug.dy++; zug.bewegt = true; dy -= runterSchritt; }
     }
   });
   an(rahmen, 'pointerup', (e) => {
