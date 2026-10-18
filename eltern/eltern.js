@@ -9,7 +9,7 @@ import * as P from '../js/paket.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.9.0';
+export const ELTERN_VERSION = '1.10.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -384,6 +384,8 @@ function spielZeile(sp, gewaehlt) {
   const info = [];
   if (sp.punkte != null) info.push(`${A.punkteText(sp.punkte)} Punkte`);
   if (sp.maxKachel) info.push(`höchster Stein ${sp.maxKachel}`);
+  const hoehlen = sp.events.filter(e => e.typ === 'km_hoehle' && e.ergebnis === 'geschafft').length;
+  if (sp.spiel === 'kristallmine') info.push(hoehlen ? `${hoehlen} ${hoehlen === 1 ? 'Höhle' : 'Höhlen'} geschafft` : (sp.hoehle ? `in Höhle ${sp.hoehle}` : ''));
   const neu = sp.events.filter(e => e.typ === 'spiel_neu').length;
   if (neu) info.push(`${neu}-mal neu begonnen`);
   return `<a class="zeile spiel-zeile${sp.key === gewaehlt ? ' gewaehlt' : ''}" href="#spiel/${encodeURIComponent(sp.key)}">

@@ -7,10 +7,11 @@ import { THEMA_NAMEN, GEN_NAMEN, FEHLER_NAMEN } from './namen.js';
 import * as P from './paket.js';
 import * as B from './bloecke.js';
 import { einrichtungLesen } from './einrichtung.js';
+import { kristallmineStarten } from './kristallmine-ui.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '1.9.9';
+export const APP_VERSION = '2.0.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -20,7 +21,11 @@ const $app = document.getElementById('app');
 const $modal = document.getElementById('modal');
 
 let ansicht = 'start';
-function setzeAnsicht(name) { ansicht = name; document.body.dataset.ansicht = name; }
+let km = null;               // laufende Kristallmine (wird bei jedem Bildschirmwechsel beendet und gespeichert)
+function setzeAnsicht(name) {
+  if (km) { const k = km; km = null; k.beenden(); }
+  ansicht = name; document.body.dataset.ansicht = name;
+}
 let A = null;                // aktive Aufgabe
 let modalSchliessen = null;  // Callback beim Schließen
 let spielSitzung = null;     // { start, sekunden }
@@ -449,9 +454,10 @@ function zeigeStart() {
     </section>` : ''}
 
     <button class="btn btn-haupt btn-gross" data-act="aufgaben">${S.wartet ? 'Weiter mit deiner Aufgabe' : 'Aufgaben machen'}</button>
-    <div class="spiel-wahl">
+    <div class="spiel-wahl drei">
       <button class="btn btn-amber-rand btn-gross" data-act="spielen">2048</button>
       <button class="btn btn-amber-rand btn-gross" data-act="runenfeld">Runenfeld</button>
+      <button class="btn btn-amber-rand btn-gross" data-act="kristallmine">Kristall&shy;mine</button>
     </div>
 
     <section class="info-karte">
@@ -1312,7 +1318,7 @@ function zeigeSpiel() {
     <div class="spiel-zeile">
       <span>Rekord <b id="rekord">${S.spiel.rekord}</b></span>
       <span>Höchster Stein <b id="maxk">${S.spiel.maxKachel || 0}</b></span>
-      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="neuesSpiel">Neu</button><button class="btn-text klein" data-act="runenfeld">Runenfeld</button></span>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="neuesSpiel">Neu</button><button class="btn-text klein" data-act="runenfeld">Runenfeld</button><button class="btn-text klein" data-act="kristallmine">Mine</button></span>
     </div>
     <div class="brett-rahmen" id="rahmen">
       <span class="orn o1"></span><span class="orn o2"></span><span class="orn o3"></span><span class="orn o4"></span>
@@ -1509,6 +1515,8 @@ function overlay(html) {
 function overlayPruefen() {
   if (S.guthaben <= 0) {
     overlay(`<div class="overlay-titel">Spielzeit ist um</div><p>Dein Spiel bleibt gespeichert.</p><button class="btn btn-jade" data-act="aufgaben">Aufgaben machen</button>`);
+  } else if (spielSitzung && spielSitzung.art === 'kristallmine') {
+    // eigene Tafeln in der Kristallmine
   } else if (spielSitzung && spielSitzung.art === 'runenfeld') {
     if (S.bloecke && B.spielVorbei(S.bloecke.feld, S.bloecke.teile)) overlay(`<div class="overlay-titel">Kein Platz mehr</div><p>${S.bloecke.punkte} Punkte. Ein neues Spiel kostet nichts.</p><button class="btn btn-jade" data-act="runenfeldNeuJetzt">Neues Spiel</button>`);
   } else if (!L.kannBewegen(S.spiel.feld)) {
@@ -1519,6 +1527,7 @@ function overlayPruefen() {
 function spielTick() {
   if (ansicht !== 'spiel' || document.hidden || S.guthaben <= 0) return;
   if (document.querySelector('#spiel-overlay .overlay')) return;
+  if (km && km.ruht()) return;
   S.guthaben = Math.max(0, S.guthaben - 1);
   if (spielSitzung) spielSitzung.sekunden++;
   const el = $id('spielzeit');
@@ -1526,13 +1535,16 @@ function spielTick() {
   const uhr = $id('uhr');
   if (uhr) uhr.classList.toggle('knapp', S.guthaben < 60);
   if (S.guthaben % 10 === 0) sichern();
-  if (S.guthaben <= 0) { spielBeenden(); overlayPruefen(); }
+  if (S.guthaben <= 0) { if (km) km.anhalten(); spielBeenden(); overlayPruefen(); }
 }
 
 function spielBeenden() {
   if (!spielSitzung) return;
   if (spielSitzung.art === 'runenfeld') protokoll(S, 'spiel_ende', { spiel: 'runenfeld', sekunden: spielSitzung.sekunden, punkte: S.bloecke ? S.bloecke.punkte : 0, rest: S.guthaben });
-  else protokoll(S, 'spiel_ende', { spiel: '2048', sekunden: spielSitzung.sekunden, punkte: S.spiel.punkte, maxKachel: S.spiel.maxKachel, rest: S.guthaben });
+  else if (spielSitzung.art === 'kristallmine') {
+    const k = (km && km.stand()) || S.kristallmine || {};
+    protokoll(S, 'spiel_ende', { spiel: 'kristallmine', sekunden: spielSitzung.sekunden, punkte: k.punkte || 0, hoehle: (k.hoehle || 0) + 1, rest: S.guthaben });
+  } else protokoll(S, 'spiel_ende', { spiel: '2048', sekunden: spielSitzung.sekunden, punkte: S.spiel.punkte, maxKachel: S.spiel.maxKachel, rest: S.guthaben });
   spielSitzung = null;
   sichern();
   standHochladen(true);
@@ -1593,7 +1605,7 @@ function zeigeRunenfeld() {
     </header>
     <div class="spiel-zeile">
       <span>Rekord <b id="rekord">${S.bloecke.rekord || 0}</b></span>
-      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="runenfeldNeu">Neu</button><button class="btn-text klein" data-act="spielen">2048</button></span>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="runenfeldNeu">Neu</button><button class="btn-text klein" data-act="spielen">2048</button><button class="btn-text klein" data-act="kristallmine">Mine</button></span>
     </div>
     <div class="brett-rahmen" id="rahmen">
       <span class="orn o1"></span><span class="orn o2"></span><span class="orn o3"></span><span class="orn o4"></span>
@@ -1608,6 +1620,37 @@ function zeigeRunenfeld() {
   rfAblageZeichnen();
   rfZiehenEinrichten();
   rfGlut();
+  overlayPruefen();
+}
+
+// ---------- Kristallmine (drittes Spiel, Logik und Anzeige in kristallmine.js / kristallmine-ui.js) ----------
+
+function zeigeKristallmine() {
+  setzeAnsicht('spiel');
+  S.letztesSpiel = 'kristallmine';
+  if (S.serie.pos) { protokoll(S, 'serie_ende', { laenge: S.serie.pos }); S.serie.pos = 0; }
+  if (spielSitzung && spielSitzung.art !== 'kristallmine') spielBeenden();
+  if (!spielSitzung) {
+    spielSitzung = { start: Date.now(), sekunden: 0, art: 'kristallmine' };
+    protokoll(S, 'spiel_start', { guthaben: S.guthaben, spiel: 'kristallmine' });
+  }
+  sichern();
+  $app.innerHTML = `
+  <div class="screen spiel-screen kristallmine-screen">
+    <header class="topbar spiel-kopf">
+      <button class="btn-text" data-act="spielZurueck">← Zurück</button>
+      <div class="rune-uhr${S.guthaben < 60 ? ' knapp' : ''}" id="uhr"><span class="uhr-ring"></span><span id="spielzeit">${L.formatZeit(S.guthaben)}</span></div>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="spielen">2048</button><button class="btn-text klein" data-act="runenfeld">Runenfeld</button></span>
+    </header>
+    <div class="km-huelle" id="km-huelle"></div>
+    <div class="km-overlay" id="spiel-overlay"></div>
+  </div>`;
+  km = kristallmineStarten($id('km-huelle'), {
+    stand: S.kristallmine,
+    sichern: (st) => { S.kristallmine = st; sichern(); },
+    melden: (typ, daten) => { protokoll(S, typ, daten); sichern(); },
+    darfLaufen: () => S.guthaben > 0 && ansicht === 'spiel' && !document.querySelector('#spiel-overlay .overlay')
+  });
   overlayPruefen();
 }
 
@@ -2097,8 +2140,12 @@ function klick(e) {
     case 'spielen':
       zeigeSpiel(); break;
     case 'zumSpiel':
-      if (S.letztesSpiel === 'runenfeld') zeigeRunenfeld(); else zeigeSpiel();
+      if (S.letztesSpiel === 'runenfeld') zeigeRunenfeld();
+      else if (S.letztesSpiel === 'kristallmine') zeigeKristallmine();
+      else zeigeSpiel();
       break;
+    case 'kristallmine':
+      zeigeKristallmine(); break;
     case 'runenfeld':
       zeigeRunenfeld(); break;
     case 'runenfeldNeu':

@@ -48,6 +48,7 @@ export function spieleAus(eintraege, geraet = '') {
       offen.punkte = e.punkte ?? null;
       offen.maxKachel = e.maxKachel ?? null;
       offen.rest = e.rest ?? null;
+      offen.hoehle = e.hoehle ?? null;
     } else {
       offen.sekunden = Math.max(0, Math.round((new Date(offen.bis) - new Date(offen.start.t)) / 1000));
     }
@@ -62,7 +63,7 @@ export function spieleAus(eintraege, geraet = '') {
     }
     if (!offen) continue;
     if (e.typ === 'spiel_ende') { offen.events.push(e); schliessen(e); continue; }
-    if (['spiel_meilenstein', 'spiel_vorbei', 'spiel_neu'].includes(e.typ)) { offen.events.push(e); continue; }
+    if (['spiel_meilenstein', 'spiel_vorbei', 'spiel_neu', 'km_hoehle'].includes(e.typ)) { offen.events.push(e); continue; }
     // Etwas anderes passiert (z. B. Aufgabe begonnen), ohne dass das Spiel beendet wurde: Sitzung endet hier
     if (e.typ === 'aufgabe_start') schliessen(null);
   }
@@ -76,7 +77,8 @@ export function alleSpiele(eintraegeProGeraet) {
   return out.sort((a, b) => a.start.t < b.start.t ? -1 : 1);
 }
 
-export const SPIEL_NAMEN = { '2048': '2048', runenfeld: 'Runenfeld' };
+export const SPIEL_NAMEN = { '2048': '2048', runenfeld: 'Runenfeld', kristallmine: 'Kristallmine' };
+const KM_ERGEBNIS = { geschafft: 'geschafft', treffer: 'von einem Stein getroffen', zeit: 'Zeit der Höhle um', neu: 'neu begonnen' };
 export const punkteText = (n) => n == null ? '' : Number(n).toLocaleString('de-DE');
 
 // Ereignisse einer Spiel-Sitzung als Zeitleiste
@@ -90,6 +92,11 @@ export function spielZeitleiste(sp) {
       case 'spiel_start': p.titel = `${SPIEL_NAMEN[sp.spiel] || sp.spiel} geöffnet`; p.text = e.guthaben != null ? `Spielzeit vorher ${minutenText(e.guthaben)}` : ''; break;
       case 'spiel_meilenstein': p.titel = `Stein ${e.stein} erreicht`; p.text = e.punkte != null ? `${punkteText(e.punkte)} Punkte` : ''; p.art = 'ok'; break;
       case 'spiel_vorbei': p.titel = sp.spiel === 'runenfeld' ? 'Kein Platz mehr' : 'Spiel vorbei'; p.text = [e.punkte != null ? `${punkteText(e.punkte)} Punkte` : '', e.maxKachel ? `höchster Stein ${e.maxKachel}` : ''].filter(Boolean).join(' · '); break;
+      case 'km_hoehle':
+        p.titel = `Höhle ${e.hoehle}${e.name ? ' · ' + e.name : ''}: ${KM_ERGEBNIS[e.ergebnis] || e.ergebnis}`;
+        p.text = [e.kristalle != null ? `${e.kristalle} Kristalle` : '', e.ergebnis === 'geschafft' && e.punkte != null ? `${punkteText(e.punkte)} Punkte` : '', e.ergebnis !== 'geschafft' && e.leben != null ? `noch ${e.leben} Leben` : ''].filter(Boolean).join(' · ');
+        p.art = e.ergebnis === 'geschafft' ? 'ok' : 'info';
+        break;
       case 'spiel_neu': p.titel = 'Neues Spiel begonnen'; p.text = e.altePunkte != null ? `vorher ${punkteText(e.altePunkte)} Punkte` : ''; break;
       case 'spiel_ende': p.titel = 'Spiel verlassen'; p.text = [`${minutenText(e.sekunden)} gespielt`, e.rest != null ? `Spielzeit danach ${minutenText(e.rest)}` : ''].filter(Boolean).join(' · '); p.art = 'ok'; break;
       default: continue;

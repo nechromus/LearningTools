@@ -572,3 +572,15 @@ textarea { font-family: ui-monospace, monospace; font-size: 14px; margin-bottom:
 .hilfe-zeile { font-size: 20px; font-weight: 700; padding: 2px 0; }
 .hilfe-text { margin: 4px 0 0; color: var(--gedaempft, #4F5E5E); }
 .wartet-hinweis { margin: 0 0 8px; padding: 8px 12px; border-radius: 10px; background: var(--amber-hell, #F5E6C6); color: var(--amber-dunkel, #633806); font-weight: 700; text-align: center; }
+
+/* Drei Spiele auf dem Startbildschirm */
+.spiel-wahl.drei { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.spiel-wahl.drei .btn-gross { font-size: 17px; padding: 16px 4px; hyphens: manual; }
+
+/* Kristallmine im App-Rahmen */
+.kristallmine-screen { height: calc(100dvh / var(--zoom, 1)); min-height: 0; gap: 8px; padding-bottom: calc(var(--unten) + 8px); }
+.km-huelle { flex: 1 1 auto; min-height: 0; display: flex; }
+.kristallmine-screen .spiel-knoepfe { gap: 12px; }
+.km-overlay { position: fixed; inset: 0; z-index: 40; pointer-events: none; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.km-overlay .overlay { position: relative; inset: auto; pointer-events: auto; width: 100%; max-width: 340px; border: 1px solid #D8B05A; box-shadow: 0 0 30px rgba(216, 176, 90, 0.35); }
+.km-overlay:empty { display: none; }

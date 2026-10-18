@@ -7,15 +7,67 @@
 export const TAKT_MS = 140;
 export const RICHTUNGEN = { hoch: [-1, 0], runter: [1, 0], links: [0, -1], rechts: [0, 1] };
 
-// Höhlen: zufällig gefüllt (fester Startwert), dazu von Hand gesetzte Mauern. So entstanden auch die klassischen Höhlen.
-export const HOEHLEN = [
-  { name: 'Erste Ader', w: 26, h: 16, saat: 11, stein: 0.10, kristall: 0.06, leer: 0.04, brauche: 10, zeit: 150, start: [2, 2], ausgang: [13, 23],
-    mauern: [] },
-  { name: 'Steinschlag', w: 26, h: 16, saat: 23, stein: 0.20, kristall: 0.06, leer: 0.03, brauche: 12, zeit: 150, start: [2, 2], ausgang: [13, 23],
-    mauern: [['h', 5, 1, 24, [6, 18]], ['h', 10, 1, 24, [12]]] },
-  { name: 'Jadetiefe', w: 28, h: 18, saat: 37, stein: 0.14, kristall: 0.07, leer: 0.03, brauche: 15, zeit: 180, start: [2, 2], ausgang: [16, 26],
-    mauern: [['v', 7, 1, 16, [4, 12]], ['v', 14, 1, 16, [8, 15]], ['v', 21, 1, 16, [3, 11]]] }
+// Höhlen: zufällig gefüllt (fester Startwert), dazu Mauern nach Mustern. So entstanden auch die klassischen Höhlen.
+// Jede Höhle wird beim Laden geprüft (genug erreichbare Kristalle, Ausgang erreichbar, sicherer Start);
+// passt ein Startwert nicht, wird der nächste genommen. Dadurch sind die Höhlen immer gleich.
+const NAMEN = [
+  'Erste Ader', 'Steinschlag', 'Jadetiefe', 'Kieselhang', 'Runenkammern', 'Enger Stollen', 'Rollende Steine', 'Schatzkästen',
+  'Tiefe Halle', 'Glimmergang', 'Doppelschacht', 'Steinregen', 'Serpentine', 'Jadekammern', 'Großer Abbau', 'Spaltenfeld',
+  'Kristallnest', 'Mauerwerk', 'Lawinenhang', 'Tausend Steine', 'Verborgene Ader', 'Kammerflucht', 'Stufenschacht', 'Steinbruch',
+  'Runengrund', 'Engpass', 'Dunkle Weite', 'Schatzlabyrinth', 'Tiefster Stollen', 'Herz der Mine'
 ];
+const MUSTER = [
+  'offen', 'zeilen', 'spalten', 'offen', 'kaesten', 'zeilen', 'offen', 'kaesten',
+  'gitter', 'spalten', 'zeilen', 'offen', 'serpentine', 'kaesten', 'gitter', 'spalten',
+  'kaesten', 'gitter', 'stufen', 'offen', 'kaesten', 'spalten', 'stufen', 'gitter',
+  'kaesten', 'serpentine', 'offen', 'kaesten', 'gitter', 'serpentine'
+];
+
+function mauernFuer(muster, w, h, n) {
+  const m = [];
+  const q = (x) => Math.max(2, Math.round(x));
+  if (muster === 'zeilen') {
+    [q(h / 3), q(2 * h / 3)].forEach((r, k) => m.push(['h', r, 1, w - 2, [q(w * (0.2 + 0.5 * k)), q(w * (0.55 + 0.3 * ((k + n) % 2)))]]));
+  }
+  if (muster === 'spalten') {
+    [q(w / 4), q(w / 2), q(3 * w / 4)].forEach((c, k) => m.push(['v', c, 1, h - 2, [q(h * (0.25 + 0.45 * ((k + n) % 2))), q(h * 0.8)]]));
+  }
+  if (muster === 'gitter') {
+    // Jede Kammer hat Durchgänge: Lücken in jeder Zeile pro Spaltenabschnitt und umgekehrt
+    const zs = [q(h / 3), q(2 * h / 3)], ss = [q(w / 3), q(2 * w / 3)];
+    zs.forEach(r => m.push(['h', r, 1, w - 2, [q(w / 6), q(w / 2), q(5 * w / 6)]]));
+    ss.forEach(c => m.push(['v', c, 1, h - 2, [q(h / 6), q(h / 2), q(5 * h / 6)]]));
+  }
+  if (muster === 'serpentine') {
+    for (let r = 4, k = 0; r < h - 3; r += 4, k++) m.push(['h', r, 1, w - 2, k % 2 ? [2, 3] : [w - 4, w - 3]]);
+  }
+  if (muster === 'stufen') {
+    const n2 = 5;
+    for (let k = 0; k < n2; k++) {
+      const r = q(3 + k * (h - 6) / (n2 - 1)), c0 = q(3 + k * (w - 12) / n2);
+      m.push(['h', r, c0, Math.min(w - 3, c0 + 7), []]);
+    }
+  }
+  if (muster === 'kaesten') {
+    const zahl = 3 + (n % 3);
+    for (let k = 0; k < zahl; k++) {
+      const c = q(5 + k * (w - 10) / zahl), r = q(h * (k % 2 ? 0.6 : 0.25));
+      m.push(['k', r, c, 4, 5, k % 4]); // Kasten 4×5, Öffnung an einer Seite (0 oben, 1 rechts, 2 unten, 3 links)
+    }
+  }
+  return m;
+}
+
+export const HOEHLEN = NAMEN.map((name, n) => {
+  const w = Math.min(36, 26 + Math.floor(n * 0.4)), h = Math.min(22, 16 + Math.floor(n / 5));
+  // In engen Mustern etwas weniger Steine, sonst versperren sie die Gänge
+  const stein = Math.min(0.2, 0.09 + n * 0.004) * (MUSTER[n] === 'serpentine' ? 0.75 : 1);
+  const brauche = 10 + Math.floor(n * 0.5);
+  const ausgaenge = [[h - 3, w - 3], [2, w - 3], [h - 3, Math.floor(w / 2)], [h - 3, 3]];
+  const ausgang = ausgaenge[n % 4];
+  const zeit = Math.round((w * h) / 3.4 + brauche * 2.5 - n * 1.2);
+  return { name, w, h, saat: 11 + n * 97, stein, kristall: 0.065, leer: 0.03, brauche, zeit, start: [2, 2], ausgang, mauern: mauernFuer(MUSTER[n], w, h, n) };
+});
 
 const FAELLT = new Set(['o', '*']);
 const RUND = new Set(['o', '*', 'w']);
@@ -36,9 +88,27 @@ export function karteBauen(def) {
     feld.push(x < def.stein ? 'o' : x < def.stein + def.kristall ? '*' : x < def.stein + def.kristall + def.leer ? ' ' : '.');
   }
   const setze = (r, c, ch) => { if (r > 0 && c > 0 && r < h - 1 && c < w - 1) feld[r * w + c] = ch; };
-  for (const [art, a, von, bis, luecken] of def.mauern || []) {
+  for (const mauer of def.mauern || []) {
+    const [art, a, von, bis, luecken] = mauer;
+    if (art === 'k') {
+      // Kasten: Mauer-Rahmen mit einer Öffnung, innen Kristalle und Erde
+      const [, r0, c0, hh, ww, seite] = mauer;
+      for (let r = r0; r < r0 + hh; r++) for (let c = c0; c < c0 + ww; c++) {
+        const rand = r === r0 || c === c0 || r === r0 + hh - 1 || c === c0 + ww - 1;
+        setze(r, c, rand ? 'w' : (rnd() < 0.5 ? '*' : '.'));
+      }
+      const mr = r0 + Math.floor(hh / 2), mc = c0 + Math.floor(ww / 2);
+      const [or, oc] = [[r0, mc], [mr, c0 + ww - 1], [r0 + hh - 1, mc], [mr, c0]][seite % 4];
+      setze(or, oc, '.');
+      continue;
+    }
     for (let k = von; k <= bis; k++) {
-      if ((luecken || []).includes(k)) { if (art === 'h') setze(a, k, '.'); else setze(k, a, '.'); continue; }
+      if ((luecken || []).includes(k)) {
+        // Lücke frei halten: darüber und darunter (bzw. links und rechts) Erde statt Steinen
+        if (art === 'h') { for (const d of [-1, 0, 1]) if (d === 0 || feld[(a + d) * w + k] === 'o') setze(a + d, k, '.'); }
+        else { for (const d of [-1, 0, 1]) if (d === 0 || feld[k * w + a + d] === 'o') setze(k, a + d, '.'); }
+        continue;
+      }
       if (art === 'h') setze(a, k, 'w'); else setze(k, a, 'w');
     }
   }
@@ -52,9 +122,29 @@ export function karteBauen(def) {
   return feld;
 }
 
-export function hoehleLaden(nr) {
+// Startwert suchen, mit dem die Höhle die Prüfungen besteht (immer derselbe für dieselbe Höhle)
+const saatGeprueft = new Map();
+function geprueftesFeld(nr) {
   const def = HOEHLEN[nr];
-  const feld = karteBauen(def);
+  if (saatGeprueft.has(nr)) return karteBauen({ ...def, saat: saatGeprueft.get(nr) });
+  for (let k = 0; k < 400; k++) {
+    const saat = def.saat + k * 7919;
+    const feld = karteBauen({ ...def, saat });
+    if (hoehlePasst(def, feld)) { saatGeprueft.set(nr, saat); return feld; }
+  }
+  saatGeprueft.set(nr, def.saat);
+  return karteBauen(def);
+}
+
+function hoehlePasst(def, feld) {
+  const t = rohStand(def, feld, 0);
+  const e = erreichbar(t, true);
+  if (!e.ausgang || e.kristalle < t.brauche + 2) return false;
+  for (let k = 0; k < 60; k++) takt(t, null);
+  return t.lebt;
+}
+
+function rohStand(def, feld, nr) {
   const gesamt = feld.filter(x => x === '*').length;
   return {
     nr, name: def.name, w: def.w, h: def.h, feld,
@@ -62,8 +152,13 @@ export function hoehleLaden(nr) {
     pr: def.start[0], pc: def.start[1],
     kristalle: 0, brauche: Math.min(def.brauche, gesamt), gesamt,
     punkte: 0, zeit: def.zeit, zeitMs: 0, takte: 0,
-    schieben: 0, explosion: [], bewegt: [], lebt: true, ende: null // null | 'treffer' | 'zeit' | 'geschafft'
+    schieben: 0, explosion: [], bewegt: [], lebt: true, ende: null
   };
+}
+
+export function hoehleLaden(nr) {
+  const def = HOEHLEN[nr];
+  return rohStand(def, geprueftesFeld(nr), nr);
 }
 
 export const offen = (s) => s.kristalle >= s.brauche;
@@ -177,7 +272,7 @@ function explodieren(s, r, c, ev) {
 export const zeitBonus = (s) => s.zeit;
 
 // Für Tests: Sind genug Kristalle und der Ausgang erreichbar? Nur Wände sperren (Steine lassen sich umgehen oder schieben).
-export function erreichbar(s) {
+export function erreichbar(s, streng = false) {
   const seen = new Set([s.pr * s.w + s.pc]);
   const q = [[s.pr, s.pc]];
   let kristalle = 0, ausgang = false;
@@ -186,7 +281,7 @@ export function erreichbar(s) {
     for (const [dr, dc] of Object.values(RICHTUNGEN)) {
       const rr = r + dr, cc = c + dc, i = rr * s.w + cc;
       const ch = an(s, rr, cc);
-      if (seen.has(i) || ch === '#' || ch === 'w') continue;
+      if (seen.has(i) || ch === '#' || ch === 'w' || (streng && ch === 'o')) continue;
       seen.add(i);
       if (ch === '*') kristalle++;
       if (ch === 'E') { ausgang = true; continue; }

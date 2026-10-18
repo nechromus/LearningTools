@@ -13,6 +13,7 @@ function standard() {
     basisSlot: null,        // zuletzt abgeholte Basiszeit (Tag-Stunde)
     spiel: { feld: null, punkte: 0, rekord: 0, maxKachel: 0, gewonnenGezeigt: false },
     bloecke: null,          // Runenfeld: { feld, teile, punkte, kombo, ohneLinie, rekord }
+    kristallmine: null,     // Kristallmine: { hoehle, leben, punkte, rekord, hoechste, kreuz, hoehleStand }
     einstellungen: { thema: 'minus-zahlen', basisVon: 14, basisBis: 21, pin: null, name: '', rechnerAngebot: true },
     spielzeit: null,        // Spielzeit-Regeln aus der Eltern-App (null = Standard)
     paket: null,            // Aufgabenpaket aus der Eltern-App: { id, name, gewichte } (null = Übungsthema)
@@ -84,7 +85,7 @@ export async function dauerhaftSpeichernAnfragen() {
 // Gesichert wird, was Kind und Spiele erreicht haben. Nicht dabei: PIN, Zugangsschlüssel, Geräte-ID, Protokoll.
 export const STAND_FORMAT = 'lernapp-spielstand-1';
 const STAND_FELDER = ['guthaben', 'basisSlot', 'spiel', 'bloecke', 'statistik', 'verlauf', 'serie', 'tag', 'extraAufgaben',
-  'genStufen', 'wiederholen', 'spielzeit', 'paket', 'fern', 'wartet'];
+  'genStufen', 'wiederholen', 'spielzeit', 'paket', 'fern', 'wartet', 'kristallmine'];
 
 export function spielstandAus(s, jetzt = new Date()) {
   const zustand = {};

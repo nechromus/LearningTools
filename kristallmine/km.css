@@ -1,0 +1,227 @@
+/* Kristallmine: alle Regeln unter .km (erzeugt aus den Entwurfs-Stilen) */
+.km .z {width:var(--g);height:var(--g);position:relative;display:flex;align-items:center;justify-content:center;border-radius:3px}
+.km .z .in {position:relative}
+.km .leer {background:radial-gradient(ellipse at 50% 0%,#07090a,#141a1b 75%);box-shadow:inset 0 3px 5px rgba(0,0,0,.7)}
+.km .erde {background-color:#3b2f21;background-image:radial-gradient(circle at 22% 28%,rgba(150,120,76,.6) 0 1.2px,transparent 1.8px),radial-gradient(circle at 68% 62%,rgba(20,14,8,.75) 0 1.6px,transparent 2.3px),radial-gradient(circle at 82% 22%,rgba(170,140,90,.45) 0 1px,transparent 1.6px),radial-gradient(circle at 34% 80%,rgba(20,14,8,.6) 0 1.1px,transparent 1.7px),radial-gradient(circle at 55% 45%,rgba(95,232,180,.10) 0 .8px,transparent 1.3px),linear-gradient(165deg,#4d3d2a,#2f251a);box-shadow:inset 0 1px 0 rgba(255,220,160,.07),inset 0 -3px 4px rgba(0,0,0,.35)}
+.km .erde.v1 {background-position:4px 3px,-3px 4px,2px -3px,-4px -2px,3px 3px,0 0}
+.km .erde.v2 {background-position:-3px 5px,4px -3px,-5px 2px,3px -4px,-2px 1px,0 0}
+.km .wand {background:linear-gradient(155deg,#56645f,#323c3b 45%,#232b2b);box-shadow:inset 1px 1px 0 rgba(255,255,255,.14),inset -1px -2px 0 rgba(0,0,0,.55),0 0 0 1px #0d1112}
+.km .wand::before {content:'';position:absolute;inset:2px;border-radius:2px;background:linear-gradient(90deg,transparent 47%,rgba(0,0,0,.35) 49%,rgba(255,255,255,.06) 52%,transparent 54%),linear-gradient(0deg,transparent 47%,rgba(0,0,0,.3) 49%,transparent 52%);opacity:.8}
+.km .wand.v1::before {background:linear-gradient(0deg,transparent 47%,rgba(0,0,0,.3) 49%,transparent 52%)}
+.km .wand.rune::after {content:'';position:absolute;inset:26% 28%;border:1.5px solid rgba(95,232,180,.7);border-top-width:0;border-radius:0 0 50% 50%;box-shadow:0 0 6px rgba(95,232,180,.7),inset 0 -2px 4px rgba(95,232,180,.3);animation:km-runen 3.4s ease-in-out infinite}
+@keyframes km-runen {50%{opacity:.3}}
+.km .stein .in {width:84%;height:84%;border-radius:46% 54% 50% 50%/55% 47% 53% 45%;background:radial-gradient(circle at 32% 26%,#e4ebe7 0 6%,#a4afa9 20%,#66716d 52%,#2b3230 92%);box-shadow:0 3px 3px rgba(0,0,0,.7),inset -2px -3px 4px rgba(0,0,0,.45)}
+.km .stein .in::after {content:'';position:absolute;left:34%;top:50%;width:38%;height:1.5px;background:rgba(18,22,21,.65);transform:rotate(-28deg);box-shadow:3px 3px 0 -.3px rgba(18,22,21,.4)}
+.km .stein.v1 .in {border-radius:52% 48% 45% 55%/48% 55% 45% 52%;transform:rotate(18deg)}
+.km .stein.v2 .in {border-radius:50% 50% 55% 45%/50% 45% 55% 50%;transform:rotate(-12deg)}
+.km .stein.wackelt .in {animation:km-wackeln .32s ease-in-out infinite alternate;box-shadow:0 0 0 2px #D8B05A,0 0 16px #D8B05A,inset -2px -3px 4px rgba(0,0,0,.45)}
+.km .stein.wackelt::after {content:'';position:absolute;left:10%;right:10%;bottom:-3px;height:4px;border-radius:50%;background:radial-gradient(ellipse,rgba(170,140,90,.8),transparent 70%);animation:km-kruemel .6s ease-in infinite}
+@keyframes km-wackeln {from{transform:rotate(-8deg)}to{transform:rotate(8deg)}}
+@keyframes km-kruemel {from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(8px)}}
+.km .stein.faellt {overflow:visible}
+.km .stein.faellt::before {content:'';position:absolute;left:18%;right:18%;top:-26px;height:34px;border-radius:40%;background:linear-gradient(180deg,transparent,rgba(190,200,195,.28));filter:blur(1px)}
+.km .stein.faellt .in {transform:translateY(5px)}
+.km .kristall::before {content:'';position:absolute;inset:1px;border-radius:50%;background:radial-gradient(circle,rgba(95,232,180,.42),transparent 68%);animation:km-halo 2.6s ease-in-out infinite}
+.km .kristall .in {width:62%;height:62%;clip-path:polygon(50% 0,100% 38%,50% 100%,0 38%);background:conic-gradient(from 210deg at 50% 42%,#f2fffa,#7ff2c6,#1e7a5f,#3fbf92,#d8fff0,#2a9c76,#f2fffa);animation:km-funkeln 2.6s ease-in-out infinite}
+.km .kristall .in::after {content:'';position:absolute;left:0;right:0;top:38%;height:1px;background:rgba(255,255,255,.7)}
+.km .kristall::after {content:'';position:absolute;right:2px;top:1px;width:9px;height:9px;background:radial-gradient(circle,#fff 0 1px,transparent 1.6px),linear-gradient(#fff,#fff) center/1px 100% no-repeat,linear-gradient(#fff,#fff) center/100% 1px no-repeat;opacity:0;animation:km-glitzer 2.6s ease-in-out infinite}
+.km .kristall.v1::before, .km .kristall.v1::after, .km .kristall.v1 .in {animation-delay:.9s}
+.km .kristall.v2::before, .km .kristall.v2::after, .km .kristall.v2 .in {animation-delay:1.7s}
+@keyframes km-halo {50%{opacity:.45;transform:scale(.85)}}
+@keyframes km-funkeln {50%{filter:brightness(1.4) saturate(1.2)}}
+@keyframes km-glitzer {0%,68%,100%{opacity:0;transform:scale(.3)}78%{opacity:1;transform:scale(1.2) rotate(45deg)}}
+.km .figur::before {content:'';position:absolute;inset:-6px;border-radius:50%;background:radial-gradient(circle,rgba(246,223,162,.55),transparent 65%);animation:km-laterne 2.2s ease-in-out infinite}
+.km .figur .in {width:76%;height:88%;border-radius:50% 50% 38% 38%/60% 60% 40% 40%;background:radial-gradient(ellipse 30% 22% at 50% 38%,#1b140a 0 70%,transparent 75%),radial-gradient(circle at 45% 25%,#fff4d6,#e2bd68 45%,#9a7330 80%,#5a4118);box-shadow:0 3px 4px rgba(0,0,0,.6)}
+.km .figur .in::after {content:'';position:absolute;left:36%;top:34%;width:3px;height:3px;border-radius:50%;background:#B9FFE2;box-shadow:5px 0 0 #B9FFE2,0 0 4px #5FE8B4,5px 0 4px #5FE8B4}
+@keyframes km-laterne {50%{opacity:.7;transform:scale(.92)}}
+.km .ausgang::before {content:'';position:absolute;inset:-2px;border-radius:50%;background:radial-gradient(circle,rgba(216,176,90,.3),transparent 70%)}
+.km .ausgang .in {width:84%;height:84%;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:conic-gradient(#6B5A32,#3A3326,#8a7440,#3A3326,#6B5A32);animation:km-drehen 9s linear infinite}
+.km .ausgang .in::after {content:'';position:absolute;inset:28%;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:#141a1b}
+.km .ausgang.offen::before {background:radial-gradient(circle,rgba(246,223,162,.85),transparent 70%);animation:km-halo 1.4s ease-in-out infinite}
+.km .ausgang.offen .in {background:conic-gradient(#FFF4D0,#D8B05A,#fff,#D8B05A,#FFF4D0);animation-duration:2.5s}
+.km .ausgang.offen .in::after {background:radial-gradient(circle,#ffffff,#F6DFA2)}
+@keyframes km-drehen {to{transform:rotate(360deg)}}
+.km .gluehwurm::before {content:'';position:absolute;inset:-4px;border-radius:50%;background:radial-gradient(circle,rgba(246,223,162,.6),transparent 65%);animation:km-halo .9s ease-in-out infinite}
+.km .gluehwurm .in {width:46%;height:46%;border-radius:30%;transform:rotate(45deg);background:radial-gradient(circle,#ffffff,#FFF4D0 40%,#D8B05A);box-shadow:0 0 6px #fff,0 0 14px #D8B05A;animation:km-summen .5s ease-in-out infinite alternate}
+@keyframes km-summen {from{transform:rotate(45deg) translate(-1px,1px)}to{transform:rotate(45deg) translate(1px,-1px)}}
+.km .rahmen {position:relative;padding:9px;border-radius:14px;background:#0a0d0e;border:2px solid #34423f;box-shadow:0 0 0 1px #0a0d0e,0 0 22px rgba(95,232,180,.22),inset 0 0 18px rgba(0,0,0,.8)}
+.km .rahmen .ecke {position:absolute;width:12px;height:12px;transform:rotate(45deg);background:#101415;border:1.5px solid #5FE8B4;box-shadow:0 0 8px #5FE8B4}
+.km .licht {position:absolute;inset:9px;pointer-events:none;border-radius:6px}
+.km .mote {position:absolute;width:3px;height:3px;border-radius:50%;background:#B9FFE2;box-shadow:0 0 6px #5FE8B4;opacity:0;animation:km-schweben 6s ease-in-out infinite;pointer-events:none}
+@keyframes km-schweben {0%{opacity:0;transform:translateY(0)}30%{opacity:.8}100%{opacity:0;transform:translate(14px,-46px)}}
+.km .platzen {position:absolute;width:56px;height:56px;margin:-28px 0 0 -28px;pointer-events:none}
+.km .platzen .ring {position:absolute;inset:6px;border-radius:50%;border:2px solid #B9FFE2;box-shadow:0 0 14px #5FE8B4;animation:km-ring 1.6s ease-out infinite}
+.km .platzen .fu {position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:#E9FFF6;box-shadow:0 0 6px #5FE8B4;animation:km-fliegen 1.6s ease-out infinite}
+.km .platzen .plus {position:absolute;left:50%;top:-6px;transform:translateX(-50%);font-family:Cinzel,serif;font-weight:700;font-size:18px;color:#E9FFF6;text-shadow:0 0 10px #5FE8B4,0 2px 0 #0c1011;animation:km-hoch 1.6s ease-out infinite}
+.km .staubwolke {position:absolute;width:60px;height:30px;margin:-15px 0 0 -30px;pointer-events:none}
+.km .staubwolke span {position:absolute;left:50%;top:60%;width:10px;height:10px;margin:-5px;border-radius:50%;background:radial-gradient(circle,rgba(190,170,130,.65),transparent 70%);animation:km-fliegen 1.2s ease-out infinite}
+.km .einschlag {position:absolute;width:90px;height:90px;margin:-45px 0 0 -45px;pointer-events:none}
+.km .einschlag .ring {position:absolute;inset:0;border-radius:50%;border:3px solid #F6DFA2;box-shadow:0 0 22px #D8B05A;animation:km-ring 1.8s ease-out infinite}
+.km .einschlag .fu {position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:#FFF4D0;box-shadow:0 0 8px #D8B05A;animation:km-fliegen 1.8s ease-out infinite}
+@keyframes km-ring {0%{transform:scale(.3);opacity:1}100%{transform:scale(1.4);opacity:0}}
+@keyframes km-fliegen {0%{transform:translate(0,0);opacity:1}100%{transform:translate(var(--dx),var(--dy));opacity:0}}
+@keyframes km-hoch {0%{transform:translate(-50%,8px);opacity:0}25%{opacity:1}100%{transform:translate(-50%,-18px);opacity:0}}
+.km .taste {border-radius:16px;background:linear-gradient(160deg,#26332f,#17201e);border:1px solid #5FE8B4;color:#B9FFE2;font-size:24px;box-shadow:0 0 12px rgba(95,232,180,.25),inset 0 1px 0 rgba(255,255,255,.08),inset 0 -3px 0 rgba(0,0,0,.4)}
+@media (prefers-reduced-motion: reduce) {
+.km .z *, .km .z::before, .km .z::after, .km .mote, .km .platzen *, .km .staubwolke *, .km .einschlag * {animation:none!important}
+}
+.km { --jade: #5FE8B4; --jade-hell: #B9FFE2; --jade-tief: #1E7A5F; --gold: #D8B05A; --gold-hell: #F6DFA2; --stein2: #242C2D; --rand: #3F5450; --text: #E8F1EC; --matt: #8FA39B; }
+.km * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+.km button { font: inherit; color: inherit; cursor: pointer; }
+.km { position: relative; flex: 1 1 auto; min-height: 0; width: 100%; max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; color: var(--text); font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
+.km .kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.km .zurueck { background: none; border: 0; color: var(--jade); font-weight: 700; font-size: 17px; padding: 8px 0; text-decoration: none; }
+.km .titel { font-family: Cinzel, serif; font-weight: 700; font-size: 17px; color: var(--gold-hell); text-shadow: 0 0 10px rgba(216, 176, 90, 0.4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.km .leben { display: flex; gap: 4px; }
+.km .leben i { width: 16px; height: 18px; border-radius: 50% 50% 38% 38% / 60% 60% 40% 40%; background: radial-gradient(circle at 45% 25%, #fff4d6, #e2bd68 45%, #9a7330 80%); box-shadow: 0 0 8px rgba(246, 223, 162, 0.6); }
+.km .leben i.weg { background: #2a3233; box-shadow: none; }
+.km .chips { display: flex; gap: 8px; justify-content: space-between; }
+.km .chip { display: flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 20px; background: var(--stein2); border: 1px solid var(--rand); font-weight: 700; font-size: 17px; font-variant-numeric: tabular-nums; }
+.km .chip.k { background: #16231F; border-color: #2f6b58; }
+.km .chip .raute { width: 12px; height: 12px; transform: rotate(45deg); background: conic-gradient(#f2fffa, #7ff2c6, #1e7a5f, #3fbf92, #f2fffa); box-shadow: 0 0 10px var(--jade); }
+.km .chip.offen { border-color: var(--gold); color: var(--gold-hell); box-shadow: 0 0 12px rgba(216, 176, 90, 0.5); }
+.km .chip .uhr { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--jade); box-shadow: 0 0 6px var(--jade); }
+.km .chip.knapp { border-color: var(--gold); color: var(--gold-hell); animation: km-knapp 1s ease-in-out infinite; }
+.km .chip.knapp .uhr { border-color: var(--gold); box-shadow: 0 0 6px var(--gold); }
+@keyframes km-knapp { 50% { box-shadow: 0 0 16px rgba(216, 176, 90, 0.7); } }
+.km .chip.p { font-family: Cinzel, serif; color: var(--jade-hell); }
+.km .feld-rahmen { position: relative; flex: 1 1 auto; min-height: 0; border-radius: 14px; background: #0a0d0e; border: 2px solid #34423f; box-shadow: 0 0 0 1px #0a0d0e, 0 0 22px rgba(95, 232, 180, 0.22), inset 0 0 18px rgba(0, 0, 0, 0.8); overflow: hidden; touch-action: none; }
+.km .feld-rahmen .ecke { position: absolute; z-index: 5; width: 12px; height: 12px; transform: rotate(45deg); background: #101415; border: 1.5px solid var(--jade); box-shadow: 0 0 8px var(--jade); }
+.km .welt { position: absolute; left: 0; top: 0; display: grid; gap: 1px; transition: transform 140ms linear; will-change: transform; }
+.km .welt .z { transition: none; }
+.km .effekte { position: absolute; left: 0; top: 0; pointer-events: none; }
+.km .effekte > * { z-index: 3; }
+.km .blitz { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(circle, rgba(246, 223, 162, 0.55), rgba(246, 223, 162, 0) 70%); animation: km-blitz 0.9s ease-out forwards; }
+@keyframes km-blitz { from { opacity: 1; } to { opacity: 0; } }
+.km .beben { animation: km-beben 0.45s ease-in-out; }
+@keyframes km-beben { 20% { transform: translate(-4px, 2px); } 40% { transform: translate(4px, -2px); } 60% { transform: translate(-3px, -1px); } 80% { transform: translate(2px, 2px); } }
+.km .explo { background: radial-gradient(circle, #fff 0 15%, #FFF4D0 30%, #D8B05A 60%, rgba(216, 176, 90, 0.2) 100%); box-shadow: 0 0 18px #D8B05A; animation: km-explo 0.35s ease-in-out infinite alternate; border-radius: 30%; }
+@keyframes km-explo { from { transform: scale(0.85) rotate(0deg); } to { transform: scale(1.1) rotate(20deg); } }
+.km .figur.erscheint .in { animation: km-erscheinen 0.9s ease-out; }
+@keyframes km-erscheinen { from { transform: scale(0.2); filter: brightness(3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.km .steuer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.km .links { display: flex; flex-direction: column; gap: 8px; width: 130px; }
+.km .knopf { min-height: 48px; border-radius: 12px; background: linear-gradient(160deg, #2a3436, #1d2425); border: 1px solid var(--rand); color: var(--jade-hell); font-weight: 700; font-size: 16px; }
+.km .knopf.leise { background: none; color: var(--matt); font-size: 15px; min-height: 42px; }
+.km .kreuz { display: grid; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(3, 58px); gap: 4px; touch-action: none; }
+.km .taste { touch-action: none; }
+.km .taste.an { background: linear-gradient(160deg, #2a9c76, #1E7A5F); color: #fff; box-shadow: 0 0 18px rgba(95, 232, 180, 0.6); }
+.km .kreuz .mitte { border-radius: 50%; margin: 12px; background: radial-gradient(circle, #2a3a36, #151b1c); border: 1px solid var(--rand); }
+.km .hinweis { margin: 0; text-align: center; font-size: 13px; color: var(--matt); }
+.km .stick { position: absolute; z-index: 6; width: 84px; height: 84px; margin: -42px 0 0 -42px; border-radius: 50%; border: 2px dashed rgba(95, 232, 180, 0.6); pointer-events: none; display: none; }
+.km .stick.an { display: block; }
+.km .stick i { position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #E9FFF6, #5FE8B4 50%, #1E7A5F); box-shadow: 0 0 14px rgba(95, 232, 180, 0.7); }
+.km .tafel-grund { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(5, 8, 9, 0.6); }
+.km .tafel { width: 100%; max-width: 360px; padding: 24px 20px 20px; border-radius: 18px; background: linear-gradient(170deg, #1f2828, #141a1b); border: 1px solid var(--gold); box-shadow: 0 0 34px rgba(216, 176, 90, 0.35); display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.km .tafel.jade { border-color: var(--jade); box-shadow: 0 0 34px rgba(95, 232, 180, 0.35); }
+.km .tafel h2 { margin: 0; font-family: Cinzel, serif; font-size: 25px; color: var(--gold-hell); text-shadow: 0 0 12px rgba(216, 176, 90, 0.5); }
+.km .tafel.jade h2 { color: var(--jade-hell); text-shadow: 0 0 12px rgba(95, 232, 180, 0.6); }
+.km .tafel p { margin: 0; font-size: 17px; line-height: 1.4; color: #C9D6D0; }
+.km .tafel .gross { font-family: Cinzel, serif; font-size: 30px; font-weight: 700; color: var(--jade-hell); }
+.km .tafel .haupt { width: 100%; min-height: 56px; border-radius: 14px; background: linear-gradient(160deg, #2a9c76, #1E7A5F); border: 1px solid var(--jade); color: #F2FFF9; font-weight: 700; font-size: 18px; box-shadow: 0 0 16px rgba(95, 232, 180, 0.4); }
+.km .tafel .neben { width: 100%; min-height: 46px; border-radius: 14px; background: none; border: 1px solid var(--rand); color: var(--matt); font-weight: 700; font-size: 16px; }
+.km .tafel .bild-stein { width: 60px; height: 60px; border-radius: 46% 54% 50% 50% / 55% 47% 53% 45%; background: radial-gradient(circle at 32% 26%, #e4ebe7 0 6%, #a4afa9 20%, #66716d 52%, #2b3230 92%); box-shadow: 0 0 0 3px var(--gold), 0 0 24px var(--gold); }
+.km .tafel .bild-raute { width: 44px; height: 44px; margin: 8px; transform: rotate(45deg); background: conic-gradient(#f2fffa, #7ff2c6, #1e7a5f, #3fbf92, #f2fffa); box-shadow: 0 0 24px var(--jade); }
+@media (prefers-reduced-motion: reduce) {
+.km .welt { transition: none; }
+.km .beben, .km .blitz, .km .explo { animation: none !important; }
+}
+.km .wand.stahl { background: linear-gradient(155deg, #66747a, #3b454a 50%, #262d30); box-shadow: inset 1px 1px 0 rgba(255,255,255,.18), inset -1px -2px 0 rgba(0,0,0,.6), 0 0 0 1px #0d1112; }
+.km .wand.stahl::before { inset: 3px; background: radial-gradient(circle at 20% 20%, #9fb0b5 0 1.3px, transparent 1.8px), radial-gradient(circle at 80% 20%, #9fb0b5 0 1.3px, transparent 1.8px), radial-gradient(circle at 20% 80%, #9fb0b5 0 1.3px, transparent 1.8px), radial-gradient(circle at 80% 80%, #9fb0b5 0 1.3px, transparent 1.8px); opacity: .9; }
+.km .wand.mauer { background: linear-gradient(160deg, #6a5a48, #4a3d30 55%, #352b22); }
+.km .wand.mauer::before { inset: 0; border-radius: 2px; opacity: 1; background: linear-gradient(0deg, transparent 46%, rgba(20,14,8,.7) 48%, rgba(20,14,8,.7) 52%, transparent 54%), linear-gradient(90deg, transparent 23%, rgba(20,14,8,.6) 25%, rgba(20,14,8,.6) 27%, transparent 29%, transparent 71%, rgba(20,14,8,.6) 73%, rgba(20,14,8,.6) 75%, transparent 77%) top / 100% 50% no-repeat, linear-gradient(90deg, transparent 47%, rgba(20,14,8,.6) 49%, rgba(20,14,8,.6) 51%, transparent 53%) bottom / 100% 50% no-repeat; }
+.km .sprite { position: absolute; left: 0; top: 0; width: var(--g); height: var(--g); display: flex; align-items: center; justify-content: center; z-index: 2; transition: transform 140ms linear; will-change: transform; pointer-events: none; }
+.km .sprite .laterne { position: absolute; left: 50%; top: 50%; width: calc(var(--g) * 48); height: calc(var(--g) * 48); transform: translate(-50%, -50%); pointer-events: none; z-index: -1;
+  background: radial-gradient(circle, rgba(246,223,162,.10) 0, transparent calc(var(--g) * 1.8), rgba(4,7,8,.5) calc(var(--g) * 3.4), rgba(4,7,8,.74) calc(var(--g) * 5.2), rgba(4,7,8,.86) calc(var(--g) * 7.5), rgba(4,7,8,.88) calc(var(--g) * 24)); }
+.km .sprite.figur::before { z-index: 0; }
+.km .sprite .in { z-index: 1; }
+.km .sprite.erscheint .koerper { animation: km-erscheinen 0.9s ease-out; }
+.km .z.ausgang { background: radial-gradient(circle, #3a3020 0%, #171c1c 75%); box-shadow: inset 0 0 0 2px #b8984f, 0 0 12px rgba(216, 176, 90, 0.6); border-radius: 5px; overflow: visible; z-index: 1; }
+.km .z.ausgang.zu { animation: km-zu-glimmen 2s ease-in-out infinite; }
+@keyframes km-zu-glimmen { 50% { box-shadow: inset 0 0 0 2px #e2c47a, 0 0 22px rgba(216, 176, 90, 0.85); } }
+.km .z.ausgang.zu::before { content: ''; position: absolute; inset: 3px; border-radius: 3px; background: none; border: 1.5px dashed rgba(246, 223, 162, 0.55); animation: km-zu-puls 2s ease-in-out infinite; }
+.km .z.ausgang .in { width: 76%; height: 76%; }
+.km .z.ausgang.zu .in { background: conic-gradient(#a38a4c, #4a3f28, #c7a75c, #4a3f28, #a38a4c); opacity: 0.85; }
+.km .z.ausgang.zu .in::after { background: radial-gradient(circle, #3a3326, #141a1b); }
+@keyframes km-zu-puls { 50% { opacity: 0.35; } }
+.km .z.ausgang.offen { background: radial-gradient(circle, #fff7da 0%, #e9c46a 45%, #3a2f15 100%); box-shadow: inset 0 0 0 2px #FFF4D0, 0 0 22px #D8B05A, 0 0 40px rgba(246, 223, 162, 0.6); animation: km-tor 1s ease-in-out infinite; }
+.km .z.ausgang.offen::after { content: ''; position: absolute; left: 50%; top: 50%; width: calc(var(--g) * 3); height: calc(var(--g) * 3); margin: calc(var(--g) * -1.5) 0 0 calc(var(--g) * -1.5); border-radius: 50%; pointer-events: none;
+  background: repeating-conic-gradient(rgba(255, 244, 208, 0.55) 0 8deg, transparent 8deg 30deg); -webkit-mask: radial-gradient(circle, #000 25%, transparent 70%); mask: radial-gradient(circle, #000 25%, transparent 70%); animation: km-drehen 6s linear infinite; opacity: 1; transform: none; right: auto; }
+@keyframes km-tor { 50% { box-shadow: inset 0 0 0 2px #FFF4D0, 0 0 32px #F6DFA2, 0 0 60px rgba(246, 223, 162, 0.8); } }
+.km .pfeil { position: absolute; z-index: 6; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; display: none; pointer-events: none;
+  background: radial-gradient(circle, rgba(246, 223, 162, 0.35), transparent 70%); }
+.km .pfeil.an { display: block; animation: km-tor-pfeil 1s ease-in-out infinite; }
+.km .pfeil::after { content: ''; position: absolute; left: 50%; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -12px; background: #F6DFA2; clip-path: polygon(0 0, 100% 50%, 0 100%, 28% 50%); transform: rotate(var(--w, 0rad)); }
+@keyframes km-tor-pfeil { 50% { transform: scale(1.15); } }
+@media (prefers-reduced-motion: reduce) {
+.km .sprite, .km .welt .z .in { transition: none !important; }
+}
+.km .sprite .koerper { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; transition: transform 160ms ease-out; transform-origin: 50% 85%; position: relative; z-index: 1; }
+.km .sprite.figur .in { animation: km-atmen 2.6s ease-in-out infinite; transform-origin: 50% 90%; }
+@keyframes km-atmen { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.035, 0.965) translateY(0.5px); } 52% { transform: scale(0.99, 1.04) translateY(-1px); } }
+.km .sprite.laeuft .in { animation: km-schritt 280ms ease-in-out infinite; }
+@keyframes km-schritt { 0%, 100% { transform: translateY(0) scale(1, 1); } 25% { transform: translateY(-2px) scale(0.97, 1.04); } 50% { transform: translateY(0) scale(1.04, 0.96); } 75% { transform: translateY(-1.5px) scale(0.98, 1.03); } }
+.km .sprite.lauf-rechts .koerper { transform: rotate(9deg) translateX(1px); }
+.km .sprite.lauf-links .koerper { transform: rotate(-9deg) translateX(-1px); }
+.km .sprite.lauf-hoch .koerper { transform: scale(0.94, 1.07) translateY(-1px); }
+.km .sprite.lauf-runter .koerper { transform: scale(1.06, 0.93) translateY(1px); }
+.km .sprite.drueckt.lauf-rechts .koerper { transform: rotate(16deg) translateX(3px); }
+.km .sprite.drueckt.lauf-links .koerper { transform: rotate(-16deg) translateX(-3px); }
+.km .sprite.figur .in::after { transition: transform 160ms ease-out; }
+.km .sprite.lauf-rechts .in::after { transform: translateX(2px); }
+.km .sprite.lauf-links .in::after { transform: translateX(-2px); }
+.km .sprite.lauf-hoch .in::after { transform: translateY(-2px); }
+.km .sprite.lauf-runter .in::after { transform: translateY(1.5px); }
+.km .sprite.figur::before { transition: inset 200ms, opacity 200ms; }
+.km .sprite.laeuft::before { inset: calc(var(--g) * -0.45); }
+.km .spur { position: absolute; width: calc(var(--g) * 2.2); height: calc(var(--g) * 2.2); margin: calc(var(--g) * -1.1) 0 0 calc(var(--g) * -1.1); border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 244, 208, 0.34) 0, rgba(246, 223, 162, 0.16) 28%, rgba(95, 232, 180, 0.07) 50%, transparent 70%);
+  mix-blend-mode: screen; animation: km-spur 3.2s ease-out forwards; }
+.km .spur::after { content: ''; position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: #FFF4D0; box-shadow: 0 0 8px #D8B05A, 0 0 3px #fff; animation: km-spur-funke 1.6s ease-out forwards; }
+@keyframes km-spur { 0% { opacity: 1; transform: scale(0.85); } 35% { opacity: 0.8; transform: scale(1); } 100% { opacity: 0; transform: scale(1.15); } }
+@keyframes km-spur-funke { 0% { opacity: 0.9; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-10px); } }
+@media (prefers-reduced-motion: reduce) {
+.km .sprite .in, .km .sprite.laeuft .in { animation: none !important; }
+}
+.km .licht-kristall, .km .licht-tor { position: absolute; left: 0; top: 0; width: calc(var(--g) * 3.4); height: calc(var(--g) * 3.4); margin: calc(var(--g) * -1.7) 0 0 calc(var(--g) * -1.7); border-radius: 50%; pointer-events: none; mix-blend-mode: screen; transition: transform 140ms linear, opacity 0.6s; }
+.km .licht-kristall { width: calc(var(--g) * 1.9); height: calc(var(--g) * 1.9); margin: calc(var(--g) * -0.95) 0 0 calc(var(--g) * -0.95); background: radial-gradient(circle, rgba(190, 255, 230, 0.26) 0, rgba(120, 236, 195, 0.1) 35%, transparent 68%); animation: km-kristall-licht 3s ease-in-out infinite; }
+.km .licht-tor { width: calc(var(--g) * 3.2); height: calc(var(--g) * 3.2); margin: calc(var(--g) * -1.6) 0 0 calc(var(--g) * -1.6); background: radial-gradient(circle, rgba(255, 244, 208, 0.42) 0, rgba(246, 223, 162, 0.18) 32%, transparent 68%); animation: km-kristall-licht 1.2s ease-in-out infinite; }
+.km .licht-kristall.aus, .km .licht-tor.aus { opacity: 0; }
+@keyframes km-kristall-licht { 0%, 100% { opacity: 1; } 50% { opacity: 0.72; } }
+.km .welt .erde { box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.16), inset 1px 0 0 rgba(255, 220, 160, 0.06), inset 0 -2px 3px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(120, 95, 60, 0.35); }
+.km .welt .stein .in { box-shadow: 0 3px 3px rgba(0, 0, 0, 0.7), inset -2px -3px 4px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(210, 225, 220, 0.4), inset 1px 1px 0 rgba(255, 255, 255, 0.35); }
+.km .welt .wand.stahl { box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.3), inset -1px -2px 0 rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(160, 180, 185, 0.35); }
+.km .welt .wand.mauer { box-shadow: inset 1px 1px 0 rgba(255, 230, 190, 0.22), inset -1px -2px 0 rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(150, 120, 90, 0.35); }
+.km .welt .leer { box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(95, 232, 180, 0.04); }
+.km .kreuz { cursor: pointer; }
+.km .kreuz .taste { pointer-events: none; transition: background 0.12s, box-shadow 0.12s, transform 0.12s; }
+.km .kreuz .taste.an { transform: scale(1.06); }
+.km .kreuz .mitte { box-shadow: 0 0 12px rgba(95, 232, 180, 0.25), inset 0 0 8px rgba(95, 232, 180, 0.2); }
+.km .wuermchen { position: absolute; left: 0; top: 0; width: 3px; height: 3px; margin: -1.5px; border-radius: 50%; pointer-events: none; mix-blend-mode: screen; opacity: 0;
+  background: #E9FFF6; box-shadow: 0 0 4px 1px rgba(95, 232, 180, 0.9), 0 0 10px 2px rgba(95, 232, 180, 0.35); animation: km-wuermchen var(--dauer, 4s) ease-in-out forwards; }
+.km .wuermchen.gold { background: #FFF4D0; box-shadow: 0 0 4px 1px rgba(246, 223, 162, 0.9), 0 0 10px 2px rgba(216, 176, 90, 0.35); }
+.km .wuermchen.klein { width: 2px; height: 2px; margin: -1px; }
+@keyframes km-wuermchen {
+  0% { opacity: 0; transform: translate(0, 0); }
+  20% { opacity: 0.9; }
+  45% { opacity: 0.35; transform: translate(calc(var(--dx) * 0.45), calc(var(--dy) * 0.4)); }
+  65% { opacity: 0.85; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)); }
+}
+@media (prefers-reduced-motion: reduce) {
+.km .wuermchen { display: none; }
+}
+.km .wuermchen.spur-funke { animation-name: km-spur-wuermchen; }
+@keyframes km-spur-wuermchen {
+  0% { opacity: 0; transform: translate(0, 0) scale(1.4); }
+  10% { opacity: 1; }
+  50% { opacity: 0.45; transform: translate(calc(var(--dx) * 0.5), calc(var(--dy) * 0.45)) scale(1); }
+  70% { opacity: 0.8; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.8); }
+}
+.km .steuer { display: none; justify-content: center; }
+.km.mit-kreuz .steuer { display: flex; }
+.km .leiste { display: flex; gap: 8px; }
+.km .knopf.klein { flex: 1; min-height: 42px; font-size: 15px; padding: 0 6px; white-space: nowrap; }
+.km #km-kreuz-schalter[aria-pressed="true"] { background: linear-gradient(160deg, #2a9c76, #1E7A5F); border-color: var(--jade); color: #fff; }
+.km.mit-kreuz .kreuz { grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(3, 56px); }
