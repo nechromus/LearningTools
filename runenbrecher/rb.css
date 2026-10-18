@@ -30,3 +30,11 @@
 @media (prefers-reduced-motion: reduce) {
   .rb .rb-meldung.an, .rb .rb-licht, .rb .rb-plus { animation: none; }
 }
+
+/* Zone unter dem Feld: dort liegt der Daumen */
+.rb { touch-action: none; }
+.rb .rb-zone { flex: 0 0 76px; display: flex; align-items: center; justify-content: center; border-radius: 14px; touch-action: none;
+  background: linear-gradient(180deg, rgba(216, 176, 90, 0.08), rgba(216, 176, 90, 0.02)); border: 1px dashed rgba(216, 176, 90, 0.35); }
+.rb .rb-griff { display: flex; align-items: center; gap: 10px; color: #F6DFA2; opacity: 0.75; font-size: 15px; pointer-events: none; }
+.rb .rb-griff i { display: block; width: 34px; height: 6px; border-radius: 3px; background: linear-gradient(90deg, transparent, #D8B05A); }
+.rb .rb-griff i:last-child { transform: scaleX(-1); }

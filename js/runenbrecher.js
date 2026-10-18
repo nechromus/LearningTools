@@ -35,7 +35,7 @@ export const LEVEL = [
 ];
 
 export const PUNKTE = { n: 10, s: 20, g: 50, ersterTreffer: 5, levelBonus: 200 };
-export const geschwindigkeit = (level) => Math.min(74, 56 + 1.8 * level); // level ab 0
+export const geschwindigkeit = (level) => Math.min(112, 86 + 2.2 * level); // level ab 0 (Feldhöhe 150: Start etwa 1,7 s von unten nach oben)
 
 // Zufall mit Startwert (damit Extras gleich fallen, wenn man denselben Stand lädt)
 function zufall(s) {

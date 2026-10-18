@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="km.css?v=2.4.1">
+  <link rel="stylesheet" href="km.css?v=2.4.2">
   <style>
     html, body { margin: 0; height: 100%; }
     body { background: radial-gradient(ellipse at 50% 30%, #172022 0%, #0e1213 60%, #070909 100%); background-color: #0b0e0f; color: #E8F1EC; font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; overscroll-behavior: none; touch-action: manipulation; }
@@ -38,14 +38,14 @@
     <div id="spiel"></div>
   </div>
   <script type="module">
-    import { kristallmineStarten } from '../js/kristallmine-ui.js?v=2.4.1';
+    import { kristallmineStarten } from '../js/kristallmine-ui.js?v=2.4.2';
     const KEY = 'kristallmine-test-v2';
     let stand = null;
     try { stand = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { /* egal */ }
     const spiel = kristallmineStarten(document.getElementById('spiel'), {
       stand,
       sichern: (st) => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { /* egal */ } },
-      hinweisZusatz: 'Test 2.4.1'
+      hinweisZusatz: 'Test 2.4.2'
     });
     window.addEventListener('pagehide', () => spiel.beenden());
     window.kristallmineStand = () => spiel.hoehle();

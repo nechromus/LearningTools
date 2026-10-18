@@ -49,7 +49,8 @@ export function runenbrecherStarten(wurzel, opt = {}) {
       <div class="rb-meldung" id="rb-meldung" aria-live="polite"></div>
       <div class="rb-effekte" id="rb-effekte"></div>
     </div>
-    <p class="hinweis">Ziehe mit dem Finger, um den Schild zu bewegen. Tippe, um die Kugel loszuschicken.${opt.hinweisZusatz ? ' · ' + opt.hinweisZusatz : ''}</p>
+    <div class="rb-zone" id="rb-zone" aria-hidden="true"><span class="rb-griff"><i></i><b>◀ Hier ziehen ▶</b><i></i></span></div>
+    <p class="hinweis">Ziehe irgendwo unten mit dem Finger, um den Schild zu bewegen. Tippe, um die Kugel loszuschicken.${opt.hinweisZusatz ? ' · ' + opt.hinweisZusatz : ''}</p>
     <div id="rb-tafel"></div>`;
   const $ = (id) => wurzel.querySelector('#rb-' + id);
   const rahmen = $('rahmen'), canvas = $('canvas'), ctx = canvas.getContext('2d');
@@ -357,20 +358,24 @@ export function runenbrecherStarten(wurzel, opt = {}) {
 
   let zug = null;
   const feldX = (e) => (e.clientX - canvas.getBoundingClientRect().left) / massstab;
-  an(rahmen, 'pointerdown', (e) => {
+  // Gesteuert wird auf dem ganzen Spielfeld und in der Zone darunter (nicht auf Knöpfen und Tafeln)
+  const flaeche = (e) => !e.target.closest('button, .tafel-grund, .kopf, .chips');
+  an(wurzel, 'pointerdown', (e) => {
+    if (!flaeche(e)) return;
     zug = { x: e.clientX, y: e.clientY, t: performance.now() };
     if (laeuft && !pause) ziel = feldX(e);
-    try { rahmen.setPointerCapture(e.pointerId); } catch (_) { /* egal */ }
+    try { wurzel.setPointerCapture(e.pointerId); } catch (_) { /* egal */ }
   });
-  an(rahmen, 'pointermove', (e) => { if (zug && laeuft && !pause) ziel = feldX(e); });
-  an(rahmen, 'pointerup', (e) => {
+  an(wurzel, 'pointermove', (e) => { if (zug && laeuft && !pause) ziel = feldX(e); });
+  an(wurzel, 'pointerup', (e) => {
     if (!zug) return;
     const kurz = performance.now() - zug.t < 400 && Math.hypot(e.clientX - zug.x, e.clientY - zug.y) < 14;
     zug = null;
     if (kurz && s.liegt) loslassen();
   });
-  an(rahmen, 'pointercancel', () => { zug = null; });
+  an(wurzel, 'pointercancel', () => { zug = null; });
   an(rahmen, 'touchmove', (e) => e.preventDefault(), { passive: false });
+  an($('zone'), 'touchmove', (e) => e.preventDefault(), { passive: false });
   an(document, 'keydown', (e) => {
     if (!wurzel.isConnected) return;
     if (e.key === 'ArrowLeft') { e.preventDefault(); tasten.links = true; }
