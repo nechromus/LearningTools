@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0b0e0f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="robots" content="noindex">
+  <title>Kristallmine · Test</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="kacheln.css">
+  <link rel="stylesheet" href="spiel.css">
+  <script>
+    // Wie in der Übungs-App: Wird die Seite als Desktop-Website dargestellt, passend vergrößern.
+    (function () {
+      function anpassen() {
+        var touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        var quer = window.matchMedia && window.matchMedia('(orientation: landscape)').matches;
+        var breite = quer ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+        var html = document.documentElement;
+        html.style.zoom = '';
+        html.style.removeProperty('--zoom');
+        var v = window.innerWidth / breite;
+        if (touch && breite && v > 1.15) { html.style.zoom = v.toFixed(3); html.style.setProperty('--zoom', v.toFixed(3)); }
+      }
+      anpassen();
+      window.addEventListener('resize', anpassen);
+      window.addEventListener('orientationchange', function () { setTimeout(anpassen, 300); });
+    })();
+  </script>
+</head>
+<body>
+  <div class="seite">
+    <div class="kopf">
+      <a class="zurueck" href="../">← Zurück</a>
+      <span class="titel" id="titel">Kristallmine</span>
+      <span class="leben" id="leben" aria-label="Leben"></span>
+    </div>
+    <div class="chips">
+      <span class="chip k" id="chip-k"><span class="raute"></span><span id="kristalle">0 / 0</span></span>
+      <span class="chip" id="chip-zeit"><span class="uhr"></span><span id="zeit">0</span></span>
+      <span class="chip p" id="punkte">0</span>
+    </div>
+    <div class="feld-rahmen" id="rahmen">
+      <span class="ecke" style="left:-7px;top:-7px"></span><span class="ecke" style="right:-7px;top:-7px"></span>
+      <span class="ecke" style="left:-7px;bottom:-7px"></span><span class="ecke" style="right:-7px;bottom:-7px"></span>
+      <div class="welt" id="welt"></div>
+      <div class="schein" id="schein"></div>
+      <div class="stick" id="stick"><i></i></div>
+    </div>
+    <div class="steuer">
+      <div class="links">
+        <button class="knopf" id="pause">Pause</button>
+        <button class="knopf leise" id="neu">Höhle neu</button>
+      </div>
+      <div class="kreuz" id="kreuz">
+        <span></span><button class="taste" data-r="hoch" aria-label="Hoch">▲</button><span></span>
+        <button class="taste" data-r="links" aria-label="Links">◀</button><span class="mitte"></span><button class="taste" data-r="rechts" aria-label="Rechts">▶</button>
+        <span></span><button class="taste" data-r="runter" aria-label="Runter">▼</button><span></span>
+      </div>
+    </div>
+    <p class="hinweis">Steuerkreuz gedrückt halten · oder auf dem Feld ziehen</p>
+  </div>
+  <div id="tafel"></div>
+  <script type="module" src="spiel.js"></script>
+</body>
+</html>

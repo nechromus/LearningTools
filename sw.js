@@ -1,5 +1,5 @@
 // Offline-Speicher. VERSION muss zu version.json und APP_VERSION in js/app.js passen.
-const VERSION = 'schrein-1.9.1';
+const VERSION = 'schrein-1.9.2';
 const DATEIEN = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest',
   'js/app.js', 'js/logic.js', 'js/namen.js', 'js/paket.js', 'js/bloecke.js', 'js/einrichtung.js', 'js/render.js', 'js/store.js', 'js/gen.js', 'js/sync.js',

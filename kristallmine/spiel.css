@@ -1,0 +1,77 @@
+/* Kristallmine: Seite, Anzeige, Steuerung (Kacheln in kacheln.css) */
+:root { --jade: #5FE8B4; --jade-hell: #B9FFE2; --jade-tief: #1E7A5F; --gold: #D8B05A; --gold-hell: #F6DFA2; --stein2: #242C2D; --rand: #3F5450; --text: #E8F1EC; --matt: #8FA39B; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; }
+body { background: radial-gradient(ellipse at 50% 30%, #172022 0%, #0e1213 60%, #070909 100%); background-color: #0b0e0f; color: var(--text); font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; overscroll-behavior: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.seite { height: calc(100dvh / var(--zoom, 1)); max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px calc(env(safe-area-inset-bottom, 0px) + 10px); gap: 8px; }
+.kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.zurueck { background: none; border: 0; color: var(--jade); font-weight: 700; font-size: 17px; padding: 8px 0; text-decoration: none; }
+.titel { font-family: Cinzel, serif; font-weight: 700; font-size: 17px; color: var(--gold-hell); text-shadow: 0 0 10px rgba(216, 176, 90, 0.4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.leben { display: flex; gap: 4px; }
+.leben i { width: 16px; height: 18px; border-radius: 50% 50% 38% 38% / 60% 60% 40% 40%; background: radial-gradient(circle at 45% 25%, #fff4d6, #e2bd68 45%, #9a7330 80%); box-shadow: 0 0 8px rgba(246, 223, 162, 0.6); }
+.leben i.weg { background: #2a3233; box-shadow: none; }
+.chips { display: flex; gap: 8px; justify-content: space-between; }
+.chip { display: flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 20px; background: var(--stein2); border: 1px solid var(--rand); font-weight: 700; font-size: 17px; font-variant-numeric: tabular-nums; }
+.chip.k { background: #16231F; border-color: #2f6b58; }
+.chip .raute { width: 12px; height: 12px; transform: rotate(45deg); background: conic-gradient(#f2fffa, #7ff2c6, #1e7a5f, #3fbf92, #f2fffa); box-shadow: 0 0 10px var(--jade); }
+.chip.offen { border-color: var(--gold); color: var(--gold-hell); box-shadow: 0 0 12px rgba(216, 176, 90, 0.5); }
+.chip .uhr { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--jade); box-shadow: 0 0 6px var(--jade); }
+.chip.knapp { border-color: var(--gold); color: var(--gold-hell); animation: knapp 1s ease-in-out infinite; }
+.chip.knapp .uhr { border-color: var(--gold); box-shadow: 0 0 6px var(--gold); }
+@keyframes knapp { 50% { box-shadow: 0 0 16px rgba(216, 176, 90, 0.7); } }
+.chip.p { font-family: Cinzel, serif; color: var(--jade-hell); }
+
+.feld-rahmen { position: relative; flex: 1 1 auto; min-height: 0; border-radius: 14px; background: #0a0d0e; border: 2px solid #34423f; box-shadow: 0 0 0 1px #0a0d0e, 0 0 22px rgba(95, 232, 180, 0.22), inset 0 0 18px rgba(0, 0, 0, 0.8); overflow: hidden; touch-action: none; }
+.feld-rahmen .ecke { position: absolute; z-index: 5; width: 12px; height: 12px; transform: rotate(45deg); background: #101415; border: 1.5px solid var(--jade); box-shadow: 0 0 8px var(--jade); }
+.welt { position: absolute; left: 0; top: 0; display: grid; gap: 1px; transition: transform 0.28s ease-out; will-change: transform; }
+.welt .z { transition: none; }
+.effekte { position: absolute; left: 0; top: 0; pointer-events: none; }
+.schein { position: absolute; inset: 0; pointer-events: none; z-index: 3; transition: background-position 0.2s; }
+.blitz { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(circle, rgba(246, 223, 162, 0.55), rgba(246, 223, 162, 0) 70%); animation: blitz 0.9s ease-out forwards; }
+@keyframes blitz { from { opacity: 1; } to { opacity: 0; } }
+.beben { animation: beben 0.45s ease-in-out; }
+@keyframes beben { 20% { transform: translate(-4px, 2px); } 40% { transform: translate(4px, -2px); } 60% { transform: translate(-3px, -1px); } 80% { transform: translate(2px, 2px); } }
+
+/* Explosion */
+.explo { background: radial-gradient(circle, #fff 0 15%, #FFF4D0 30%, #D8B05A 60%, rgba(216, 176, 90, 0.2) 100%); box-shadow: 0 0 18px #D8B05A; animation: explo 0.35s ease-in-out infinite alternate; border-radius: 30%; }
+@keyframes explo { from { transform: scale(0.85) rotate(0deg); } to { transform: scale(1.1) rotate(20deg); } }
+.figur.erscheint .in { animation: erscheinen 0.9s ease-out; }
+@keyframes erscheinen { from { transform: scale(0.2); filter: brightness(3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* Steuerung */
+.steuer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.links { display: flex; flex-direction: column; gap: 8px; width: 130px; }
+.knopf { min-height: 48px; border-radius: 12px; background: linear-gradient(160deg, #2a3436, #1d2425); border: 1px solid var(--rand); color: var(--jade-hell); font-weight: 700; font-size: 16px; }
+.knopf.leise { background: none; color: var(--matt); font-size: 15px; min-height: 42px; }
+.kreuz { display: grid; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(3, 58px); gap: 4px; touch-action: none; }
+.taste { touch-action: none; }
+.taste.an { background: linear-gradient(160deg, #2a9c76, #1E7A5F); color: #fff; box-shadow: 0 0 18px rgba(95, 232, 180, 0.6); }
+.kreuz .mitte { border-radius: 50%; margin: 12px; background: radial-gradient(circle, #2a3a36, #151b1c); border: 1px solid var(--rand); }
+.hinweis { margin: 0; text-align: center; font-size: 13px; color: var(--matt); }
+
+/* Stick beim Ziehen auf dem Feld */
+.stick { position: absolute; z-index: 6; width: 84px; height: 84px; margin: -42px 0 0 -42px; border-radius: 50%; border: 2px dashed rgba(95, 232, 180, 0.6); pointer-events: none; display: none; }
+.stick.an { display: block; }
+.stick i { position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #E9FFF6, #5FE8B4 50%, #1E7A5F); box-shadow: 0 0 14px rgba(95, 232, 180, 0.7); }
+
+/* Tafeln (Start, Bumm, geschafft …) */
+.tafel-grund { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(5, 8, 9, 0.6); }
+.tafel { width: 100%; max-width: 360px; padding: 24px 20px 20px; border-radius: 18px; background: linear-gradient(170deg, #1f2828, #141a1b); border: 1px solid var(--gold); box-shadow: 0 0 34px rgba(216, 176, 90, 0.35); display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.tafel.jade { border-color: var(--jade); box-shadow: 0 0 34px rgba(95, 232, 180, 0.35); }
+.tafel h2 { margin: 0; font-family: Cinzel, serif; font-size: 25px; color: var(--gold-hell); text-shadow: 0 0 12px rgba(216, 176, 90, 0.5); }
+.tafel.jade h2 { color: var(--jade-hell); text-shadow: 0 0 12px rgba(95, 232, 180, 0.6); }
+.tafel p { margin: 0; font-size: 17px; line-height: 1.4; color: #C9D6D0; }
+.tafel .gross { font-family: Cinzel, serif; font-size: 30px; font-weight: 700; color: var(--jade-hell); }
+.tafel .haupt { width: 100%; min-height: 56px; border-radius: 14px; background: linear-gradient(160deg, #2a9c76, #1E7A5F); border: 1px solid var(--jade); color: #F2FFF9; font-weight: 700; font-size: 18px; box-shadow: 0 0 16px rgba(95, 232, 180, 0.4); }
+.tafel .neben { width: 100%; min-height: 46px; border-radius: 14px; background: none; border: 1px solid var(--rand); color: var(--matt); font-weight: 700; font-size: 16px; }
+.tafel .bild-stein { width: 60px; height: 60px; border-radius: 46% 54% 50% 50% / 55% 47% 53% 45%; background: radial-gradient(circle at 32% 26%, #e4ebe7 0 6%, #a4afa9 20%, #66716d 52%, #2b3230 92%); box-shadow: 0 0 0 3px var(--gold), 0 0 24px var(--gold); }
+.tafel .bild-raute { width: 44px; height: 44px; margin: 8px; transform: rotate(45deg); background: conic-gradient(#f2fffa, #7ff2c6, #1e7a5f, #3fbf92, #f2fffa); box-shadow: 0 0 24px var(--jade); }
+
+@media (prefers-reduced-motion: reduce) { .welt { transition: none; } .beben, .blitz, .explo { animation: none !important; } }
+
+/* Stahlwand (Rand, unzerstörbar) und Mauer (Steine rollen ab) */
+.wand.stahl { background: linear-gradient(155deg, #66747a, #3b454a 50%, #262d30); box-shadow: inset 1px 1px 0 rgba(255,255,255,.18), inset -1px -2px 0 rgba(0,0,0,.6), 0 0 0 1px #0d1112; }
+.wand.stahl::before { inset: 3px; background: radial-gradient(circle at 20% 20%, #9fb0b5 0 1.3px, transparent 1.8px), radial-gradient(circle at 80% 20%, #9fb0b5 0 1.3px, transparent 1.8px), radial-gradient(circle at 20% 80%, #9fb0b5 0 1.3px, transparent 1.8px), radial-gradient(circle at 80% 80%, #9fb0b5 0 1.3px, transparent 1.8px); opacity: .9; }
+.wand.mauer { background: linear-gradient(160deg, #6a5a48, #4a3d30 55%, #352b22); }
+.wand.mauer::before { inset: 0; border-radius: 2px; opacity: 1; background: linear-gradient(0deg, transparent 46%, rgba(20,14,8,.7) 48%, rgba(20,14,8,.7) 52%, transparent 54%), linear-gradient(90deg, transparent 23%, rgba(20,14,8,.6) 25%, rgba(20,14,8,.6) 27%, transparent 29%, transparent 71%, rgba(20,14,8,.6) 73%, rgba(20,14,8,.6) 75%, transparent 77%) top / 100% 50% no-repeat, linear-gradient(90deg, transparent 47%, rgba(20,14,8,.6) 49%, rgba(20,14,8,.6) 51%, transparent 53%) bottom / 100% 50% no-repeat; }
