@@ -741,3 +741,5 @@ body[data-ansicht="spiele"] { background: radial-gradient(ellipse at 50% -10%, #
 .hinweis-blatt .hinweiskarte .ex { font-size: 16px; }
 .hinweis-blatt .hinweiskarte .bw .rb, .hinweis-blatt .hinweiskarte .bw .bx { font-size: 15.5px; padding: 5px 7px; }
 .hinweis-blatt .hinweiskarte svg { max-width: 100%; height: auto; }
+.test-als { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }
+.test-als-chip { display: inline-block; margin: 4px 0 0; padding: 2px 10px; border-radius: 999px; background: #F5E6C6; color: #633806; font-size: 14px; font-weight: 700; }

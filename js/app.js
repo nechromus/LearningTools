@@ -20,7 +20,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.6.0';
+export const APP_VERSION = '2.6.1';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -278,6 +278,27 @@ export function nutzerOrdner(name = S.einstellungen.name) {
   return o || 'ohne-namen';
 }
 
+// Testgerät: Einstellungen eines anderen Schülers ausprobieren (nur lesen, es wird nie etwas in seinen Ordner geschrieben)
+const testAls = () => (S.upload.testgeraet && S.upload.testAls) || null;
+const fernOrdner = () => testAls() || nutzerOrdner();
+let testSchueler = null; // [{ ordner }] aus daten/, nur Ordner mit einstellungen.json
+async function testSchuelerLaden() {
+  const liste = await U.ordnerLesen(S.upload, 'daten');
+  const ordner = liste.filter(f => f.type === 'dir').map(f => f.name);
+  const mit = await Promise.all(ordner.map(async o => (await U.ordnerLesen(S.upload, `daten/${o}`)).some(f => f.name === 'einstellungen.json') ? o : null));
+  testSchueler = mit.filter(Boolean);
+  return testSchueler;
+}
+async function testAlsSetzen(ordner) {
+  S.upload.testAls = ordner || null;
+  S.fern = {}; // neu anfangen, damit alle Werte (auch ältere Versionen) übernommen werden
+  S.paket = null; // Schüler ohne Paket nutzt wie in seiner App das Übungsthema
+  protokoll(S, 'test_als', { ordner: ordner || null });
+  sichern();
+  await fernHolen(true);
+}
+const ordnerName = (o) => o.charAt(0).toUpperCase() + o.slice(1);
+
 // Einstellungen aus der Eltern-App holen (daten/<name>/einstellungen.json)
 let fernLaeuft = false, fernZuletzt = 0;
 async function fernHolen(erzwingen = false) {
@@ -287,7 +308,7 @@ async function fernHolen(erzwingen = false) {
   fernLaeuft = true; fernZuletzt = Date.now();
   let geaendert = null;
   try {
-    const datei = await U.dateiLesen(u, `daten/${nutzerOrdner()}/einstellungen.json`);
+    const datei = await U.dateiLesen(u, `daten/${fernOrdner()}/einstellungen.json`);
     S.fern = { ...S.fern, geholt: new Date().toISOString(), fehler: null };
     geaendert = L.fernAnwenden(S, datei);
     if (geaendert) protokoll(S, 'fern_einstellungen', { version: S.fern.version, geaendert });
@@ -337,7 +358,7 @@ function standUebernehmen(datei, grund) {
 // Während einer Aufgabe oder eines Spiels wird nur vorgemerkt und beim nächsten Startbildschirm übernommen.
 async function standAbgleich(erzwingen = false) {
   const u = S.upload;
-  if (!S.einstellungen.name || u.testgeraet || !u.repo || !u.token) return false;
+  if (!S.einstellungen.name || u.testgeraet || u.testAls || !u.repo || !u.token) return false;
   if (!erzwingen && Date.now() - standZuletztGeprueft < 20 * 1000) return false;
   standZuletztGeprueft = Date.now();
   const datei = await U.dateiLesen(u, standPfad());
@@ -356,7 +377,7 @@ async function standAbgleich(erzwingen = false) {
 // dann gewinnt der Server und es wird nichts hochgeladen.
 async function standHochladen(erzwingen = false) {
   const u = S.upload;
-  if (!S.einstellungen.name || u.testgeraet || !u.repo || !u.token || standLaeuft || u.standWartet) return false;
+  if (!S.einstellungen.name || u.testgeraet || u.testAls || !u.repo || !u.token || standLaeuft || u.standWartet) return false;
   const kern = spielstandKern(S);
   if (!erzwingen && kern === u.standKern) return false;
   standLaeuft = true;
@@ -388,7 +409,7 @@ async function syncen(erzwingen = false) {
   const u = S.upload;
   // Neue Einstellungen übernommen? Dann gleich den Stand melden, damit die Eltern-App es sieht.
   if (await fernHolen(erzwingen)) erzwingen = true;
-  if (!S.einstellungen.name || u.testgeraet || !u.repo || !u.token) return null;
+  if (!S.einstellungen.name || u.testgeraet || u.testAls || !u.repo || !u.token) return null;
   try { await standAbgleich(erzwingen); } catch (e) { /* später nochmal */ }
   standHochladen(erzwingen);
   if (syncLaeuft) return null;
@@ -621,7 +642,7 @@ function zeigeStart() {
   <div class="screen start">
     <header class="start-kopf">
       <div class="logo" id="logo" title="">${sechseck(56, '#DCEDED', '#1F6F75', '<text x="12" y="12.6" text-anchor="middle" dominant-baseline="central" font-family="Cinzel, serif" font-weight="700" font-size="6" fill="#0E4A4F">2048</text>')}</div>
-      <div><h1>Schrein der Zahlen</h1><p class="gedaempft">Hallo${name}!</p></div>
+      <div><h1>Schrein der Zahlen</h1><p class="gedaempft">Hallo${name}!</p>${testAls() ? `<p class="test-als-chip">Test als ${esc(ordnerName(testAls()))}${S.paket ? ` · ${esc(S.paket.name)}` : ''}</p>` : ''}</div>
     </header>
 
     <section class="guthaben-karte">
@@ -2335,6 +2356,12 @@ function zeigeEltern(meldung = '') {
     <section class="karte">
       <h3>Testgerät</h3>
       <label class="schalter-zeile"><input type="checkbox" id="u-test" data-act="testgeraet" ${S.upload.testgeraet ? 'checked' : ''}><span><b>Dieses Handy ist ein Testgerät</b><br><span class="gedaempft klein">Es werden keine Lerndaten übertragen. Exporte werden als Test markiert.</span></span></label>
+      ${S.upload.testgeraet && S.upload.token ? `
+      <h4>Testen als</h4>
+      <p class="gedaempft klein">Übernimmt Aufgabenpaket und Einstellungen eines Schülers aus der Eltern-App. Bei ihm wird nichts verändert.</p>
+      ${testSchueler ? `<div class="test-als">${[null, ...testSchueler].map(o => `<button class="btn btn-klein${(testAls() || null) === o ? ' btn-haupt' : ''}" data-act="testAls" data-o="${esc(o || '')}">${o ? esc(ordnerName(o)) : 'Eigene Einstellungen'}</button>`).join('')}</div>`
+        : '<button class="btn btn-klein" data-act="testSchueler">Schüler laden</button>'}
+      <p class="klein">Jetzt: <b>${testAls() ? esc(ordnerName(testAls())) : 'eigene Einstellungen'}</b>${S.paket ? ` · Paket „${esc(S.paket.name)}“` : ''}</p>` : ''}
     </section>
 
     <section class="karte">
@@ -2696,7 +2723,19 @@ function klick(e) {
       }).catch(e => { f.textContent = e.message; });
       break;
     }
+    case 'testSchueler':
+      el.textContent = 'Wird geladen …';
+      testSchuelerLaden().then(() => zeigeEltern()).catch(e => zeigeEltern(esc(e.message || 'Laden hat nicht geklappt.')));
+      break;
+    case 'testAls': {
+      const o = el.dataset.o || null;
+      el.textContent = 'Wird übernommen …';
+      testAlsSetzen(o).then(() => zeigeEltern(S.fern && S.fern.fehler ? esc(S.fern.fehler)
+        : o ? `Testen als ${esc(ordnerName(o))}${S.paket ? `: Paket „${esc(S.paket.name)}“` : ''}.` : 'Wieder die eigenen Einstellungen.'));
+      break;
+    }
     case 'testgeraet':
+      if (!el.checked && S.upload.testAls) { S.upload.testAls = null; S.fern = {}; S.paket = null; }
       S.upload.testgeraet = el.checked;
       protokoll(S, 'testgeraet', { an: el.checked });
       sichern();
