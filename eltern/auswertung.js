@@ -34,6 +34,72 @@ export function aufgabenAus(eintraege, geraet = '') {
   return liste;
 }
 
+// Spiel-Sitzungen eines Geräts: von spiel_start bis spiel_ende.
+// Ältere Einträge haben kein Feld „spiel“: dann war es 2048.
+export function spieleAus(eintraege, geraet = '') {
+  const liste = [];
+  let offen = null;
+  const schliessen = (e) => {
+    if (!offen) return;
+    offen.ende = e || null;
+    offen.bis = e ? e.t : offen.events[offen.events.length - 1].t;
+    if (e) {
+      offen.sekunden = e.sekunden || 0;
+      offen.punkte = e.punkte ?? null;
+      offen.maxKachel = e.maxKachel ?? null;
+      offen.rest = e.rest ?? null;
+    } else {
+      offen.sekunden = Math.max(0, Math.round((new Date(offen.bis) - new Date(offen.start.t)) / 1000));
+    }
+    liste.push(offen);
+    offen = null;
+  };
+  for (const e of eintraege) {
+    if (e.typ === 'spiel_start') {
+      schliessen(null);
+      offen = { key: `spiel|${geraet}|${e.t}`, geraet, spiel: e.spiel || '2048', start: e, events: [e], ende: null, tag: tagKey(new Date(e.t)), guthaben: e.guthaben ?? null };
+      continue;
+    }
+    if (!offen) continue;
+    if (e.typ === 'spiel_ende') { offen.events.push(e); schliessen(e); continue; }
+    if (['spiel_meilenstein', 'spiel_vorbei', 'spiel_neu'].includes(e.typ)) { offen.events.push(e); continue; }
+    // Etwas anderes passiert (z. B. Aufgabe begonnen), ohne dass das Spiel beendet wurde: Sitzung endet hier
+    if (e.typ === 'aufgabe_start') schliessen(null);
+  }
+  schliessen(null);
+  return liste;
+}
+
+export function alleSpiele(eintraegeProGeraet) {
+  const out = [];
+  for (const [g, liste] of Object.entries(eintraegeProGeraet)) out.push(...spieleAus(liste, g));
+  return out.sort((a, b) => a.start.t < b.start.t ? -1 : 1);
+}
+
+export const SPIEL_NAMEN = { '2048': '2048', runenfeld: 'Runenfeld' };
+export const punkteText = (n) => n == null ? '' : Number(n).toLocaleString('de-DE');
+
+// Ereignisse einer Spiel-Sitzung als Zeitleiste
+export function spielZeitleiste(sp) {
+  const t0 = new Date(sp.start.t).getTime();
+  const zeit = (e) => { const s = sek(new Date(e.t).getTime() - t0); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  const out = [];
+  for (const e of sp.events) {
+    const p = { zeit: zeit(e), titel: '', text: '', art: 'info' };
+    switch (e.typ) {
+      case 'spiel_start': p.titel = `${SPIEL_NAMEN[sp.spiel] || sp.spiel} geöffnet`; p.text = e.guthaben != null ? `Spielzeit vorher ${minutenText(e.guthaben)}` : ''; break;
+      case 'spiel_meilenstein': p.titel = `Stein ${e.stein} erreicht`; p.text = e.punkte != null ? `${punkteText(e.punkte)} Punkte` : ''; p.art = 'ok'; break;
+      case 'spiel_vorbei': p.titel = sp.spiel === 'runenfeld' ? 'Kein Platz mehr' : 'Spiel vorbei'; p.text = [e.punkte != null ? `${punkteText(e.punkte)} Punkte` : '', e.maxKachel ? `höchster Stein ${e.maxKachel}` : ''].filter(Boolean).join(' · '); break;
+      case 'spiel_neu': p.titel = 'Neues Spiel begonnen'; p.text = e.altePunkte != null ? `vorher ${punkteText(e.altePunkte)} Punkte` : ''; break;
+      case 'spiel_ende': p.titel = 'Spiel verlassen'; p.text = [`${minutenText(e.sekunden)} gespielt`, e.rest != null ? `Spielzeit danach ${minutenText(e.rest)}` : ''].filter(Boolean).join(' · '); p.art = 'ok'; break;
+      default: continue;
+    }
+    out.push(p);
+  }
+  if (!sp.ende) out.push({ zeit: zeit({ t: sp.bis }), titel: 'Ende nicht gemeldet', text: 'App wurde wohl im Spiel geschlossen. Dauer geschätzt.', art: 'info' });
+  return out;
+}
+
 // Alle Geräte zusammen, nach Startzeit sortiert
 export function alleAufgaben(eintraegeProGeraet) {
   const out = [];

@@ -9,7 +9,7 @@ import * as P from '../js/paket.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.8.0';
+export const ELTERN_VERSION = '1.9.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -145,6 +145,7 @@ async function datenLaden() {
     name: (staende[0] && staende[0].stand.nutzer) || n.name,
     staende, proGeraet, eintraege,
     aufgaben: A.alleAufgaben(proGeraet),
+    spiele: A.alleSpiele(proGeraet),
     einst, geladen: Date.now(), kennung: kennung.sort().join('|')
   };
   datenHinweisWeg();
@@ -219,7 +220,7 @@ function nutzerWahl(klasse) {
 }
 
 function navLinks(art) {
-  const aktiv = route.seite === 'aufgabe' ? 'verlauf' : ['spielzeit', 'gewichte', 'pakete', 'paket', 'qr'].includes(route.seite) ? 'einstellungen' : route.seite;
+  const aktiv = route.seite === 'aufgabe' || route.seite === 'spiel' ? 'verlauf' : ['spielzeit', 'gewichte', 'pakete', 'paket', 'qr'].includes(route.seite) ? 'einstellungen' : route.seite;
   return [['uebersicht', 'Übersicht'], ['verlauf', 'Verlauf'], ['einstellungen', 'Einstellungen']].map(([k, t]) =>
     `<a href="#${k}" class="${art}${aktiv === k ? ' aktiv' : ''}"${aktiv === k ? ' aria-current="page"' : ''}>${svg(k, 24)}<span>${t}</span></a>`).join('');
 }
@@ -260,6 +261,7 @@ function seiteHtml() {
   switch (route.seite) {
     case 'verlauf': return breit.matches ? verlaufBreit() : (route.arg ? tagSeite(route.arg) : tageListe());
     case 'aufgabe': return breit.matches ? verlaufBreit() : aufgabeSeite(route.arg);
+    case 'spiel': return breit.matches ? verlaufBreit() : spielSeite(route.arg);
     case 'einstellungen': return einstellungenSeite();
     case 'spielzeit': return spielzeitSeite();
     case 'gewichte': return gewichteSeite();
@@ -334,11 +336,22 @@ function uebersichtSeite() {
 
 function tageMitAufgaben() {
   const map = {};
+  const tagVon = (k) => map[k] || (map[k] = { tag: k, anzahl: 0, erst: 0, ms: 0, spiele: 0, spielSek: 0 });
   for (const r of D.daten.aufgaben) {
-    const d = map[r.tag] || (map[r.tag] = { tag: r.tag, anzahl: 0, erst: 0, ms: 0 });
+    const d = tagVon(r.tag);
     if (r.ende) { d.anzahl++; if (r.ende.ergebnis === 'erst') d.erst++; d.ms += r.ende.ms || 0; }
   }
-  return Object.values(map).filter(d => d.anzahl).sort((a, b) => a.tag < b.tag ? 1 : -1);
+  for (const sp of D.daten.spiele || []) { const d = tagVon(sp.tag); d.spiele++; d.spielSek += sp.sekunden || 0; }
+  return Object.values(map).filter(d => d.anzahl || d.spiele).sort((a, b) => a.tag < b.tag ? 1 : -1);
+}
+
+// Kurzzeile für einen Tag: Aufgaben und Spielen
+function tagKurzText(d, lang = true) {
+  const teile = [];
+  if (d.anzahl) teile.push(lang ? `${d.anzahl} Aufgaben · ${Math.round(d.erst / d.anzahl * 100)} % im 1. Versuch · ${A.minutenText(d.ms / 1000)}` : `${d.anzahl} Aufgaben · ${Math.round(d.erst / d.anzahl * 100)} %`);
+  else teile.push('keine Aufgaben');
+  if (d.spielSek) teile.push(`${A.minutenText(d.spielSek)} gespielt`);
+  return teile.join(' · ');
 }
 
 function tageListe() {
@@ -346,7 +359,7 @@ function tageListe() {
   return `<div class="seite">
     ${kopfSchmal('Verlauf')}
     ${tage.length ? `<section class="karte liste-karte">${tage.map(d => `<a class="zeile" href="#verlauf/${d.tag}">
-      <span class="zeile-haupt"><b>${tagLang(d.tag)}</b><span class="klein gedaempft">${d.anzahl} Aufgaben · ${Math.round(d.erst / d.anzahl * 100)} % im 1. Versuch · ${A.minutenText(d.ms / 1000)}</span></span>
+      <span class="zeile-haupt"><b>${tagLang(d.tag)}</b><span class="klein gedaempft">${tagKurzText(d)}</span></span>
       ${svg('weiter', 18)}</a>`).join('')}</section>` : '<p class="gedaempft">Noch keine Aufgaben in den letzten 30 Tagen.</p>'}
   </div>`;
 }
@@ -355,10 +368,28 @@ function aufgabenVonTag(tag) {
   return D.daten.aufgaben.filter(r => r.tag === tag);
 }
 
-function gefiltert(liste) {
+function spieleVonTag(tag) {
+  return (D.daten.spiele || []).filter(sp => sp.tag === tag);
+}
+
+// Aufgaben und Spiele eines Tages in zeitlicher Reihenfolge (je nach Filter)
+function gefiltert(liste, spiele = []) {
   if (filter === 'fehler') return liste.filter(r => r.ende && r.ende.ergebnis !== 'erst');
   if (filter === 'hinweis') return liste.filter(r => r.events.some(e => e.typ === 'hinweis'));
-  return liste;
+  if (filter === 'spiele') return spiele;
+  return [...liste, ...spiele].sort((a, b) => a.start.t < b.start.t ? -1 : 1);
+}
+
+function spielZeile(sp, gewaehlt) {
+  const info = [];
+  if (sp.punkte != null) info.push(`${A.punkteText(sp.punkte)} Punkte`);
+  if (sp.maxKachel) info.push(`höchster Stein ${sp.maxKachel}`);
+  const neu = sp.events.filter(e => e.typ === 'spiel_neu').length;
+  if (neu) info.push(`${neu}-mal neu begonnen`);
+  return `<a class="zeile spiel-zeile${sp.key === gewaehlt ? ' gewaehlt' : ''}" href="#spiel/${encodeURIComponent(sp.key)}">
+      <span class="zeile-zeit">${uhr(sp.start.t)}</span>
+      <span class="zeile-haupt"><b class="einzeilig">${esc(A.SPIEL_NAMEN[sp.spiel] || sp.spiel)} · ${A.minutenText(sp.sekunden)}${sp.ende ? '' : ' (ca.)'}</b><span class="klein gedaempft">${info.join(' · ') || 'gespielt'}</span></span>
+      <span class="badge b-spiel">Spiel</span></a>`;
 }
 
 function badge(r) {
@@ -367,6 +398,7 @@ function badge(r) {
 
 function aufgabenZeilen(liste, gewaehlt) {
   return liste.map(r => {
+    if (r.spiel) return spielZeile(r, gewaehlt);
     const a = A.aufgabeVon(r, D.pool);
     const extra = [];
     if (r.events.some(e => e.typ === 'hinweis')) extra.push('Hinweis');
@@ -383,45 +415,82 @@ function aufgabenZeilen(liste, gewaehlt) {
 }
 
 function filterLeiste() {
-  return `<div class="filter">${[['alle', 'Alle'], ['fehler', 'Mit Fehler'], ['hinweis', 'Mit Hinweis']].map(([k, t]) =>
+  return `<div class="filter">${[['alle', 'Alle'], ['fehler', 'Mit Fehler'], ['hinweis', 'Mit Hinweis'], ['spiele', 'Spiele']].map(([k, t]) =>
     `<button class="chip${filter === k ? ' an' : ''}" data-act="filter" data-f="${k}" aria-pressed="${filter === k}">${t}</button>`).join('')}</div>`;
 }
 
-function tagZusammenfassung(liste) {
+function tagZusammenfassung(liste, spiele = []) {
   const fertig = liste.filter(r => r.ende);
   const erst = fertig.filter(r => r.ende.ergebnis === 'erst').length;
   const ms = fertig.reduce((s, r) => s + (r.ende.ms || 0), 0);
   const sek = fertig.reduce((s, r) => s + (r.ende.sekunden || 0), 0);
-  return `${fertig.length} Aufgaben · ${erst} im 1. Versuch · ${A.minutenText(ms / 1000)} geübt · ${A.minutenText(sek)} Spielzeit`;
+  const gespielt = spiele.reduce((s, sp) => s + (sp.sekunden || 0), 0);
+  return `${fertig.length} Aufgaben · ${erst} im 1. Versuch · ${A.minutenText(ms / 1000)} geübt · ${A.minutenText(sek)} Spielzeit verdient${spiele.length ? ` · ${A.minutenText(gespielt)} gespielt (${spiele.length}-mal)` : ''}`;
 }
 
 function tagSeite(tag) {
-  const liste = aufgabenVonTag(tag);
+  const liste = aufgabenVonTag(tag), spiele = spieleVonTag(tag);
   return `<div class="seite">
     <a class="zurueck" href="#verlauf">${svg('zurueck', 20)}Alle Tage</a>
     <h1>${tagLang(tag)}</h1>
-    <p class="klein gedaempft">${tagZusammenfassung(liste)}</p>
+    <p class="klein gedaempft">${tagZusammenfassung(liste, spiele)}</p>
     ${filterLeiste()}
-    <section class="karte liste-karte">${aufgabenZeilen(gefiltert(liste)) || '<p class="leer">Keine passenden Aufgaben.</p>'}</section>
+    <section class="karte liste-karte">${aufgabenZeilen(gefiltert(liste, spiele)) || '<p class="leer">Nichts Passendes an diesem Tag.</p>'}</section>
   </div>`;
 }
 
 function verlaufBreit() {
   const tage = tageMitAufgaben();
-  let rec = route.seite === 'aufgabe' ? D.daten.aufgaben.find(r => r.key === route.arg) : null;
+  let rec = route.seite === 'aufgabe' ? D.daten.aufgaben.find(r => r.key === route.arg)
+    : route.seite === 'spiel' ? (D.daten.spiele || []).find(sp => sp.key === route.arg) : null;
   const tag = rec ? rec.tag : (route.arg || (tage[0] && tage[0].tag) || L.tagKey());
-  const liste = aufgabenVonTag(tag);
+  const liste = aufgabenVonTag(tag), spiele = spieleVonTag(tag);
   return `<div class="drei-spalten">
     <section class="spalte-tage">
       <h2 class="spalten-titel">${esc(name())}</h2>
-      ${tage.map(d => `<a class="tag-knopf${d.tag === tag ? ' gewaehlt' : ''}" href="#verlauf/${d.tag}"><b>${tagKurz(d.tag)}</b><span class="klein gedaempft">${d.anzahl} Aufgaben · ${Math.round(d.erst / d.anzahl * 100)} %</span></a>`).join('') || '<p class="leer">Noch keine Aufgaben.</p>'}
+      ${tage.map(d => `<a class="tag-knopf${d.tag === tag ? ' gewaehlt' : ''}" href="#verlauf/${d.tag}"><b>${tagKurz(d.tag)}</b><span class="klein gedaempft">${tagKurzText(d, false)}</span></a>`).join('') || '<p class="leer">Noch keine Aufgaben.</p>'}
     </section>
     <section class="spalte-aufgaben">
-      <div class="spalten-kopf"><label class="nur-hoch tag-feld"><span class="unsichtbar">Tag auswählen</span><select name="tag-wahl">${tage.map(d => `<option value="${d.tag}"${d.tag === tag ? ' selected' : ''}>${tagKurz(d.tag)} · ${d.anzahl} Aufgaben</option>`).join('')}</select></label><b>${tagLang(tag)}</b><span class="klein gedaempft">${tagZusammenfassung(liste)}</span>${filterLeiste()}</div>
-      ${aufgabenZeilen(gefiltert(liste), rec && rec.key) || '<p class="leer">Keine passenden Aufgaben.</p>'}
+      <div class="spalten-kopf"><label class="nur-hoch tag-feld"><span class="unsichtbar">Tag auswählen</span><select name="tag-wahl">${tage.map(d => `<option value="${d.tag}"${d.tag === tag ? ' selected' : ''}>${tagKurz(d.tag)} · ${d.anzahl} Aufgaben</option>`).join('')}</select></label><b>${tagLang(tag)}</b><span class="klein gedaempft">${tagZusammenfassung(liste, spiele)}</span>${filterLeiste()}</div>
+      ${aufgabenZeilen(gefiltert(liste, spiele), rec && rec.key) || '<p class="leer">Nichts Passendes an diesem Tag.</p>'}
     </section>
-    <section class="spalte-detail">${rec ? aufgabeDetail(rec) : '<div class="leer-detail">Tippe links auf eine Aufgabe.<br>Dann siehst du, wie die Aufgabe gelöst wurde.</div>'}</section>
+    <section class="spalte-detail">${rec ? (rec.spiel ? spielDetail(rec) : aufgabeDetail(rec)) : '<div class="leer-detail">Tippe links auf eine Aufgabe oder ein Spiel.<br>Dann siehst du, was genau passiert ist.</div>'}</section>
   </div>`;
+}
+
+// ---------- Eine Spiel-Sitzung ----------
+
+function spielSeite(key) {
+  const sp = (D.daten.spiele || []).find(x => x.key === key);
+  if (!sp) return `<div class="seite"><a class="zurueck" href="#verlauf">${svg('zurueck', 20)}Verlauf</a><p>Dieses Spiel gibt es nicht mehr in den geladenen Daten.</p></div>`;
+  return `<div class="seite">
+    <a class="zurueck" href="#verlauf/${sp.tag}">${svg('zurueck', 20)}${tagLang(sp.tag)}</a>
+    ${spielDetail(sp)}
+  </div>`;
+}
+
+function spielDetail(sp) {
+  const name_ = A.SPIEL_NAMEN[sp.spiel] || sp.spiel;
+  // Was kam vorher? Aufgaben seit dem letzten Spiel an diesem Tag
+  const vorher = (D.daten.spiele || []).filter(x => x.geraet === sp.geraet && x.start.t < sp.start.t).pop();
+  const aufg = D.daten.aufgaben.filter(r => r.geraet === sp.geraet && r.ende && r.start.t < sp.start.t && (!vorher || r.start.t > vorher.start.t) && r.tag === sp.tag);
+  const verdient = aufg.reduce((s, r) => s + (r.ende.sekunden || 0), 0);
+  const kacheln = [
+    ['Gespielt', `${A.minutenText(sp.sekunden)}${sp.ende ? '' : ' (ca.)'}`],
+    ['Spielzeit vorher', sp.guthaben != null ? A.minutenText(sp.guthaben) : '–'],
+    ['Spielzeit danach', sp.rest != null ? A.minutenText(sp.rest) : '–'],
+    ['Punkte am Ende', sp.punkte != null ? A.punkteText(sp.punkte) : '–']
+  ];
+  const schritte = A.spielZeitleiste(sp);
+  return `<article class="detail">
+    <div class="detail-kopf"><h1>${esc(name_)} · ${uhr(sp.start.t)}–${uhr(sp.bis)}</h1><span class="klein gedaempft">${tagLang(sp.tag)}</span></div>
+    <section class="kacheln spiel-kacheln">${kacheln.map(([t, w]) => `<div class="kachel"><span class="klein gedaempft">${t}</span><b>${w}</b></div>`).join('')}</section>
+    <p class="klein gedaempft">${aufg.length ? `Davor seit dem letzten Spiel: <b>${aufg.length} Aufgaben</b>, ${A.minutenText(verdient)} Spielzeit verdient.` : 'Davor seit dem letzten Spiel keine Aufgaben (Spielzeit von früher oder geschenkt).'}</p>
+    <section>
+      <h2>Ablauf</h2>
+      <ol class="zeitleiste">${schritte.map(s => `<li class="schritt s-${s.art}"><span class="schritt-zeit">${s.zeit}</span><span class="schritt-punkt" aria-hidden="true"></span><span class="schritt-text"><b>${esc(s.titel)}</b>${s.text ? `<span>${esc(s.text)}</span>` : ''}</span></li>`).join('')}</ol>
+    </section>
+  </article>`;
 }
 
 // ---------- Eine Aufgabe ----------

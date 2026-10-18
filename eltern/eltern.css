@@ -256,3 +256,9 @@ textarea { width: 100%; border-radius: 10px; border: 1.5px solid #8A9696; backgr
 .update-leiste { flex-wrap: nowrap; }
 .update-leiste span { flex: 1 1 auto; min-width: 0; }
 .update-leiste .knopf, .update-leiste .knopf-text { flex: 0 0 auto; }
+
+/* Spiel-Sitzungen im Verlauf */
+.badge.b-spiel { background: #EFE7F7; color: #4B2E73; }
+.spiel-kacheln { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+.spiel-kacheln .kachel { background: var(--karte); border: 1px solid var(--linie-hell); border-radius: var(--radius); padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; }
+.spiel-kacheln .kachel b { font-size: 18px; color: var(--teal-dunkel); }
