@@ -64,7 +64,7 @@ export function spieleAus(eintraege, geraet = '') {
     }
     if (!offen) continue;
     if (e.typ === 'spiel_ende') { offen.events.push(e); schliessen(e); continue; }
-    if (['spiel_meilenstein', 'spiel_vorbei', 'spiel_neu', 'km_hoehle', 'ss_level', 'rn_spiel'].includes(e.typ)) { offen.events.push(e); continue; }
+    if (['spiel_meilenstein', 'spiel_vorbei', 'spiel_neu', 'km_hoehle', 'ss_level', 'rn_spiel', 'rr_stufe', 'rr_neu', 'hk_karte', 'rb_level', 'jsg_runde'].includes(e.typ)) { offen.events.push(e); continue; }
     // Etwas anderes passiert (z. B. Aufgabe begonnen), ohne dass das Spiel beendet wurde: Sitzung endet hier
     if (e.typ === 'aufgabe_start') schliessen(null);
   }
@@ -78,7 +78,8 @@ export function alleSpiele(eintraegeProGeraet) {
   return out.sort((a, b) => a.start.t < b.start.t ? -1 : 1);
 }
 
-export const SPIEL_NAMEN = { '2048': '2048', runenfeld: 'Runenfeld', kristallmine: 'Kristallmine', steinschieber: 'Steinschieber', runenfall: 'Runenfall' };
+export const SPIEL_NAMEN = { '2048': '2048', runenfeld: 'Runenfeld', kristallmine: 'Kristallmine', steinschieber: 'Steinschieber', runenfall: 'Runenfall', runenreihen: 'Runenreihen', hoehlenkarte: 'Höhlenkarte', runenbrecher: 'Runenbrecher', jadeschlange: 'Jadeschlange' };
+const HK_GROESSE = { klein: 'kleine Karte', mittel: 'mittlere Karte', gross: 'große Karte' };
 const KM_ERGEBNIS = { geschafft: 'geschafft', treffer: 'getroffen', zeit: 'Zeit der Höhle um', neu: 'neu begonnen' };
 const KM_GRUND = { stein: 'von einem Stein getroffen', kristall: 'von einem Kristall getroffen', gluehwurm: 'Glühwurm berührt', schmetterling: 'Schmetterling berührt', explosion: 'in eine Explosion geraten' };
 export const punkteText = (n) => n == null ? '' : Number(n).toLocaleString('de-DE');
@@ -109,6 +110,22 @@ export function spielZeitleiste(sp) {
         p.text = [`${punkteText(e.punkte)} Punkte`, `${e.reihen} ${e.reihen === 1 ? 'Reihe' : 'Reihen'}`, e.stufe ? `Stufe ${e.stufe}` : ''].filter(Boolean).join(' · ');
         p.art = e.rekord ? 'ok' : 'info';
         break;
+      case 'rr_stufe':
+        p.titel = `Stufe ${e.stufe} geschafft`; p.text = [`${punkteText(e.punkte)} Punkte`, e.zuege != null ? `${e.zuege} Züge` : ''].filter(Boolean).join(' · '); p.art = 'ok'; break;
+      case 'rr_neu':
+        p.titel = 'Neues Spiel begonnen'; p.text = `vorher ${punkteText(e.punkte)} Punkte, Stufe ${e.stufe}`; break;
+      case 'hk_karte':
+        p.titel = `${HK_GROESSE[e.groesse] || 'Karte'}: ${e.ergebnis === 'geschafft' ? 'geschafft' : 'neu begonnen'}`;
+        p.text = [e.zurueck ? `${e.zurueck}-mal zurückgenommen` : (e.ergebnis === 'geschafft' ? 'ohne Zurücknehmen' : ''), e.tipps ? `${e.tipps} ${e.tipps === 1 ? 'Tipp' : 'Tipps'}` : '', e.felder != null ? `${e.felder} Felder offen` : ''].filter(Boolean).join(' · ');
+        p.art = e.ergebnis === 'geschafft' ? 'ok' : 'info'; break;
+      case 'rb_level':
+        p.titel = `Level ${e.level}${e.name ? ' · ' + e.name : ''}: ${e.ergebnis === 'geschafft' ? 'geschafft' : 'keine Kugeln mehr'}`;
+        p.text = [`${punkteText(e.punkte)} Punkte`, e.ergebnis === 'geschafft' && e.leben != null ? `${e.leben} Kugeln übrig` : ''].filter(Boolean).join(' · ');
+        p.art = e.ergebnis === 'geschafft' ? 'ok' : 'info'; break;
+      case 'jsg_runde':
+        p.titel = e.ergebnis === 'neu' ? 'Neues Spiel begonnen' : (e.rekord ? 'Runde vorbei · neuer Rekord' : 'Runde vorbei');
+        p.text = [`${punkteText(e.punkte)} Punkte`, e.laenge ? `Länge ${e.laenge}` : '', e.stufe ? `Stufe ${e.stufe}` : ''].filter(Boolean).join(' · ');
+        p.art = e.rekord ? 'ok' : 'info'; break;
       case 'spiel_neu': p.titel = 'Neues Spiel begonnen'; p.text = e.altePunkte != null ? `vorher ${punkteText(e.altePunkte)} Punkte` : ''; break;
       case 'spiel_ende': p.titel = 'Spiel verlassen'; p.text = [`${minutenText(e.sekunden)} gespielt`, e.rest != null ? `Spielzeit danach ${minutenText(e.rest)}` : ''].filter(Boolean).join(' · '); p.art = 'ok'; break;
       default: continue;

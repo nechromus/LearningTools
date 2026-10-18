@@ -10,7 +10,7 @@ import * as SP from '../js/splitter.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.13.0';
+export const ELTERN_VERSION = '1.14.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -388,6 +388,11 @@ function spielZeile(sp, gewaehlt) {
   if (sp.maxKachel) info.push(`höchster Stein ${sp.maxKachel}`);
   const hoehlen = sp.events.filter(e => e.typ === 'km_hoehle' && e.ergebnis === 'geschafft').length;
   const level = sp.events.filter(e => e.typ === 'ss_level').length;
+  const zahl = (typ, f = () => true) => sp.events.filter(e => e.typ === typ && f(e)).length;
+  if (sp.spiel === 'runenreihen' && zahl('rr_stufe')) info.push(`${zahl('rr_stufe')} ${zahl('rr_stufe') === 1 ? 'Stufe' : 'Stufen'} geschafft`);
+  if (sp.spiel === 'hoehlenkarte' && zahl('hk_karte', e => e.ergebnis === 'geschafft')) info.push(`${zahl('hk_karte', e => e.ergebnis === 'geschafft')} ${zahl('hk_karte', e => e.ergebnis === 'geschafft') === 1 ? 'Karte' : 'Karten'} geschafft`);
+  if (sp.spiel === 'runenbrecher' && zahl('rb_level', e => e.ergebnis === 'geschafft')) info.push(`${zahl('rb_level', e => e.ergebnis === 'geschafft')} Level geschafft`);
+  if (sp.spiel === 'jadeschlange' && zahl('jsg_runde')) info.push(`${zahl('jsg_runde')} ${zahl('jsg_runde') === 1 ? 'Runde' : 'Runden'}`);
   const runden = sp.events.filter(e => e.typ === 'rn_spiel');
   if (sp.spiel === 'runenfall' && runden.length) info.push(`${runden.length} ${runden.length === 1 ? 'Runde' : 'Runden'}, beste ${A.punkteText(Math.max(...runden.map(e => e.punkte || 0)))} Punkte`);
   if (sp.spiel === 'steinschieber') info.push(level ? `${level} Level geschafft` : (sp.ende && sp.ende.level ? `bei Level ${sp.ende.level}` : ''));

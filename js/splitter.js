@@ -5,10 +5,10 @@
 export const NEUE_SPIELE = [
   { id: 'steinschieber', name: 'Steinschieber', fertig: true },
   { id: 'runenfall', name: 'Runenfall', fertig: true },
-  { id: 'runenreihen', name: 'Runenreihen', fertig: false },
-  { id: 'hoehlenkarte', name: 'Höhlenkarte', fertig: false },
-  { id: 'runenbrecher', name: 'Runenbrecher', fertig: false },
-  { id: 'jadeschlange', name: 'Jadeschlange', fertig: false }
+  { id: 'runenreihen', name: 'Runenreihen', fertig: true },
+  { id: 'hoehlenkarte', name: 'Höhlenkarte', fertig: true },
+  { id: 'runenbrecher', name: 'Runenbrecher', fertig: true },
+  { id: 'jadeschlange', name: 'Jadeschlange', fertig: true }
 ];
 // Das erste Spiel ist schnell erreicht (etwa eine Übungsrunde), damit das Kind versteht, wie es funktioniert
 export const PREISE_STANDARD = [30, 150, 200, 250, 300, 350];

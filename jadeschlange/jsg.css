@@ -1,0 +1,93 @@
+/* Jadeschlange: baut auf den Grundstilen der Kristallmine auf (.km), eigene Regeln unter .js-spiel */
+.js-spiel .kopf .knopf.klein { flex: 0 0 auto; min-height: 36px; padding: 0 14px; }
+.js-spiel .chip b { margin-left: 4px; font-variant-numeric: tabular-nums; }
+.js-spiel .feld-rahmen { background: radial-gradient(ellipse at 50% 40%, #121819, #090c0d 80%); }
+.js-spiel #jsg-kreuz-schalter[aria-pressed="true"] { background: linear-gradient(160deg, #2a9c76, #1E7A5F); border-color: var(--jade); color: #fff; }
+
+/* Spielfeld mit Toren am Rand */
+.js-spiel .jsg-brett { position: absolute; overflow: hidden; border-radius: 6px;
+  background-color: #0e1415;
+  background-image: radial-gradient(circle at 50% 50%, rgba(95, 232, 180, 0.07) 0 1.2px, transparent 1.8px),
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: var(--g) var(--g);
+  box-shadow: inset 0 0 0 1px rgba(95, 232, 180, 0.35), inset 0 0 18px rgba(95, 232, 180, 0.12); }
+.js-spiel .jsg-brett::before { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 5; border-radius: 6px;
+  border: 2px dashed rgba(185, 255, 226, 0.22); animation: jsg-tore 3s ease-in-out infinite; }
+@keyframes jsg-tore { 50% { border-color: rgba(185, 255, 226, 0.45); } }
+.js-spiel .jsg-dinge, .js-spiel .jsg-spur, .js-spiel .jsg-schlange, .js-spiel .jsg-effekte { position: absolute; inset: 0; pointer-events: none; }
+.js-spiel .jsg-spur { z-index: 1; } .js-spiel .jsg-dinge { z-index: 2; } .js-spiel .jsg-schlange { z-index: 3; } .js-spiel .jsg-effekte { z-index: 4; }
+
+/* Kristalle */
+.js-spiel .jsg-kristall, .js-spiel .jsg-stein, .js-spiel .jsg-glied { position: absolute; left: 0; top: 0; width: var(--g); height: var(--g); display: flex; align-items: center; justify-content: center; }
+.js-spiel .jsg-kristall::before { content: ''; position: absolute; inset: -20%; border-radius: 50%; background: radial-gradient(circle, rgba(95, 232, 180, 0.45), transparent 65%); animation: jsg-halo 2.2s ease-in-out infinite; }
+.js-spiel .jsg-kristall i { position: relative; width: 74%; height: 86%; clip-path: polygon(50% 0, 100% 38%, 50% 100%, 0 38%);
+  background: conic-gradient(from 210deg at 50% 42%, #f2fffa, #7ff2c6, #1e7a5f, #3fbf92, #d8fff0, #2a9c76, #f2fffa); animation: jsg-funkeln 2.2s ease-in-out infinite; }
+.js-spiel .jsg-kristall.neu i { animation: jsg-erscheinen 0.5s ease-out, jsg-funkeln 2.2s ease-in-out 0.5s infinite; }
+.js-spiel .jsg-kristall.gold::before { background: radial-gradient(circle, rgba(246, 223, 162, 0.6), transparent 65%); animation-duration: 0.9s; }
+.js-spiel .jsg-kristall.gold i { width: 70%; height: 80%; background: conic-gradient(from 210deg at 50% 42%, #fffaf0, #F6DFA2, #9a7330, #D8B05A, #fff4d0, #b8984f, #fffaf0); }
+.js-spiel .jsg-kristall.gold::after { content: ''; position: absolute; inset: -6%; border-radius: 50%;
+  background: conic-gradient(#F6DFA2 calc(var(--rest, 1) * 360deg), transparent 0);
+  -webkit-mask: radial-gradient(circle, transparent 60%, #000 62%); mask: radial-gradient(circle, transparent 60%, #000 62%); opacity: 0.8; }
+@keyframes jsg-halo { 50% { opacity: 0.45; transform: scale(0.85); } }
+@keyframes jsg-funkeln { 50% { filter: brightness(1.35); } }
+@keyframes jsg-erscheinen { from { transform: scale(0.1); filter: brightness(2.5); } to { transform: scale(1); } }
+
+/* Steine */
+.js-spiel .jsg-stein i { width: 84%; height: 84%; border-radius: 46% 54% 50% 50% / 55% 47% 53% 45%;
+  background: radial-gradient(circle at 32% 26%, #e4ebe7 0 6%, #a4afa9 20%, #66716d 52%, #2b3230 92%); box-shadow: 0 3px 3px rgba(0, 0, 0, 0.7), inset -2px -3px 4px rgba(0, 0, 0, 0.45);
+  animation: jsg-erscheinen 0.6s ease-out; }
+.js-spiel .jsg-stein.v1 i { border-radius: 52% 48% 45% 55% / 48% 55% 45% 52%; }
+.js-spiel .jsg-stein.v2 i { border-radius: 50% 50% 55% 45% / 50% 45% 55% 50%; }
+
+/* Schlange */
+.js-spiel .jsg-glied { will-change: transform; transition: opacity 0.6s, filter 0.6s; }
+.js-spiel .jsg-glied i { width: calc(var(--g) * 1.3 * var(--d, 1)); height: calc(var(--g) * 1.3 * var(--d, 1)); flex-shrink: 0; border-radius: 50%; position: relative;
+  background: radial-gradient(circle at 35% 30%, #e9fff6 0 7%, #8ff5d2 22%, #3cc496 55%, #26996f 80%, #1d7f5c);
+  box-shadow: 0 0 8px rgba(95, 232, 180, 0.5), inset -2px -3px 3px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(185, 255, 226, 0.25); }
+.js-spiel .jsg-glied i::after { content: ''; position: absolute; inset: 32%; background: rgba(233, 255, 246, 0.55); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.js-spiel .jsg-glied:nth-child(even) i { background: radial-gradient(circle at 35% 30%, #e9fff6 0 6%, #7fe8c4 22%, #31b086 55%, #208a64 80%, #187052); }
+.js-spiel .jsg-glied.kopf { z-index: 100; }
+.js-spiel .jsg-glied.kopf::before { content: ''; position: absolute; inset: -40%; border-radius: 50%; background: radial-gradient(circle, rgba(95, 232, 180, 0.35), transparent 65%); }
+.js-spiel .jsg-glied.kopf::after { content: ''; position: absolute; width: 135%; height: 118%; border-radius: 42% 58% 58% 42% / 50% 50% 50% 50%;
+  background: radial-gradient(ellipse at 60% 35%, #f2fffa 0 8%, #9ff7d8 22%, #34b98c 55%, #1a6b52 85%);
+  box-shadow: 0 0 12px rgba(95, 232, 180, 0.8), inset -2px -3px 4px rgba(0, 0, 0, 0.35); }
+.js-spiel .jsg-glied.kopf .auge { position: absolute; z-index: 1; left: 62%; width: 26%; height: 26%; border-radius: 50%; background: #0b1412; box-shadow: 0 0 0 1.5px #E9FFF6; }
+.js-spiel .jsg-glied.kopf .auge::after { content: ''; position: absolute; right: 12%; top: 14%; width: 38%; height: 38%; border-radius: 50%; background: #B9FFE2; box-shadow: 0 0 4px #5FE8B4; }
+.js-spiel .jsg-glied.kopf .auge.l { top: 8%; } .js-spiel .jsg-glied.kopf .auge.r { top: 66%; }
+.js-spiel .jsg-glied.kopf.frisst::after { animation: jsg-frisst 0.35s ease-out; }
+@keyframes jsg-frisst { 40% { filter: brightness(1.6); transform: scale(1.18); } }
+.js-spiel .jsg-glied.loest { opacity: 0; filter: blur(3px) brightness(2.2); }
+
+/* Spur aus Fünkchen */
+.js-spiel .jsg-funke { position: absolute; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: #B9FFE2; box-shadow: 0 0 6px #5FE8B4; animation: jsg-funke 1.4s ease-out forwards; }
+@keyframes jsg-funke { 0% { opacity: 0.9; } 100% { opacity: 0; transform: translateY(-10px) scale(0.4); } }
+
+/* Effekte */
+.js-spiel .jsg-platzen { position: absolute; width: 0; height: 0; }
+.js-spiel .jsg-platzen span { position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; background: #E9FFF6; box-shadow: 0 0 6px #5FE8B4; transform: rotate(var(--w)); animation: jsg-platzen 0.8s ease-out forwards; }
+.js-spiel .jsg-platzen.gold span { background: #FFF4D0; box-shadow: 0 0 8px #D8B05A; }
+.js-spiel .jsg-platzen.stein span { background: #c9c2b0; box-shadow: none; }
+@keyframes jsg-platzen { from { transform: rotate(var(--w)) translateX(3px); opacity: 1; } to { transform: rotate(var(--w)) translateX(calc(var(--g) * 1.2)); opacity: 0; } }
+.js-spiel .jsg-plus { position: absolute; transform: translate(-50%, -50%); font-family: Cinzel, serif; font-weight: 700; font-size: 16px; color: #E9FFF6; text-shadow: 0 0 10px #5FE8B4, 0 2px 0 #0c1011; white-space: nowrap; animation: jsg-plus 0.9s ease-out forwards; }
+.js-spiel .jsg-plus.gold { font-size: 20px; color: #F6DFA2; text-shadow: 0 0 12px #D8B05A, 0 2px 0 #0c1011; }
+@keyframes jsg-plus { from { opacity: 1; transform: translate(-50%, -50%); } to { opacity: 0; transform: translate(-50%, -190%); } }
+.js-spiel .jsg-stufe { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 2px; white-space: nowrap; animation: jsg-stufe 1.8s ease-out forwards; }
+.js-spiel .jsg-stufe b { font-family: Cinzel, serif; font-size: 30px; color: #B9FFE2; text-shadow: 0 0 16px #5FE8B4, 0 2px 0 #0c1011; }
+.js-spiel .jsg-stufe span { font-size: 15px; color: #F6DFA2; text-shadow: 0 1px 0 #0c1011; }
+@keyframes jsg-stufe { 0% { opacity: 0; transform: translate(-50%, -30%) scale(0.7); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -80%); } }
+.js-spiel .jsg-verpufft { position: absolute; width: 30px; height: 30px; margin: -15px; border-radius: 50%; background: radial-gradient(circle, rgba(246, 223, 162, 0.7), transparent 70%); animation: jsg-verpufft 0.7s ease-out forwards; }
+@keyframes jsg-verpufft { to { transform: scale(2); opacity: 0; } }
+.js-spiel .feld-rahmen.jsg-glanz { animation: jsg-glanz 1.2s ease-out; }
+@keyframes jsg-glanz { 30% { box-shadow: 0 0 0 1px #0a0d0e, 0 0 40px rgba(95, 232, 180, 0.7), inset 0 0 30px rgba(95, 232, 180, 0.3); } }
+
+/* Bild auf den Tafeln */
+.js-spiel .tafel .bild-schlange { position: relative; width: 84px; height: 40px; }
+.js-spiel .tafel .bild-schlange::before { content: ''; position: absolute; left: 4px; top: 12px; width: 18px; height: 18px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #e9fff6 0 7%, #8ff5d2 20%, #2fae84 52%, #1a6b52 82%);
+  box-shadow: 18px -6px 0 0 #2fae84, 36px 0 0 0 #34b98c, 0 0 14px rgba(95, 232, 180, 0.7); }
+.js-spiel .tafel .bild-schlange::after { content: ''; position: absolute; left: 56px; top: 4px; width: 28px; height: 24px; border-radius: 42% 58% 58% 42% / 50%;
+  background: radial-gradient(ellipse at 60% 35%, #f2fffa 0 8%, #9ff7d8 22%, #34b98c 55%, #1a6b52 85%); box-shadow: 0 0 16px rgba(95, 232, 180, 0.8); }
+
+@media (prefers-reduced-motion: reduce) {
+  .js-spiel .jsg-brett::before, .js-spiel .jsg-kristall::before, .js-spiel .jsg-kristall i, .js-spiel .jsg-stein i { animation: none; }
+}

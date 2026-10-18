@@ -1,0 +1,95 @@
+/* Runenreihen: baut auf den Grundstilen der Kristallmine auf (.km), eigene Regeln unter .rr */
+.rr .kopf .knopf.klein { flex: 0 0 auto; min-height: 36px; padding: 0 12px; }
+.rr .chip b { margin-left: 4px; font-variant-numeric: tabular-nums; }
+.rr .rr-stufe-chip { flex: 1; margin-left: 8px; gap: 10px; }
+.rr .rr-balken { flex: 1; height: 8px; border-radius: 5px; background: #0c1011; border: 1px solid #2c3a37; overflow: hidden; }
+.rr .rr-balken i { display: block; height: 100%; width: 0; border-radius: 5px; background: linear-gradient(90deg, #1E7A5F, #5FE8B4); box-shadow: 0 0 8px rgba(95, 232, 180, 0.7); transition: width 0.5s ease-out; }
+.rr .feld-rahmen { background: radial-gradient(ellipse at 50% 45%, #141b1c, #090c0d 80%); }
+.rr .rr-brett { position: absolute; touch-action: none; }
+.rr .rr-gitter { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(8, var(--p)); grid-auto-rows: var(--p); }
+.rr .rr-gitter i { margin: 1px; border-radius: 6px; background: rgba(255, 255, 255, 0.035); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025); }
+.rr .rr-gitter i.dunkel { background: rgba(0, 0, 0, 0.18); }
+.rr .rr-steine, .rr .rr-effekte { position: absolute; inset: 0; pointer-events: none; }
+.rr .rr-effekte { z-index: 3; }
+.rr .rr-leiste-platz { flex: 1; }
+.rr .leiste { align-items: center; }
+.rr .leiste .knopf { flex: 0 0 auto; padding: 0 22px; }
+.rr .rr-rekord { margin-left: auto; color: var(--matt); font-size: 15px; }
+.rr .rr-rekord b { color: var(--gold-hell); font-family: Cinzel, serif; margin-left: 4px; }
+
+/* Steine: jede Art hat Farbe UND Form */
+.rr .rr-steine .rr-stein { position: absolute; left: 0; top: 0; width: var(--p); height: var(--p); display: flex; align-items: center; justify-content: center;
+  transition: transform 0.19s ease-out; will-change: transform; }
+.rr .rr-stein i { position: relative; display: block; width: 78%; height: 78%; background: linear-gradient(150deg, var(--c1), var(--c2) 55%, var(--c3)); }
+.rr .rr-stein i::after { content: ''; position: absolute; left: 22%; top: 16%; width: 30%; height: 18%; border-radius: 50%; background: rgba(255, 255, 255, 0.55); filter: blur(1px); }
+.rr .a0 { --c1: #b9ffe2; --c2: #2fbf8e; --c3: #0f5a43; }
+.rr .a0 i { clip-path: polygon(50% 2%, 96% 50%, 50% 98%, 4% 50%); }
+.rr .a1 { --c1: #fff2c4; --c2: #e0b44f; --c3: #7a5a18; }
+.rr .a1 i { border-radius: 50%; width: 72%; height: 72%; box-shadow: inset -3px -4px 6px rgba(0, 0, 0, 0.35); }
+.rr .a2 { --c1: #ffd2a6; --c2: #e07a2e; --c3: #7a3a10; }
+.rr .a2 i { clip-path: polygon(25% 5%, 75% 5%, 98% 50%, 75% 95%, 25% 95%, 2% 50%); }
+.rr .a3 { --c1: #d4f1ff; --c2: #4aa6dc; --c3: #1b4f75; }
+.rr .a3 i { clip-path: polygon(50% 4%, 97% 92%, 3% 92%); }
+.rr .a4 { --c1: #e6d8ff; --c2: #8b6ad6; --c3: #3e2a78; }
+.rr .a4 i { border-radius: 22%; width: 70%; height: 70%; box-shadow: inset -3px -4px 6px rgba(0, 0, 0, 0.35); }
+.rr .a5 { --c1: #ffd6e2; --c2: #e0587e; --c3: #7a1f3a; }
+.rr .a5 i { clip-path: polygon(6% 6%, 94% 6%, 94% 52%, 50% 96%, 6% 52%); }
+/* Funkenrune: leuchtende Linien in Richtung der Wirkung */
+.rr .rr-stein.funke-h::before, .rr .rr-stein.funke-v::before { content: ''; position: absolute; inset: 8%; z-index: 1; pointer-events: none; border-radius: 6px;
+  background: linear-gradient(0deg, transparent 38%, rgba(255, 255, 255, 0.95) 46%, rgba(255, 255, 255, 0.95) 54%, transparent 62%);
+  filter: drop-shadow(0 0 4px #fff); animation: rr-funke 1.2s ease-in-out infinite; }
+.rr .rr-stein.funke-v::before { background: linear-gradient(90deg, transparent 38%, rgba(255, 255, 255, 0.95) 46%, rgba(255, 255, 255, 0.95) 54%, transparent 62%); }
+@keyframes rr-funke { 50% { opacity: 0.45; } }
+/* Sternrune */
+.rr .as i { width: 84%; height: 84%; background: radial-gradient(circle, #ffffff 0 18%, #FFF4D0 35%, #D8B05A 70%, #8a6420);
+  clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 92%, 50% 71%, 21% 92%, 32% 57%, 2% 35%, 39% 35%); animation: rr-stern 4s linear infinite; }
+.rr .as i::after { display: none; }
+.rr .rr-stein.stern::before { content: ''; position: absolute; inset: -6%; border-radius: 50%; background: radial-gradient(circle, rgba(246, 223, 162, 0.55), transparent 65%); animation: rr-halo 1.6s ease-in-out infinite; }
+@keyframes rr-stern { to { transform: rotate(360deg); } }
+@keyframes rr-halo { 50% { opacity: 0.4; transform: scale(0.85); } }
+
+/* Zustände */
+.rr .rr-stein.gewaehlt i { animation: rr-gewaehlt 0.9s ease-in-out infinite; }
+.rr .rr-stein.gewaehlt::after { content: ''; position: absolute; inset: 3%; border-radius: 10px; border: 2px solid #F6DFA2; box-shadow: 0 0 10px rgba(216, 176, 90, 0.8); }
+@keyframes rr-gewaehlt { 50% { transform: scale(1.1); } }
+.rr .rr-stein.tipp i { animation: rr-tipp 1.1s ease-in-out infinite; }
+@keyframes rr-tipp { 0%, 100% { transform: scale(1); filter: none; } 50% { transform: scale(1.12); filter: brightness(1.45); } }
+.rr .rr-stein.weg i { animation: rr-weg 0.26s ease-in forwards; }
+@keyframes rr-weg { 0% { transform: scale(1); filter: brightness(1); } 40% { transform: scale(1.25); filter: brightness(2.2); } 100% { transform: scale(0.1); opacity: 0; filter: brightness(3); } }
+.rr .rr-stein.entsteht i { animation: rr-entsteht 0.45s ease-out; }
+@keyframes rr-entsteht { 0% { transform: scale(0.4); filter: brightness(2.5); } 70% { transform: scale(1.2); } 100% { transform: scale(1); } }
+
+/* Effekte */
+.rr .rr-funken { position: absolute; width: 0; height: 0; }
+.rr .rr-funken span { position: absolute; left: -2.5px; top: -2.5px; width: 5px; height: 5px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px var(--glanz, #5FE8B4); animation: rr-funke-flug 0.7s ease-out forwards; transform: rotate(var(--w)); }
+.rr .rr-funken.a0 { --glanz: #5FE8B4; } .rr .rr-funken.a1 { --glanz: #D8B05A; } .rr .rr-funken.a2 { --glanz: #e07a2e; }
+.rr .rr-funken.a3 { --glanz: #4aa6dc; } .rr .rr-funken.a4 { --glanz: #8b6ad6; } .rr .rr-funken.a5 { --glanz: #e0587e; } .rr .rr-funken.as { --glanz: #F6DFA2; }
+@keyframes rr-funke-flug { from { transform: rotate(var(--w)) translateX(4px); opacity: 1; } to { transform: rotate(var(--w)) translateX(calc(var(--p) * 0.8)); opacity: 0; } }
+.rr .rr-strahl { position: absolute; border-radius: 6px; box-shadow: 0 0 22px rgba(95, 232, 180, 0.9); animation: rr-strahl 0.6s ease-out forwards; }
+.rr .rr-strahl.h { width: calc(var(--p) * 8); height: var(--p); background: linear-gradient(90deg, transparent, rgba(185, 255, 226, 0.95) 15%, #fff 50%, rgba(185, 255, 226, 0.95) 85%, transparent); }
+.rr .rr-strahl.v { height: calc(var(--p) * 8); width: var(--p); background: linear-gradient(180deg, transparent, rgba(185, 255, 226, 0.95) 15%, #fff 50%, rgba(185, 255, 226, 0.95) 85%, transparent); }
+@keyframes rr-strahl { 0% { opacity: 1; } 100% { opacity: 0; } }
+.rr .rr-strahl.h { animation-name: rr-strahl-h; } .rr .rr-strahl.v { animation-name: rr-strahl-v; }
+@keyframes rr-strahl-h { 0% { opacity: 1; transform: scaleY(1.1); } 100% { opacity: 0; transform: scaleY(0.1); } }
+@keyframes rr-strahl-v { 0% { opacity: 1; transform: scaleX(1.1); } 100% { opacity: 0; transform: scaleX(0.1); } }
+.rr .rr-stern-blitz { position: absolute; width: calc(var(--p) * 7); height: calc(var(--p) * 7); margin: calc(var(--p) * -3.5) 0 0 calc(var(--p) * -3.5); border-radius: 50%;
+  background: repeating-conic-gradient(rgba(255, 244, 208, 0.7) 0 6deg, transparent 6deg 24deg); -webkit-mask: radial-gradient(circle, #000 15%, transparent 70%); mask: radial-gradient(circle, #000 15%, transparent 70%);
+  animation: rr-blitz 0.8s ease-out forwards; }
+@keyframes rr-blitz { 0% { opacity: 1; transform: scale(0.3) rotate(0deg); } 100% { opacity: 0; transform: scale(1.2) rotate(40deg); } }
+.rr .rr-plus { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; white-space: nowrap; animation: rr-plus 1.2s ease-out forwards;
+  font-family: Cinzel, serif; font-weight: 700; color: #E9FFF6; text-shadow: 0 0 12px #5FE8B4, 0 2px 0 #0c1011; }
+.rr .rr-plus b { font-size: 21px; color: var(--gold-hell); text-shadow: 0 0 14px #D8B05A, 0 2px 0 #0c1011; }
+.rr .rr-plus span { font-size: 17px; }
+.rr .rr-plus.gross b { font-size: 27px; }
+@keyframes rr-plus { 0% { opacity: 0; transform: translate(-50%, -30%) scale(0.7); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -110%) scale(1); } }
+.rr .rr-meldung { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 6; padding: 8px 12px; border-radius: 12px; background: rgba(10, 13, 14, 0.9); border: 1px solid var(--jade); color: var(--jade-hell); font-size: 15px; font-weight: 700; text-align: center; display: none; pointer-events: none; }
+.rr .rr-meldung.an { display: block; }
+
+/* Tafel-Bild */
+.rr .rr-bild { display: flex; gap: 6px; --p: 46px; }
+.rr .rr-bild .rr-stein { position: relative; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rr .rr-steine .rr-stein { transition: none !important; }
+  .rr .rr-stein.gewaehlt i, .rr .rr-stein.tipp i, .rr .as i, .rr .rr-stein.stern::before, .rr .rr-stein.funke-h::before, .rr .rr-stein.funke-v::before { animation: none; }
+}

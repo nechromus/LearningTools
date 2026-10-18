@@ -1,0 +1,32 @@
+/* Runenbrecher: baut auf den Grundstilen der Kristallmine auf (.km), eigene Regeln unter .rb */
+.rb .kopf .knopf.klein { flex: 0 0 auto; min-height: 36px; padding: 0 14px; }
+.rb .chip b { margin-left: 4px; font-variant-numeric: tabular-nums; }
+.rb .feld-rahmen { flex: 1 1 auto; background: #07090a; }
+.rb canvas { position: absolute; display: block; border-radius: 6px; touch-action: none; }
+.rb .rb-effekte { position: absolute; pointer-events: none; z-index: 3; overflow: visible; }
+
+/* Leben als kleine Kugeln */
+.rb .rb-leben { gap: 5px; min-width: 40px; justify-content: center; }
+.rb .rb-leben i { width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffffff, #7ff2c6 45%, #1E7A5F); box-shadow: 0 0 6px rgba(95, 232, 180, 0.8); }
+
+.rb .rb-meldung { position: absolute; left: 10px; right: 10px; bottom: 34%; z-index: 4; padding: 8px 12px; border-radius: 12px; background: rgba(10, 13, 14, 0.82); border: 1px solid var(--rand); color: var(--text); font-size: 15px; text-align: center; display: none; pointer-events: none; }
+.rb .rb-meldung.an { display: block; animation: rb-meldung 1.8s ease-in-out infinite; }
+@keyframes rb-meldung { 50% { border-color: rgba(95, 232, 180, 0.7); box-shadow: 0 0 14px rgba(95, 232, 180, 0.35); } }
+
+/* Schwebende Punkte und Texte */
+.rb .rb-plus { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-family: Cinzel, serif; font-weight: 700; font-size: 15px; color: #E9FFF6;
+  text-shadow: 0 0 10px #5FE8B4, 0 2px 0 #0c1011; animation: rb-plus 1.2s ease-out forwards; }
+.rb .rb-plus.gold { color: var(--gold-hell); font-size: 18px; text-shadow: 0 0 12px #D8B05A, 0 2px 0 #0c1011; }
+.rb .rb-plus.extra { font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 16px; color: var(--gold-hell); text-shadow: 0 0 10px #D8B05A, 0 2px 0 #0c1011; }
+@keyframes rb-plus { 0% { opacity: 0; transform: translate(-50%, -30%) scale(0.7); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } 100% { opacity: 0; transform: translate(-50%, -160%); } }
+
+/* Level geschafft: Lichtstrahlen */
+.rb .rb-licht { position: absolute; left: 50%; top: 30%; width: 260%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%;
+  background: repeating-conic-gradient(rgba(246, 223, 162, 0.32) 0 7deg, transparent 7deg 24deg);
+  -webkit-mask: radial-gradient(circle, #000 15%, transparent 60%); mask: radial-gradient(circle, #000 15%, transparent 60%);
+  animation: rb-licht 1.6s ease-out forwards; }
+@keyframes rb-licht { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(0deg) scale(0.4); } 25% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) rotate(40deg) scale(1); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .rb .rb-meldung.an, .rb .rb-licht, .rb .rb-plus { animation: none; }
+}

@@ -10,11 +10,15 @@ import { einrichtungLesen } from './einrichtung.js';
 import { kristallmineStarten } from './kristallmine-ui.js';
 import { steinschieberStarten } from './steinschieber-ui.js';
 import { runenfallStarten } from './runenfall-ui.js';
+import { runenreihenStarten } from './runenreihen-ui.js';
+import { hoehlenkarteStarten } from './hoehlenkarte-ui.js';
+import { runenbrecherStarten } from './runenbrecher-ui.js';
+import { jadeschlangeStarten } from './jadeschlange-ui.js';
 import * as SP from './splitter.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.3.2';
+export const APP_VERSION = '2.4.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -27,10 +31,12 @@ let ansicht = 'start';
 let km = null;               // laufende Kristallmine (wird bei jedem Bildschirmwechsel beendet und gespeichert)
 let ss = null;               // laufender Steinschieber (ebenso)
 let rn = null;               // laufender Runenfall (ebenso)
+let ms = null;               // laufendes Modul-Spiel { id, spiel } (Runenreihen, Höhlenkarte, Runenbrecher, Jadeschlange)
 function setzeAnsicht(name) {
   if (km) { const k = km; km = null; k.beenden(); }
   if (ss) { const k = ss; ss = null; k.beenden(); }
   if (rn) { const k = rn; rn = null; k.beenden(); }
+  if (ms) { const k = ms.spiel; ms = null; k.beenden(); }
   ansicht = name; document.body.dataset.ansicht = name;
 }
 let A = null;                // aktive Aufgabe
@@ -450,10 +456,10 @@ const SPIEL_INFO = {
   kristallmine: { text: 'Kristalle sammeln', start: () => zeigeKristallmine() },
   steinschieber: { text: 'Steine schieben', start: () => zeigeSteinschieber() },
   runenfall: { text: 'Reihen füllen', start: () => zeigeRunenfallSpiel() },
-  runenreihen: { text: 'Drei gleiche', start: null },
-  hoehlenkarte: { text: 'Fallen finden', start: null },
-  runenbrecher: { text: 'Mauern brechen', start: null },
-  jadeschlange: { text: 'Schlange lenken', start: null }
+  runenreihen: { text: 'Drei gleiche', start: () => zeigeModulSpiel('runenreihen') },
+  hoehlenkarte: { text: 'Fallen finden', start: () => zeigeModulSpiel('hoehlenkarte') },
+  runenbrecher: { text: 'Mauern brechen', start: () => zeigeModulSpiel('runenbrecher') },
+  jadeschlange: { text: 'Schlange lenken', start: () => zeigeModulSpiel('jadeschlange') }
 };
 const IMMER_OFFEN = [{ id: '2048', name: '2048' }, { id: 'runenfeld', name: 'Runenfeld' }, { id: 'kristallmine', name: 'Kristallmine' }];
 const SPIEL_START = Object.fromEntries(Object.entries(SPIEL_INFO).filter(([, v]) => v.start).map(([k, v]) => [k, v.start]));
@@ -1696,7 +1702,7 @@ function overlay(html) {
 function overlayPruefen() {
   if (S.guthaben <= 0) {
     overlay(`<div class="overlay-titel">Spielzeit ist um</div><p>Dein Spiel bleibt gespeichert.</p><button class="btn btn-jade" data-act="aufgaben">Aufgaben machen</button>`);
-  } else if (spielSitzung && ['kristallmine', 'steinschieber', 'runenfall'].includes(spielSitzung.art)) {
+  } else if (spielSitzung && (['kristallmine', 'steinschieber', 'runenfall'].includes(spielSitzung.art) || MODUL_SPIELE[spielSitzung.art])) {
     // eigene Tafeln im Spiel
   } else if (spielSitzung && spielSitzung.art === 'runenfeld') {
     if (S.bloecke && B.spielVorbei(S.bloecke.feld, S.bloecke.teile)) overlay(`<div class="overlay-titel">Kein Platz mehr</div><p>${S.bloecke.punkte} Punkte. Ein neues Spiel kostet nichts.</p><button class="btn btn-jade" data-act="runenfeldNeuJetzt">Neues Spiel</button>`);
@@ -1711,6 +1717,7 @@ function spielTick() {
   if (km && km.ruht()) return;
   if (ss && ss.ruht()) return;
   if (rn && rn.ruht()) return;
+  if (ms && ms.spiel.ruht()) return;
   S.guthaben = Math.max(0, S.guthaben - 1);
   if (spielSitzung) spielSitzung.sekunden++;
   const el = $id('spielzeit');
@@ -1718,7 +1725,7 @@ function spielTick() {
   const uhr = $id('uhr');
   if (uhr) uhr.classList.toggle('knapp', S.guthaben < 60);
   if (S.guthaben % 10 === 0) sichern();
-  if (S.guthaben <= 0) { if (km) km.anhalten(); if (rn) rn.anhalten(); spielBeenden(); overlayPruefen(); }
+  if (S.guthaben <= 0) { if (km) km.anhalten(); if (rn) rn.anhalten(); if (ms) ms.spiel.anhalten(); spielBeenden(); overlayPruefen(); }
 }
 
 function spielBeenden() {
@@ -1727,6 +1734,10 @@ function spielBeenden() {
   else if (spielSitzung.art === 'kristallmine') {
     const k = (km && km.stand()) || S.kristallmine || {};
     protokoll(S, 'spiel_ende', { spiel: 'kristallmine', sekunden: spielSitzung.sekunden, punkte: k.punkte || 0, hoehle: (k.hoehle || 0) + 1, rest: S.guthaben });
+  } else if (MODUL_SPIELE[spielSitzung.art]) {
+    const m = MODUL_SPIELE[spielSitzung.art];
+    const k = (ms && ms.id === spielSitzung.art && ms.spiel.stand()) || S[m.feld] || {};
+    protokoll(S, 'spiel_ende', { spiel: spielSitzung.art, sekunden: spielSitzung.sekunden, ...m.ende(k || {}), rest: S.guthaben });
   } else if (spielSitzung.art === 'runenfall') {
     const k = (rn && rn.stand()) || S.runenfall || {};
     protokoll(S, 'spiel_ende', { spiel: 'runenfall', sekunden: spielSitzung.sekunden, punkte: k.punkte || 0, reihen: k.reihen || 0, rekord: k.rekord || 0, rest: S.guthaben });
@@ -1875,6 +1886,45 @@ function zeigeSteinschieber() {
 }
 
 // ---------- Runenfall (zweites freischaltbares Spiel, Logik in runenfall.js / runenfall-ui.js) ----------
+
+// ---------- Weitere freischaltbare Spiele als Bausteine (gleiche Schnittstelle: starten, beenden, anhalten, stand, ruht) ----------
+
+const MODUL_SPIELE = {
+  runenreihen: { starten: runenreihenStarten, feld: 'runenreihen', ende: (k) => ({ punkte: k.punkte || 0, stufe: k.stufe || 1, zuege: k.zuege || 0, rekord: k.rekord || 0 }) },
+  hoehlenkarte: { starten: hoehlenkarteStarten, feld: 'hoehlenkarte', ende: (k) => ({ groesse: k.groesse || null, offen: Array.isArray(k.offen) ? k.offen.filter(Boolean).length : (k.offen || 0), zurueck: k.zurueck || 0, tipps: k.tipps || 0 }) },
+  runenbrecher: { starten: runenbrecherStarten, feld: 'runenbrecher', ende: (k) => ({ punkte: k.punkte || 0, level: (k.level || 0) + 1, hoechstes: (k.hoechstes || 0) + 1 }) },
+  jadeschlange: { starten: jadeschlangeStarten, feld: 'jadeschlange', ende: (k) => ({ punkte: k.punkte || 0, laenge: Array.isArray(k.schlange) ? k.schlange.length : (k.laenge || 0), stufe: k.stufe || 1, kristalle: k.kristalle || 0, rekord: k.rekord || 0 }) }
+};
+
+function zeigeModulSpiel(id) {
+  const m = MODUL_SPIELE[id];
+  setzeAnsicht('spiel');
+  S.letztesSpiel = id;
+  if (S.serie.pos) { protokoll(S, 'serie_ende', { laenge: S.serie.pos }); S.serie.pos = 0; }
+  if (spielSitzung && spielSitzung.art !== id) spielBeenden();
+  if (!spielSitzung) {
+    spielSitzung = { start: Date.now(), sekunden: 0, art: id };
+    protokoll(S, 'spiel_start', { guthaben: S.guthaben, spiel: id, test: !SP.istFrei(SP.splitterVon(S.splitter), id) || undefined });
+  }
+  sichern();
+  $app.innerHTML = `
+  <div class="screen spiel-screen kristallmine-screen">
+    <header class="topbar spiel-kopf">
+      <button class="btn-text" data-act="spielZurueck">← Zurück</button>
+      <div class="rune-uhr${S.guthaben < 60 ? ' knapp' : ''}" id="uhr"><span class="uhr-ring"></span><span id="spielzeit">${L.formatZeit(S.guthaben)}</span></div>
+      <span class="spiel-knoepfe"><button class="btn-text klein" data-act="spielauswahl">Spiele</button></span>
+    </header>
+    <div class="km-huelle" id="modul-huelle"></div>
+    <div class="km-overlay" id="spiel-overlay"></div>
+  </div>`;
+  ms = { id, spiel: m.starten($id('modul-huelle'), {
+    stand: S[m.feld],
+    sichern: (st) => { S[m.feld] = st; sichern(); },
+    melden: (typ, daten) => { protokoll(S, typ, daten); sichern(); },
+    darfLaufen: () => S.guthaben > 0 && ansicht === 'spiel' && !document.querySelector('#spiel-overlay .overlay')
+  }) };
+  overlayPruefen();
+}
 
 function zeigeRunenfallSpiel() {
   setzeAnsicht('spiel');
