@@ -1,5 +1,5 @@
 // Offline-Speicher. VERSION muss zu version.json und APP_VERSION in js/app.js passen.
-const VERSION = 'schrein-2.3.1';
+const VERSION = 'schrein-2.3.2';
 const DATEIEN = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest',
   'js/app.js', 'js/kristallmine.js', 'js/kristallmine-ui.js', 'kristallmine/km.css', 'js/splitter.js', 'js/steinschieber.js', 'js/steinschieber-level.js', 'js/steinschieber-ui.js', 'js/steinschieber-tipp.js', 'steinschieber/ss.css', 'js/runenfall.js', 'js/runenfall-ui.js', 'runenfall/rn.css', 'js/logic.js', 'js/namen.js', 'js/paket.js', 'js/bloecke.js', 'js/einrichtung.js', 'js/render.js', 'js/store.js', 'js/gen.js', 'js/sync.js',

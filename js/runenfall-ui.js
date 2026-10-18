@@ -246,26 +246,30 @@ export function runenfallStarten(wurzel, opt = {}) {
 
   // Gesten auf dem Feld
   let zug = null;
-  an(rahmen, 'pointerdown', (e) => { zug = { x: e.clientX, y: e.clientY, t: performance.now(), dx: 0, dy: 0, bewegt: false }; });
+  an(rahmen, 'pointerdown', (e) => { zug = { x: e.clientX, y: e.clientY, t: performance.now(), dx: 0, dy: 0, bewegt: false, richtung: null }; });
   an(rahmen, 'pointermove', (e) => {
     if (!zug) return;
-    // Seitlich: etwa 1,3 Felder Weg pro Schritt, der erste Schritt braucht etwas mehr (kein Verrutschen beim Tippen)
-    const schritt = Math.max(30, g * 1.3), anlauf = schritt * 0.3;
     const gx = e.clientX - zug.x, gy = e.clientY - zug.y;
-    if (Math.abs(gx) > Math.abs(gy) * 1.2) {
+    // Richtung einmal festlegen: wer nach unten zieht, schiebt in diesem Zug nicht mehr zur Seite (und umgekehrt)
+    if (!zug.richtung) {
+      if (Math.hypot(gx, gy) < 16) return;
+      zug.richtung = Math.abs(gx) > Math.abs(gy) ? 'seite' : 'runter';
+    }
+    if (zug.richtung === 'seite') {
+      // etwa 1,3 Felder Weg pro Schritt, der erste Schritt braucht etwas mehr
+      const schritt = Math.max(30, g * 1.3), anlauf = schritt * 0.3;
       const weg = Math.abs(gx) - anlauf, soll = weg >= schritt ? Math.sign(gx) * Math.floor(weg / schritt) : 0;
       while (zug.dx !== soll) { const r = soll > zug.dx ? 1 : -1; tun(r > 0 ? 'rechts' : 'links'); zug.dx += r; zug.bewegt = true; }
-    }
-    const runterSchritt = Math.max(16, g);
-    let dy = e.clientY - zug.y - zug.dy * runterSchritt;
-    if (Math.abs(e.clientY - zug.y) > Math.abs(e.clientX - zug.x) * 1.4) {
+    } else {
+      const runterSchritt = Math.max(16, g);
+      let dy = gy - zug.dy * runterSchritt;
       while (dy >= runterSchritt) { tun('runter'); zug.dy++; zug.bewegt = true; dy -= runterSchritt; }
     }
   });
   an(rahmen, 'pointerup', (e) => {
     if (!zug) return;
     const dt = performance.now() - zug.t, dy = e.clientY - zug.y, dx = e.clientX - zug.x;
-    if (dy > 60 && dt < 260 && Math.abs(dy) > Math.abs(dx) * 1.5) tun('ganz');
+    if (zug.richtung !== 'seite' && dy > 60 && dt < 260 && Math.abs(dy) > Math.abs(dx) * 1.2) tun('ganz');
     else if (!zug.bewegt && Math.abs(dx) < 10 && Math.abs(dy) < 10) tun('drehen');
     zug = null;
   });
