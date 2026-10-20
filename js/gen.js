@@ -414,7 +414,7 @@ export function geldGeschichte(stufe, rng, opts = {}) {
   const vorlage = stufe === 3 ? wahl(rng, ['schulden-bekommt', 'kauf-leiht', 'kauf-dann-geld']) : wahl(rng, ['schulden-bekommt', 'kauf-leiht', 'noch-mehr-schulden']);
   const [verw, vg] = wahl(rng, VERWANDTE);
   const bei = `bei ${vg === 'm' ? p.sein : p.seiner} ${verw}`;
-  let saetze = [], wert, weg, gegeben, erkl, param;
+  let saetze = [], wert, weg, gegeben, erkl, param, karten;
   for (let v = 0; v < 100; v++) {
     const a = zufall(rng, 3, max), b = zufall(rng, 3, max), c = zufall(rng, 3, max);
     if (vorlage === 'schulden-bekommt') {
@@ -425,6 +425,7 @@ export function geldGeschichte(stufe, rng, opts = {}) {
       { const b = b2;
       saetze = [`${name} hat ${a} € Schulden ${bei}.`, `Dann bekommt ${p.er.toLowerCase() === 'er' ? 'er' : 'sie'} ${b} € ${ein}.`, `Mit dem Geld zahlt ${p.er.toLowerCase() === "er" ? "er" : "sie"} sofort Schulden zurück.`];
       wert = -a + b; weg = [`${M}${a} + ${b} = ${zahlText(wert)}`];
+      karten = [['Am Anfang', `${M}${a}`, `${a}`], ['Dann', `+ ${b}`, `${M} ${b}`]];
       gegeben = [{ name: 'Schulden am Anfang', wert: a, einheit: '€' }, { name: 'bekommt', wert: b, einheit: '€' }];
       erkl = wert > 0 ? `Die ${a} € Schulden sind weg. Von den ${b} € bleiben ${wert} € übrig.` : `${b} € reichen nicht. Es bleiben ${-wert} € Schulden.`;
       param = [vorlage, a, b]; }
@@ -436,6 +437,7 @@ export function geldGeschichte(stufe, rng, opts = {}) {
       saetze = [`${name} hat ${a} € im Portemonnaie.`, `${p.er} kauft ${ding} für ${b} €.`, `${vg === 'm' ? 'Sein' : 'Seine'} ${verw} leiht ${p.ihm} das Geld, das fehlt.`];
       if (g === 'w') saetze[2] = `${vg === 'm' ? 'Ihr' : 'Ihre'} ${verw} leiht ${p.ihm} das Geld, das fehlt.`;
       wert = a - b; weg = [`${a} − ${b} = ${zahlText(wert)}`];
+      karten = [['Am Anfang', `${a}`, `${M}${a}`], ['Kauf', `${M} ${b}`, `+ ${b}`]];
       gegeben = [{ name: 'Geld am Anfang', wert: a, einheit: '€' }, { name: 'Preis', wert: b, einheit: '€' }];
       erkl = `${name} bezahlt mit ${a} €. Es fehlen ${-wert} €, das sind Schulden.`;
       param = [vorlage, a, b];
@@ -445,6 +447,7 @@ export function geldGeschichte(stufe, rng, opts = {}) {
       if (a + b > 100) continue;
       saetze = [`${name} hat schon ${a} € Schulden ${bei}.`, `Am nächsten Tag leiht ${p.er.toLowerCase() === 'er' ? 'er' : 'sie'} sich noch ${b} € ${fuer}.`];
       wert = -a - b; weg = [`${M}${a} − ${b} = ${zahlText(wert)}`];
+      karten = [['Am Anfang', `${M}${a}`, `${a}`], ['Dann', `${M} ${b}`, `+ ${b}`]];
       gegeben = [{ name: 'Schulden am Anfang', wert: a, einheit: '€' }, { name: 'leiht sich noch', wert: b, einheit: '€' }];
       erkl = `Die Schulden werden größer: ${a} € und ${b} € sind ${a + b} € Schulden.`;
       param = [vorlage, a, b];
@@ -458,19 +461,44 @@ export function geldGeschichte(stufe, rng, opts = {}) {
       if (wert === 0 || Math.abs(wert) > 100) continue;
       saetze = [`${name} hat ${a} €.`, `${p.er} kauft ${ding} für ${b} € und leiht sich das fehlende Geld.`, `Eine Woche später bekommt ${p.er.toLowerCase() === 'er' ? 'er' : 'sie'} ${c} € ${ex[0]}.`];
       weg = [`${a} − ${b} = ${zahlText(zw)}`, `${zahlText(zw)} + ${c} = ${zahlText(wert)}`];
+      karten = [['Am Anfang', `${a}`, `${M}${a}`], ['Kauf', `${M} ${b}`, `+ ${b}`], ['Später', `+ ${c}`, `${M} ${c}`]];
       gegeben = [{ name: 'Geld am Anfang', wert: a, einheit: '€' }, { name: 'Preis', wert: b, einheit: '€' }, { name: 'bekommt später', wert: c, einheit: '€' }];
       erkl = `Nach dem Kauf hat ${name} ${-zw} € Schulden. ${satzErgebnis(wert)}`;
       param = [vorlage, a, b, c];
     }
     break;
   }
+  // Ganz kurze Geschichte (1–2 Sätze, ohne Merkzettel) für die kurzen Plätze: Text wird zur Gewohnheit
+  if (opts.mini) {
+    return neu('geld-mini', [...param, name], {
+      thema: 'minus-zahlen', typ: 'zahl', stufe: 1, geschichte: saetze.slice(0, 2).join(' '),
+      frage: `Hat ${name} danach Geld oder Schulden? Wie viel?`, antwort: { wert, einheit: '€' },
+      hinweise: ['euro'], loesungsweg: weg, erklaerung: erkl
+    });
+  }
   if (stufe === 3 && rng() < 0.4) saetze.splice(1, 0, wahl(rng, UNNOETIG));
   const lang = saetze.length >= 3;
+  // Rechnung legen: je Teil der Geschichte ein Kärtchen wählen (Geld oder Schulden, dazu oder weg)
+  const legen = kartenSchritt('Leg die Rechnung. Wähle für jeden Teil ein Kärtchen.', karten, rng);
+  const rechnung = karten.map(k => k[1]).join(' ');
   return neu('geld-geschichte', [...param, name], {
-    thema: 'minus-zahlen', typ: 'zahl', stufe, geschichte: saetze.join(' '),
-    frage: `Hat ${name} danach Geld oder Schulden? Wie viel?`, antwort: { wert, einheit: '€' },
-    hinweise: lang ? ['euro', 'lang'] : ['euro'], loesungsweg: weg, erklaerung: erkl, gegeben
+    thema: 'minus-zahlen', typ: 'schritte', stufe, geschichte: saetze.join(' '),
+    frage: `Hat ${name} danach Geld oder Schulden? Wie viel?`,
+    schritte: [legen, { text: `${rechnung} =`, wert, einheit: '€' }],
+    hinweise: lang ? ['euro', 'lang'] : ['euro'],
+    loesungsweg: [`Rechnung: ${rechnung}`, weg.length > 1 ? weg.join(' → ') : weg[0]], erklaerung: erkl, gegeben
   });
+}
+
+// Schritt „Rechnung legen“: karten = [[Bezeichnung, richtig, falsch], …]. Reihenfolge der zwei Kärtchen zufällig.
+function kartenSchritt(text, karten, rng) {
+  return {
+    text,
+    karten: karten.map(([label, ok, falsch]) => {
+      const vorne = rng() < 0.5;
+      return { label, optionen: vorne ? [ok, falsch] : [falsch, ok], richtig: vorne ? 0 : 1 };
+    })
+  };
 }
 
 const LAEDEN = [
@@ -493,11 +521,19 @@ export function rabattGeschichte(stufe, rng) {
     const neuP = preis - spar;
     const saetze = [`${l.laden} gibt es diese Woche ${q} % Rabatt.`, `${l.nom} ${l.verb} normalerweise ${preis} €.`, `${name} kauft ${l.akk}.`];
     const regel = [30, 40].includes(q) ? `10 % = ${geld(preis / 10)} €, mal ${q / 10} = ${geld(spar)} €` : `${q} % von ${preis} € → ${preis} : ${PROZENT_REGEL[q]} = ${geld(spar)} €`;
+    // Erst entscheiden, was zuerst gerechnet wird, dann die Rechnung für den neuen Preis legen
+    const zuerst = rng() < 0.5 ? [`Was ${name} spart`, `Was ${name} bezahlt`] : [`Was ${name} bezahlt`, `Was ${name} spart`];
+    const legen = kartenSchritt('Leg die Rechnung für den neuen Preis.', [['Preis', `${preis}`, `${geld(spar)}`], ['Rabatt', `${M} ${geld(spar)}`, `+ ${geld(spar)}`]], rng);
     return neu('rabatt-geschichte', [q, preis, LAEDEN.indexOf(l), name], {
-      thema: 'rabatt', typ: 'mehrfrage', stufe, geschichte: saetze.join(' '), frage: 'Beantworte die Fragen.',
-      fragen: [{ frage: `Wie viel Euro spart ${name}?`, wert: spar, einheit: '€' }, { frage: `Wie viel muss ${name} bezahlen?`, wert: neuP, einheit: '€' }],
+      thema: 'rabatt', typ: 'schritte', stufe, geschichte: saetze.join(' '), frage: `Wie viel Euro spart ${name}? Wie viel muss ${name} bezahlen?`,
+      schritte: [
+        { text: 'Was rechnest du zuerst?', optionen: zuerst, richtig: zuerst.indexOf(`Was ${name} spart`) },
+        { text: `Wie viel Euro spart ${name}?`, wert: spar, einheit: '€' },
+        legen,
+        { text: `Wie viel muss ${name} bezahlen?`, wert: neuP, einheit: '€' }
+      ],
       hinweise: ['lang', 'text', [30, 40].includes(q) ? 'baukasten' : 'prozent'],
-      loesungsweg: [regel, `${preis} € − ${geld(spar)} € = ${geld(neuP)} €`],
+      loesungsweg: ['Zuerst: was gespart wird (der Rabatt)', regel, `Rechnung: ${preis} − ${geld(spar)}`, `${preis} € − ${geld(spar)} € = ${geld(neuP)} €`],
       erklaerung: 'Erst den Rabatt ausrechnen. Dann vom Preis abziehen.',
       gegeben: [{ name: 'Preis', wert: preis, einheit: '€' }, { name: 'Rabatt', wert: q, einheit: '%' }]
     });

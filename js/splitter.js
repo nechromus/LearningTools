@@ -26,6 +26,9 @@ export const GRUENDE = {
   tage7: '7 Tage am Stück',
   stufe: 'Eine Stufe aufgestiegen',
   gemeistert: 'Thema auf höchster Stufe',
+  text: 'Textaufgabe geschafft',
+  texte5: 'Geschichtenlöser: 5 Textaufgaben',
+  texte20: 'Geschichtenmeister: 20 Textaufgaben',
   bonus: 'Bonus von den Eltern',
   freigeschaltet: 'Spiel freigeschaltet'
 };
@@ -33,7 +36,7 @@ export const GRUENDE = {
 export const TAGESZIEL = 10;
 
 export function neuerSplitter() {
-  return { stand: 0, gesamt: 0, verlauf: [], frei: [], folgeErst: 0, zielTag: null, tage: { letzter: null, zahl: 0 }, gemeistert: [], boni: [], preise: null };
+  return { stand: 0, gesamt: 0, texte: 0, verlauf: [], frei: [], folgeErst: 0, zielTag: null, tage: { letzter: null, zahl: 0 }, gemeistert: [], boni: [], preise: null };
 }
 
 // Fehlende Felder ergänzen (ältere Spielstände)
@@ -70,6 +73,13 @@ export function nachAufgabe(sp, info, jetzt = new Date()) {
     if (sp.folgeErst % 10 === 0) plus(6, 'folge10');
   } else {
     sp.folgeErst = 0;
+  }
+  // Textaufgaben lohnen sich extra (Tobias meidet sie)
+  if (geloest && info.text) {
+    plus(3, 'text');
+    sp.texte = (sp.texte || 0) + 1;
+    if (sp.texte === 5) plus(10, 'texte5');
+    if (sp.texte === 20) plus(20, 'texte20');
   }
   if (geloest && info.wiederholung) plus(2, 'comeback');
   if (geloest && info.wartete) plus(2, 'drangeblieben');

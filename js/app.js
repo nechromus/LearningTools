@@ -20,7 +20,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.6.1';
+export const APP_VERSION = '2.7.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -707,7 +707,9 @@ function hauptTeile(a) {
       teile.push({ art: 'wahl', label: a.frage, optionen: a.optionen, richtig: a.antwort.richtig });
       return teile;
     }
-    case 'schritte': return a.schritte.map(s => s.optionen
+    case 'schritte': return a.schritte.map(s => s.karten
+      ? { art: 'legen', label: s.text, karten: s.karten, wahl: s.karten.map(() => null), quelle: s }
+      : s.optionen
       ? { art: 'wahl', label: s.text, optionen: s.optionen, richtig: s.richtig, quelle: s }
       : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden }, einheit: s.einheit || '', quelle: s });
     case 'mehrfrage': return a.fragen.map(q => ({ art: 'zahl', label: q.frage, ziel: { wert: q.wert }, einheit: q.einheit || '', bonus: !!q.bonus, quelle: q, rechnung: /\s=$/.test(q.frage) ? q.frage.replace(/\s=$/, '') : undefined }));
@@ -746,6 +748,11 @@ function kurzeAufgabe(g, fokus, { leicht = false } = {}) {
   if (!leicht && Math.random() < 0.15) {
     const p = L.waehleAufgabe(alleAufgaben(), { kategorie: 'thema', thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
     if (p && p.thema === thema && !p.geschichte && !p.bonus) return p;
+  }
+  // Minus-Zahlen: manchmal eine ganz kurze Geldgeschichte (1–2 Sätze), damit Text normal wird
+  if (thema === 'minus-zahlen' && !leicht && Math.random() < 0.25) {
+    const letzte = S.verlauf.letzteIds.slice(-15);
+    for (let i = 0; i < 8; i++) { const m = G.geldGeschichte(1, Math.random, { mini: true }); if (!letzte.includes(m.id)) return m; }
   }
   const gen = wahl(P.KOPF_GEN[thema]);
   return erzeuge(gen, leicht ? 1 : genStufe(gen), fokus);
@@ -879,6 +886,7 @@ function neueAufgabe() {
     A = alt;
     A.serienPos = serieWeiter();
     A.wartete = true;
+    A.satz = undefined; A.textHilfe = false; A.hilfeAngeboten = false;
     protokoll(S, 'aufgabe_start', startInfoVon(A, { fortsetzung: true, teil: A.idx }));
     sichern();
     setzeAnsicht('aufgabe');
@@ -893,6 +901,8 @@ function neueAufgabe() {
     teile: teileVon(aufgabe), idx: 0, phase: 'eingabe', hinweise: [], verlassen: 0, strafe: 'keine',
     fertig: false, meldung: null, feld: 'z', wdh
   };
+  // Geschichten Satz für Satz zeigen (weniger Text auf einmal)
+  if (aufgabe.geschichte && L.saetzeVon(aufgabe.geschichte).length > 1) A.satz = 1;
   A.teile.forEach(t => { t.versuche = []; t.status = 'offen'; t.eingabe = ''; t.z = ''; t.n = ''; t.seit = Date.now(); });
   if (aufgabe.typ === 'zuordnung') zuordnungVorbereiten();
   protokoll(S, 'aufgabe_start', startInfoVon(A));
@@ -922,11 +932,11 @@ function zeigeAufgabe() {
       ${A.wartete && !A.fertig && A.teile.every(t => !t.versuche.length) ? '<p class="wartet-hinweis">Diese Aufgabe wartet noch auf dich.</p>' : ''}
       <article class="karte aufgabe${a.bonus ? ' bonus' : ''}">
         ${a.bonus ? `<div class="bonus-kopf"><span class="bonus-label">Bonus · freiwillig</span>${!A.fertig && A.teile.every(t => !t.versuche.length) ? '<button class="btn-text klein" data-act="ueberspringen">Überspringen</button>' : ''}</div>` : ''}
-        ${a.geschichte ? `<p class="geschichte">${mathe(a.geschichte)}</p>` : ''}
+        ${a.geschichte ? geschichteHtml(a) : ''}
         ${a.rechnung ? `<div class="rechnung">${mathe(a.rechnung)}</div>` : ''}
         ${a.bild ? `<div class="bild">${bildSvg(a.bild)}</div>` : ''}
-        ${a.typ !== 'auswahl' ? `<p class="frage">${mathe(a.frage)}</p>` : ''}
-        <div class="teile">${teileHtml()}</div>
+        ${liestNoch() ? '' : `${a.typ !== 'auswahl' ? `<p class="frage">${mathe(a.frage)}</p>` : ''}
+        <div class="teile">${teileHtml()}</div>`}
         <div class="hw-leiste"><span class="gedaempft">Hinweis:</span>${icons}
           ${a.taschenrechner && !A.fertig ? '<button class="btn btn-klein btn-rechner" data-act="rechner">Taschenrechner</button>' : ''}
           ${hilfeKnopf()}
@@ -940,6 +950,138 @@ function zeigeAufgabe() {
   </div>`;
   const aktiv = document.querySelector('.teil.aktiv');
   if (aktiv && !A.fertig) aktiv.scrollIntoView({ block: 'nearest' });
+}
+
+// ---------- Textaufgaben: Satz für Satz, Vorlesen, Zahlen markieren ----------
+const liestNoch = () => !!(A && !A.fertig && A.aufgabe.geschichte && A.satz != null && A.satz < L.saetzeVon(A.aufgabe.geschichte).length);
+
+function zahlenMarkieren(html) {
+  // nur Text zwischen Tags, nicht in Attributen
+  return html.replace(/>([^<]*)</g, (_, txt) => '>' + txt.replace(/(−?\d+(?:,\d+)?(?:\u00A0?(?:€|%|cm|m))?)/g, '<mark class="zahl-mark">$1</mark>') + '<');
+}
+
+function geschichteHtml(a) {
+  const saetze = L.saetzeVon(a.geschichte);
+  const n = A.fertig || A.satz == null ? saetze.length : Math.min(A.satz, saetze.length);
+  let html = `<span>${saetze.slice(0, n).map(s => mathe(s)).join(' ')}</span>`;
+  if (A.textHilfe) html = zahlenMarkieren(html);
+  const vorlesen = 'speechSynthesis' in window ? `<button class="btn btn-klein btn-vorlesen" data-act="vorlesen" aria-label="Vorlesen">${lautsprecher()} Vorlesen</button>` : '';
+  const weiter = liestNoch() ? `<p class="satz-info gedaempft klein">Satz ${n} von ${saetze.length}</p>` : '';
+  return `<div class="geschichte-box"><p class="geschichte">${html}</p><div class="geschichte-leiste">${vorlesen}${weiter}</div></div>`;
+}
+
+function lautsprecher() {
+  return '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+}
+
+function vorlesen() {
+  if (!A || !('speechSynthesis' in window)) return;
+  const a = A.aufgabe;
+  const saetze = L.saetzeVon(a.geschichte);
+  const n = A.fertig || A.satz == null ? saetze.length : Math.min(A.satz, saetze.length);
+  let text = saetze.slice(0, n).join(' ');
+  if (!liestNoch() && a.frage) text += ' ' + a.frage;
+  text = text.replace(/−/g, 'minus ').replace(/€/g, ' Euro').replace(/%/g, ' Prozent');
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'de-DE'; u.rate = 0.9;
+    const stimme = speechSynthesis.getVoices().find(v => /^de/i.test(v.lang));
+    if (stimme) u.voice = stimme;
+    speechSynthesis.speak(u);
+  } catch (e) { /* ohne Sprachausgabe */ }
+  protokoll(S, 'vorlesen', { id: a.id, saetze: n });
+  sichern();
+}
+
+function naechsterSatz() {
+  if (!liestNoch()) return;
+  A.satz++;
+  if (!liestNoch()) {
+    protokoll(S, 'gelesen', { id: A.aufgabe.id, ms: Date.now() - A.start });
+    const t = aktuellerTeil(); if (t) t.seit = Date.now();
+  }
+  sichern();
+  zeigeAufgabe();
+}
+
+// „Fertig“ bei einer Textaufgabe: erst Hilfe anbieten (einmal pro Aufgabe)
+function textHilfeAnbieten() {
+  A.hilfeAngeboten = true;
+  oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Soll ich dir helfen?</h2>
+    <p>Ich lese dir die Geschichte vor. Und ich markiere die Zahlen.</p>
+    <div class="knopf-reihe"><button class="btn btn-haupt" data-act="textHilfeJa">Ja, hilf mir</button><button class="btn" data-act="textHilfeNein">Nein, später</button></div></div>`);
+}
+
+function textHilfeJa() {
+  schliesseModal();
+  A.textHilfe = true;
+  if (A.satz != null) A.satz = L.saetzeVon(A.aufgabe.geschichte).length;
+  protokoll(S, 'text_hilfe', { id: A.aufgabe.id, angenommen: true });
+  sichern();
+  zeigeAufgabe();
+  vorlesen();
+}
+
+function beendenJetzt() {
+  if (A && !A.fertig) {
+    const ohneEingabe = A.teile.every(t => !t.versuche.length);
+    protokoll(S, 'aufgabe_abgebrochen', { id: A.aufgabe.id, teil: A.idx, ms: Date.now() - A.start, ohneEingabe, thema: A.aufgabe.thema, wartet: !A.aufgabe.bonus });
+    // Freiwillige Bonus-Aufgaben dürfen weg. Alle anderen warten, bis sie gelöst sind.
+    if (!A.aufgabe.bonus) S.wartet = aufgabeSchnappschuss();
+    // Die verlassene Aufgabe zählt nicht für die Serie
+    S.serie.pos = Math.max(0, S.serie.pos - 1);
+  }
+  try { if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch (e) { /* egal */ }
+  S.laufend = null;
+  A = null; sichern(); zeigeStart();
+}
+
+// Rechnung legen: Kärtchen wählen und prüfen
+function karteWaehlen(p, k) {
+  const t = aktuellerTeil();
+  if (!t || t.art !== 'legen' || A.phase !== 'eingabe') return;
+  t.wahl[p] = k; A.meldung = null;
+  zeigeAufgabe();
+}
+
+function kartenPruefen() {
+  const t = aktuellerTeil();
+  if (!t || t.art !== 'legen' || A.phase !== 'eingabe' || t.wahl.some(w => w == null)) return;
+  const a = A.aufgabe;
+  const eingabe = t.karten.map((k, i) => k.optionen[t.wahl[i]]).join(' ');
+  const { richtig, falsch } = L.pruefeKarten(t.karten, t.wahl);
+  if (!richtig && L.zuSchnell(a, t, Date.now() - t.seit)) return zuSchnellMelden(t, eingabe);
+  if (!richtig && t.versuche.some(v => v.eingabe === eingabe)) {
+    A.meldung = 'Das hattest du schon. Schau noch einmal auf jeden Teil.';
+    protokoll(S, 'versuch_wiederholt', { id: a.id, teil: A.idx, eingabe });
+    sichern(); return zeigeAufgabe();
+  }
+  const fehler = richtig ? null : {
+    typ: 'karten',
+    text: a.thema === 'rabatt' ? 'Vom Preis geht der Rabatt weg. Schau noch einmal.' : 'Schau auf jeden Teil: Geld oder Schulden? Kommt Geld dazu oder geht es weg?'
+  };
+  if (!richtig) t.wahl = t.wahl.map((w, i) => (falsch.includes(i) ? null : w));
+  versuchMerken(t, eingabe, richtig, fehler);
+}
+
+function zuSchnellMelden(t, eingabe) {
+  A.meldung = 'Lies noch einmal. Welche Zahlen brauchst du?';
+  protokoll(S, 'zu_schnell', { id: A.aufgabe.id, teil: A.idx, eingabe, ms: Date.now() - t.seit });
+  t.eingabe = '';
+  sichern();
+  return zeigeAufgabe();
+}
+
+function legenHtml(t, aktiv, nr) {
+  const plaetze = t.karten.map((k, p) => {
+    const gew = aktiv ? t.wahl[p] : k.richtig;
+    const knoepfe = k.optionen.map((o, j) => `<button class="karte-btn${gew === j ? ' gewaehlt' : ''}" data-act="karte" data-p="${p}" data-k="${j}" ${aktiv && A.phase === 'eingabe' ? '' : 'disabled'}>${mathe(o)}</button>`).join('');
+    return `<div class="legen-platz"><span class="legen-label">${esc(k.label)}</span><div class="legen-karten">${knoepfe}</div></div>`;
+  }).join('');
+  const reihe = t.karten.map((k, p) => { const w = aktiv ? t.wahl[p] : k.richtig; return `<span class="legen-feld${w == null ? ' leer' : ''}">${w == null ? '?' : mathe(k.optionen[w])}</span>`; }).join('');
+  const fertig = !aktiv ? erledigtWert(t, t.karten.map(k => k.optionen[k.richtig]).join(' ')) : '';
+  return `<div class="teil-label">${nr}<span><b>${mathe(t.label)}</b></span></div>${aktiv ? `<div class="legen-rechnung">${reihe}</div><div class="legen-plaetze">${plaetze}</div>` : `<div class="feld-zeile">${fertig}</div>`}`;
 }
 
 function teileHtml() {
@@ -985,6 +1127,8 @@ function teileHtml() {
       inhalt = `<div class="teil-label">${nr}<span><b>${mathe(t.label)}</b></span></div><div class="wahl-reihe">${knoepfe}</div>`;
     } else if (t.art === 'zuordnung') {
       inhalt = zuordnungHtml(aktiv);
+    } else if (t.art === 'legen') {
+      inhalt = legenHtml(t, aktiv, nr);
     }
     let zusatz = '';
     if (aktiv && A.phase === 'tipp') zusatz = `<div class="tipp"><b>Noch nicht.</b> ${esc(t.tipp)}</div>`;
@@ -1005,6 +1149,7 @@ function loesungText(t) {
   if (t.art === 'zahl') return esc(formatWert(t.ziel.wert, t.einheit));
   if (t.art === 'bruch') return bruchHtml(t.antwort.zaehler, t.antwort.nenner);
   if (t.art === 'wahl') return mathe(t.optionen[t.richtig]);
+  if (t.art === 'legen') return mathe(t.karten.map(k => k.optionen[k.richtig]).join(' '));
   return 'siehe unten';
 }
 
@@ -1023,6 +1168,7 @@ function fussHtml() {
     </div>`;
   }
   const t = aktuellerTeil();
+  if (liestNoch()) return `<button class="btn btn-haupt btn-gross" data-act="naechsterSatz">Nächster Satz</button>`;
   if (A.phase === 'tipp') return `<button class="btn btn-haupt btn-gross" data-act="verstanden">Verstanden</button>`;
   if (A.phase === 'aufgeloest') return `<button class="btn btn-haupt btn-gross" data-act="weiter">Weiter</button>`;
   if (A.rechnerOffen && A.rechner && t.art !== 'zuordnung') return rechnerPanelHtml(t);
@@ -1036,6 +1182,7 @@ function fussHtml() {
     </div>`;
   }
   if (t.art === 'zuordnung') return `<button class="btn btn-haupt btn-gross" data-act="antwort">Antwort geben</button>`;
+  if (t.art === 'legen') return `<button class="btn btn-haupt btn-gross" data-act="kartenPruefen" ${t.wahl.some(w => w == null) ? 'disabled' : ''}>Rechnung prüfen</button>`;
   return aufklappen;
 }
 
@@ -1075,7 +1222,7 @@ const normal = (x) => String(x || '').replace(/\s+/g, '').replace(/[=≈→?]+$/
 
 function hilfeDaten(t) {
   const a = A.aufgabe;
-  if (!t || t.merk || t.art === 'wahl' || t.art === 'zuordnung') return null;
+  if (!t || t.merk || t.art === 'wahl' || t.art === 'legen' || t.art === 'zuordnung') return null;
   const haupt = A.teile.filter(x => !x.merk);
   const nr = haupt.indexOf(t);
   const anz = L.hilfeAnzeige(a.loesungsweg || [], haupt.length, nr, Math.max(1, (t.hilfe || 0) + 1));
@@ -1153,6 +1300,7 @@ function antwortGeben() {
     if (!p.ok) { A.meldung = 'Tippe zuerst eine Zahl ein.'; return zeigeAufgabe(); }
     eingabe = t.eingabe.replace(',', '.');
     richtig = L.pruefeZahl(t.eingabe, t.ziel);
+    if (!richtig && L.zuSchnell(a, t, Date.now() - t.seit)) return zuSchnellMelden(t, eingabe);
     if (!richtig) {
       if (t.merk) fehler = { typ: 'merk', text: 'Lies noch einmal im Text nach. Welche Zahl gehört dazu?' };
       else {
@@ -1289,7 +1437,8 @@ function abschliessen() {
   S.splitter = SP.splitterVon(S.splitter);
   A.splitter = SP.nachAufgabe(S.splitter, {
     ergebnis, wiederholung: (A.wdh || 0) > 0, wartete: !!A.wartete, tagAufgaben: S.tag.aufgaben, heute: S.tag.key,
-    stufeHoch: !!stufeHoch, stufeNeu: stufeHoch ? stufeHoch.stufe : 0, generator: stufeHoch ? stufeHoch.generator : null
+    stufeHoch: !!stufeHoch, stufeNeu: stufeHoch ? stufeHoch.stufe : 0, generator: stufeHoch ? stufeHoch.generator : null,
+    text: !!a.geschichte
   });
   if (A.splitter.length) protokoll(S, 'splitter', { id: a.id, n: A.splitter.reduce((x, e) => x + e.n, 0), gruende: A.splitter.map(e => e.grund), stand: S.splitter.stand });
   sichern();
@@ -2573,16 +2722,17 @@ function klick(e) {
     }
     case 'start': zeigeStart(); break;
     case 'beenden':
-      if (A && !A.fertig) {
-        const ohneEingabe = A.teile.every(t => !t.versuche.length);
-        protokoll(S, 'aufgabe_abgebrochen', { id: A.aufgabe.id, teil: A.idx, ms: Date.now() - A.start, ohneEingabe, thema: A.aufgabe.thema, wartet: !A.aufgabe.bonus });
-        // Freiwillige Bonus-Aufgaben dürfen weg. Alle anderen warten, bis sie gelöst sind.
-        if (!A.aufgabe.bonus) S.wartet = aufgabeSchnappschuss();
-        // Die verlassene Aufgabe zählt nicht für die Serie
-        S.serie.pos = Math.max(0, S.serie.pos - 1);
-      }
-      S.laufend = null;
-      A = null; sichern(); zeigeStart(); break;
+      if (A && !A.fertig && A.aufgabe.geschichte && !A.hilfeAngeboten && !A.textHilfe) { textHilfeAnbieten(); break; }
+      beendenJetzt(); break;
+    case 'textHilfeJa': textHilfeJa(); break;
+    case 'textHilfeNein':
+      schliesseModal();
+      if (A) protokoll(S, 'text_hilfe', { id: A.aufgabe.id, angenommen: false });
+      beendenJetzt(); break;
+    case 'vorlesen': vorlesen(); break;
+    case 'naechsterSatz': naechsterSatz(); break;
+    case 'karte': karteWaehlen(Number(el.dataset.p), Number(el.dataset.k)); break;
+    case 'kartenPruefen': kartenPruefen(); break;
     case 'naechste': neueAufgabe(); break;
     case 'ueberspringen':
       protokoll(S, 'uebersprungen', { id: A.aufgabe.id });

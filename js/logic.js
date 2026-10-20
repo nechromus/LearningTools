@@ -155,8 +155,8 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
       return { typ: 'rabatt-ersparnis', text: 'Das ist, was man spart. Was kostet es dann?' };
     }
   }
-  if (aufgabe.typ === 'schritte' && teil && /neuer preis/i.test(teil.text || '')) {
-    const spar = (aufgabe.schritte || []).find(s => s !== teil && /spar/i.test(s.text || ''));
+  if (aufgabe.typ === 'schritte' && teil && /(neuer preis|bezahl|kostet)/i.test(teil.text || '')) {
+    const spar = (aufgabe.schritte || []).find(s => s !== teil && s.wert != null && /spar/i.test(s.text || ''));
     if (spar && gleich(w, spar.wert)) {
       return { typ: 'rabatt-ersparnis', text: 'Das ist, was man spart. Was kostet es dann?' };
     }
@@ -511,7 +511,11 @@ export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
     case 'schritte':
       if (!Array.isArray(a.schritte) || !a.schritte.length) f.push(`${id}: schritte fehlen`);
       else a.schritte.forEach((s, i) => {
-        if (s.optionen) { if (typeof s.richtig !== 'number') f.push(`${id}: Schritt ${i + 1} braucht „richtig“`); }
+        if (s.karten) {
+          if (!Array.isArray(s.karten) || !s.karten.length || s.karten.some(k => !Array.isArray(k.optionen) || k.optionen.length < 2 || typeof k.richtig !== 'number' || !k.optionen[k.richtig]))
+            f.push(`${id}: Schritt ${i + 1}: karten braucht je Platz optionen und richtig`);
+        }
+        else if (s.optionen) { if (typeof s.richtig !== 'number') f.push(`${id}: Schritt ${i + 1} braucht „richtig“`); }
         else if (typeof s.wert !== 'number') f.push(`${id}: Schritt ${i + 1} braucht „wert“`);
       });
       break;
@@ -677,4 +681,20 @@ export function hilfeAnzeige(weg, anzahlTeile, teilNr, stufe) {
   if (!idx.length) return { zeilen: [], mehr: false };
   const zeilen = idx.slice(0, k).map((i, j) => j === k - 1 ? verdecken(weg[i]) : weg[i]);
   return { zeilen, mehr: k < idx.length };
+}
+
+// ---------- Textaufgaben ----------
+// Geschichte in Sätze teilen (für „Satz für Satz“)
+export function saetzeVon(text) {
+  return String(text || '').split(/(?<=[.!?])\s+(?=[A-ZÄÖÜ„"0-9−])/).map(s => s.trim()).filter(Boolean);
+}
+// Zu schnelle Antwort bei einer Textaufgabe: zählt nicht als Versuch (Raten bringt nichts, kein Abzug)
+export const TEXT_MINDEST_MS = 4000;
+export function zuSchnell(aufgabe, teil, ms) {
+  return !!(aufgabe && aufgabe.geschichte) && !(teil && teil.merk) && ms < TEXT_MINDEST_MS;
+}
+// Rechnung legen: gewählte Kärtchen prüfen. wahl = [Index je Platz]. Gibt { richtig, falsch: [Plätze] } zurück.
+export function pruefeKarten(karten, wahl) {
+  const falsch = karten.map((k, i) => (wahl[i] === k.richtig ? -1 : i)).filter(i => i >= 0);
+  return { richtig: !falsch.length, falsch };
 }

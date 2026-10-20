@@ -5,7 +5,8 @@ import * as P from '../js/paket.js';
 import * as SP from '../js/splitter.js';
 
 const ZU_AUFGABE = new Set(['versuch', 'versuch_wiederholt', 'tipp_bestaetigt', 'hinweis', 'rechner', 'rechner_offen',
-  'rechner_angeboten', 'rechner_optional', 'verlassen', 'sprung', 'loesung_gezeigt', 'bonus_teil_uebersprungen', 'hilfe']);
+  'rechner_angeboten', 'rechner_optional', 'verlassen', 'sprung', 'loesung_gezeigt', 'bonus_teil_uebersprungen', 'hilfe',
+  'zu_schnell', 'vorlesen', 'gelesen', 'text_hilfe']);
 
 export const zahl = (w) => w == null ? '' : String(w).replace('.', ',').replace(/^-/, '−');
 
@@ -253,6 +254,10 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
       case 'aufgabe_abgebrochen': p.titel = 'Mit „Fertig“ verlassen'; p.text = [e.ohneEingabe ? 'ohne Eingabe' : '', e.wartet ? 'kommt beim nächsten Mal wieder' : ''].filter(Boolean).join(' · '); p.art = 'fehler'; break;
       case 'hilfe': p.titel = `„Hilf mir“ (${e.stufe}. Schritt)`; p.text = (e.zeilen || []).join(' · ') + ' · weniger Spielzeit'; p.art = 'fehler'; break;
       case 'uebersprungen': p.titel = 'Übersprungen'; break;
+      case 'zu_schnell': p.titel = `Zu schnell geantwortet: ${e.eingabe}`; p.text = `nach ${sek(e.ms)} s · zählt nicht, „Lies noch einmal“`; p.art = 'fehler'; break;
+      case 'vorlesen': p.titel = 'Geschichte vorlesen lassen'; break;
+      case 'gelesen': p.titel = 'Geschichte Satz für Satz gelesen'; p.text = `${sek(e.ms)} s`; break;
+      case 'text_hilfe': p.titel = e.angenommen ? 'Hilfe beim Text angenommen' : 'Hilfe beim Text abgelehnt'; p.text = e.angenommen ? 'vorgelesen, Zahlen markiert' : 'Aufgabe verlassen'; p.art = e.angenommen ? 'info' : 'fehler'; break;
       default: continue;
     }
     out.push(p);
