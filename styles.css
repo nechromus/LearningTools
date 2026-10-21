@@ -808,3 +808,9 @@ mark.zahl-mark { background: #F6D26A; color: inherit; border-radius: 4px; paddin
 .bz-ab { font-size: 14px; margin: 4px 0 0; }
 .bz-karte .bz-ab { flex-basis: 100%; }
 .bz-karte { flex-wrap: wrap; }
+/* Kopf-Bonus und Tagesgrenzen (2.12.0) */
+.kopf-bonus { display: flex; gap: 12px; align-items: center; background: linear-gradient(135deg, var(--teal), var(--teal-dunkel)); color: #fff; border-radius: 14px; padding: 12px 14px; margin: 8px 0; box-shadow: 0 0 0 3px var(--fuell) inset; }
+.kopf-bonus b { display: block; font: 700 20px 'Cinzel', serif; color: #F5E6C6; }
+.kopf-bonus small { display: block; font-size: 14px; opacity: .9; }
+.wechsel-hinweis { background: #fff; border: 2px dashed var(--amber); border-radius: 12px; padding: 10px 12px; margin: 8px 0; font-weight: 600; color: var(--amber-dunkel); }
+.voll-hinweis { background: #fff; border: 2px dashed var(--linie); border-radius: 12px; padding: 10px 12px; margin: 8px 0; }

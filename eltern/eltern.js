@@ -12,7 +12,7 @@ import * as BS from '../js/bildschirm.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.19.1';
+export const ELTERN_VERSION = '1.20.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -621,11 +621,14 @@ function einstellungenSeite() {
       <div class="einstell-zeile"><span>Geschenkte Spielzeit</span><span class="zwei-felder"><label><span class="unsichtbar">ab</span><select id="e-von">${stunden(w.basisVon)}</select></label><span>bis</span><label><span class="unsichtbar">bis</span><select id="e-bis">${stunden(w.basisBis)}</select></label></span></div>
       <a class="einstell-zeile" href="#splitter"><span>Runensplitter und neue Spiele</span><span class="wert">${splitterKurzText()}</span>${svg('weiter', 16)}</a>
       <a class="einstell-zeile" href="#spielzeit"><span>Spielzeit pro Aufgabe</span><span class="wert">${w.spielzeit.staffel.map(zahlText).join(' / ')} Min.</span>${svg('weiter', 16)}</a>
-      <label class="einstell-zeile"><span>Freiwilliger Taschenrechner<span class="klein gedaempft block">bei großen Zahlen, kostet Spielzeit</span></span><input type="checkbox" class="schalter" id="e-rechner"${w.rechnerAngebot ? ' checked' : ''}></label>
+      <label class="einstell-zeile"><span>Freiwilliger Taschenrechner<span class="klein gedaempft block">bei jeder Aufgabe, kostet Spielzeit (wo er nicht erlaubt ist)</span></span><input type="checkbox" class="schalter" id="e-rechner"${w.rechnerAngebot ? ' checked' : ''}></label>
+      <div class="einstell-block"><span>Kopf-Bonus<span class="klein gedaempft block">Rechner erlaubt (Körper, große Zahlen), aber nicht benutzt und App nicht verlassen. Dazu +5 Runensplitter.</span></span>
+        <div class="segmente" role="group" aria-label="Kopf-Bonus">${L.KOPF_FAKTOREN.map(f => `<button class="segment${w.spielzeit.kopf === f ? ' an' : ''}" data-act="kopf" data-w="${f}" aria-pressed="${w.spielzeit.kopf === f}">${f === 1 ? 'Aus' : '×' + String(f).replace('.', ',')}</button>`).join('')}</div></div>
       <div class="einstell-block"><span>Lange Hinweise<span class="klein gedaempft block">Sonst kommt zuerst die Formelübersicht. „Mehr Hilfe“ öffnet den langen Hinweis.</span></span>
         <div class="segmente" role="group" aria-label="Lange Hinweise">${LANG_STUFEN.map(s => `<button class="segment${w.langeHinweise === s.stufe ? ' an' : ''}" data-act="langeHinweise" data-w="${s.stufe}" aria-pressed="${w.langeHinweise === s.stufe}">${s.name}</button>`).join('')}</div>
         <span class="klein gedaempft">${esc(langStufeInfo(w.langeHinweise).name)}: ${esc(langStufeInfo(w.langeHinweise).text)}.</span></div>
     </section>
+    ${szEinstellungen(w)}
     ${bzEinstellungen(w)}
     <h2 class="abschnitt">Baukästen: Schwierigkeit und Häufigkeit</h2>
     <section class="karte liste-karte">
@@ -641,6 +644,18 @@ function einstellungenSeite() {
 }
 
 // ---------- Runensplitter und neue Spiele ----------
+
+// Spielzeit im Schrein pro Tag: Höchstwert und „nur heute mehr“ (zählt nur mit Aufgaben verdiente Zeit)
+function szEinstellungen(w) {
+  const z = w.spielzeitTag;
+  const seg = (act, werte, akt, text = (x) => x) => `<div class="segmente" role="group">${werte.map(x => `<button class="segment${x === akt ? ' an' : ''}" data-act="${act}" data-w="${x}" aria-pressed="${x === akt}">${text(x)}</button>`).join('')}</div>`;
+  const heute = A.szHeute(D.daten.eintraege || []);
+  return `<h2 class="abschnitt">Spielzeit im Schrein pro Tag</h2>
+    <section class="karte liste-karte">
+      <div class="einstell-block"><span>Höchstens pro Tag</span>${seg('szMax', BS.SZ_HOECHSTWERTE, z.max)}<span class="klein gedaempft">Minuten, die ${esc(name())} pro Tag mit Aufgaben verdienen kann. Geschenkte Minuten zählen nicht mit.</span></div>
+      <div class="einstell-block"><span>Nur heute mehr zulassen</span>${seg('szExtra', BS.EXTRAS, z.extraMin, x => '+' + x)}<span class="klein gedaempft">Heute: ${z.max + z.extraMin} Min. erlaubt, ${A.minutenText(heute)} verdient. Morgen gilt wieder der normale Wert.</span></div>
+    </section>`;
+}
 
 // Bildschirmzeit: an/aus, Faktor, Höchstwert pro Tag, „nur heute mehr“
 function bzEinstellungen(w) {
@@ -1223,6 +1238,9 @@ document.addEventListener('click', (ev) => {
     case 'bzAn': entwurf.bildschirm = { ...entwurf.bildschirm, an: el.dataset.w === 'true' }; meldung = null; zeichne(); break;
     case 'bzFaktor': entwurf.bildschirm = { ...entwurf.bildschirm, faktor: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'bzMax': entwurf.bildschirm = { ...entwurf.bildschirm, max: Number(el.dataset.w) }; meldung = null; zeichne(); break;
+    case 'szMax': entwurf.spielzeitTag = { ...entwurf.spielzeitTag, max: Number(el.dataset.w) }; meldung = null; zeichne(); break;
+    case 'szExtra': entwurf.spielzeitTag = { ...entwurf.spielzeitTag, extraMin: Number(el.dataset.w) }; meldung = null; zeichne(); break;
+    case 'kopf': entwurf.spielzeit = { ...entwurf.spielzeit, kopf: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'bzAb': entwurf.bildschirm = { ...entwurf.bildschirm, ab: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'bzExtra': entwurf.bildschirm = { ...entwurf.bildschirm, extraMin: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'paketStandard': { const pk = paketVon(entwurf.paket.id); entwurf.abweichungen = {}; if (pk) entwurf.gewichte = { ...pk.gewichte }; meldung = null; zeichne(); break; }

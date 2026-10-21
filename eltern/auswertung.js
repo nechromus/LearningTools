@@ -249,7 +249,9 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
       case 'bonus_teil_uebersprungen': p.titel = 'Bonus-Teil übersprungen'; break;
       case 'aufgabe_ende':
         p.titel = `Fertig: ${ERGEBNIS[e.ergebnis]}`;
-        p.text = [e.bildschirm != null ? `Bildschirmzeit +${minutenText(e.bildschirm)}${e.voll ? ' (Tagesgrenze erreicht)' : ''}` : `Spielzeit +${minutenText(e.sekunden)}`, `Dauer ${dauerText(e.ms)}`].join(' · ');
+        p.text = [e.bildschirm != null ? `Bildschirmzeit +${minutenText(e.bildschirm)}${e.voll ? ' (Tagesgrenze erreicht)' : ''}` : '',
+          e.bildschirm == null || e.sekunden ? `Spielzeit +${minutenText(e.sekunden)}${e.spielzeitVoll ? ' (Tagesgrenze erreicht)' : ''}` : '',
+          e.kopf ? 'im Kopf gerechnet (Bonus)' : '', `Dauer ${dauerText(e.ms)}`].filter(Boolean).join(' · ');
         p.art = e.ergebnis === 'erst' ? 'ok' : e.ergebnis === 'zweit' ? 'info' : 'fehler';
         break;
       case 'aufgabe_abgebrochen': p.titel = 'Mit „Fertig“ verlassen'; p.text = [e.ohneEingabe ? 'ohne Eingabe' : '', e.wartet ? 'kommt beim nächsten Mal wieder' : ''].filter(Boolean).join(' · '); p.art = 'fehler'; break;
@@ -306,6 +308,8 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
   if (verlassen) auffaellig.push(`App ${verlassen}-mal verlassen während einer Aufgabe`);
   if (schnell) auffaellig.push(`${schnell}-mal sehr schnell falsch geantwortet (Textaufgaben)`);
   if (rechnerFrei) auffaellig.push(`${rechnerFrei}-mal den freiwilligen Rechner genommen`);
+  const kopf = auf.filter(r => r.ende.kopf).length;
+  if (kopf) auffaellig.push(`${kopf}-mal im Kopf gerechnet, obwohl der Rechner erlaubt war`);
   if (weg.length) {
     const top = Object.entries(wegThemen).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([t, n]) => `${THEMA_NAMEN[t] || t} ${n}-mal`);
     auffaellig.push(`Aufgabe ${weg.length}-mal ohne Eingabe verlassen${top.length ? ` (meist ${top.join(', ')})` : ''}`);
@@ -379,6 +383,7 @@ export function startWerte(einst, stand, paketVon = () => null) {
     genStufen,
     splitter: splitterWerte(w.splitter, stand),
     bildschirm: bzWerte(w.bildschirm || (stand && stand.bzRegeln)),
+    spielzeitTag: szWerte(w.spielzeitTag || (stand && stand.szRegeln)),
     ...paketTeil(w, stand, e, paketVon)
   };
 }
@@ -392,6 +397,19 @@ export function bzWerte(r, heute = tagKey()) {
 export function bzDatei(werte, heute = tagKey()) {
   const w = werte || bzWerte(null, heute);
   return BS.bzRegeln({ an: w.an, faktor: w.faktor, max: w.max, ab: w.ab, extra: w.extraMin > 0 ? { tag: heute, min: w.extraMin } : null });
+}
+// Spielzeit im Schrein pro Tag (wie Bildschirmzeit)
+export function szWerte(r, heute = tagKey()) {
+  const g = BS.szRegeln(r);
+  return { max: g.max, extraMin: g.extra && g.extra.tag === heute ? g.extra.min : 0 };
+}
+export function szDatei(werte, heute = tagKey()) {
+  const w = werte || szWerte(null, heute);
+  return BS.szRegeln({ max: w.max, extra: w.extraMin > 0 ? { tag: heute, min: w.extraMin } : null });
+}
+// Heute mit Aufgaben verdiente Spielzeit (Sekunden)
+export function szHeute(eintraege, heute = tagKey()) {
+  return eintraege.filter(e => e.typ === 'aufgabe_ende' && tagKey(new Date(e.t)) === heute).reduce((s, e) => s + (e.sekunden || 0), 0);
 }
 // Abgeschickte Bildschirmzeit (neueste zuerst)
 export function bzAnfragen(eintraege) {
@@ -431,7 +449,7 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
   for (const g of geaenderteStufen) genStufen[g] = { stufe: werte.genStufen[g], v: version };
   return {
     app: 'lernapp-2048-eltern', version, geaendert: jetzt.toISOString(),
-    werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, langeHinweise: [0, 1, 2, 3].includes(werte.langeHinweise) ? werte.langeHinweise : 1, spielzeit: spielzeitRegeln(werte.spielzeit), bildschirm: bzDatei(werte.bildschirm, tagKey(jetzt)), genStufen,
+    werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, langeHinweise: [0, 1, 2, 3].includes(werte.langeHinweise) ? werte.langeHinweise : 1, spielzeit: spielzeitRegeln(werte.spielzeit), bildschirm: bzDatei(werte.bildschirm, tagKey(jetzt)), spielzeitTag: szDatei(werte.spielzeitTag, tagKey(jetzt)), genStufen,
       ...(werte.splitter ? { splitter: { preise: werte.splitter.preise, boni: werte.splitter.boni.slice(-50), frei: werte.splitter.frei } } : {}) }
   };
 }

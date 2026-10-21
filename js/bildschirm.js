@@ -96,3 +96,20 @@ export function abschicken(konto) {
   konto.code = null;
   return eintrag;
 }
+
+// ---------- Spielzeit im Schrein: Höchstwert pro Tag ----------
+// Zählt nur die mit Aufgaben verdiente Spielzeit (nicht die geschenkten Basis-Minuten).
+export const SZ_HOECHSTWERTE = [15, 30, 45, 60, 90];
+export const SZ_STANDARD = Object.freeze({ max: 45, extra: null });
+export function szRegeln(r) {
+  if (!r || typeof r !== 'object') return { max: SZ_STANDARD.max, extra: null };
+  const extra = r.extra && /^\d{4}-\d{2}-\d{2}$/.test(r.extra.tag) && EXTRAS.includes(r.extra.min) && r.extra.min > 0
+    ? { tag: r.extra.tag, min: r.extra.min } : null;
+  return { max: SZ_HOECHSTWERTE.includes(r.max) ? r.max : SZ_STANDARD.max, extra };
+}
+export function szGrenzeSek(regeln, tag) {
+  const r = szRegeln(regeln);
+  return (r.max + (r.extra && r.extra.tag === tag ? r.extra.min : 0)) * 60;
+}
+// Noch verdienbare Spielzeit heute (verdient = heute schon mit Aufgaben verdiente Sekunden)
+export const szRestSek = (regeln, tag, verdient) => Math.max(0, szGrenzeSek(regeln, tag) - Math.max(0, verdient || 0));

@@ -23,7 +23,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.11.2';
+export const APP_VERSION = '2.12.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -69,6 +69,7 @@ const abText = (k) => `Ab ${BS.minText(BS.abSek(BZ()))} kannst du abschicken. No
 const konsoleSymbol = (h) => `<svg width="${Math.round(h * 1.6)}" height="${h}" viewBox="0 0 64 40" aria-hidden="true"><rect x="2" y="4" width="14" height="32" rx="7" fill="#5B6B8C"/><rect x="48" y="4" width="14" height="32" rx="7" fill="#5B6B8C"/><rect x="15" y="5" width="34" height="30" rx="3" fill="#1E2A3E"/><rect x="18" y="8" width="28" height="24" rx="1.5" fill="#6C8CCB"/><circle cx="9" cy="14" r="3" fill="#1E2A3E"/><circle cx="55" cy="24" r="3" fill="#1E2A3E"/><circle cx="55" cy="12" r="1.6" fill="#E3EAF7"/><circle cx="58" cy="15" r="1.6" fill="#E3EAF7"/><circle cx="52" cy="15" r="1.6" fill="#E3EAF7"/><path d="M7 26h4M9 24v4" stroke="#E3EAF7" stroke-width="1.6"/></svg>`;
 const computerSymbol = (h) => `<svg width="${Math.round(h * 1.2)}" height="${h}" viewBox="0 0 48 40" aria-hidden="true"><rect x="3" y="3" width="42" height="27" rx="3" fill="#1E2A3E"/><rect x="6" y="6" width="36" height="21" rx="1" fill="#8FB0E6"/><path d="M9 22l7-7 5 5 6-8 9 10" stroke="#2F4F8F" stroke-width="2" fill="none"/><rect x="20" y="30" width="8" height="5" fill="#5B6B8C"/><rect x="13" y="35" width="22" height="3" rx="1.5" fill="#5B6B8C"/></svg>`;
 const videoSymbol = (h) => `<svg width="${h}" height="${h}" viewBox="0 0 40 40" aria-hidden="true" class="video-symbol"><circle cx="20" cy="20" r="18" fill="#fff" stroke="#2F4F8F" stroke-width="2.5"/><path d="M16 12l12 8-12 8z" fill="#2F4F8F"/></svg>`;
+const kopfSymbol = (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="#F5E6C6" stroke-width="1.8" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h2M14 12h2M8 16h2M14 16h2"/><path d="M3 3l18 18" stroke="#E9B65A" stroke-width="2.2"/></svg>`;
 const vorschauKlein = (id, px) => `<span class="wk-spiel">${spielVorschau(id, Math.round(px))}</span>`;
 const schreinIcons = () => `${vorschauKlein('2048', 60)}${vorschauKlein('kristallmine', 60)}${zeitSymbol(56)}${vorschauKlein('runenfall', 60)}`;
 const schreinMini = () => `${vorschauKlein('2048', 40)}${zeitSymbol(34)}${vorschauKlein('kristallmine', 40)}`;
@@ -697,7 +698,7 @@ function zeigeStart() {
 
     <section class="info-karte">
       <div class="info-zeile"><span>Heute geschafft</span><b>${S.tag.aufgaben} ${S.tag.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}</b></div>
-      <div class="info-zeile"><span>Heute verdient</span><b>${L.formatMinuten(S.tag.verdient)}</b></div>
+      <div class="info-zeile"><span>Heute verdient</span><b>${L.formatMinuten(S.tag.verdient)} von ${BS.minText(BS.szGrenzeSek(S.szRegeln, S.tag.key))}</b></div>
       ${serieAktiv ? `<div class="info-zeile"><span>Deine Serie</span><b>${S.serie.pos} am Stück</b></div>` : ''}
     </section>
 
@@ -720,15 +721,19 @@ function zeigeWahl() {
   const k = bzKonto();
   const rest = BS.restSek(k, BZ());
   const grenze = BS.grenzeSek(BZ(), k.tag);
+  tagAktualisieren(S);
+  const szRest = BS.szRestSek(S.szRegeln, S.tag.key, S.tag.verdient);
+  const szGrenze = BS.szGrenzeSek(S.szRegeln, S.tag.key);
   $app.innerHTML = `
   <div class="screen wahl-screen">
     <header class="topbar"><button class="btn-text" data-act="start">‹ Zurück</button></header>
     <h2 class="wahl-frage">Wofür übst du jetzt?</h2>
     <p class="gedaempft wahl-info">Du kannst es beim nächsten Mal wieder wählen.</p>
-    <button class="wahl-karte wk-schrein" data-act="zweck" data-w="spiel">
+    <button class="wahl-karte wk-schrein${szRest <= 0 ? ' voll' : ''}" data-act="zweck" data-w="spiel"${szRest <= 0 ? ' disabled' : ''}>
       <span class="wk-titel">Spielzeit im Schrein</span>
       <span class="wk-icons">${schreinIcons()}</span>
       <span class="wk-text">Für 2048, Kristallmine, Runenfall und die anderen Spiele hier.</span>
+      <span class="wk-staffel">${szRest > 0 ? `Heute noch ${BS.minText(szRest)} von ${BS.minText(szGrenze)} möglich` : `Für heute ist die Spielzeit voll: ${BS.minText(szGrenze)}`}</span>
     </button>
     <div class="oder">oder</div>
     <button class="wahl-karte wk-bild${rest <= 0 ? ' voll' : ''}" data-act="zweck" data-w="bild"${rest <= 0 ? ' disabled' : ''}>
@@ -737,6 +742,8 @@ function zeigeWahl() {
       <span class="wk-text">Für Konsole, Computer und Videos. Du schickst sie danach an deine Eltern.</span>
       <span class="wk-staffel">${rest > 0 ? `Heute noch ${BS.minText(rest)} von ${BS.minText(grenze)} möglich` : `Für heute ist die Bildschirmzeit voll: ${BS.minText(grenze)}`}</span>
     </button>
+    ${szRest <= 0 && rest <= 0 ? `<p class="voll-hinweis"><b>Für heute ist alle Zeit voll.</b><br>Runensplitter gibt es weiter.</p>
+    <button class="btn btn-haupt" data-act="zweck" data-w="spiel">Für Runensplitter üben</button>` : ''}
     <p class="gedaempft wahl-fuss">${splitterSymbol(18)} Runensplitter gibt es bei beiden.</p>
   </div>`;
 }
@@ -1341,10 +1348,10 @@ function erledigtWert(t, wertHtml, roh = false) {
 function fussHtml() {
   if (A.fertig) {
     return `<div class="fuss-knoepfe">
-      ${A.bild && A.bild.voll ? '<button class="btn btn-haupt btn-gross" data-act="zweckSpiel">Weiter für Spielzeit üben</button>' : '<button class="btn btn-haupt btn-gross" data-act="naechste">Nächste Aufgabe</button>'}
+      ${A.sz && A.sz.voll && BZ().an && BS.restSek(bzKonto(), BZ()) > 0 ? '<button class="btn btn-bz btn-gross" data-act="zweckBild">Weiter für Bildschirmzeit üben</button>' : '<button class="btn btn-haupt btn-gross" data-act="naechste">Nächste Aufgabe</button>'}
       ${A.bild ? (BS.kannAbschicken(bzKonto(), BZ()) ? `<button class="btn btn-bz-rand" data-act="bzSeite">${BS.minText(bzKonto().stand)} abschicken</button>` : '')
         : `<button class="btn btn-amber-rand" data-act="zumSpiel">Zum Spiel · ${L.formatZeit(S.guthaben)}</button>`}
-      ${A.bild && A.bild.voll ? '<button class="btn" data-act="start">Zum Start</button>' : ''}
+
     </div>`;
   }
   const t = aktuellerTeil();
@@ -1381,12 +1388,18 @@ function ergebnisHtml() {
     if (b.plus > 0) zeit = `<div class="mini-gewinn wk-bild"><span class="mini-icons">${bildIcons(0.62)}</span><div><b>+${BS.minText(b.plus)}</b><small>Bildschirmzeit</small></div></div>`;
     zeit += `<div class="konto-zeile"><span>Gesammelt</span><b>${BS.minText(b.stand)}</b></div>`;
     if (b.stand > 0 && b.stand < BS.abSek(BZ())) zeit += `<p class="bz-ab gedaempft">${abText({ stand: b.stand })}</p>`;
-    zeit += b.voll ? `<p class="bz-voll">Für heute ist die Bildschirmzeit voll. Du kannst weiter für Spielzeit üben.</p>`
+    zeit += b.voll ? `<p class="wechsel-hinweis">Die Bildschirmzeit ist für heute voll. Ab jetzt kommt alle Zeit zur Spielzeit im Schrein.</p>`
       : `<div class="konto-zeile"><span>Heute noch möglich</span><b>${BS.minText(b.rest)}</b></div>`;
-  } else if (sek > 0) {
-    zeit = `<div class="mini-gewinn wk-schrein"><span class="mini-icons">${schreinMini()}</span><div><b>+${L.formatMinuten(sek)}</b><small>Spielzeit im Schrein</small></div></div>
+  }
+  if (A.sz && sek > 0) {
+    zeit += `<div class="mini-gewinn wk-schrein"><span class="mini-icons">${schreinMini()}</span><div><b>+${L.formatMinuten(sek)}</b><small>Spielzeit im Schrein${A.kopf ? ` · mit Kopf-Bonus ×${String(R().kopf).replace('.', ',')}` : ''}</small></div></div>
       <div class="konto-zeile"><span>Jetzt hast du</span><b>${L.formatZeit(S.guthaben)} Min.</b></div>`;
   }
+  if (A.sz && A.sz.voll && A.ergebnis !== 'loesung') {
+    const bzRest = BZ().an ? BS.restSek(bzKonto(), BZ()) : 0;
+    zeit += `<p class="voll-hinweis"><b>Die Spielzeit im Schrein ist für heute voll.</b><br>${bzRest > 0 ? `Du kannst noch ${BS.minText(bzRest)} Bildschirmzeit verdienen.` : 'Runensplitter gibt es weiter.'}</p>`;
+  }
+  if (A.kopf) zeit = `<div class="kopf-bonus">${kopfSymbol(44)}<div><b>Im Kopf gerechnet!</b><small>Ohne Taschenrechner. Das ist stark.</small></div></div>` + zeit;
   let strafe = '';
 
   if (A.rechnerHalb && A.ergebnis !== 'loesung' && R().rechner < 1) strafe += `<p class="gedaempft">Mit Taschenrechner gibt es ${L.anteilText(R().rechner)}.</p>`;
@@ -1595,22 +1608,32 @@ function abschliessen() {
   let ergebnis = 'erst';
   if (pflicht.some(t => t.status === 'loesung')) ergebnis = 'loesung';
   else if (pflicht.some(t => t.status === 'zweit')) ergebnis = 'zweit';
-  const sek = L.sekundenFuerAufgabe({ ergebnis, serienPos: A.serienPos, strafe: A.strafe, rechnerHalb: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, langHalb: !!A.langHalb, regeln: R() });
+  // Kopf-Bonus: Rechner wäre erlaubt, wurde aber nicht geöffnet, App nicht verlassen
+  A.kopf = R().kopf > 1 && L.kopfBonus({ aufgabe: a, rechnerGenutzt: !!A.rechner || !!A.rechnerHalb, verlassen: (A.weg || 0) + (A.verlassen || 0), ergebnis });
+  const sek = L.sekundenFuerAufgabe({ ergebnis, serienPos: A.serienPos, strafe: A.strafe, rechnerHalb: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, langHalb: !!A.langHalb, kopf: A.kopf, regeln: R() });
   S.laufend = null;
   let stufeHoch = null;
   A.ergebnis = ergebnis; A.fertig = true; A.idx = A.teile.length - 1; A.phase = 'eingabe';
   tagAktualisieren(S);
   // Bildschirmzeit: gleiche Regeln, mal Faktor, eigenes Konto (höchstens bis zur Tagesgrenze)
-  A.bild = null;
+  A.bild = null; A.sz = null; A.wechsel = false;
+  let spielSek = sek;
   if (istBild()) {
     const k = bzKonto();
     const g = BS.gutschreiben(k, sek, BZ());
     A.bild = { plus: g.plus, voll: g.voll, stand: k.stand, rest: BS.restSek(k, BZ()) };
-    A.sekunden = 0;
-  } else {
-    A.sekunden = sek;
-    S.guthaben += sek;
-    S.tag.verdient += sek;
+    // Bildschirmzeit voll: Rest dieser Aufgabe und alle weiteren Aufgaben gehen zur Spielzeit im Schrein
+    spielSek = g.voll ? Math.max(0, sek - Math.round(g.plus / BZ().faktor)) : 0;
+    if (g.voll) { zweck = 'spiel'; A.wechsel = true; protokoll(S, 'zweck', { zweck, grund: 'voll' }); }
+  }
+  A.sekunden = 0;
+  if (!A.bild || A.wechsel) {
+    // Spielzeit im Schrein: höchstens bis zur Tagesgrenze (nur verdiente Zeit zählt)
+    const plus = Math.min(spielSek, BS.szRestSek(S.szRegeln, S.tag.key, S.tag.verdient));
+    A.sekunden = plus;
+    S.guthaben += plus;
+    S.tag.verdient += plus;
+    A.sz = { voll: BS.szRestSek(S.szRegeln, S.tag.key, S.tag.verdient) <= 0, gekappt: plus < spielSek };
   }
   S.tag.aufgaben++;
   if (ergebnis === 'erst') S.tag.ersterVersuch++;
@@ -1635,6 +1658,7 @@ function abschliessen() {
   protokoll(S, 'aufgabe_ende', {
     id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: A.sekunden, serienPos: A.serienPos,
     ...(A.bild ? { bildschirm: A.bild.plus, voll: A.bild.voll || undefined } : {}),
+    ...(A.kopf ? { kopf: true } : {}), ...(A.sz && A.sz.voll ? { spielzeitVoll: true } : {}),
     strafe: A.strafe, rechnerOptional: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, verlassen: A.verlassen, ms: Date.now() - A.start, hinweise: A.hinweise.slice(), hinweiseLang: (A.hinweiseLang || []).slice(), langHalb: !!A.langHalb,
     bonusTeile: A.teile.filter(t => t.bonus).map(t => t.status), merkTeile: A.teile.filter(t => t.merk).map(t => t.status),
     generator: a.generator || null
@@ -1644,7 +1668,7 @@ function abschliessen() {
   A.splitter = SP.nachAufgabe(S.splitter, {
     ergebnis, wiederholung: (A.wdh || 0) > 0, wartete: !!A.wartete, tagAufgaben: S.tag.aufgaben, heute: S.tag.key,
     stufeHoch: !!stufeHoch, stufeNeu: stufeHoch ? stufeHoch.stufe : 0, generator: stufeHoch ? stufeHoch.generator : null,
-    text: !!a.geschichte
+    text: !!a.geschichte, kopf: !!A.kopf
   });
   if (A.splitter.length) protokoll(S, 'splitter', { id: a.id, n: A.splitter.reduce((x, e) => x + e.n, 0), gruende: A.splitter.map(e => e.grund), stand: S.splitter.stand });
   sichern();
@@ -1802,7 +1826,7 @@ function formelSeite(nr) {
   const box = document.querySelector('.modal-box'); if (box) box.scrollTop = 0;
 }
 
-function rechnerAngeboten(a) { return L.rechnerOptional(a) && S.einstellungen.rechnerAngebot !== false; }
+function rechnerAngeboten(a) { return L.rechnerAnbieten(a) && S.einstellungen.rechnerAngebot !== false; }
 
 function rechnerOeffnen() {
   if (!A.rechner) A.rechner = { ausdruck: '', ergebnis: null };
@@ -1893,6 +1917,7 @@ function sichtbarkeit() {
   updatePruefen();
   syncen();
   tagAktualisieren(S);
+  if (ansicht === 'aufgabe' && A && !A.fertig && dauer >= 3000) A.weg = (A.weg || 0) + 1; // auch bei Rechner-Aufgaben (Kopf-Bonus)
   if (ansicht === 'aufgabe' && A && !A.fertig && !A.aufgabe.taschenrechner && dauer >= 3000) {
     S.tag.verlassen++;
     A.verlassen++;
@@ -2965,7 +2990,7 @@ function klick(e) {
       zweck = el.dataset.w === 'bild' && BZ().an && BS.restSek(bzKonto(), BZ()) > 0 ? 'bild' : 'spiel';
       protokoll(S, 'zweck', { zweck });
       neueAufgabe(); break;
-    case 'zweckSpiel': zweck = 'spiel'; protokoll(S, 'zweck', { zweck, grund: 'voll' }); neueAufgabe(); break;
+    case 'zweckBild': zweck = 'bild'; protokoll(S, 'zweck', { zweck, grund: 'spielzeit_voll' }); neueAufgabe(); break;
     case 'bzSeite': zeigeBildschirmzeit(); break;
     case 'bzTeilen': bzTeilen(); break;
     case 'spielen':
@@ -3047,7 +3072,7 @@ function klick(e) {
     case 'rechnerOptional':
       if (A.rechnerHalb) { rechnerOeffnen(); break; }
       oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Taschenrechner nutzen?</h2>
-        <p>Hier sind die Zahlen groß. Du darfst den Taschenrechner nehmen.</p>
+        <p>${L.rechnerOptional(A.aufgabe) ? 'Hier sind die Zahlen groß. Du darfst den Taschenrechner nehmen.' : 'Das schaffst du auch im Kopf. Du darfst den Taschenrechner trotzdem nehmen.'}</p>
         ${R().rechner >= 1 ? '<p>Die Spielzeit bleibt gleich.</p>' : `<p><b>Dann gibt es für diese Aufgabe ${L.anteilText(R().rechner)}.</b></p>
         <p>Selbst rechnen bringt die volle Zeit.</p>`}
         <div class="knopf-reihe"><button class="btn btn-haupt" data-act="rechnerJa">Ja, mit Rechner</button><button class="btn" data-act="modalZu">Ich rechne selbst</button></div></div>`);

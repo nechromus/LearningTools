@@ -186,8 +186,10 @@ export const BASIS_SEKUNDEN = 180;
 
 // Spielzeit-Regeln. Werte in Minuten (eine Nachkommastelle), Anteile 1 = alles, 0,5 = Hälfte, 0 = nichts.
 // Werden in der Eltern-App eingestellt; ohne Einstellung gelten diese Standardwerte.
-export const SPIELZEIT_STANDARD = Object.freeze({ staffel: Object.freeze([1, 1.5, 2, 2.5]), zweit: 0.5, rechner: 0.5, hilfe: 0.5, basisMin: 3 });
+export const SPIELZEIT_STANDARD = Object.freeze({ staffel: Object.freeze([1, 1.5, 2, 2.5]), zweit: 0.5, rechner: 0.5, hilfe: 0.5, basisMin: 3, kopf: 1.5 });
 const ANTEILE = [0, 0.5, 1];
+// Kopf-Bonus: Rechner wäre erlaubt, wurde aber nicht benutzt (1 = aus)
+export const KOPF_FAKTOREN = [1, 1.25, 1.5, 2];
 
 function minutenWert(x, standard, max) {
   const n = Number(x);
@@ -197,14 +199,15 @@ function minutenWert(x, standard, max) {
 
 export function spielzeitRegeln(r) {
   const S0 = SPIELZEIT_STANDARD;
-  if (!r || typeof r !== 'object') return { staffel: [...S0.staffel], zweit: S0.zweit, rechner: S0.rechner, hilfe: S0.hilfe, basisMin: S0.basisMin };
+  if (!r || typeof r !== 'object') return { staffel: [...S0.staffel], zweit: S0.zweit, rechner: S0.rechner, hilfe: S0.hilfe, basisMin: S0.basisMin, kopf: S0.kopf };
   const staffel = S0.staffel.map((w, i) => minutenWert(Array.isArray(r.staffel) ? r.staffel[i] : undefined, w, 10));
   return {
     staffel,
     zweit: ANTEILE.includes(r.zweit) ? r.zweit : S0.zweit,
     rechner: ANTEILE.includes(r.rechner) ? r.rechner : S0.rechner,
     hilfe: ANTEILE.includes(r.hilfe) ? r.hilfe : S0.hilfe,
-    basisMin: minutenWert(r.basisMin, S0.basisMin, 15)
+    basisMin: minutenWert(r.basisMin, S0.basisMin, 15),
+    kopf: KOPF_FAKTOREN.includes(r.kopf) ? r.kopf : S0.kopf
   };
 }
 
@@ -222,8 +225,9 @@ export function anteilText(a) {
 }
 
 // ergebnis: 'erst' | 'zweit' | 'loesung'; strafe: 'keine' | 'halb' | 'null'
-export function sekundenFuerAufgabe({ ergebnis, serienPos, strafe = 'keine', rechnerHalb = false, hilfe = false, langHalb = false, regeln = SPIELZEIT_STANDARD }) {
+export function sekundenFuerAufgabe({ ergebnis, serienPos, strafe = 'keine', rechnerHalb = false, hilfe = false, langHalb = false, kopf = false, regeln = SPIELZEIT_STANDARD }) {
   let min = minutenFuerPosition(serienPos, regeln);
+  if (kopf) min *= regeln.kopf ?? SPIELZEIT_STANDARD.kopf; // im Kopf gerechnet, obwohl der Rechner erlaubt war
   if (rechnerHalb) min *= regeln.rechner;
   if (langHalb) min *= 0.5; // „Mehr Hilfe“ (langer Hinweis) in Stufe 2
   if (hilfe) min *= regeln.hilfe ?? SPIELZEIT_STANDARD.hilfe;
@@ -601,6 +605,18 @@ export function groessteZahl(a) {
 export function rechnerOptional(a) {
   return !a.taschenrechner && RECHNER_OPTIONAL_THEMEN.includes(a.thema) && groessteZahl(a) >= 100;
 }
+// Taschenrechner wäre hier erlaubt (Körper-Aufgaben oder große Zahlen) → im Kopf gerechnet gibt einen Bonus
+export function rechnerZulaessig(a) {
+  return !!a.taschenrechner || rechnerOptional(a);
+}
+// Freiwilliger Rechner wird bei jeder Aufgabe angeboten (kostet Spielzeit), außer dort, wo er ohnehin erlaubt ist
+export function rechnerAnbieten(a) {
+  return !a.taschenrechner && !['auswahl', 'zuordnung'].includes(a.typ);
+}
+// Kopf-Bonus: Rechner erlaubt, nicht geöffnet, App nicht verlassen, Aufgabe gelöst
+export function kopfBonus({ aufgabe, rechnerGenutzt, verlassen, ergebnis }) {
+  return rechnerZulaessig(aufgabe) && !rechnerGenutzt && !verlassen && (ergebnis === 'erst' || ergebnis === 'zweit');
+}
 
 // ---------- Einstellungen aus der Eltern-App ----------
 
@@ -608,7 +624,7 @@ export function rechnerOptional(a) {
 // Baukasten-Stufen werden nur übernommen, wenn sie in einer neueren Version geändert wurden,
 // damit die App sie zwischendurch weiter selbst anpassen kann.
 import { splitterVon, fernAnwenden as fernSplitter } from './splitter.js';
-import { bzRegeln } from './bildschirm.js';
+import { bzRegeln, szRegeln } from './bildschirm.js';
 
 export function fernAnwenden(z, datei) {
   const alt = (z.fern && z.fern.version) || 0;
@@ -625,6 +641,12 @@ export function fernAnwenden(z, datei) {
   if (typeof w.rechnerAngebot === 'boolean' && w.rechnerAngebot !== (e.rechnerAngebot !== false)) { e.rechnerAngebot = w.rechnerAngebot; geaendert.push('rechnerAngebot'); }
   // Lange Hinweise: 0 gleich lang, 1 frei, 2 halbe Spielzeit, 3 aus
   if ([0, 1, 2, 3].includes(w.langeHinweise) && w.langeHinweise !== (e.langeHinweise ?? 1)) { e.langeHinweise = w.langeHinweise; geaendert.push('langeHinweise'); }
+  // Spielzeit im Schrein: Höchstwert pro Tag und „nur heute mehr“
+  if (w.spielzeitTag && typeof w.spielzeitTag === 'object') {
+    const neu = szRegeln(w.spielzeitTag);
+    if (JSON.stringify(neu) !== JSON.stringify(szRegeln(z.szRegeln))) geaendert.push('spielzeitTag');
+    z.szRegeln = neu;
+  }
   if (w.spielzeit) {
     const neu = spielzeitRegeln(w.spielzeit);
     if (JSON.stringify(neu) !== JSON.stringify(spielzeitRegeln(z.spielzeit))) geaendert.push('spielzeit');

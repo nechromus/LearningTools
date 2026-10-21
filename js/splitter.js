@@ -29,6 +29,7 @@ export const GRUENDE = {
   text: 'Textaufgabe geschafft',
   texte5: 'Geschichtenlöser: 5 Textaufgaben',
   texte20: 'Geschichtenmeister: 20 Textaufgaben',
+  kopf: 'Im Kopf gerechnet',
   bonus: 'Bonus von den Eltern',
   freigeschaltet: 'Spiel freigeschaltet'
 };
@@ -81,6 +82,8 @@ export function nachAufgabe(sp, info, jetzt = new Date()) {
     if (sp.texte === 5) plus(10, 'texte5');
     if (sp.texte === 20) plus(20, 'texte20');
   }
+  // Im Kopf gerechnet, obwohl der Taschenrechner erlaubt war
+  if (geloest && info.kopf) plus(5, 'kopf');
   if (geloest && info.wiederholung) plus(2, 'comeback');
   if (geloest && info.wartete) plus(2, 'drangeblieben');
   if (info.stufeHoch) {
