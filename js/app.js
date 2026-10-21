@@ -28,7 +28,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.16.2';
+export const APP_VERSION = '2.16.3';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1846,6 +1846,10 @@ function zeigeAufgabe() {
     <footer class="eingabe-bereich">${fussHtml()}</footer>
   </div>`;
   const aktiv = document.querySelector('.teil.aktiv');
+  // Umformen: Tastatur fest am unteren Rand, darüber so viel Platz, dass sich jedes Feld über sie scrollen lässt
+  const fuss = document.querySelector('.aufgabe-screen.mit-uf > .eingabe-bereich');
+  const inhalt = document.querySelector('.aufgabe-screen.mit-uf > .aufgabe-inhalt');
+  if (fuss && inhalt) inhalt.style.paddingBottom = getComputedStyle(fuss).position === 'fixed' ? `${fuss.offsetHeight + 24}px` : '';
   if (A.uf && !A.fertig) ufSichtbar();
   else if (aktiv && !A.fertig) aktiv.scrollIntoView({ block: 'nearest' });
 }

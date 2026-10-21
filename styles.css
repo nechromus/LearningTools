@@ -938,12 +938,14 @@ button.uf-seite { font: inherit; font-size: 22px; font-weight: 700; color: inher
 .uf-zeile .fr2 { font-size: 0.9em; }
 
 .ft-luecke { display: block; }
+/* Umformen auf dem Handy: Tastatur fest am unteren Rand (scrollt nicht mit) */
+.aufgabe-screen.mit-uf > .eingabe-bereich { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; margin: 0 auto; max-width: 560px; padding: 6px 16px calc(var(--unten) + 8px); box-shadow: 0 -6px 16px rgba(0, 0, 0, .18); }
 /* iPad quer: beim Umformen steht die Tastatur rechts neben der Aufgabe */
 @media (min-width: 900px) and (orientation: landscape) {
   .aufgabe-screen.mit-uf { max-width: 1120px; display: grid; grid-template-columns: 1.25fr 1fr; column-gap: 18px; align-items: start; align-content: start; }
   .aufgabe-screen.mit-uf > .sz-kopf, .aufgabe-screen.mit-uf > .topbar { grid-column: 1 / -1; }
   .aufgabe-screen.mit-uf > .aufgabe-inhalt { grid-column: 1; }
-  .aufgabe-screen.mit-uf > .eingabe-bereich { grid-column: 2; position: sticky; top: 12px; margin: 0; padding-top: 0; }
+  .aufgabe-screen.mit-uf > .eingabe-bereich { grid-column: 2; position: sticky; top: 12px; left: auto; right: auto; bottom: auto; max-width: none; box-shadow: none; margin: 0; padding: 0; }
 }
 /* Kompakte Formel-Tastatur (Umformen) */
 .ft2 { display: flex; flex-direction: column; gap: 5px; }
