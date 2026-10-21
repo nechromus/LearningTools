@@ -255,7 +255,7 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
       case 'hilfe': p.titel = `„Hilf mir“ (${e.stufe}. Schritt)`; p.text = (e.zeilen || []).join(' · ') + ' · weniger Spielzeit'; p.art = 'fehler'; break;
       case 'uebersprungen': p.titel = 'Übersprungen'; break;
       case 'hinweis_kurz': p.titel = `Formelübersicht „${hinweisTitel[e.hinweis] || e.hinweis}“ geöffnet`; p.text = (e.abschnitte || []).length ? 'Kurzversion' : 'steht nicht in der Formelübersicht'; break;
-      case 'hinweis_lang': p.titel = `Mehr Hilfe: langer Hinweis „${hinweisTitel[e.hinweis] || e.hinweis}“`; p.text = `Stufe ${e.stufe}${e.kosten === 'halb' ? ' · halbe Spielzeit' : ''}`; p.art = e.kosten === 'halb' ? 'fehler' : 'info'; break;
+      case 'hinweis_lang': p.titel = `Mehr Hilfe: langer Hinweis „${hinweisTitel[e.hinweis] || e.hinweis}“`; p.text = e.stufe === 0 ? 'gleich lang (ohne Formelübersicht)' : `Stufe ${e.stufe}${e.kosten === 'halb' ? ' · halbe Spielzeit' : ''}`; p.art = e.kosten === 'halb' ? 'fehler' : 'info'; break;
       case 'formeluebersicht': p.titel = 'Ganze Formelübersicht geöffnet'; p.text = `Seite ${e.seite}`; break;
       case 'zu_schnell': p.titel = `Zu schnell geantwortet: ${e.eingabe}`; p.text = `nach ${sek(e.ms)} s · zählt nicht, „Lies noch einmal“`; p.art = 'fehler'; break;
       case 'vorlesen': p.titel = 'Geschichte vorlesen lassen'; break;
@@ -373,7 +373,7 @@ export function startWerte(einst, stand, paketVon = () => null) {
     basisVon: w.basisVon ?? e.basisVon ?? 14,
     basisBis: w.basisBis ?? e.basisBis ?? 21,
     rechnerAngebot: w.rechnerAngebot ?? (e.rechnerAngebot !== false),
-    langeHinweise: [1, 2, 3].includes(w.langeHinweise) ? w.langeHinweise : [1, 2, 3].includes(e.langeHinweise) ? e.langeHinweise : 1,
+    langeHinweise: [0, 1, 2, 3].includes(w.langeHinweise) ? w.langeHinweise : [0, 1, 2, 3].includes(e.langeHinweise) ? e.langeHinweise : 1,
     spielzeit: spielzeitRegeln(w.spielzeit || (stand && stand.spielzeit) || SPIELZEIT_STANDARD),
     genStufen,
     splitter: splitterWerte(w.splitter, stand),
@@ -410,7 +410,7 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
   for (const g of geaenderteStufen) genStufen[g] = { stufe: werte.genStufen[g], v: version };
   return {
     app: 'lernapp-2048-eltern', version, geaendert: jetzt.toISOString(),
-    werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, langeHinweise: [1, 2, 3].includes(werte.langeHinweise) ? werte.langeHinweise : 1, spielzeit: spielzeitRegeln(werte.spielzeit), genStufen,
+    werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, langeHinweise: [0, 1, 2, 3].includes(werte.langeHinweise) ? werte.langeHinweise : 1, spielzeit: spielzeitRegeln(werte.spielzeit), genStufen,
       ...(werte.splitter ? { splitter: { preise: werte.splitter.preise, boni: werte.splitter.boni.slice(-50), frei: werte.splitter.frei } } : {}) }
   };
 }

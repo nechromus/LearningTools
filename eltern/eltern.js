@@ -6,12 +6,12 @@ import { THEMA_NAMEN, GEN_NAMEN } from '../js/namen.js';
 import { esc, mathe, bildSvg } from '../js/render.js';
 import * as A from './auswertung.js';
 import * as P from '../js/paket.js';
-import { LANG_STUFEN } from '../js/formeluebersicht.js';
+import { LANG_STUFEN, langStufeInfo } from '../js/formeluebersicht.js';
 import * as SP from '../js/splitter.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.17.0';
+export const ELTERN_VERSION = '1.18.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -621,9 +621,9 @@ function einstellungenSeite() {
       <a class="einstell-zeile" href="#splitter"><span>Runensplitter und neue Spiele</span><span class="wert">${splitterKurzText()}</span>${svg('weiter', 16)}</a>
       <a class="einstell-zeile" href="#spielzeit"><span>Spielzeit pro Aufgabe</span><span class="wert">${w.spielzeit.staffel.map(zahlText).join(' / ')} Min.</span>${svg('weiter', 16)}</a>
       <label class="einstell-zeile"><span>Freiwilliger Taschenrechner<span class="klein gedaempft block">bei großen Zahlen, kostet Spielzeit</span></span><input type="checkbox" class="schalter" id="e-rechner"${w.rechnerAngebot ? ' checked' : ''}></label>
-      <div class="einstell-block"><span>Lange Hinweise<span class="klein gedaempft block">Zuerst kommt immer die Formelübersicht. „Mehr Hilfe“ öffnet den langen Hinweis.</span></span>
+      <div class="einstell-block"><span>Lange Hinweise<span class="klein gedaempft block">Sonst kommt zuerst die Formelübersicht. „Mehr Hilfe“ öffnet den langen Hinweis.</span></span>
         <div class="segmente" role="group" aria-label="Lange Hinweise">${LANG_STUFEN.map(s => `<button class="segment${w.langeHinweise === s.stufe ? ' an' : ''}" data-act="langeHinweise" data-w="${s.stufe}" aria-pressed="${w.langeHinweise === s.stufe}">${s.name}</button>`).join('')}</div>
-        <span class="klein gedaempft">${esc(LANG_STUFEN[(w.langeHinweise || 1) - 1].name)}: ${esc(LANG_STUFEN[(w.langeHinweise || 1) - 1].text)}.</span></div>
+        <span class="klein gedaempft">${esc(langStufeInfo(w.langeHinweise).name)}: ${esc(langStufeInfo(w.langeHinweise).text)}.</span></div>
     </section>
     <h2 class="abschnitt">Baukästen: Schwierigkeit und Häufigkeit</h2>
     <section class="karte liste-karte">

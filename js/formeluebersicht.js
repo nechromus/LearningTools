@@ -9,13 +9,16 @@ const tief = (s) => esc(s).replace(/([A-Za-z])_([A-Za-z0-9]+)/g, '$1<sub>$2</sub
 // Kleine Abschnitte stehen auf dem Blatt paarweise nebeneinander
 export const PAARE = [['dichte', 'tempo'], ['rechteck', 'trapez'], ['wuerfel', 'quader']];
 
-// Stufen für lange Hinweise (Eltern-App, pro Kind): 1 frei, 2 halbe Spielzeit, 3 aus
+// Stufen für lange Hinweise (Eltern-App, pro Kind): 0 gleich lang, 1 frei, 2 halbe Spielzeit, 3 aus
 export const LANG_STUFEN = [
+  { stufe: 0, name: 'Gleich lang', text: 'das Zeichen öffnet gleich den langen Hinweis, kostet nichts' },
   { stufe: 1, name: 'Frei', text: '„Mehr Hilfe“ kostet nichts' },
   { stufe: 2, name: 'Halbe Zeit', text: '„Mehr Hilfe“ halbiert die Spielzeit' },
   { stufe: 3, name: 'Aus', text: 'nur Formelübersicht' }
 ];
-export const langStufe = (x) => ([1, 2, 3].includes(Number(x)) ? Number(x) : 1);
+export const STUFEN_WERTE = [0, 1, 2, 3];
+export const langStufe = (x) => (x !== null && x !== '' && STUFEN_WERTE.includes(Number(x)) ? Number(x) : 1);
+export const langStufeInfo = (x) => LANG_STUFEN.find(s => s.stufe === langStufe(x));
 
 export const LEER_TEXT = 'In der Formelübersicht steht dazu nichts. Das rechnest du im Kopf.';
 

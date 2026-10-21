@@ -622,8 +622,8 @@ export function fernAnwenden(z, datei) {
     if (von !== e.basisVon || bis !== e.basisBis) { e.basisVon = von; e.basisBis = bis; geaendert.push('basiszeit'); }
   }
   if (typeof w.rechnerAngebot === 'boolean' && w.rechnerAngebot !== (e.rechnerAngebot !== false)) { e.rechnerAngebot = w.rechnerAngebot; geaendert.push('rechnerAngebot'); }
-  // Lange Hinweise: 1 frei, 2 halbe Spielzeit, 3 aus
-  if ([1, 2, 3].includes(w.langeHinweise) && w.langeHinweise !== (e.langeHinweise || 1)) { e.langeHinweise = w.langeHinweise; geaendert.push('langeHinweise'); }
+  // Lange Hinweise: 0 gleich lang, 1 frei, 2 halbe Spielzeit, 3 aus
+  if ([0, 1, 2, 3].includes(w.langeHinweise) && w.langeHinweise !== (e.langeHinweise ?? 1)) { e.langeHinweise = w.langeHinweise; geaendert.push('langeHinweise'); }
   if (w.spielzeit) {
     const neu = spielzeitRegeln(w.spielzeit);
     if (JSON.stringify(neu) !== JSON.stringify(spielzeitRegeln(z.spielzeit))) geaendert.push('spielzeit');

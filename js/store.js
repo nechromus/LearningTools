@@ -96,7 +96,7 @@ export function spielstandAus(s, jetzt = new Date()) {
   const zustand = {};
   for (const k of STAND_FELDER) zustand[k] = s[k] === undefined ? null : JSON.parse(JSON.stringify(s[k]));
   const { thema, basisVon, basisBis, rechnerAngebot, langeHinweise } = s.einstellungen;
-  return { format: STAND_FORMAT, nutzer: s.einstellungen.name, geraetId: s.geraetId, gespeichert: jetzt.toISOString(), zustand, einstellungen: { thema, basisVon, basisBis, rechnerAngebot, langeHinweise: langeHinweise || 1 } };
+  return { format: STAND_FORMAT, nutzer: s.einstellungen.name, geraetId: s.geraetId, gespeichert: jetzt.toISOString(), zustand, einstellungen: { thema, basisVon, basisBis, rechnerAngebot, langeHinweise: langeHinweise ?? 1 } };
 }
 
 // Inhalt ohne Zeitstempel (zum Erkennen, ob sich etwas geändert hat)

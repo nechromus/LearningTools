@@ -21,7 +21,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.8.0';
+export const APP_VERSION = '2.8.1';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1556,6 +1556,12 @@ function hinweisOeffnen(id) {
     sichern();
     return oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);
   }
+  // Stufe „Gleich lang“: sofort der lange Hinweis, ohne Kosten
+  if (langStufe() === 0) {
+    protokoll(S, 'hinweis_lang', { hinweis: id, stufe: 0, kosten: 'keine', id: aufgabeId() });
+    sichern();
+    return oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);
+  }
   const abschnitte = FU.abschnitteFuer(FORMELN, id).map(a => a.id);
   protokoll(S, 'hinweis_kurz', { hinweis: id, abschnitte, id: aufgabeId() });
   sichern();
@@ -2607,7 +2613,7 @@ function zeigeEltern(meldung = '') {
       <div class="info-zeile"><span>2. Versuch / mit Rechner</span><b>${L.anteilText(R().zweit).replace('die ', '')} / ${L.anteilText(R().rechner).replace('die ', '')}</b></div>
       <div class="info-zeile"><span>Mit „Hilf mir“</span><b>${L.anteilText(R().hilfe ?? 0.5).replace('die ', '')}</b></div>
       <div class="info-zeile"><span>Freiwilliger Taschenrechner</span><b>${S.einstellungen.rechnerAngebot !== false ? 'an' : 'aus'}</b></div>
-      <div class="info-zeile"><span>Lange Hinweise</span><b>${FU.LANG_STUFEN[langStufe() - 1].name}</b></div>
+      <div class="info-zeile"><span>Lange Hinweise</span><b>${FU.langStufeInfo(S.einstellungen.langeHinweise).name}</b></div>
       ` : `
       <label class="feld-label">Übungsthema<select id="e-thema">${optThema}</select></label>
       <div class="zwei-spalten">
