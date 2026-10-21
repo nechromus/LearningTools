@@ -16,10 +16,18 @@ export function parseZahl(text) {
 
 export const gleich = (a, b) => Math.abs(a - b) < 1e-9;
 
-// Ziel: { wert, toleranz?, runden? }
+// Ziel: { wert, toleranz?, runden?, gueltige? } (gueltige: Anzahl gültiger Ziffern, Physik)
+// Zahl (schon ausgerechnet, z. B. aus Zahl · 10ⁿ) gegen das Ziel prüfen
+export function pruefeWert(wert, ziel) {
+  if (!Number.isFinite(wert)) return false;
+  if (ziel.gueltige) return pruefeGueltig(wert, ziel.wert, ziel.gueltige);
+  if (ziel.toleranz != null) return Math.abs(wert - ziel.wert) <= ziel.toleranz + 1e-9;
+  return Math.abs(wert - ziel.wert) <= 1e-9 * Math.max(1, Math.abs(ziel.wert));
+}
 export function pruefeZahl(text, ziel) {
   const p = parseZahl(text);
   if (!p.ok) return false;
+  if (ziel.gueltige) return pruefeGueltig(p.wert, ziel.wert, ziel.gueltige);
   if (ziel.toleranz != null) {
     if (Math.abs(p.wert - ziel.wert) <= ziel.toleranz + 1e-9) return true;
     // „die ersten Nachkommastellen“: abgeschnitten oder gerundet, ab 2 Stellen
@@ -477,8 +485,11 @@ export function hoechsteKachel(feld) {
 
 // ---------- Aufgaben aus JSON kontrollieren (Elternbereich, Tools) ----------
 
-export const TYPEN = ['zahl', 'auswahl', 'bruch', 'schritte', 'zuordnung', 'mehrfrage'];
-export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide'];
+export const TYPEN = ['zahl', 'auswahl', 'bruch', 'schritte', 'zuordnung', 'mehrfrage', 'zehnerpotenz', 'formel'];
+export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen'];
+// Fach je Thema (Auftrag 13). Fehlt das Feld fach an der Aufgabe, gilt das Fach des Themas.
+export const PHYSIK_THEMEN = ['zehnerpotenzen', 'einheiten', 'gewichtskraft'];
+export const fachVon = (a) => (a && (a.fach || (PHYSIK_THEMEN.includes(a.thema) ? 'physik' : 'mathe'))) || 'mathe';
 // Körper mit Taschenrechner: eigene Plätze (Schritte und Abschluss), nicht bei Text und Struktur aus dem allgemeinen Pool
 export const KOERPER = ['kugel', 'zylinder', 'kegel', 'pyramide'];
 export const BILDFORMEN = ['streifen', 'kreis', 'quadrat', 'rechteck', 'kreisdiagramm', 'kugel', 'zylinder', 'kegel', 'pyramide'];
@@ -505,7 +516,13 @@ export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
     else a.gegeben.forEach((g, i) => { if (!g || !g.name || typeof g.wert !== 'number') f.push(`${id}: gegeben ${i + 1} braucht name und wert`); });
   }
   const text = JSON.stringify(a);
-  if (/−\s*\(\s*−/.test(text)) f.push(`${id}: doppeltes Minus wie −(−3) ist noch nicht erlaubt`);
+  // Doppeltes Minus ist eine Regel für die BOA-Themen; bei Physik und Umstellen erlaubt (Antwort Vater, 2026-10-21)
+  if (/−\s*\(\s*−/.test(text) && fachVon(a) !== 'physik' && a.thema !== 'umstellen') f.push(`${id}: doppeltes Minus wie −(−3) ist noch nicht erlaubt`);
+  if (a.fach != null && !['mathe', 'physik'].includes(a.fach)) f.push(`${id}: fach muss mathe oder physik sein`);
+  if (a.modus != null && a.modus !== 'knobeln') f.push(`${id}: unbekannter modus „${a.modus}“`);
+  if (a.modus === 'knobeln' && !(Array.isArray(a.schritte) && a.schritte.length)) f.push(`${id}: knobeln braucht schritte für „In Schritten rechnen“`);
+  if (a.modus === 'knobeln' && a.typ === 'schritte' && !(a.antwort && (typeof a.antwort.wert === 'number' || typeof a.antwort.mantisse === 'number'))) f.push(`${id}: knobeln braucht antwort (Ergebnisfeld)`);
+  if (a.wissenspunkte != null && !(typeof a.wissenspunkte.knobeln === 'number' && typeof a.wissenspunkte.schritte === 'number')) f.push(`${id}: wissenspunkte braucht knobeln und schritte`);
   if (/\d - \d|"-\d/.test(JSON.stringify([a.rechnung, a.frage, a.geschichte, a.loesungsweg]))) f.push(`${id}: Bindestrich statt echtem Minus „−“`);
   if (text.includes('^')) f.push(`${id}: enthält ^ – bitte hochgestellte Zahlen (² ³) verwenden`);
   if (/prüfung/i.test(text)) f.push(`${id}: enthält das Wort „Prüfung“`);
@@ -531,6 +548,24 @@ export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
     case 'zuordnung':
       if (!Array.isArray(a.gruppen) || a.gruppen.length < 2) f.push(`${id}: gruppen fehlen`);
       break;
+    case 'zehnerpotenz': {
+      const w = a.antwort || {};
+      if (typeof w.mantisse !== 'number' || !Number.isInteger(w.exponent)) f.push(`${id}: antwort.mantisse und antwort.exponent fehlen`);
+      else if (Math.abs(w.mantisse) < 1 || Math.abs(w.mantisse) >= 10) f.push(`${id}: mantisse muss zwischen 1 und 10 liegen`);
+      break;
+    }
+    case 'formel': {
+      const w = a.antwort || {};
+      if (!['auswahl', 'karten', 'frei'].includes(a.eingabe)) f.push(`${id}: eingabe muss auswahl, karten oder frei sein`);
+      if (!w.ziel || !w.formel || !Array.isArray(w.variablen)) { f.push(`${id}: antwort braucht ziel, formel und variablen`); break; }
+      if (!pruefeFormelFn(`${w.ziel} = ${w.formel}`, w).richtig) f.push(`${id}: antwort.formel lässt sich nicht lesen`);
+      if (a.eingabe === 'auswahl') {
+        if (!Array.isArray(a.optionen) || typeof w.richtig !== 'number') f.push(`${id}: optionen oder antwort.richtig fehlen`);
+        else a.optionen.forEach((o, k) => { if (pruefeFormelFn(o, w).richtig !== (k === w.richtig)) f.push(`${id}: Option ${k + 1} passt nicht zu antwort.richtig`); });
+      }
+      if (a.eingabe === 'karten' && !(Array.isArray(a.karten) && a.karten.includes(w.ziel) && a.karten.includes('='))) f.push(`${id}: karten brauchen die Zielgröße und „=“`);
+      break;
+    }
   }
   return f;
 }
@@ -607,15 +642,27 @@ export function rechnerOptional(a) {
 }
 // Taschenrechner wäre hier erlaubt (Körper-Aufgaben oder große Zahlen) → im Kopf gerechnet gibt einen Bonus
 export function rechnerZulaessig(a) {
+  if (fachVon(a) === 'physik') return false; // Physik: Rechner frei, kein Kopf-Bonus
   return !!a.taschenrechner || rechnerOptional(a);
 }
+// Rechner frei (ohne Abzug): Aufgaben mit taschenrechner und alle Physik-Aufgaben
+export const rechnerFrei = (a) => !!(a && (a.taschenrechner || fachVon(a) === 'physik'));
 // Freiwilliger Rechner wird bei jeder Aufgabe angeboten (kostet Spielzeit), außer dort, wo er ohnehin erlaubt ist
 export function rechnerAnbieten(a) {
-  return !a.taschenrechner && !['auswahl', 'zuordnung'].includes(a.typ);
+  return !rechnerFrei(a) && !['auswahl', 'zuordnung', 'formel'].includes(a.typ);
 }
 // Kopf-Bonus: Rechner erlaubt, nicht geöffnet, App nicht verlassen, Aufgabe gelöst
 export function kopfBonus({ aufgabe, rechnerGenutzt, verlassen, ergebnis }) {
   return rechnerZulaessig(aufgabe) && !rechnerGenutzt && !verlassen && (ergebnis === 'erst' || ergebnis === 'zweit');
+}
+
+// ---------- Wissenspunkte (nur Gestaltung Sternzeit) ----------
+// Mit Feld wissenspunkte: knobeln = ohne Schritte gelöst, schritte = mit Schritten. Sonst 1 fürs Lösen, +1 im 1. Versuch.
+export function wissenspunkteFuer(a, { ergebnis, schritte }) {
+  if (!a || ergebnis === 'loesung') return 0;
+  const wp = a.wissenspunkte;
+  if (wp && typeof wp.knobeln === 'number' && typeof wp.schritte === 'number') return schritte ? wp.schritte : wp.knobeln;
+  return 1 + (ergebnis === 'erst' ? 1 : 0);
 }
 
 // ---------- Einstellungen aus der Eltern-App ----------
@@ -624,8 +671,10 @@ export function kopfBonus({ aufgabe, rechnerGenutzt, verlassen, ergebnis }) {
 // Baukasten-Stufen werden nur übernommen, wenn sie in einer neueren Version geändert wurden,
 // damit die App sie zwischendurch weiter selbst anpassen kann.
 import { splitterVon, fernAnwenden as fernSplitter } from './splitter.js';
-import { bzRegeln, szRegeln } from './bildschirm.js';
+import { bzRegeln, szRegeln, uzRegeln } from './bildschirm.js';
+export const GESTALTUNGEN = ['schrein', 'sternzeit'];
 import { paketeAusWerte } from './lernplan.js';
+import { pruefeFormel as pruefeFormelFn, pruefeGueltig } from './physik.js';
 
 export function fernAnwenden(z, datei) {
   const alt = (z.fern && z.fern.version) || 0;
@@ -662,11 +711,28 @@ export function fernAnwenden(z, datei) {
   // Mehrere Pakete pro Kind mit Rolle, Anteil und Etappe (ein altes „paket“ wird ein Grundpaket mit 100 %)
   const liste = paketeAusWerte(w);
   if (liste) {
+    // Etappen, die die App selbst weitergeschaltet hat („weiter: automatisch“), bleiben stehen,
+    // solange die Eltern-App die Etappe dieses Pakets nicht geändert hat
+    const vorher = z.fernEtappen || {};
+    for (const p of liste) {
+      const lokal = (z.pakete || []).find(x => x.id === p.id);
+      if (lokal && p.etappe != null && vorher[p.id] === p.etappe && (lokal.etappe || 0) > p.etappe) p.etappe = lokal.etappe;
+    }
+    z.fernEtappen = Object.fromEntries(liste.filter(p => p.etappe != null).map(p => [p.id, (w.pakete || []).find(x => x && x.id === p.id)?.etappe ?? p.etappe]));
     if (JSON.stringify(liste) !== JSON.stringify(z.pakete || null)) geaendert.push('pakete');
     z.pakete = liste;
     z.abweichungen = w.abweichungen && typeof w.abweichungen === 'object' ? { ...w.abweichungen } : {};
   }
   if (typeof w.etappe_anzeigen === 'boolean' && w.etappe_anzeigen !== !!z.etappeAnzeigen) { z.etappeAnzeigen = w.etappe_anzeigen; geaendert.push('etappeAnzeigen'); }
+  // Gestaltung pro Kind: schrein (Standard) oder sternzeit („Logbuch Sternzeit“)
+  if (GESTALTUNGEN.includes(w.gestaltung) && w.gestaltung !== (z.gestaltung || 'schrein')) { z.gestaltung = w.gestaltung; geaendert.push('gestaltung'); }
+  if (typeof w.ansicht_name === 'string' && w.ansicht_name.trim().slice(0, 30) !== (z.ansichtName || '')) { z.ansichtName = w.ansicht_name.trim().slice(0, 30); geaendert.push('ansichtName'); }
+  // Übungszeit pro Tag (an, max, nachlauf_prozent, extra nur heute)
+  if (w.uebungszeit && typeof w.uebungszeit === 'object') {
+    const neu = uzRegeln(w.uebungszeit);
+    if (JSON.stringify(neu) !== JSON.stringify(uzRegeln(z.uzRegeln))) geaendert.push('uebungszeit');
+    z.uzRegeln = neu;
+  }
   // Aufgabenpaket mit Gewichten je Thema (0 aus, 1 wenig, 2 normal, 4 viel)
   if (w.paket && typeof w.paket === 'object' && w.gewichte && typeof w.gewichte === 'object') {
     const gewichte = {};

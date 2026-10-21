@@ -308,3 +308,4 @@ textarea { width: 100%; border-radius: 10px; border: 1.5px solid #8A9696; backgr
 .knopf-spalte { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; }
 .knopf.gestrichelt { border-style: dashed; }
 .einheit-spalten { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 20px; align-items: start; margin-top: 10px; }
+.marke.bald { background: #EEE8F5; color: #5B3F7A; display: inline-block; width: max-content; padding: 0 8px; border-radius: 8px; }

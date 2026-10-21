@@ -1,0 +1,53 @@
+{
+ "info": "Wissensarchiv (vom Vater freigegeben, 2026-10-21). Jeder Eintrag wird ab der genannten Etappe sichtbar und kostet Wissenspunkte. Texte eigen geschrieben, Links extern. Quelle: Projekt, 13-wissensarchiv.",
+ "eintraege": [
+  {
+   "id": "wa-powers-of-ten", "ab": { "paket": "groessen-zehnerpotenzen", "etappe": 1 }, "kosten": 10,
+   "sprache": "en", "art": "Video", "titel": "Powers of Ten (1977)", "quelle": "Aeon Videos",
+   "url": "https://aeon.co/videos/the-classic-1977-film-that-put-the-vastness-of-the-universe-into-perspective",
+   "text": "Ein Picknick in Chicago, ein Quadratmeter Rasen – und dann zoomt die Kamera alle zehn Sekunden um eine Zehnerpotenz hinaus, bis an den Rand des bekannten Universums, und danach hinein bis in einen Atomkern. Charles und Ray Eames haben 1977 in neun Minuten gezeigt, was Zehnerpotenzen wirklich bedeuten."
+  },
+  {
+   "id": "wa-kilogramm-2019", "ab": { "paket": "gewichtskraft-sonnensystem", "etappe": 1 }, "kosten": 10,
+   "sprache": "de", "art": "Artikel", "titel": "Neue Definition für das Kilogramm in Kraft", "quelle": "chemie.de",
+   "url": "https://www.chemie.de/news/1161126/neue-definition-fuer-das-kilogramm-in-kraft.html",
+   "text": "Über 130 Jahre lang war das Kilogramm ein Metallzylinder in einem Tresor bei Paris – das Urkilogramm, das auch in älteren Physikbüchern vorkommt. Seit dem 20. Mai 2019 ist es über eine Naturkonstante festgelegt, das Plancksche Wirkungsquantum. Ein Kilogramm ist seitdem überall im Universum gleich definierbar – ganz ohne Tresor."
+  },
+  {
+   "id": "wa-iss-schweben", "ab": { "paket": "gewichtskraft-sonnensystem", "etappe": 1 }, "kosten": 10,
+   "sprache": "en", "art": "Artikel", "titel": "Why Do Astronauts on the Space Station Float?", "quelle": "Smithsonian Magazine",
+   "url": "https://www.smithsonianmag.com/smithsonian-institution/why-do-astronauts-space-station-float-180956965",
+   "text": "In 400 km Höhe wirkt noch fast 90 % der irdischen Schwerkraft. Trotzdem schweben die Astronauten – weil die ISS mit rund 28 000 km/h um die Erde fällt und sie dabei ständig verfehlt. Isaac Newton hat genau dieses Gedankenexperiment schon im 17. Jahrhundert mit einer Kanonenkugel auf einem Berg beschrieben."
+  },
+  {
+   "id": "wa-perseverance", "ab": { "paket": "gewichtskraft-sonnensystem", "etappe": 2 }, "kosten": 15,
+   "sprache": "de", "art": "Bild und Text", "titel": "NASA-Marsrover „Perseverance“", "quelle": "DLR",
+   "url": "https://www.dlr.de/de/bilder/2020/03/nasa-mars-rover-perseverance",
+   "text": "Perseverance sammelt im Jezero-Krater Gesteinsproben, die eines Tages zur Erde gebracht werden sollen. Mit an Bord war der kleine Hubschrauber Ingenuity – der erste motorisierte Flug auf einem anderen Planeten. Die Marsluft ist so dünn, dass seine Rotoren sich etwa fünfmal so schnell drehen mussten wie bei einem Hubschrauber auf der Erde."
+  },
+  {
+   "id": "wa-huygens", "ab": { "paket": "gewichtskraft-sonnensystem", "etappe": 2 }, "kosten": 15,
+   "sprache": "de", "art": "Bild und Text", "titel": "Huygens landet auf Titan", "quelle": "DLR",
+   "url": "https://www.dlr.de/de/bilder/2011/1/am-14-januar-2005-landete-die-atmosphaerenkapsel-huygens-auf-dem-saturnmond-titan_295",
+   "text": "Titan ist der einzige Mond mit einer dichten Atmosphäre – dichter als die der Erde. Dort regnet es, es gibt Flüsse und Seen, nur bestehen sie nicht aus Wasser, sondern aus flüssigem Methan und Ethan, bei rund −180 °C."
+  },
+  {
+   "id": "wa-gewicht-planeten", "ab": { "paket": "gewichtskraft-sonnensystem", "etappe": 2 }, "kosten": 10,
+   "sprache": "en", "art": "Artikel", "titel": "How much would I weigh on other planets?", "quelle": "Astronomy Magazine",
+   "url": "https://www.astronomy.com/science/how-much-would-i-weigh-on-other-planets/",
+   "text": "Auf Jupiter würdest du gut das 2,5-Fache deiner irdischen Gewichtskraft spüren, auf Pluto nur noch etwa ein Sechzehntel. Deine Masse bliebe dabei immer genau gleich."
+  },
+  {
+   "id": "wa-weisse-zwerge", "ab": { "paket": "gewichtskraft-sonnensystem", "etappe": 4 }, "kosten": 20,
+   "sprache": "en", "art": "Artikel", "titel": "White dwarfs: Facts about the dense stellar remnants", "quelle": "Space.com",
+   "url": "https://space.com/23756-white-dwarf-stars.html",
+   "text": "Ein Teelöffel Materie eines Weißen Zwergs hätte auf der Erde eine Gewichtskraft wie ein Elefant – rund 5,5 Tonnen. So enden einmal auch die meisten Sterne, unsere Sonne eingeschlossen."
+  },
+  {
+   "id": "wa-lesch-universum", "ab": { "paket": "groessen-zehnerpotenzen", "etappe": 2 }, "kosten": 15,
+   "sprache": "de", "art": "Video", "titel": "Hier endet das Universum", "quelle": "Terra X Lesch & Co (YouTube)",
+   "url": "https://www.youtube.com/watch?v=fy8jTiECCWI",
+   "text": "Hat das Universum einen Rand? Harald Lesch zeigt, dass es mehrere „Horizonte“ gibt – Grenzen, die entstehen, weil Licht eine endliche Geschwindigkeit hat und sich der Raum ausdehnt. Wer schon ausgerechnet hat, dass Sonnenlicht gut 8 Minuten zu uns braucht, ist hier genau richtig."
+  }
+ ]
+}

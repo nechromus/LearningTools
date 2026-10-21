@@ -13,7 +13,7 @@ import * as LP from '../js/lernplan.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.21.0';
+export const ELTERN_VERSION = '1.22.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -79,6 +79,9 @@ async function grunddatenLaden() {
   ]);
   D.pool = new Map((pool.aufgaben || []).map(a => [a.id, a]));
   D.hinweise = Object.fromEntries((hw.hinweise || []).map(h => [h.id, h.titel]));
+  // Logbuch-Einträge: Etappen ohne geschriebenen Eintrag sind „kommt bald“
+  D.logbuch = await fetch('../data/logbuch.json', { cache: 'no-cache' }).then(r => r.json()).then(d => d.eintraege || []).catch(() => []);
+  D.archiv = await fetch('../data/wissensarchiv.json', { cache: 'no-cache' }).then(r => r.json()).then(d => Object.fromEntries((d.eintraege || []).map(e => [e.id, e.titel]))).catch(() => ({}));
 }
 
 async function nutzerLaden() {
@@ -334,7 +337,7 @@ function uebersichtSeite() {
     ${leer}
     <div class="zwei-spalten">
       <div class="spalte">${balken}${!breit.matches ? auff : ''}</div>
-      <div class="spalte">${paketQuotenKarte(tage[0])}${bzKarte()}${themen}${breit.matches ? auff : ''}</div>
+      <div class="spalte">${paketQuotenKarte(tage[0])}${uzKarte()}${wissenKarte()}${bzKarte()}${themen}${breit.matches ? auff : ''}</div>
     </div>
   </div>`;
 }
@@ -629,6 +632,7 @@ function einstellungenSeite() {
         <div class="segmente" role="group" aria-label="Lange Hinweise">${LANG_STUFEN.map(s => `<button class="segment${w.langeHinweise === s.stufe ? ' an' : ''}" data-act="langeHinweise" data-w="${s.stufe}" aria-pressed="${w.langeHinweise === s.stufe}">${s.name}</button>`).join('')}</div>
         <span class="klein gedaempft">${esc(langStufeInfo(w.langeHinweise).name)}: ${esc(langStufeInfo(w.langeHinweise).text)}.</span></div>
     </section>
+    ${gestaltungEinstellungen(w)}
     ${szEinstellungen(w)}
     ${bzEinstellungen(w)}
     <h2 class="abschnitt">Baukästen: Schwierigkeit und Häufigkeit</h2>
@@ -645,6 +649,54 @@ function einstellungenSeite() {
 }
 
 // ---------- Runensplitter und neue Spiele ----------
+
+// Gestaltung („Logbuch Sternzeit“) und Übungszeit pro Tag (Auftrag 13)
+function gestaltungEinstellungen(w) {
+  const u = w.uebungszeit;
+  const seg = (act, werte, akt, text = (x) => x) => `<div class="segmente" role="group">${werte.map(x => `<button class="segment${x === akt ? ' an' : ''}" data-act="${act}" data-w="${x}" aria-pressed="${x === akt}">${text(x)}</button>`).join('')}</div>`;
+  const st = neuesterStand();
+  const heute = st && st.uebung && st.uebung.tag === L.tagKey() ? st.uebung.sek : 0;
+  return `<h2 class="abschnitt">Gestaltung und Übungszeit</h2>
+    <section class="karte liste-karte">
+      <div class="einstell-block"><span>Gestaltung der App<span class="klein gedaempft block">Logbuch Sternzeit: dunkle Konsole, Logbuch, Wissensarchiv und Wissenspunkte. Hinweiskarten bleiben gleich.</span></span>${seg('gestaltung', ['schrein', 'sternzeit'], w.gestaltung, x => x === 'schrein' ? 'Schrein' : 'Logbuch Sternzeit')}</div>
+      <div class="einstell-block"><span>Übungszeit pro Tag begrenzen<span class="klein gedaempft block">Gezählt wird die Zeit in Aufgaben. Danach fragt ${esc(name())} dich nach mehr.</span></span>${seg('uzAn', [true, false], u.an, x => x ? 'An' : 'Aus')}</div>
+      ${u.an ? `<div class="einstell-block"><span>Höchstens pro Tag</span>${seg('uzMax', BS.UZ_HOECHSTWERTE, u.max)}<span class="klein gedaempft">Minuten. Dann kommt ein freundlicher Hinweis, die laufende Aufgabe darf fertig werden.</span></div>
+      <div class="einstell-block"><span>Nachlauf</span>${seg('uzNachlauf', [0, 10, 20], u.nachlauf_prozent, x => x + ' %')}<span class="klein gedaempft">Danach ist für heute Schluss mit Üben: ${Math.round(u.max * (1 + u.nachlauf_prozent / 100))} Min.</span></div>
+      <div class="einstell-block"><span>Heute mehr Übungszeit</span>${seg('uzExtra', [0, ...BS.UZ_EXTRAS], u.extraMin, x => '+' + x)}<span class="klein gedaempft">Heute: ${u.max + u.extraMin} Min., geübt ${A.minutenText(heute)}${st && st.uebung ? '' : ' (noch keine Meldung)'}. Morgen gilt wieder der normale Wert.</span></div>` : ''}
+    </section>`;
+}
+
+// Übersicht: Anfragen „mehr Übungszeit“ mit Code
+function uzKarte() {
+  const ein = D.daten.eintraege || [];
+  const liste = A.uzAnfragen(ein).filter(e => L.tagKey(new Date(e.t)) >= letzteTageKey(7));
+  if (!liste.length) return '';
+  const zeitText = (t) => BS.zeitpunktText(new Date(t));
+  return `<section class="karte liste-karte bz-liste">
+    <div class="karte-kopf"><h2>Mehr Übungszeit?</h2></div>
+    ${liste.slice(0, 6).map(e => `<div class="bz-zeile"><div><b>${esc(zeitText(e.t))}</b><span class="klein gedaempft block">${A.minutenText(e.sek)} geübt</span></div><span class="bz-code">${esc(e.code || '–')}</span></div>`).join('')}
+    <p class="klein gedaempft">Mehr Zeit gibst du unter Einstellungen → „Heute mehr Übungszeit“.</p>
+    <div class="knopf-spalte"><a class="knopf" href="#einstellungen">Zu den Einstellungen</a></div>
+  </section>`;
+}
+const letzteTageKey = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return L.tagKey(d); };
+
+// Übersicht: Wissenspunkte (Stand und Verlauf)
+function wissenKarte() {
+  const ein = D.daten.eintraege || [];
+  const verlauf = A.wissenVerlauf(ein);
+  const st = neuesterStand();
+  if (!verlauf.length && !(st && st.wissen)) return '';
+  const stand = st && st.wissen ? st.wissen.stand : (verlauf[0] && verlauf[0].stand) || 0;
+  const grundText = { knobeln: 'Knobeln ohne Schritte', schritte: 'Knobeln mit Schritten', aufgabe: 'Aufgabe gelöst', archiv: 'Archiv freigeschaltet' };
+  const tage = {};
+  for (const v of verlauf) { const k = L.tagKey(new Date(v.t)); const t = tage[k] || (tage[k] = { plus: 0, minus: [] }); if (v.n > 0) t.plus += v.n; else t.minus.push(v); }
+  return `<section class="karte liste-karte">
+    <div class="karte-kopf"><h2>Wissenspunkte</h2><span class="klein gedaempft">Stand ${stand}</span></div>
+    ${Object.entries(tage).slice(0, 7).map(([k, t]) => `<div class="bz-zeile"><div><b>${esc(tagKurz(k))}</b><span class="klein gedaempft block">+${t.plus} verdient${t.minus.map(m => ` · −${-m.n} ${esc(grundText[m.grund])}: ${esc((D.archiv || {})[m.id] || m.id)}`).join('')}</span></div></div>`).join('')}
+    <p class="klein gedaempft pad">Knobeln ohne Schritte bringt mehr Punkte. Mit Punkten schaltet ${esc(name())} Einträge im Wissensarchiv frei.</p>
+  </section>`;
+}
 
 // Spielzeit im Schrein pro Tag: Höchstwert und „nur heute mehr“ (zählt nur mit Aufgaben verdiente Zeit)
 function szEinstellungen(w) {
@@ -820,7 +872,7 @@ function einheitDetail(w, p) {
     <div class="karte-kopf"><h2>${esc(p.paket.name)}</h2>${rolleChip(p.rolle)}<span class="klein gedaempft">${p.anteil} %</span></div>
     ${p.paket.beschreibung ? `<p class="klein gedaempft pad">${esc(p.paket.beschreibung)}</p>` : ''}
     ${et ? `<p class="klein gedaempft pad">Weiter: ${{ hand: 'von Hand', vorschlag: 'Vorschlag', automatisch: 'automatisch' }[p.paket.weiter]}${p.naechste ? ` · Etappe ${p.naechste.etappe} ab ${p.naechste.ab === morgen() ? 'morgen' : ''} (${tagKurz(p.naechste.ab)})`.replace('ab  (', 'ab (') : ''}</p>
-    ${et.map(e => `<div class="et${e.nr < p.etappe ? ' fertig' : ''}${e.nr === p.etappe ? ' aktuell' : ''}"><span class="nr">${e.nr}</span><div class="txt"><b>${esc(e.name)}</b><span class="klein gedaempft">${esc(e.bogen || '')}${qText(e.nr)}</span>${e.nr === p.etappe ? '<span class="marke">aktuell</span>' : ''}${p.naechste && p.naechste.etappe === e.nr ? `<span class="marke">${p.naechste.ab === morgen() ? 'ab morgen' : 'ab ' + tagKurz(p.naechste.ab)}</span>` : ''}</div></div>`).join('')}
+    ${et.map(e => `<div class="et${e.nr < p.etappe ? ' fertig' : ''}${e.nr === p.etappe ? ' aktuell' : ''}"><span class="nr">${e.nr}</span><div class="txt"><b>${mathe(e.name)}</b><span class="klein gedaempft">${esc(e.bogen || '')}${qText(e.nr)}</span>${e.nr === p.etappe ? '<span class="marke">aktuell</span>' : ''}${!LP.etappeOffen(p.paket, e.nr, D.logbuch || []) ? '<span class="marke bald">kommt bald</span>' : ''}${p.naechste && p.naechste.etappe === e.nr ? `<span class="marke">${p.naechste.ab === morgen() ? 'ab morgen' : 'ab ' + tagKurz(p.naechste.ab)}</span>` : ''}</div></div>`).join('')}
     ${sitzt && sitzt.anzahl ? `<p class="${sitzt.sitzt ? 'sitzt' : 'sitzt-noch'}">Etappe ${p.etappe}${sitzt.sitzt ? ' sitzt' : ''}: ${sitzt.gut} von ${sitzt.anzahl} im 1. Versuch${sitzt.anzahl < 10 ? ' (letzte Aufgaben der Etappe)' : ''}</p>` : ''}
     <div class="knopf-spalte">
       <button class="knopf haupt" data-act="etBogen" data-pk="${esc(p.id)}"${(p.naechste ? p.naechste.etappe : p.etappe) >= n ? ' disabled' : ''}>Bogen erledigt – nächste Etappe ab morgen</button>
@@ -1208,7 +1260,8 @@ function minutenSetzen(feld, wert) {
 // Ohne Offline-Speicher: Vor dem Neuladen werden alle Dateien mit cache: 'reload' frisch geholt,
 // damit der Browser nicht die alten Dateien aus seinem Zwischenspeicher nimmt.
 const DATEIEN = ['./', 'index.html', 'eltern.js', 'eltern.css', 'auswertung.js', 'vendor/qrcode.mjs', 'manifest.webmanifest',
-  '../js/sync.js', '../js/logic.js', '../js/namen.js', '../js/render.js', '../js/paket.js', '../js/einrichtung.js'];
+  '../js/sync.js', '../js/logic.js', '../js/namen.js', '../js/render.js', '../js/paket.js', '../js/einrichtung.js',
+  '../js/physik.js', '../js/lernplan.js', '../js/bildschirm.js', '../js/splitter.js', '../js/hinweiskarten.js', '../data/logbuch.json'];
 let basisVersion = null;   // Version der Übungs-App beim Laden dieser Seite
 let neueVersion = null;
 let updateSpaeter = false;
@@ -1334,6 +1387,11 @@ document.addEventListener('click', (ev) => {
     case 'bzAn': entwurf.bildschirm = { ...entwurf.bildschirm, an: el.dataset.w === 'true' }; meldung = null; zeichne(); break;
     case 'bzFaktor': entwurf.bildschirm = { ...entwurf.bildschirm, faktor: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'bzMax': entwurf.bildschirm = { ...entwurf.bildschirm, max: Number(el.dataset.w) }; meldung = null; zeichne(); break;
+    case 'gestaltung': entwurf.gestaltung = el.dataset.w; if (entwurf.gestaltung === 'sternzeit' && !entwurf.ansicht_name) entwurf.ansicht_name = 'Logbuch Sternzeit'; meldung = null; zeichne(); break;
+    case 'uzAn': entwurf.uebungszeit = { ...entwurf.uebungszeit, an: el.dataset.w === 'true' }; meldung = null; zeichne(); break;
+    case 'uzMax': entwurf.uebungszeit = { ...entwurf.uebungszeit, max: Number(el.dataset.w) }; meldung = null; zeichne(); break;
+    case 'uzNachlauf': entwurf.uebungszeit = { ...entwurf.uebungszeit, nachlauf_prozent: Number(el.dataset.w) }; meldung = null; zeichne(); break;
+    case 'uzExtra': entwurf.uebungszeit = { ...entwurf.uebungszeit, extraMin: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'szMax': entwurf.spielzeitTag = { ...entwurf.spielzeitTag, max: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'szExtra': entwurf.spielzeitTag = { ...entwurf.spielzeitTag, extraMin: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'kopf': entwurf.spielzeit = { ...entwurf.spielzeit, kopf: Number(el.dataset.w) }; meldung = null; zeichne(); break;

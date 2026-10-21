@@ -28,6 +28,14 @@ function standard() {
     pakete: null,           // mehrere Pakete mit Rolle, Anteil und Etappe (js/lernplan.js); null = nur „paket“
     abweichungen: {},       // Anpassungen pro Thema aus der Eltern-App (gelten in jedem Paket)
     etappeAnzeigen: false,  // „Du übst gerade: … · Etappe n von m“ auf dem Startbildschirm
+    fernEtappen: null,      // Etappen aus der letzten Einstellungsdatei (zum Erkennen von Änderungen der Eltern)
+    ansichtName: '',        // Name der App bei Gestaltung Sternzeit (Standard „Logbuch Sternzeit“)
+    gestaltung: 'schrein',  // schrein (Standard) oder sternzeit („Logbuch Sternzeit“), aus der Eltern-App
+    uzRegeln: null,         // Übungszeit pro Tag (js/bildschirm.js uzRegeln, null = aus)
+    uebung: null,           // Übungszeit heute: { tag, sek, hinweis, code, gefragt }
+    wissen: null,           // Wissenspunkte: { stand, verlauf: [{ t, n, grund, id }] } (nur Sternzeit)
+    logbuch: null,          // Logbuch: { frei: { eintragId: { tag, sternzeit } }, gelesen: [ids] }
+    archiv: null,           // Wissensarchiv: { gekauft: [ids] }
     fern: { version: 0, geaendert: null, angewendet: null, geholt: null, fehler: null }, // Einstellungen aus der Eltern-App
     statistik: {},          // je Aufgabe: gesehen, zuletzt, letztesErgebnis, letzterTag
     verlauf: { zaehler: 0, letzteIds: [], themaZuletzt: {}, musterIndex: 0 },
@@ -96,7 +104,8 @@ export async function dauerhaftSpeichernAnfragen() {
 // Gesichert wird, was Kind und Spiele erreicht haben. Nicht dabei: PIN, Zugangsschlüssel, Geräte-ID, Protokoll.
 export const STAND_FORMAT = 'lernapp-spielstand-1';
 const STAND_FELDER = ['guthaben', 'basisSlot', 'spiel', 'bloecke', 'statistik', 'verlauf', 'serie', 'tag', 'extraAufgaben',
-  'genStufen', 'wiederholen', 'spielzeit', 'paket', 'fern', 'wartet', 'kristallmine', 'splitter', 'anleitungen', 'steinschieber', 'runenfall', 'runenreihen', 'hoehlenkarte', 'runenbrecher', 'jadeschlange', 'bzRegeln', 'bildschirm', 'szRegeln', 'pakete', 'abweichungen', 'etappeAnzeigen'];
+  'genStufen', 'wiederholen', 'spielzeit', 'paket', 'fern', 'wartet', 'kristallmine', 'splitter', 'anleitungen', 'steinschieber', 'runenfall', 'runenreihen', 'hoehlenkarte', 'runenbrecher', 'jadeschlange', 'bzRegeln', 'bildschirm', 'szRegeln', 'pakete', 'abweichungen', 'etappeAnzeigen',
+  'gestaltung', 'ansichtName', 'fernEtappen', 'uzRegeln', 'uebung', 'wissen', 'logbuch', 'archiv'];
 
 export function spielstandAus(s, jetzt = new Date()) {
   const zustand = {};

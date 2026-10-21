@@ -2,7 +2,7 @@
 // Ein Paket wird pro Kind aktiviert; die Gewichte lassen sich pro Kind anpassen.
 // Format für Pakete (auch zum Erstellen mit Claude): siehe app-uebergabe/06-aufgabenpakete.md
 import { THEMEN } from './logic.js';
-import { etappenNorm, VARIANTEN, FAECHER, WEITER, FORMAT2, STUFE_MAX } from './lernplan.js';
+import { etappenNorm, VARIANTEN, FAECHER, WEITER, FORMAT2, STUFE_MAX, grenzenSchluesselOk, baukaestenVon } from './lernplan.js';
 
 export const FORMAT = 'lernapp-paket-1';
 export const STUFEN = [
@@ -13,8 +13,12 @@ const ERLAUBT = STUFEN.map(s => s.w);
 // Kurze Kopfrechen-Aufgaben: welches Thema welche Baukästen nutzt
 export const KOPF_GEN = {
   'minus-zahlen': ['minus-plus'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'], 'einmaleins': ['einmaleins'],
-  'mal-10': ['mal10'], 'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'runden': ['runden'], 'bruch-bild': ['bruch-bild']
+  'mal-10': ['mal10'], 'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'runden': ['runden'], 'bruch-bild': ['bruch-bild'],
+  // Physik und Umstellen (Auftrag 13): kommen wie kurze Aufgaben, etwa halb Pool, halb Baukasten
+  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen']
 };
+// Themen, die etwa zur Hälfte aus dem Pool kommen (mit Geschichten), sonst aus dem Baukasten (neutrale Zahlen)
+export const HALB_POOL = ['zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen'];
 export const BLOCK_GEN = { 'einmaleins': 'einmaleins', 'potenzen': 'potenz', 'mal-10': 'mal10', 'minus-zahlen': 'minus-plus' };
 export const KOPF_THEMEN = Object.keys(KOPF_GEN);
 export const WEITERE_THEMEN = THEMEN.filter(t => !KOPF_THEMEN.includes(t));
@@ -84,9 +88,9 @@ export function paketPruefen(roh, { poolIds = null } = {}) {
         if (Number(e.nr) !== nr) fehler.push(`Etappe ${nr}: Nummer ${e.nr ?? 'fehlt'}. Die Etappen müssen lückenlos ab 1 nummeriert sein.`);
         if (!String(e.name || '').trim()) fehler.push(`Etappe ${nr}: Name fehlt.`);
         for (const [t, g] of Object.entries(e.grenzen || {})) {
-          if (!THEMEN.includes(t)) { hinweise.push(`Etappe ${nr}: Thema „${t}“ gibt es nicht, die Grenze wird ignoriert.`); continue; }
+          if (!grenzenSchluesselOk(t)) { hinweise.push(`Etappe ${nr}: Baukasten oder Thema „${t}“ gibt es nicht, die Grenze wird ignoriert.`); continue; }
           if (g && g.stufe_max != null && !(Number.isInteger(g.stufe_max) && g.stufe_max >= 1 && g.stufe_max <= STUFE_MAX)) fehler.push(`Etappe ${nr}, ${t}: stufe_max ${g.stufe_max} geht nicht (1 bis ${STUFE_MAX}).`);
-          for (const v of (g && g.ohne) || []) if (!(VARIANTEN[t] || []).includes(v)) fehler.push(`Etappe ${nr}, ${t}: Variante „${v}“ kennt die App nicht.`);
+          for (const v of (g && g.ohne) || []) if (!baukaestenVon(t).some(b => (VARIANTEN[b] || []).includes(v))) fehler.push(`Etappe ${nr}, ${t}: Variante „${v}“ kennt die App nicht.`);
         }
         if (poolIds) for (const aid of e.aufgaben || []) if (!poolIds.has(aid)) fehler.push(`Etappe ${nr}: Aufgabe „${aid}“ gibt es in der Aufgabensammlung nicht.`);
       });

@@ -113,3 +113,38 @@ export function szGrenzeSek(regeln, tag) {
 }
 // Noch verdienbare Spielzeit heute (verdient = heute schon mit Aufgaben verdiente Sekunden)
 export const szRestSek = (regeln, tag, verdient) => Math.max(0, szGrenzeSek(regeln, tag) - Math.max(0, verdient || 0));
+
+// ---------- Übungszeit pro Tag (Auftrag 13) ----------
+// Gezählt wird die Zeit in Aufgaben. Bei max: freundlicher Hinweis, die laufende Aufgabe darf fertig werden.
+// Nach weiteren nachlauf_prozent ist Schluss. „Heute mehr“ (+15/+30/+60) gilt nur am genannten Tag.
+export const UZ_HOECHSTWERTE = [20, 30, 45, 60, 75, 90, 120];
+export const UZ_EXTRAS = [15, 30, 60];
+export function uzRegeln(r) {
+  if (!r || typeof r !== 'object') return { an: false, max: 60, nachlauf_prozent: 10, extra: null };
+  const extra = r.extra && /^\d{4}-\d{2}-\d{2}$/.test(r.extra.tag) && Number.isInteger(r.extra.min) && r.extra.min > 0 && r.extra.min <= 180
+    ? { tag: r.extra.tag, min: r.extra.min } : null;
+  const max = Number.isInteger(r.max) && r.max >= 5 && r.max <= 240 ? r.max : 60;
+  const nl = Number.isInteger(r.nachlauf_prozent) && r.nachlauf_prozent >= 0 && r.nachlauf_prozent <= 50 ? r.nachlauf_prozent : 10;
+  return { an: r.an === true, max, nachlauf_prozent: nl, extra };
+}
+export function uzGrenzen(regeln, tag) {
+  const r = uzRegeln(regeln);
+  const max = (r.max + (r.extra && r.extra.tag === tag ? r.extra.min : 0)) * 60;
+  return { an: r.an, hinweis: max, schluss: Math.round(max * (1 + r.nachlauf_prozent / 100)) };
+}
+// Stand: { tag, sek, hinweis (schon gezeigt), code }
+export function uzKontoVon(k, tag) {
+  if (!k || typeof k !== 'object' || k.tag !== tag) return { tag, sek: 0, hinweis: false, code: null, gefragt: null };
+  return { tag, sek: Math.max(0, Number(k.sek) || 0), hinweis: !!k.hinweis, code: k.code || null, gefragt: k.gefragt || null };
+}
+// 'frei' | 'hinweis' (Pensum erreicht, laufende Aufgabe fertig machen) | 'schluss'
+export function uzStatus(konto, regeln) {
+  const g = uzGrenzen(regeln, konto.tag);
+  if (!g.an) return 'frei';
+  if (konto.sek >= g.schluss) return 'schluss';
+  if (konto.sek >= g.hinweis) return 'hinweis';
+  return 'frei';
+}
+export function uzNachricht(name, konto, code) {
+  return `✦ Mehr Übungszeit?\n${name || 'Ich'} hat heute ${Math.floor(konto.sek / 60)} Min. geübt.\nCode: ${code}`;
+}

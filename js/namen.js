@@ -6,13 +6,15 @@ export const THEMA_NAMEN = {
   'prozent-baukasten': 'Prozent-Baukasten', 'rabatt': 'Rabatt', 'neuer-preis': 'Neuer Preis',
   'kreisdiagramm': 'Kreisdiagramm', 'runden': 'Runden', 'kugel': 'Kugel',
   'einmaleins': 'Einmaleins', 'mal-10': 'Mal 10 und durch 10',
-  'zylinder': 'Zylinder', 'kegel': 'Kegel', 'pyramide': 'Pyramide'
+  'zylinder': 'Zylinder', 'kegel': 'Kegel', 'pyramide': 'Pyramide',
+  'zehnerpotenzen': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Masse und Gewichtskraft', 'umstellen': 'Gleichungen umstellen'
 };
 
 export const GEN_NAMEN = {
   'minus-plus': 'Minus-Zahlen', 'reihenfolge': 'Reihenfolge', 'potenz': 'Potenzen', 'einmaleins': 'Einmaleins',
   'mal10': 'Mal 10 / durch 10', 'prozent': 'Prozent von …', 'baukasten': 'Prozent-Baukasten', 'runden': 'Runden',
-  'bruch-bild': 'Bruch aus Bild', 'kugel': 'Kugel', 'zylinder': 'Zylinder', 'geld-geschichte': 'Geld-Geschichten', 'rabatt-geschichte': 'Rabatt-Geschichten'
+  'bruch-bild': 'Bruch aus Bild', 'kugel': 'Kugel', 'zylinder': 'Zylinder', 'geld-geschichte': 'Geld-Geschichten', 'rabatt-geschichte': 'Rabatt-Geschichten',
+  'zehnerpotenz': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Gewichtskraft', 'gleichung': 'Gleichungen', 'formel-umstellen': 'Formeln umstellen'
 };
 
 export const FEHLER_NAMEN = {
@@ -23,5 +25,8 @@ export const FEHLER_NAMEN = {
   'potenz-zweimal': 'Hoch 3: nur zweimal malgenommen', 'd-statt-r': 'Zylinder/Kegel: d statt r',
   'zylinder-ein-kreis': 'Zylinder: nur ein Kreis', 'drittel-vergessen': 'Kegel/Pyramide: Drittel vergessen',
   'pyramide-hs-statt-h': 'Pyramide: hₛ statt h', 'pyramide-h-statt-hs': 'Pyramide: h statt hₛ',
-  'pyramide-ein-dreieck': 'Pyramide: nur 1 Dreieck', 'kegel-h-statt-s': 'Kegel: h statt s', 'kegel-zwei-kreise': 'Kegel: zwei Kreise'
+  'pyramide-ein-dreieck': 'Pyramide: nur 1 Dreieck', 'kegel-h-statt-s': 'Kegel: h statt s', 'kegel-zwei-kreise': 'Kegel: zwei Kreise',
+  'zp-form': 'Zehnerpotenz: Zahl nicht zwischen 1 und 10', 'zp-vorzeichen': 'Zehnerpotenz: Hochzahl mit falschem Vorzeichen', 'zp-hochzahl': 'Zehnerpotenz: Hochzahl falsch',
+  'formel-kehrwert': 'Formel: Kehrwert', 'formel-links': 'Formel: links nicht die gesuchte Größe', 'formel-ziel-rechts': 'Formel: gesuchte Größe rechts', 'formel': 'Formel falsch umgestellt',
+  'knobel': 'Knobeln: Ergebnis falsch'
 };

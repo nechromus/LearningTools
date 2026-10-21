@@ -100,7 +100,8 @@
  "zuordnung_hinweis_zu_abschnitt": {
   "euro": [], "klammer": [], "potenz": ["potenz"], "bruch": [], "prozent": ["prozent"], "text": ["prozent"], "runden": [],
   "kugel": ["kugel"], "baukasten": ["prozent"], "diagramm": ["prozent"], "lang": [], "einmaleins": [], "mal10": [], "runden2": [],
-  "zylinder": ["zylinder"], "bruchvon": [], "kegel": ["kegel"], "pyramide": ["pyramide"]
+  "zylinder": ["zylinder"], "bruchvon": [], "kegel": ["kegel"], "pyramide": ["pyramide"],
+  "zehnerpotenz": ["potenz"], "gewichtskraft": [], "umstellen": []
  },
  "zuordnung_info": "Schlüssel = Hinweis-ID aus 02-hinweise.json. Leere Liste = in der Formelübersicht steht dazu nichts. Neue Hinweise bekommen hier immer einen Eintrag.",
  "zeichen_svg": {

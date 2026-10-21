@@ -360,6 +360,61 @@
       "achtung": "Das Drittel nicht vergessen!",
       "beispiel": "a = 12 cm, h = 8 cm → A_G = 144 → 144 · 8 = 1152 → : 3 → V = 384 cm³",
       "hinweis_schreibweise": "Gleiche Zeichen wie die Formelübersicht Berlin Sek I (A_G, A_M, A_O)"
+    },
+    {
+      "nr": 19,
+      "id": "zehnerpotenz",
+      "titel": "Zehnerpotenzen",
+      "symbol": "10ⁿ",
+      "farbe": "#4338CA",
+      "farbe_hell": "#E2E1FA",
+      "farbe_text": "#2F2793",
+      "regeln": [
+        "Wissenschaftliche Schreibweise: a · 10ⁿ mit 1 ≤ a < 10",
+        "Komma nach links verschoben → n positiv",
+        "Komma nach rechts verschoben → n negativ",
+        "10ᵐ · 10ⁿ = 10ᵐ⁺ⁿ",
+        "10ᵐ : 10ⁿ = 10ᵐ⁻ⁿ"
+      ],
+      "beispiel": "149 600 000 km = 1,496 · 10⁸ km   0,0000075 m = 7,5 · 10⁻⁶ m",
+      "fach": "physik"
+    },
+    {
+      "nr": 20,
+      "id": "gewichtskraft",
+      "titel": "Masse und Gewichtskraft",
+      "symbol": "Pfeil nach unten mit F",
+      "farbe": "#A16207",
+      "farbe_hell": "#FAEFC9",
+      "farbe_text": "#6B4206",
+      "regeln": [
+        "Masse m in kg: überall gleich",
+        "Gewichtskraft F_G in N: hängt vom Ort ab",
+        "F_G = m · g",
+        "Ortsfaktor g auf der Erde: 9,81 N/kg",
+        "Mond: 1,62 N/kg   Mars: 3,71 N/kg"
+      ],
+      "beispiel": "m = 1025 kg, g = 3,71 N/kg → F_G = 1025 kg · 3,71 N/kg ≈ 3,80 · 10³ N",
+      "fach": "physik",
+      "hinweis_schreibweise": "F_G = F mit kleinem G"
+    },
+    {
+      "nr": 21,
+      "id": "umstellen",
+      "titel": "Gleichungen umstellen",
+      "symbol": "x=",
+      "farbe": "#BE185D",
+      "farbe_hell": "#FBE0EC",
+      "farbe_text": "#86113F",
+      "regeln": [
+        "Auf beiden Seiten dasselbe tun",
+        "Umkehren: + ↔ − und · ↔ :",
+        "Erst Klammern auflösen, dann x sammeln",
+        "Gesuchte Größe im Nenner? Erst mit ihr multiplizieren",
+        "Probe: Ergebnis einsetzen"
+      ],
+      "beispiel": "ρ = m/V   | · V   →   ρ · V = m   | : ρ   →   V = m/ρ",
+      "fach": "mathe"
     }
   ]
 }

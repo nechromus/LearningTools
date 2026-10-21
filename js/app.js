@@ -19,17 +19,20 @@ import * as SP from './splitter.js';
 import * as BS from './bildschirm.js';
 import * as LP from './lernplan.js';
 import { bildschirmBild } from './bildschirm-bild.js';
+import { uebungszeitBild } from './uebungszeit-bild.js';
+import * as PH from './physik.js';
+import * as SZ from './sternzeit.js';
 import { ANLEITUNGEN } from './anleitungen.js';
 import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.14.1';
+export const APP_VERSION = '2.15.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
 if (S.laufend) { if (!S.wartet) S.wartet = S.laufend; S.laufend = null; }
-let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [], BASIS_IDS = new Set(), FORMELN = null;
+let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [], BASIS_IDS = new Set(), FORMELN = null, LOGBUCH = [], ARCHIV = [];
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal');
 
@@ -44,6 +47,19 @@ function setzeAnsicht(name) {
   if (rn) { const k = rn; rn = null; k.beenden(); }
   if (ms) { const k = ms.spiel; ms = null; k.beenden(); }
   ansicht = name; document.body.dataset.ansicht = name;
+  // Gestaltung „Logbuch Sternzeit“: nur der Rahmen der App (Start, Aufgaben, Logbuch); Spiele und Elternbereich bleiben
+  document.body.classList.toggle('sz', sternzeit() && SZ_ANSICHTEN.includes(name));
+  document.title = sternzeit() ? appName() : 'Schrein der Zahlen';
+}
+const sternzeit = () => S.gestaltung === 'sternzeit';
+const SZ_ANSICHTEN = ['start', 'aufgabe', 'wahl', 'logbuch', 'archiv', 'uebungszeit', 'bildschirm', 'logbuchNeu'];
+const appName = () => S.ansichtName || 'Logbuch Sternzeit';
+const sternzeitJetzt = () => PH.sternzeitText(PH.sternzeit(new Date()));
+function szKopf() {
+  const n = appName();
+  const i = n.indexOf(' ');
+  const titel = i > 0 ? `${esc(n.slice(0, i))}<br>${esc(n.slice(i + 1))}` : esc(n);
+  return `<div class="sz-kopf"><div class="sz-ellbogen"></div><div class="sz-titelzeile"><div class="sz-titel">${titel}</div><div class="sz-zeit">Sternzeit<b>${sternzeitJetzt()}</b></div></div><div class="sz-leiste"><i></i><i></i><i></i></div></div>`;
 }
 let A = null;                // aktive Aufgabe
 let modalSchliessen = null;  // Callback beim Schließen
@@ -90,6 +106,13 @@ export async function starten() {
     BASIS_IDS = new Set(a.aufgaben.map(x => x.id));
     // Formelübersicht für die Kurz-Hinweise; fehlt sie, gibt es wie früher gleich den langen Hinweis
     FORMELN = await fetch('data/formeluebersicht.json').then(r => r.json()).catch(() => null);
+    // Logbuch und Wissensarchiv (Gestaltung Sternzeit); fehlen sie, bleiben die Bereiche leer
+    const [lb, wa] = await Promise.all([
+      fetch('data/logbuch.json').then(r => r.json()).catch(() => null),
+      fetch('data/wissensarchiv.json').then(r => r.json()).catch(() => null)
+    ]);
+    LOGBUCH = (lb && lb.eintraege) || [];
+    ARCHIV = (wa && wa.eintraege) || [];
   } catch (e) {
     $app.innerHTML = `<div class="screen"><div class="karte"><p>Die Aufgaben konnten nicht geladen werden. Schau, ob das Internet an ist, und öffne die App noch einmal.</p></div></div>`;
     return;
@@ -109,6 +132,7 @@ export async function starten() {
   document.addEventListener('visibilitychange', sichtbarkeit);
   document.addEventListener('keydown', taste);
   setInterval(spielTick, 1000);
+  setInterval(uebungTick, 5000);
   setInterval(() => { if (ansicht === 'start') zeigeStart(); }, 30000);
   // Einrichtungs-Link aus dem QR-Code (Kamera-App) geöffnet?
   const ausLinkRoh = einrichtungLesen(location.hash);
@@ -301,7 +325,9 @@ function standDaten() {
     einstellungen, guthaben: S.guthaben, spiel: { punkte: S.spiel.punkte, rekord: S.spiel.rekord, maxKachel: S.spiel.maxKachel },
     genStufen: S.genStufen, spielzeit: R(), splitter: splitterKurz(), paket: S.paket, gewichte: gewichte(), fern: S.fern,
     pakete: pakete() ? S.pakete.map(p => ({ id: p.id, name: p.paket.name, rolle: p.rolle, anteil: p.anteil, ...(p.paket.etappen ? { etappe: p.etappe, etappen: p.paket.etappen.length, ...(p.naechste ? { naechste: p.naechste } : {}) } : {}) })) : null,
-    etappeAnzeigen: !!S.etappeAnzeigen, statistik: S.statistik, zusammenfassung7Tage: zusammenfassung(7), letzterExport: S.letzterExport
+    etappeAnzeigen: !!S.etappeAnzeigen, gestaltung: S.gestaltung || 'schrein',
+    ...(S.wissen ? { wissen: { stand: SZ.wissenVon(S.wissen).stand, archiv: SZ.archivVon(S.archiv).gekauft } } : {}),
+    ...(UZ().an ? { uebung: uzKonto() } : {}), statistik: S.statistik, zusammenfassung7Tage: zusammenfassung(7), letzterExport: S.letzterExport
   };
 }
 
@@ -681,6 +707,14 @@ function zeigeErfolge() {
   </div>`;
 }
 
+function testLeisteHtml() {
+  return `<button class="test-leiste" data-act="personaWahl">
+      <span class="test-leiste-marke">Testgerät</span>
+      <span class="test-leiste-text">Testen als <b>${testAls() ? esc(ordnerName(testAls())) : 'eigene Einstellungen'}</b>${testFokus() ? `<span class="fokus-an">Gezielt testen AN: ${esc(THEMA_NAMEN[testFokus().thema])} · Stufe ${testFokus().stufe}</span>` : paketKurz() ? `<span class="klein">${esc(paketKurz())}</span>` : ''}</span>
+      <span class="test-leiste-pfeil">Ändern ›</span>
+    </button>`;
+}
+
 function zeigeStart() {
   if (!S.einstellungen.name) return zeigeAnmeldung();
   setzeAnsicht('start');
@@ -696,6 +730,8 @@ function zeigeStart() {
   const bz = BZ().an ? bzKonto() : null;
   // „Du übst gerade: Zylinder · Etappe 2 von 4“ (nur wenn in der Eltern-App eingeschaltet)
   const einheit = S.etappeAnzeigen && pakete() ? S.pakete.find(p => p.rolle === 'einheit' && p.paket.etappen && p.etappe > 0) : null;
+  logbuchAktualisieren();
+  if (sternzeit()) return zeigeStartSternzeit({ bz, slot, serieAktiv });
   $app.innerHTML = `
   <div class="screen start">
     <header class="start-kopf">
@@ -703,12 +739,7 @@ function zeigeStart() {
       <div><h1>Schrein der Zahlen</h1><p class="gedaempft">Hallo${name}!</p></div>
     </header>
 
-    ${S.upload.testgeraet ? `
-    <button class="test-leiste" data-act="personaWahl">
-      <span class="test-leiste-marke">Testgerät</span>
-      <span class="test-leiste-text">Testen als <b>${testAls() ? esc(ordnerName(testAls())) : 'eigene Einstellungen'}</b>${testFokus() ? `<span class="fokus-an">Gezielt testen AN: ${esc(THEMA_NAMEN[testFokus().thema])} · Stufe ${testFokus().stufe}</span>` : paketKurz() ? `<span class="klein">${esc(paketKurz())}</span>` : ''}</span>
-      <span class="test-leiste-pfeil">Ändern ›</span>
-    </button>` : ''}
+    ${S.upload.testgeraet ? testLeisteHtml() : ''}
     <section class="guthaben-karte">
       ${zeitSymbol(44)}
       <div><div class="guthaben-zahl">${L.formatZeit(S.guthaben)}</div><div class="gedaempft">Spielzeit</div></div>
@@ -730,7 +761,9 @@ function zeigeStart() {
     </section>` : ''}
 
     ${einheit ? `<p class="etappe-zeile">Du übst gerade: <b>${esc(einheit.paket.name)}</b> · Etappe ${einheit.etappe} von ${einheit.paket.etappen.length}</p>` : ''}
-    <button class="btn btn-haupt btn-gross" data-act="aufgaben">${S.wartet ? 'Weiter mit deiner Aufgabe' : 'Aufgaben machen'}</button>
+    ${uzGesperrt() ? `<section class="info-karte"><b>Für heute hast du dein Pensum erreicht.</b><div class="gedaempft">Die Spiele sind weiter offen.</div></section>
+    <button class="btn btn-haupt btn-gross" data-act="uebungszeit">Eltern fragen</button>`
+      : `<button class="btn btn-haupt btn-gross" data-act="aufgaben">${S.wartet ? 'Weiter mit deiner Aufgabe' : 'Aufgaben machen'}</button>`}
     ${spieleStartHtml()}
 
     <section class="info-karte">
@@ -746,6 +779,242 @@ function zeigeStart() {
       </div>
       <p class="gedaempft klein">Pro richtige Aufgabe. Je mehr am Stück, desto mehr Zeit. Die Serie endet, wenn du spielst oder 20 Minuten Pause machst.</p>
     </section>
+    <p class="version-zeile">Version ${APP_VERSION}</p>
+    ${hatSpeicherFehler() ? '<p class="warnung">Der Speicher ist voll oder gesperrt. Bitte einem Erwachsenen Bescheid geben.</p>' : ''}
+  </div>`;
+  langDruecken(document.getElementById('logo'), elternZugang);
+}
+
+
+// ============ Logbuch Sternzeit: Logbuch, Wissensarchiv, Wissenspunkte (Auftrag 13) ============
+const lbStand = () => (S.logbuch = SZ.logbuchVon(S.logbuch));
+function logbuchAktualisieren() {
+  if (!sternzeit() || !pakete()) return [];
+  const st = lbStand();
+  const neu = SZ.freischalten(st, S.pakete, LOGBUCH, L.tagKey(), PH.sternzeit(new Date()));
+  for (const id of neu) protokoll(S, 'logbuch_frei', { id, ...st.frei[id] });
+  if (neu.length) sichern();
+  return neu;
+}
+const ungelesen = () => (sternzeit() && pakete() ? SZ.ungelesen(lbStand()) : []);
+const lbSternzeit = (id) => { const f = lbStand().frei[id]; return f && typeof f.sternzeit === 'number' ? PH.sternzeitText(f.sternzeit) : sternzeitJetzt(); };
+const paketName = (id) => { const p = (pakete() || []).find(x => x.id === id); return p ? p.paket.name : id; };
+
+function eintragHtml(lb) {
+  const f = lbStand().frei[lb.id] || {};
+  const szt = lbSternzeit(lb.id);
+  return `<div class="sz-panel sz-eintrag">
+    <div class="sz-label">${esc(paketName(f.paket))} · Etappe ${f.etappe || lb.etappe} · Sternzeit ${szt}</div>
+    <h3>${esc(lb.titel)}</h3>
+    ${lb.absaetze.map(t => `<p>${mathe(SZ.mitSternzeit(t, szt))}</p>`).join('')}
+    ${(lb.merke || []).length ? `<div class="sz-merke"><div class="sz-label">Merke</div>${lb.merke.map(m => `<div>${mathe(m)}</div>`).join('')}</div>` : ''}
+  </div>`;
+}
+
+// Neu freigeschalteter Eintrag vor der ersten Aufgabe einer neuen Etappe
+function zeigeLogbuchNeu() {
+  const offen = ungelesen();
+  const id = offen[0];
+  const lb = LOGBUCH.find(x => x.id === id);
+  if (!lb) return false;
+  setzeAnsicht('logbuchNeu');
+  $app.innerHTML = `
+  <div class="screen sz-screen">
+    ${szKopf()}
+    <p class="sz-liste-kopf">✦ Neuer Logbuch-Eintrag</p>
+    ${eintragHtml(lb)}
+    <button class="sz-knopf" data-act="logbuchGelesen" data-id="${esc(id)}">${offen.length > 1 ? 'Weiter: nächster Eintrag' : 'Los geht’s: Aufgaben'} <small>▶</small></button>
+    <button class="sz-knopf matt klein" data-act="start">Zum Start</button>
+  </div>`;
+  return true;
+}
+
+function zeigeLogbuch(oeffnen = null) {
+  setzeAnsicht('logbuch');
+  logbuchAktualisieren();
+  const liste = SZ.logbuchListe(S.pakete, LOGBUCH, lbStand());
+  const frei = Object.keys(lbStand().frei);
+  const offen = oeffnen || frei[frei.length - 1] || null;
+  // Aufgeklappter Eintrag gilt als gelesen
+  if (offen && !lbStand().gelesen.includes(offen)) { S.logbuch.gelesen.push(offen); protokoll(S, 'logbuch_gelesen', { id: offen, im: 'logbuch' }); sichern(); }
+  const bloecke = liste.map(p => `
+    <div class="sz-liste-kopf">${esc(p.name)}</div>
+    ${p.etappen.map(e => {
+      if (e.eintrag && e.eintrag.id === offen) return eintragHtml(e.eintrag);
+      if (e.eintrag) return `<button class="sz-zeile-knopf" data-act="logbuchEintrag" data-id="${esc(e.eintrag.id)}"><span>${esc(e.eintrag.titel)}</span><span class="sz-matt">Etappe ${e.nr}</span></button>`;
+      return `<div class="sz-zeile-knopf zu"><span>${mathe(e.name)}</span><span class="sz-matt">${e.bald ? 'kommt bald' : `Etappe ${e.nr}`}</span></div>`;
+    }).join('')}`).join('');
+  $app.innerHTML = `
+  <div class="screen sz-screen">
+    ${szKopf()}
+    <div class="sz-reiter"><button class="an" data-act="logbuch">Logbuch</button><button data-act="archiv">Archiv</button></div>
+    ${liste.length ? bloecke : '<p class="sz-matt">Noch keine Einträge.</p>'}
+    <button class="sz-knopf" data-act="aufgaben">Aufgaben machen <small>▶</small></button>
+    <button class="sz-knopf matt klein" data-act="start">Zum Start</button>
+  </div>`;
+}
+
+const sprache = (s) => (s === 'en' ? 'Englisch' : 'Deutsch');
+function zeigeArchiv(meldung = '') {
+  setzeAnsicht('archiv');
+  const w = SZ.wissenVon(S.wissen);
+  const ar = SZ.archivVon(S.archiv);
+  const sichtbar = ARCHIV.filter(e => SZ.archivSichtbar(e, S.pakete));
+  const verborgen = ARCHIV.length - sichtbar.length;
+  const karte = (e) => {
+    const meta = `<div class="meta">${esc(e.art)} · ${sprache(e.sprache)} · ${esc(e.quelle)}</div>`;
+    if (ar.gekauft.includes(e.id)) {
+      return `<div class="sz-archiv">${meta}<b>${esc(e.titel)}</b><div class="sz-archiv-text">${mathe(e.text)}</div>
+        <a class="sz-knopf blau klein" href="${esc(e.url)}" target="_blank" rel="noopener noreferrer" data-act="archivOeffnen" data-id="${esc(e.id)}">Öffnen ↗</a></div>`;
+    }
+    const genug = w.stand >= e.kosten;
+    return `<div class="sz-archiv zu">${meta}<b>${esc(e.titel)}</b>
+      <button class="sz-knopf klein${genug ? '' : ' matt'}" data-act="archivKaufen" data-id="${esc(e.id)}" ${genug ? '' : 'disabled'}>Freischalten · ${e.kosten} WP</button></div>`;
+  };
+  $app.innerHTML = `
+  <div class="screen sz-screen">
+    ${szKopf()}
+    <div class="sz-reiter"><button data-act="logbuch">Logbuch</button><button class="an" data-act="archiv">Archiv</button></div>
+    <div class="sz-zeile-wp"><span class="sz-label">Deine Wissenspunkte</span><span class="sz-punkte">◆ ${w.stand} WP</span></div>
+    ${meldung ? `<div class="sz-hinweisbox">${meldung}</div>` : ''}
+    ${sichtbar.map(karte).join('') || '<p class="sz-matt">Noch keine Einträge.</p>'}
+    ${verborgen > 0 ? `<div class="sz-archiv zu verborgen"><div class="meta">Noch verborgen</div><b>${verborgen} weitere ${verborgen === 1 ? 'Eintrag' : 'Einträge'}</b><span class="sz-matt">erscheinen mit den nächsten Etappen</span></div>` : ''}
+    <p class="sz-matt klein">Wissenspunkte gibt es für gelöste Aufgaben. Beim Knobeln ohne Schritte gibt es mehr.</p>
+    <button class="sz-knopf matt klein" data-act="start">Zum Start</button>
+  </div>`;
+}
+
+function archivKaufen(id) {
+  const e = ARCHIV.find(x => x.id === id);
+  if (!e) return;
+  oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Freischalten?</h2>
+    <p><b>${esc(e.titel)}</b></p><p>Das kostet ${e.kosten} Wissenspunkte.</p>
+    <div class="knopf-reihe"><button class="btn btn-haupt" data-act="archivKaufenJa" data-id="${esc(id)}">Freischalten</button><button class="btn" data-act="modalZu">Später</button></div></div>`);
+}
+function archivKaufenJa(id) {
+  const e = ARCHIV.find(x => x.id === id);
+  schliesseModal();
+  const w = SZ.wissenVon(S.wissen), ar = SZ.archivVon(S.archiv);
+  if (!e || !SZ.kaufen(w, ar, e)) return zeigeArchiv();
+  S.wissen = w; S.archiv = ar;
+  protokoll(S, 'archiv_frei', { id, kosten: e.kosten, stand: w.stand });
+  sichern(); standHochladen(true);
+  zeigeArchiv(`<b>Freigeschaltet:</b> ${esc(e.titel)}`);
+}
+
+// ============ Übungszeit pro Tag ============
+const UZ = () => BS.uzRegeln(S.uzRegeln);
+const uzKonto = () => (S.uebung = BS.uzKontoVon(S.uebung, L.tagKey()));
+const uzGesperrt = () => UZ().an && BS.uzStatus(uzKonto(), S.uzRegeln) !== 'frei';
+let uzZuletzt = Date.now();
+function uebungTick() {
+  const jetzt = Date.now();
+  const d = Math.max(0, Math.min(10, Math.round((jetzt - uzZuletzt) / 1000)));
+  uzZuletzt = jetzt;
+  if (!UZ().an || ansicht !== 'aufgabe' || document.hidden || !A || A.test) return;
+  const k = uzKonto();
+  const vorher = BS.uzStatus(k, S.uzRegeln);
+  k.sek += d;
+  const g = BS.uzGrenzen(S.uzRegeln, k.tag);
+  const nachher = BS.uzStatus(k, S.uzRegeln);
+  if (nachher !== 'frei' && !(k.hinweis >= g.hinweis)) {
+    k.hinweis = g.hinweis;
+    protokoll(S, 'uebungszeit_hinweis', { sek: k.sek, max: g.hinweis });
+    sichern();
+    if (!A.fertig) { A.uzHinweis = true; zeigeAufgabe(); }
+    else zeigeAufgabe();
+  }
+  if (nachher === 'schluss' && vorher !== 'schluss') {
+    protokoll(S, 'uebungszeit_schluss', { sek: k.sek });
+    // Laufende Aufgabe wartet bis morgen (zählt nicht als Abbruch für die Serie)
+    if (!A.fertig) {
+      protokoll(S, 'aufgabe_abgebrochen', { id: A.aufgabe.id, teil: A.idx, ms: Date.now() - A.start, ohneEingabe: A.teile.every(t => !t.versuche.length), thema: A.aufgabe.thema, wartet: !A.aufgabe.bonus, grund: 'uebungszeit' });
+      if (!A.aufgabe.bonus) S.wartet = aufgabeSchnappschuss();
+      S.laufend = null; A = null;
+    }
+    sichern();
+    zeigeUebungszeit();
+    return;
+  }
+  if (k.sek % 30 < d) sichern();
+}
+
+let uzBildDatei = null, uzGeschickt = false;
+function zeigeUebungszeit() {
+  setzeAnsicht('uebungszeit');
+  const k = uzKonto();
+  if (!k.code) { k.code = BS.neuerCode(); sichern(); }
+  uzBildDatei = null;
+  if (sternzeit()) uebungszeitBild({ sekunden: k.sek, code: k.code, name: S.einstellungen.name || '', sternzeit: sternzeitJetzt(), titel: appName() }).then(f => { uzBildDatei = f; });
+  const schluss = BS.uzStatus(k, S.uzRegeln) === 'schluss';
+  const kopf = sternzeit() ? szKopf() : '<header class="topbar"><button class="btn-text" data-act="start">‹ Zum Start</button></header>';
+  $app.innerHTML = `
+  <div class="screen sz-screen uz-screen">
+    ${kopf}
+    <div class="uz-panel">
+      <div class="uz-stern" aria-hidden="true">✦</div>
+      <div class="uz-titel">${schluss ? 'Für heute ist Schluss mit Üben.' : 'Für heute hast du dein Pensum erreicht.'}</div>
+      <p class="uz-text">Du hast heute ${Math.floor(k.sek / 60)} Min. geübt. Das ist stark.<br>${sternzeit() ? 'Logbuch, Archiv und Spiele sind weiter offen.' : 'Die Spiele sind weiter offen.'}</p>
+      ${uzGeschickt || k.gefragt ? '<p class="uz-text"><b>Deine Eltern sind gefragt.</b><br>Wenn sie mehr Übungszeit geben, geht es hier weiter.</p>' : '<p class="uz-text">Möchtest du noch weiter? Frag deine Eltern.</p>'}
+    </div>
+    <button class="sz-knopf uz-knopf" data-act="uzTeilen">${k.gefragt ? 'Noch einmal fragen' : 'Eltern fragen'}</button>
+    <p class="uz-code">Dein Code: <b>${esc(k.code.split('').join(' '))}</b></p>
+    <p class="meldung-bz" id="uz-meldung" hidden></p>
+    ${sternzeit() ? '<div class="sz-zeile"><button class="sz-knopf flieder klein" data-act="logbuch">Logbuch</button><button class="sz-knopf blau klein" data-act="archiv">Archiv</button></div>' : ''}
+    <button class="sz-knopf matt klein" data-act="start">Zum Start</button>
+  </div>`;
+}
+
+async function uzTeilen() {
+  const k = uzKonto();
+  const text = BS.uzNachricht(S.einstellungen.name, k, k.code);
+  let geteilt = false, mitBild = false;
+  if (navigator.share) {
+    mitBild = !!(uzBildDatei && navigator.canShare && navigator.canShare({ files: [uzBildDatei], text }));
+    try { await navigator.share(mitBild ? { files: [uzBildDatei], text } : { text }); geteilt = true; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  if (!geteilt) {
+    try { await navigator.clipboard.writeText(text); } catch (e) { /* egal */ }
+    const m = document.getElementById('uz-meldung');
+    if (m && m.hidden) { m.hidden = false; m.textContent = 'Der Text ist kopiert. Füge ihn in deine Nachricht ein. Dann tippe noch einmal auf „Eltern fragen“.'; return; }
+  }
+  k.gefragt = new Date().toISOString();
+  protokoll(S, 'uebungszeit_anfrage', { code: k.code, sek: k.sek, bild: !!mitBild });
+  sichern();
+  syncen(true);
+  uzGeschickt = true;
+  zeigeUebungszeit();
+}
+
+// Startbildschirm in der Gestaltung Sternzeit
+function zeigeStartSternzeit({ bz, slot, serieAktiv }) {
+  const nm = S.einstellungen.name ? esc(S.einstellungen.name) : '';
+  const etappen = S.etappeAnzeigen && pakete() ? S.pakete.filter(p => p.paket.etappen && p.etappe > 0) : [];
+  const w = SZ.wissenVon(S.wissen);
+  const sp = SP.splitterVon(S.splitter);
+  const gesperrt = uzGesperrt();
+  const neu = ungelesen().length;
+  $app.innerHTML = `
+  <div class="screen sz-screen start">
+    <div class="logo sz-logo-flaeche" id="logo">${szKopf()}</div>
+    <p class="sz-gruss">Willkommen an Bord${nm ? `, <b>${nm}</b>` : ''}.</p>
+    ${S.upload.testgeraet ? testLeisteHtml() : ''}
+    ${etappen.map(p => `<div class="sz-etappe">◆ ${esc(p.paket.name)} · <b>Etappe ${p.etappe} von ${p.paket.etappen.length}</b></div>`).join('')}
+    <div class="sz-zeile">
+      <div class="sz-panel blau"><div class="sz-label">Spielzeit</div><div class="sz-wert">${L.formatZeit(S.guthaben)}</div></div>
+      <div class="sz-panel gelb"><div class="sz-label">Wissenspunkte</div><div class="sz-wert gelb">${w.stand}</div></div>
+    </div>
+    ${bz && bz.stand > 0 ? `<div class="sz-panel blau sz-bz"><div><div class="sz-label">Bildschirmzeit gesammelt</div><div class="sz-wert">${BS.minText(bz.stand)}</div></div>${BS.kannAbschicken(bz, BZ()) ? '<button class="sz-knopf blau klein" data-act="bzSeite">Abschicken</button>' : `<span class="sz-matt klein">${abText(bz)}</span>`}</div>` : ''}
+    ${slot ? `<div class="sz-panel orange sz-bz"><div><b>${minText(R().basisMin)} Spielzeit sind da!</b></div><button class="sz-knopf klein" data-act="basis">Abholen</button></div>` : ''}
+    ${gesperrt ? `<div class="sz-panel orange"><b class="sz-pfirsich">Für heute hast du dein Pensum erreicht.</b><div class="sz-matt">Logbuch, Archiv und Spiele sind weiter offen.</div></div>
+    <button class="sz-knopf" data-act="uebungszeit">Eltern fragen <small>▶</small></button>`
+      : `<button class="sz-knopf" data-act="aufgaben">${S.wartet ? 'Weiter mit deiner Aufgabe' : 'Aufgaben machen'} <small>▶</small></button>`}
+    <div class="sz-zeile"><button class="sz-knopf flieder klein" data-act="logbuch">Logbuch${neu ? ` · ${neu} neu` : ''}</button><button class="sz-knopf blau klein" data-act="archiv">Archiv</button></div>
+    <button class="sz-knopf matt klein" data-act="spielauswahl">Spiele <small>${sp.stand} Runensplitter</small></button>
+    <div class="sz-panel"><div class="sz-label">Heute</div>
+      <div>${S.tag.aufgaben} ${S.tag.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'} · ${S.tag.ersterVersuch} im 1. Versuch${serieAktiv ? ` · Serie ${S.serie.pos}` : ''}</div>
+      <div class="sz-matt klein">Spielzeit verdient: ${L.formatMinuten(S.tag.verdient)} von ${BS.minText(BS.szGrenzeSek(S.szRegeln, S.tag.key))}${UZ().an ? ` · Übungszeit: ${Math.floor(uzKonto().sek / 60)} Min.` : ''}</div></div>
     <p class="version-zeile">Version ${APP_VERSION}</p>
     ${hatSpeicherFehler() ? '<p class="warnung">Der Speicher ist voll oder gesperrt. Bitte einem Erwachsenen Bescheid geben.</p>' : ''}
   </div>`;
@@ -858,14 +1127,43 @@ function langDruecken(el, fn) {
 
 // ============ Aufgaben ============
 
+function merkTeile(a) {
+  return (a.gegeben || []).map(g => ({ art: 'zahl', merk: true, label: `${g.name} =`, ziel: { wert: g.wert }, einheit: g.einheit || '' }));
+}
 function teileVon(a) {
-  const merk = (a.gegeben || []).map(g => ({ art: 'zahl', merk: true, label: `${g.name} =`, ziel: { wert: g.wert }, einheit: g.einheit || '' }));
-  return [...merk, ...hauptTeile(a)];
+  // Knobeln: zuerst nur ein Ergebnisfeld, „In Schritten rechnen“ blendet die Schritte ein
+  if (a.modus === 'knobeln') return [ergebnisTeil(a, true)];
+  return [...merkTeile(a), ...hauptTeile(a)];
+}
+const physik = (a) => L.fachVon(a) === 'physik';
+// Ergebnisfeld einer Aufgabe (Knobeln und letztes Feld nach den Schritten)
+function ergebnisTeil(a, knobel = false) {
+  const w = a.antwort || {};
+  const letzte = (a.schritte || [])[a.schritte ? a.schritte.length - 1 : 0];
+  if (a.typ === 'zehnerpotenz' || typeof w.mantisse === 'number') return { art: 'zp', antwort: w, einheit: w.einheit || '', knobel };
+  const label = letzte && typeof letzte.wert === 'number' && L.gleich(letzte.wert, w.wert) ? letzte.text : null;
+  return { art: 'zahl', label, ziel: { wert: w.wert, gueltige: w.gueltige_ziffern || undefined }, einheit: w.einheit || '', knobel, quelle: knobel ? null : letzte };
+}
+// Teile mit Schritten (nach „In Schritten rechnen“): Merkzettel, Schritte und, wenn nötig, das Ergebnisfeld
+function schritteTeile(a) {
+  const st = schritteVon(a.schritte || []);
+  const w = a.antwort || {};
+  const ziel = typeof w.mantisse === 'number' ? w.mantisse * 10 ** w.exponent : w.wert;
+  const letzte = (a.schritte || [])[(a.schritte || []).length - 1];
+  const fertig = a.typ !== 'zehnerpotenz' && !!(letzte && typeof letzte.wert === 'number' && typeof ziel === 'number' && Math.abs(letzte.wert - ziel) <= 1e-9 * Math.max(1, Math.abs(ziel)));
+  return [...merkTeile(a), ...st, ...(fertig ? [] : [ergebnisTeil(a)])];
+}
+function schritteVon(liste) {
+  return liste.map(s => s.karten
+    ? { art: 'legen', label: s.text, karten: s.karten, wahl: s.karten.map(() => null), quelle: s }
+    : s.optionen
+    ? { art: 'wahl', label: s.text, optionen: s.optionen, richtig: s.richtig, quelle: s, formel: s.optionen.every(o => /=/.test(o)) }
+    : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden, gueltige: s.gueltige_ziffern || undefined }, einheit: s.einheit || '', quelle: s });
 }
 
 function hauptTeile(a) {
   switch (a.typ) {
-    case 'zahl': return [{ art: 'zahl', ziel: { wert: a.antwort.wert }, einheit: a.antwort.einheit || '' }];
+    case 'zahl': return [{ art: 'zahl', ziel: { wert: a.antwort.wert, gueltige: a.antwort.gueltige_ziffern || undefined }, einheit: a.antwort.einheit || '' }];
     case 'bruch': return [{ art: 'bruch', antwort: a.antwort }];
     case 'auswahl': {
       const werte = a.optionen.map(L.potenzWert);
@@ -875,11 +1173,13 @@ function hauptTeile(a) {
       teile.push({ art: 'wahl', label: a.frage, optionen: a.optionen, richtig: a.antwort.richtig });
       return teile;
     }
-    case 'schritte': return a.schritte.map(s => s.karten
-      ? { art: 'legen', label: s.text, karten: s.karten, wahl: s.karten.map(() => null), quelle: s }
-      : s.optionen
-      ? { art: 'wahl', label: s.text, optionen: s.optionen, richtig: s.richtig, quelle: s }
-      : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden }, einheit: s.einheit || '', quelle: s });
+    case 'schritte': return schritteVon(a.schritte);
+    case 'zehnerpotenz': return [{ art: 'zp', antwort: a.antwort, einheit: a.antwort.einheit || '' }];
+    case 'formel': {
+      const w = a.antwort;
+      if (a.eingabe === 'auswahl') return [{ art: 'wahl', label: a.frage, optionen: a.optionen, richtig: w.richtig, formel: true }];
+      return [{ art: 'formel', fmodus: a.eingabe, antwort: w, karten: a.karten || null }];
+    }
     case 'mehrfrage': return a.fragen.map(q => ({ art: 'zahl', label: q.frage, ziel: { wert: q.wert }, einheit: q.einheit || '', bonus: !!q.bonus, quelle: q, rechnung: /\s=$/.test(q.frage) ? q.frage.replace(/\s=$/, '') : undefined }));
     case 'zuordnung': return [{ art: 'zuordnung' }];
   }
@@ -889,7 +1189,7 @@ function hauptTeile(a) {
 const MUSTER = ['leicht', 'thema', 'thema', 'text', 'mix', 'thema', 'struktur', 'mix', 'thema', 'abschluss'];
 const wahl = arr => arr[Math.floor(Math.random() * arr.length)];
 // Stufe eines Baukastens, höchstens bis zur Grenze der aktuellen Etappe
-const stufeGrenze = g => grenzen().stufeMax[LP.GEN_THEMA[g]] || 3;
+const stufeGrenze = g => LP.baukastenGrenze(g, grenzen()).stufeMax;
 const genStufe = g => Math.min((S.genStufen[g] || { stufe: 1 }).stufe, stufeGrenze(g));
 
 function fokusOptionen() {
@@ -900,7 +1200,7 @@ function fokusOptionen() {
 function erzeuge(g, stufe, opts = {}) {
   const letzte = S.verlauf.letzteIds.slice(-15);
   // Etappe ohne „Was ist gesucht?“ (Zylinder, Etappe 3)
-  if ((grenzen().ohne[LP.GEN_THEMA[g]] || []).includes('auswahl')) opts = { ...opts, ohneAuswahl: true };
+  if (LP.baukastenGrenze(g, grenzen()).ohne.includes('auswahl')) opts = { ...opts, ohneAuswahl: true };
   let a;
   for (let i = 0; i < 8; i++) {
     a = G.GENERATOREN[g](stufe, Math.random, opts);
@@ -917,7 +1217,7 @@ const pakete = () => (Array.isArray(S.pakete) && S.pakete.length ? S.pakete : nu
 let grenzenCache = null;
 function grenzen() {
   const pk = pakete();
-  if (!pk) return { stufeMax: {}, ohne: {}, pool: {}, gesperrt: new Set() };
+  if (!pk) return { stufeMax: {}, ohne: {}, pool: {}, gesperrt: new Set(), genGesperrt: new Set() };
   const schluessel = JSON.stringify(pk.map(p => [p.id, p.etappe])) + alleAufgaben().length;
   if (grenzenCache && grenzenCache.k === schluessel) return grenzenCache.g;
   const themen = new Map(alleAufgaben().map(a => [a.id, a.thema]));
@@ -931,15 +1231,21 @@ function etappenAktualisieren() {
   if (!pakete()) return;
   for (const w of LP.naechsteAnwenden(S.pakete, L.tagKey())) protokoll(S, 'etappe_neu', w);
 }
-// Lerneinheit mit „weiter: automatisch“: sitzt die Etappe (8 von 10 im 1. Versuch, ohne Hilfen), kommt am nächsten Tag die nächste
+// Lerneinheit mit „weiter: automatisch“: Sitzt die Etappe (8 von 10 im 1. Versuch, ohne „Hilf mir“ und „Mehr Hilfe“),
+// öffnet sich die nächste sofort (wenn sie schon offen ist, also nicht „kommt bald“). Gibt die neue Etappe zurück.
 function etappeAutomatisch() {
   const p = (pakete() || []).find(x => x.id === A.paket);
-  if (!p || !p.paket.etappen || p.paket.weiter !== 'automatisch' || p.naechste || A.etappe !== p.etappe || p.etappe >= p.paket.etappen.length) return;
+  if (!p || !p.paket.etappen || p.paket.weiter !== 'automatisch' || A.test || A.etappe !== p.etappe || p.etappe >= p.paket.etappen.length) return null;
   const letzte = S.log.filter(e => e.typ === 'aufgabe_ende' && e.paket === p.id && e.etappe === p.etappe).slice(-10).map(e => ({ ende: e }));
-  if (!LP.etappeSitzt(letzte).sitzt) return;
-  const d = new Date(); d.setDate(d.getDate() + 1);
-  p.naechste = { etappe: p.etappe + 1, ab: L.tagKey(d) };
-  protokoll(S, 'etappe_vorschlag', { paket: p.id, nach: p.etappe + 1, ab: p.naechste.ab });
+  if (!LP.etappeSitzt(letzte).sitzt) return null;
+  if (!LP.etappeOffen(p.paket, p.etappe + 1, LOGBUCH)) return null;
+  const von = p.etappe;
+  p.etappe = von + 1;
+  delete p.naechste;
+  grenzenCache = null;
+  protokoll(S, 'etappe_neu', { paket: p.id, von, nach: p.etappe, grund: 'automatisch' });
+  logbuchAktualisieren();
+  return { paket: p.id, name: p.paket.name, nr: p.etappe, von, anzahl: p.paket.etappen.length, etappeName: p.paket.etappen[p.etappe - 1].name };
 }
 const paketInfo = (id) => { const p = (pakete() || []).find(x => x.id === id); return p ? { paket: p.id, ...(p.paket.etappen ? { etappe: p.etappe } : {}) } : {}; };
 // Aus welchem Paket stammt eine Aufgabe (für Wiederholungen und wartende Aufgaben): erstes aktives Paket mit diesem Thema
@@ -955,7 +1261,8 @@ function paketFuerThema(t) {
 const TEST_GEN = {
   'minus-zahlen': ['minus-plus', 'geld-geschichte'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'], 'bruch-bild': ['bruch-bild'],
   'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'rabatt': ['rabatt-geschichte'], 'neuer-preis': ['rabatt-geschichte'],
-  'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder']
+  'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder'],
+  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen']
 };
 const testFokus = () => (S.upload.testgeraet && S.testFokus && L.THEMEN.includes(S.testFokus.thema) ? S.testFokus : null);
 
@@ -990,7 +1297,13 @@ function einmaleinsBlock(stufe) {
   return b;
 }
 
+// Physik und Umstellen: Thema nur, wenn die Etappe dafür gerade Pool-Aufgaben oder einen Baukasten hat
+function themaVerfuegbar(t) {
+  if (P.KOPF_GEN[t].some(g => !LP.baukastenGrenze(g, grenzen()).gesperrt)) return true;
+  return alleAufgaben().some(a => a.thema === t && !a.bonus && erlaubt(a));
+}
 function kurzeAufgabe(g, fokus, { leicht = false } = {}) {
+  if (P.HALB_POOL.some(t => g[t] > 0 && !themaVerfuegbar(t))) g = Object.fromEntries(Object.entries(g).map(([t, w]) => [t, P.HALB_POOL.includes(t) && w > 0 && !themaVerfuegbar(t) ? 0 : w]));
   const thema = P.kopfThema(g, Math.random, S.verlauf.kopfZuletzt);
   if (!thema) return null;
   S.verlauf.kopfZuletzt = thema;
@@ -1000,6 +1313,8 @@ function kurzeAufgabe(g, fokus, { leicht = false } = {}) {
     if (!leicht) b.stufeZaehlt = true; // zählt für die Stufe des Baukastens (Einstieg nicht)
     return b;
   }
+  // Physik und Umstellen: etwa halb Pool (mit Geschichten), halb Baukasten; nur, was die Etappe erlaubt
+  if (P.HALB_POOL.includes(thema)) return halbPoolAufgabe(thema, fokus);
   if (leicht && P.BLOCK_GEN[thema] && Math.random() < 0.4) return G.block(P.BLOCK_GEN[thema], Math.random);
   if (!leicht && Math.random() < 0.15) {
     const p = L.waehleAufgabe(alleAufgaben().filter(erlaubt), { kategorie: 'thema', thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
@@ -1012,6 +1327,20 @@ function kurzeAufgabe(g, fokus, { leicht = false } = {}) {
   }
   const gen = wahl(P.KOPF_GEN[thema]);
   return erzeuge(gen, leicht ? 1 : genStufe(gen), fokus);
+}
+
+function halbPoolAufgabe(thema, fokus) {
+  const ausPool = () => {
+    const p = L.waehleAufgabe(alleAufgaben().filter(a => a.thema === thema && !a.bonus && erlaubt(a)), { kategorie: 'thema', thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
+    return p && p.thema === thema ? p : null;
+  };
+  const ausBaukasten = () => {
+    const gens = P.KOPF_GEN[thema].filter(g => !LP.baukastenGrenze(g, grenzen()).gesperrt);
+    if (!gens.length) return null;
+    const g = wahl(gens);
+    return erzeuge(g, genStufe(g), fokus);
+  };
+  return Math.random() < 0.5 ? ausPool() || ausBaukasten() : ausBaukasten() || ausPool();
 }
 
 function waehleAufgabe(kategorie) {
@@ -1159,6 +1488,11 @@ function wartendeAufgabe() {
 
 function neueAufgabe() {
   tagAktualisieren(S);
+  // Übungszeit für heute erreicht: keine neue Aufgabe
+  if (uzGesperrt()) return zeigeUebungszeit();
+  // Neue Etappe: zuerst der Logbuch-Eintrag
+  logbuchAktualisieren();
+  if (ungelesen().length && zeigeLogbuchNeu()) return;
   const alt = wartendeAufgabe();
   if (alt) {
     A = alt;
@@ -1191,7 +1525,8 @@ function neueAufgabe() {
   };
   // Geschichten Satz für Satz zeigen (weniger Text auf einmal)
   if (aufgabe.geschichte && L.saetzeVon(aufgabe.geschichte).length > 1) A.satz = 1;
-  A.teile.forEach(t => { t.versuche = []; t.status = 'offen'; t.eingabe = ''; t.z = ''; t.n = ''; t.seit = Date.now(); });
+  teileStarten(A.teile);
+  if (aufgabe.modus === 'knobeln') A.knobeln = true;
   if (aufgabe.typ === 'zuordnung') zuordnungVorbereiten();
   protokoll(S, 'aufgabe_start', startInfoVon(A));
   S.verlauf.letzteIds = [...S.verlauf.letzteIds, aufgabe.id].slice(-20);
@@ -1201,6 +1536,33 @@ function neueAufgabe() {
 }
 
 function aktuellerTeil() { return A && A.teile[A.idx]; }
+function teileStarten(teile) {
+  teile.forEach(t => { t.versuche = []; t.status = 'offen'; t.eingabe = ''; t.z = ''; t.n = ''; t.e = ''; t.tokens = []; t.gelegt = []; t.seit = Date.now(); });
+}
+
+// ---------- Knobeln: „In Schritten rechnen“ ----------
+function schritteAn(auto = false) {
+  if (!A || A.fertig || !A.knobeln) return;
+  const alt = A.teile[0];
+  A.knobeln = false;
+  A.schritteAn = true;
+  if (alt && alt.versuche.some(v => !v.richtig)) A.knobelFalsch = true;
+  A.teile = schritteTeile(A.aufgabe);
+  teileStarten(A.teile);
+  A.idx = 0; A.phase = 'eingabe'; A.feld = 'z';
+  A.meldung = auto ? 'Jetzt rechnest du in Schritten.' : null;
+  protokoll(S, 'schritte_an', { id: A.aufgabe.id, auto, versuche: alt ? alt.versuche.length : 0, ms: Date.now() - A.start });
+  sichern();
+  zeigeAufgabe();
+}
+
+// Formeln und Gleichungen mit echten Brüchen anzeigen (F_G mit tiefgestelltem G)
+const groesseHtml = (n) => (n === 'F_G' ? 'F<sub>G</sub>' : /^A_[GMO]$/.test(n) ? `A<sub>${n[2]}</sub>` : esc(n));
+function formelText(text) {
+  const h = PH.gleichungHtml(text, PH.variablenIn(text), esc, groesseHtml);
+  return h == null ? mathe(text) : h;
+}
+const rechnungHtml = (a) => (a.thema === 'umstellen' || a.typ === 'formel' ? formelText(a.rechnung) : mathe(a.rechnung));
 
 function zeigeAufgabe() {
   const a = A.aufgabe;
@@ -1209,8 +1571,10 @@ function zeigeAufgabe() {
   const icons = (a.hinweise || []).filter(id => HMAP[id]).map(id =>
     `<button class="hw-btn${A.meldung && A.phase === 'tipp' ? ' pulsieren' : ''}" data-act="hinweis" data-id="${id}" aria-label="Hinweis ${esc(HMAP[id].titel)}">${hinweisIcon(HMAP[id], 42)}</button>`).join('');
 
+  const wpMoeglich = sternzeit() && A.knobeln && !A.fertig && a.wissenspunkte ? a.wissenspunkte : null;
   $app.innerHTML = `
   <div class="screen aufgabe-screen">
+    ${sternzeit() ? szKopf() : ''}
     <header class="topbar">
       <button class="btn-text" data-act="beenden">✕ Fertig</button>
       <div class="serie-chip">Aufgabe ${A.serienPos} · <b>${istBild() ? String(min * BZ().faktor).replace('.', ',') : tz} Min.</b></div>
@@ -1218,15 +1582,20 @@ function zeigeAufgabe() {
     </header>
     <main class="aufgabe-inhalt">
       ${A.wartete && !A.fertig && A.teile.every(t => !t.versuche.length) ? '<p class="wartet-hinweis">Diese Aufgabe wartet noch auf dich.</p>' : ''}
+      ${A.uzHinweis && !A.fertig ? '<div class="uz-hinweis"><b>Für heute hast du dein Pensum erreicht.</b><br>Die laufende Aufgabe kannst du noch fertig machen.</div>' : ''}
       <article class="karte aufgabe${a.bonus ? ' bonus' : ''}">
         ${a.bonus ? `<div class="bonus-kopf"><span class="bonus-label">Bonus · freiwillig</span>${!A.fertig && A.teile.every(t => !t.versuche.length) ? '<button class="btn-text klein" data-act="ueberspringen">Überspringen</button>' : ''}</div>` : ''}
+        ${sternzeit() ? `<div class="sz-label">${physik(a) ? 'Physik' : 'Mathe'} · ${esc(THEMA_NAMEN[a.thema] || a.thema)}</div>` : ''}
         ${a.geschichte ? geschichteHtml(a) : ''}
-        ${a.rechnung ? `<div class="rechnung">${mathe(a.rechnung)}</div>` : ''}
+        ${a.rechnung ? `<div class="rechnung">${rechnungHtml(a)}</div>` : ''}
         ${a.bild ? `<div class="bild">${bildSvg(a.bild)}</div>` : ''}
-        ${liestNoch() ? '' : `${a.typ !== 'auswahl' ? `<p class="frage">${mathe(a.frage)}</p>` : ''}
-        <div class="teile">${teileHtml()}</div>`}
+        ${liestNoch() ? '' : `${!(a.typ === 'auswahl' || (a.typ === 'formel' && a.eingabe === 'auswahl')) ? `<p class="frage">${mathe(a.frage)}</p>` : ''}
+        ${A.knobeln && !A.fertig ? '<div class="knobel-zeile">✦ Knobel erst selbst.</div>' : ''}
+        <div class="teile">${teileHtml()}</div>
+        ${A.knobeln && !A.fertig && A.phase === 'eingabe' ? `<button class="btn knobel-schritte" data-act="schritteAn">In Schritten rechnen${wpMoeglich ? ` <small>· dann ${wpMoeglich.schritte} WP</small>` : ''}</button>` : ''}`}
         <div class="hw-leiste"><span class="gedaempft">Hinweis:</span>${icons}
-          ${a.taschenrechner && !A.fertig ? '<button class="btn btn-klein btn-rechner" data-act="rechner">Taschenrechner</button>' : ''}
+          ${wpMoeglich ? `<span class="sz-punkte wp-chip">◆ ${wpMoeglich.knobeln} WP</span>` : ''}
+          ${L.rechnerFrei(a) && !A.fertig ? '<button class="btn btn-klein btn-rechner" data-act="rechner">Taschenrechner</button>' : ''}
           ${hilfeKnopf()}
           ${rechnerAngeboten(a) && !A.fertig ? `<button class="btn btn-klein btn-rechner optional" data-act="rechnerOptional">${A.rechnerHalb || R().rechner >= 1 ? 'Taschenrechner' : R().rechner > 0 ? 'Taschenrechner · ½ Zeit' : 'Taschenrechner · keine Zeit'}</button>` : ''}
         </div>
@@ -1389,13 +1758,24 @@ function teileHtml() {
     let inhalt = '';
     if (t.art === 'zahl') {
       const label = t.label ? `<div class="teil-label">${nr}${bonus}<span>${mathe(t.label)}</span></div>` : '';
-      if (aktiv) {
+      if (aktiv && t.zp) {
+        inhalt = `${label}${zpEingabeHtml(t)}`;
+      } else if (aktiv) {
         inhalt = `${label}<div class="feld-zeile"><div class="feld aktiv-feld${t.eingabe ? '' : ' leer'}" aria-live="polite">${esc(t.eingabe.replace('-', '−')) || '?'}</div>${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}</div>`;
       } else {
         const ok = t.versuche.find(v => v.richtig);
-        const zeigen = ok ? `${ok.eingabe.replace('-', '−').replace('.', ',')}${t.einheit ? ' ' + t.einheit : ''}` : formatWert(t.ziel.wert, t.einheit);
+        const zeigen = ok ? `${eingabeText(ok.eingabe)}${t.einheit ? ' ' + t.einheit : ''}` : formatWert(t.ziel.wert, t.einheit);
         inhalt = `${label}<div class="feld-zeile">${erledigtWert(t, zeigen)}</div>`;
       }
+    } else if (t.art === 'zp') {
+      if (aktiv) inhalt = zpEingabeHtml(t);
+      else {
+        const ok = t.versuche.find(v => v.richtig);
+        const zeigen = ok ? eingabeText(ok.eingabe) : PH.potenzText(t.antwort.mantisse, t.antwort.exponent, t.antwort.gueltige_ziffern || null);
+        inhalt = `<div class="feld-zeile">${erledigtWert(t, zeigen + (t.einheit ? ' ' + t.einheit : ''))}</div>`;
+      }
+    } else if (t.art === 'formel') {
+      inhalt = formelTeilHtml(t, aktiv);
     } else if (t.art === 'bruch') {
       if (aktiv) {
         inhalt = `<div class="bruch-eingabe">
@@ -1410,7 +1790,7 @@ function teileHtml() {
       const knoepfe = t.optionen.map((o, k) => {
         let kl = 'wahl-btn';
         if (!aktiv) { if (k === t.richtig) kl += ' wahl-richtig'; else if (t.gewaehlt === k) kl += ' wahl-falsch'; }
-        return `<button class="${kl}" data-act="wahl" data-k="${k}" ${aktiv && A.phase === 'eingabe' ? '' : 'disabled'}>${mathe(o)}</button>`;
+        return `<button class="${kl}${t.formel ? ' formel-wahl' : ''}" data-act="wahl" data-k="${k}" ${aktiv && A.phase === 'eingabe' ? '' : 'disabled'}>${t.formel ? formelText(o) : mathe(o)}</button>`;
       }).join('');
       inhalt = `<div class="teil-label">${nr}<span><b>${mathe(t.label)}</b></span></div><div class="wahl-reihe">${knoepfe}</div>`;
     } else if (t.art === 'zuordnung') {
@@ -1433,10 +1813,50 @@ function teileHtml() {
   return (merk ? `<div class="merkzettel"><div class="merk-titel">Merkzettel</div><p class="merk-text">Schreib dir die Zahlen auf, die du brauchst.</p>${merk}</div>` : '') + rest;
 }
 
+// Eingabe „3.8e3“ (Zahl · 10ⁿ) als Text „3,8 · 10³“
+function eingabeText(e) {
+  const m = /^(-?[\d.]+)e(-?\d+)$/.exec(String(e));
+  if (m) return `${m[1].replace('-', '−').replace('.', ',')} · 10${PH.hoch(Number(m[2]))}`;
+  return String(e).replace('-', '−').replace('.', ',');
+}
+function zpEingabeHtml(t) {
+  const f = A.feld === 'e' ? 'e' : 'z';
+  return `<div class="zp-eingabe">
+    <button class="feld zp-zahl${f === 'z' ? ' aktiv-feld' : ''}${t.eingabe ? '' : ' leer'}" data-act="feld" data-feld="z">${esc(t.eingabe.replace('-', '−')) || '?'}</button>
+    <span class="zp-mal">· 10</span>
+    <button class="feld zp-hoch${f === 'e' ? ' aktiv-feld' : ''}${t.e ? '' : ' leer'}" data-act="feld" data-feld="e">${esc(t.e.replace('-', '−')) || '?'}</button>
+    ${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}
+  </div><p class="gedaempft klein">Tippe auf ein Feld: links die Zahl, oben die Hochzahl.</p>`;
+}
+// Formel legen (Kärtchen) oder frei tippen
+function formelTeilHtml(t, aktiv) {
+  const w = t.antwort;
+  if (!aktiv) {
+    const ok = t.versuche.find(v => v.richtig);
+    return `<div class="feld-zeile">${erledigtWert(t, formelText(ok ? ok.eingabe : `${w.ziel} = ${w.formel}`), true)}</div>`;
+  }
+  const text = formelEingabe(t);
+  const anzeige = text.trim() ? (PH.gleichungHtml(text, [...w.variablen, w.ziel], esc, groesseHtml) || esc(text)) : '';
+  if (t.fmodus === 'karten') {
+    const karten = t.karten.map((k, i) => `<button class="formel-karte${t.gelegt.includes(i) ? ' weg' : ''}" data-act="fKarte" data-i="${i}" ${t.gelegt.includes(i) || A.phase !== 'eingabe' ? 'disabled' : ''}>${groesseHtml(k)}</button>`).join('');
+    return `<div class="formel-feld${anzeige ? '' : ' leer'}">${anzeige || 'Lege die Kärtchen der Reihe nach.'}</div>
+      <div class="formel-karten">${karten}</div>`;
+  }
+  return `<div class="formel-feld">${groesseHtml(w.ziel)} = ${anzeige}<span class="formel-cursor">|</span></div>`;
+}
+// Text der Formel-Eingabe: Kärtchen „V = m : ρ“, frei nur die rechte Seite
+function formelEingabe(t) {
+  if (t.fmodus === 'karten') return t.gelegt.map(i => t.karten[i]).join(' ');
+  return t.tokens.join(' ');
+}
+
 function loesungText(t) {
+  if (t.art === 'zp') return esc(PH.potenzText(t.antwort.mantisse, t.antwort.exponent, t.antwort.gueltige_ziffern || null) + (t.einheit ? ' ' + t.einheit : ''));
+  if (t.art === 'formel') return formelText(`${t.antwort.ziel} = ${t.antwort.formel}`);
+  if (t.art === 'zahl' && t.ziel.gueltige) return esc(PH.potenzText(PH.zerlege(t.ziel.wert).m, PH.zerlege(t.ziel.wert).e, t.ziel.gueltige) + (t.einheit ? ' ' + t.einheit : '')) + ` <span class="klein">(≈ ${esc(formatWert(PH.aufZiffern(t.ziel.wert, t.ziel.gueltige), t.einheit))})</span>`;
   if (t.art === 'zahl') return esc(formatWert(t.ziel.wert, t.einheit));
   if (t.art === 'bruch') return bruchHtml(t.antwort.zaehler, t.antwort.nenner);
-  if (t.art === 'wahl') return mathe(t.optionen[t.richtig]);
+  if (t.art === 'wahl') return t.formel ? formelText(t.optionen[t.richtig]) : mathe(t.optionen[t.richtig]);
   if (t.art === 'legen') return mathe(t.karten.map(k => k.optionen[k.richtig]).join(' '));
   return 'siehe unten';
 }
@@ -1450,6 +1870,9 @@ function erledigtWert(t, wertHtml, roh = false) {
 
 function fussHtml() {
   if (A.fertig) {
+    if (uzGesperrt()) {
+      return `<div class="fuss-knoepfe"><p class="uz-fuss">Für heute hast du dein Pensum erreicht.</p><button class="btn btn-haupt btn-gross" data-act="uebungszeit">Für heute fertig</button></div>`;
+    }
     return `<div class="fuss-knoepfe">
       ${A.sz && A.sz.voll && BZ().an && BS.restSek(bzKonto(), BZ()) > 0 ? '<button class="btn btn-bz btn-gross" data-act="zweckBild">Weiter für Bildschirmzeit üben</button>' : '<button class="btn btn-haupt btn-gross" data-act="naechste">Nächste Aufgabe</button>'}
       ${A.bild ? (BS.kannAbschicken(bzKonto(), BZ()) ? `<button class="btn btn-bz-rand" data-act="bzSeite">${BS.minText(bzKonto().stand)} abschicken</button>` : '')
@@ -1463,12 +1886,35 @@ function fussHtml() {
   if (A.phase === 'aufgeloest') return `<button class="btn btn-haupt btn-gross" data-act="weiter">Weiter</button>`;
   if (A.rechnerOffen && A.rechner && t.art !== 'zuordnung') return rechnerPanelHtml(t);
   const aufklappen = A.rechner && !A.rechnerOffen ? '<button class="r-aufklappen" data-act="rAufklappen">Taschenrechner ▲</button>' : '';
-  if (t.art === 'zahl' || t.art === 'bruch') {
+  if (t.art === 'zahl' || t.art === 'bruch' || t.art === 'zp') {
+    // Physik: Ergebnis auch als Zahl · 10ⁿ (Umschalter); Typ zehnerpotenz: Umschalter Zahl / Hochzahl
+    const zpSchalter = t.art === 'zp' || t.zp;
+    const zpKnopf = t.art === 'zahl' && !t.merk && physik(A.aufgabe);
+    const komma = (k) => k === ',' && zpSchalter && A.feld === 'e';
     return `${aufklappen}${t.bonus ? '<button class="btn-text klein ueberspringen" data-act="teilUeberspringen">Bonus überspringen</button>' : ''}
+    ${zpSchalter ? `<div class="zp-schalter"><button class="${A.feld !== 'e' ? 'an' : ''}" data-act="feld" data-feld="z">Zahl</button><button class="${A.feld === 'e' ? 'an' : ''}" data-act="feld" data-feld="e">Hochzahl</button></div>` : ''}
     <div class="tastatur">
-      ${['7', '8', '9', '⌫', '4', '5', '6', '−', '1', '2', '3', ','].map(k => `<button class="taste${k === '⌫' || k === '−' || k === ',' ? ' taste-sonder' : ''}" data-act="taste" data-k="${k}" ${t.art === 'bruch' && (k === '−' || k === ',') ? 'disabled' : ''} aria-label="${k === '⌫' ? 'Löschen' : k === '−' ? 'Minus' : k}">${k}</button>`).join('')}
-      <button class="taste taste-null" data-act="taste" data-k="0">0</button>
+      ${['7', '8', '9', '⌫', '4', '5', '6', '−', '1', '2', '3', ','].map(k => `<button class="taste${k === '⌫' || k === '−' || k === ',' ? ' taste-sonder' : ''}" data-act="taste" data-k="${k}" ${(t.art === 'bruch' && (k === '−' || k === ',')) || komma(k) ? 'disabled' : ''} aria-label="${k === '⌫' ? 'Löschen' : k === '−' ? 'Minus' : k}">${k}</button>`).join('')}
+      ${zpKnopf ? `<button class="taste" data-act="taste" data-k="0">0</button><button class="taste taste-sonder taste-zp${t.zp ? ' an' : ''}" data-act="zpUmschalten" aria-label="Zahl mal Zehnerpotenz">· 10ⁿ</button>` : '<button class="taste taste-null" data-act="taste" data-k="0">0</button>'}
       <button class="taste taste-ok" data-act="antwort">Antwort geben</button>
+    </div>`;
+  }
+  if (t.art === 'formel' && t.fmodus === 'karten') {
+    return `<div class="knopf-reihe"><button class="btn" data-act="fZurueck" ${t.gelegt.length ? '' : 'disabled'}>↶ Zurück</button><button class="btn btn-haupt" data-act="antwort" ${t.gelegt.length ? '' : 'disabled'}>Prüfen</button></div>`;
+  }
+  if (t.art === 'formel') {
+    // Buchstaben-Tastatur: Größen der Aufgabe, Ziffern, Rechenzeichen, Klammern, Hoch 2
+    const w = t.antwort;
+    const mitPi = /π/.test(A.aufgabe.rechnung || '');
+    const groessen = w.variablen.map(v => `<button class="taste taste-var" data-act="fTaste" data-k="${esc(v)}">${groesseHtml(v)}</button>`).join('');
+    const z = (k, kl = '') => `<button class="taste${kl}" data-act="fTaste" data-k="${k}">${k}</button>`;
+    return `<div class="tastatur formel-tastatur">
+      ${groessen}${mitPi ? z('π', ' taste-var') : ''}${z('(', ' taste-sonder')}${z(')', ' taste-sonder')}
+      ${z('7')}${z('8')}${z('9')}<button class="taste taste-sonder" data-act="fTaste" data-k="⌫" aria-label="Löschen">⌫</button>
+      ${z('4')}${z('5')}${z('6')}${z('·', ' taste-sonder')}
+      ${z('1')}${z('2')}${z('3')}${z(':', ' taste-sonder')}
+      ${z('0')}${z('+', ' taste-sonder')}${z('−', ' taste-sonder')}<button class="taste taste-sonder" data-act="fTaste" data-k="²">x²</button>
+      <button class="taste taste-ok voll" data-act="antwort">Antwort geben</button>
     </div>`;
   }
   if (t.art === 'zuordnung') return `<button class="btn btn-haupt btn-gross" data-act="antwort">Antwort geben</button>`;
@@ -1502,6 +1948,8 @@ function ergebnisHtml() {
     const bzRest = BZ().an ? BS.restSek(bzKonto(), BZ()) : 0;
     zeit += `<p class="voll-hinweis"><b>Die Spielzeit im Schrein ist für heute voll.</b><br>${bzRest > 0 ? `Du kannst noch ${BS.minText(bzRest)} Bildschirmzeit verdienen.` : 'Runensplitter gibt es weiter.'}</p>`;
   }
+  if (A.wp > 0) zeit = `<div class="wp-gewinn"><span class="sz-punkte">◆ +${A.wp} WP</span><small>Wissenspunkte · jetzt ${SZ.wissenVon(S.wissen).stand}</small></div>` + zeit;
+  if (A.neueEtappe) zeit = `<div class="etappe-feier"><div class="ef-stern" aria-hidden="true">✦</div><div><b>Neue Etappe freigeschaltet!</b><small>${esc(A.neueEtappe.name)} · Etappe ${A.neueEtappe.nr} von ${A.neueEtappe.anzahl}: ${mathe(A.neueEtappe.etappeName)}</small></div></div>` + zeit;
   if (A.kopf) zeit = `<div class="kopf-bonus">${kopfSymbol(44)}<div><b>Im Kopf gerechnet!</b><small>Ohne Taschenrechner. Das ist stark.</small></div></div>` + zeit;
   let strafe = '';
 
@@ -1590,6 +2038,16 @@ function tastatur(k) {
     zeigeAufgabe();
     return;
   }
+  // Zahl · 10ⁿ: Hochzahl-Feld (ganze Zahl, auch negativ)
+  if ((t.art === 'zp' || t.zp) && A.feld === 'e') {
+    let h = t.e;
+    if (k === '⌫') h = h.slice(0, -1);
+    else if (k === '−') h = h.startsWith('-') ? h.slice(1) : '-' + h;
+    else if (/\d/.test(k) && h.replace('-', '').length < 3) h += k;
+    t.e = h;
+    zeigeAufgabe();
+    return;
+  }
   let e = t.eingabe;
   if (k === '⌫') e = e.slice(0, -1);
   else if (k === '−') e = e.startsWith('-') ? e.slice(1) : '-' + e;
@@ -1605,14 +2063,33 @@ function antwortGeben() {
   const a = A.aufgabe;
   if (t.art === 'zuordnung') return zuordnungAntwort();
   let eingabe, richtig, fehler = null;
-  if (t.art === 'zahl') {
+  if (t.art === 'zp' || (t.art === 'zahl' && t.zp)) {
+    if (!L.parseZahl(t.eingabe).ok || !/^-?\d+$/.test(t.e)) { A.meldung = t.e ? 'Tippe zuerst die Zahl ein.' : 'Tippe noch die Hochzahl ein.'; A.feld = t.eingabe ? 'e' : 'z'; return zeigeAufgabe(); }
+    eingabe = `${t.eingabe.replace(',', '.')}e${Number(t.e)}`;
+    if (t.art === 'zp') {
+      const r = PH.pruefeZehnerpotenz(t.eingabe, t.e, t.antwort);
+      richtig = r.richtig; fehler = r.fehler;
+    } else {
+      richtig = L.pruefeWert(PH.wertAusPotenz(t.eingabe, t.e), t.ziel);
+    }
+  } else if (t.art === 'formel') {
+    const text = t.fmodus === 'karten' ? formelEingabe(t) : `${t.antwort.ziel} = ${formelEingabe(t)}`;
+    if (!formelEingabe(t).trim()) { A.meldung = t.fmodus === 'karten' ? 'Lege zuerst die Kärtchen.' : 'Tippe zuerst die Formel ein.'; return zeigeAufgabe(); }
+    const r = PH.pruefeFormel(text, t.antwort);
+    if (!r.gueltig) { A.meldung = 'Die Formel ist noch nicht fertig. Schau auf Klammern und Rechenzeichen.'; return zeigeAufgabe(); }
+    eingabe = text; richtig = r.richtig; fehler = r.fehler;
+  } else if (t.art === 'zahl') {
     const p = L.parseZahl(t.eingabe);
     if (!p.ok) { A.meldung = 'Tippe zuerst eine Zahl ein.'; return zeigeAufgabe(); }
     eingabe = t.eingabe.replace(',', '.');
     richtig = L.pruefeZahl(t.eingabe, t.ziel);
+    if (!richtig && t.ziel.gueltige > 1 && PH.pruefeGueltig(p.wert, t.ziel.wert, t.ziel.gueltige - 1)) {
+      fehler = { typ: 'gueltige', text: `Fast. Gib das Ergebnis mit ${t.ziel.gueltige} gültigen Ziffern an.` };
+    }
     if (!richtig && L.zuSchnell(a, t, Date.now() - t.seit)) return zuSchnellMelden(t, eingabe);
-    if (!richtig) {
+    if (!richtig && !fehler) {
       if (t.merk) fehler = { typ: 'merk', text: 'Lies noch einmal im Text nach. Welche Zahl gehört dazu?' };
+      else if (t.knobel) fehler = { typ: 'knobel', text: 'Probier es noch einmal. Oder tippe auf „In Schritten rechnen“.' };
       else {
         const pseudo = t.rechnung ? { ...a, rechnung: t.rechnung } : a;
         fehler = L.erkenneFehler(pseudo, t.quelle || (t.rechnung ? { wert: t.ziel.wert } : null), t.eingabe);
@@ -1626,6 +2103,7 @@ function antwortGeben() {
       fehler = { typ: 'bruch-vertauscht', text: 'Oben stehen die gefärbten Teile, unten alle Teile.' };
     }
   }
+  if (!richtig && !fehler && t.knobel) fehler = { typ: 'knobel', text: 'Probier es noch einmal. Oder tippe auf „In Schritten rechnen“.' };
   if (!richtig && t.versuche.some(v => v.eingabe === eingabe)) {
     A.meldung = 'Das hattest du schon. Rechne noch einmal nach.';
     protokoll(S, 'versuch_wiederholt', { id: a.id, teil: A.idx, eingabe });
@@ -1678,12 +2156,14 @@ function versuchMerken(t, eingabe, richtig, fehler) {
     t.status = t.versuche.length === 1 ? 'erst' : 'zweit';
     return naechsterTeil();
   }
+  // Knobeln: nach dem zweiten Fehlversuch geht es in Schritten weiter (keine Lösung, kein Abbruch)
+  if (t.knobel && t.versuche.length >= 2) return schritteAn(true);
   const maxVersuche = t.art === 'wahl' ? 1 : 2;
   if (t.versuche.length < maxVersuche) {
     t.tipp = fehler ? fehler.text : 'Schau dir den Hinweis an und rechne noch einmal.';
     A.phase = 'tipp';
     A.meldung = t.tipp;
-    t.eingabe = ''; t.z = ''; t.n = '';
+    t.eingabe = ''; t.z = ''; t.n = ''; t.e = ''; t.tokens = []; t.gelegt = [];
   } else {
     t.status = 'loesung';
     t.loesungTipp = fehler ? fehler.text : null;
@@ -1711,6 +2191,8 @@ function abschliessen() {
   let ergebnis = 'erst';
   if (pflicht.some(t => t.status === 'loesung')) ergebnis = 'loesung';
   else if (pflicht.some(t => t.status === 'zweit')) ergebnis = 'zweit';
+  // Knobeln: Fehlversuch im Ergebnisfeld, danach in Schritten gelöst → wie 2. Versuch
+  if (ergebnis === 'erst' && A.knobelFalsch) ergebnis = 'zweit';
   // Kopf-Bonus: Rechner wäre erlaubt, wurde aber nicht geöffnet, App nicht verlassen
   A.kopf = R().kopf > 1 && L.kopfBonus({ aufgabe: a, rechnerGenutzt: !!A.rechner || !!A.rechnerHalb, verlassen: (A.weg || 0) + (A.verlassen || 0), ergebnis });
   const sek = L.sekundenFuerAufgabe({ ergebnis, serienPos: A.serienPos, strafe: A.strafe, rechnerHalb: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, langHalb: !!A.langHalb, kopf: A.kopf, regeln: R() });
@@ -1757,6 +2239,8 @@ function abschliessen() {
   }
   S.verlauf.zaehler++;
   S.verlauf.themaZuletzt[a.thema] = { ergebnis, stufe: a.stufe };
+  // Wissenspunkte (nur Gestaltung Sternzeit)
+  A.wp = sternzeit() && !A.test ? L.wissenspunkteFuer(a, { ergebnis, schritte: !!A.schritteAn }) : 0;
   S.serie.letzteAktivitaet = Date.now();
   protokoll(S, 'aufgabe_ende', {
     id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: A.sekunden, serienPos: A.serienPos,
@@ -1765,9 +2249,15 @@ function abschliessen() {
     ...(A.paket ? { paket: A.paket } : {}), ...(A.etappe != null ? { etappe: A.etappe } : {}),
     strafe: A.strafe, rechnerOptional: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, verlassen: A.verlassen, ms: Date.now() - A.start, hinweise: A.hinweise.slice(), hinweiseLang: (A.hinweiseLang || []).slice(), langHalb: !!A.langHalb,
     bonusTeile: A.teile.filter(t => t.bonus).map(t => t.status), merkTeile: A.teile.filter(t => t.merk).map(t => t.status),
-    generator: a.generator || null
+    generator: a.generator || null,
+    ...(a.modus === 'knobeln' ? { knobeln: true, schritte: !!A.schritteAn } : {}), ...(a.fach ? { fach: a.fach } : {}), ...(A.wp ? { wp: A.wp } : {})
   });
-  etappeAutomatisch();
+  if (A.wp > 0) {
+    const grund = a.modus === 'knobeln' ? (A.schritteAn ? 'schritte' : 'knobeln') : 'aufgabe';
+    S.wissen = SZ.wissenPlus(SZ.wissenVon(S.wissen), A.wp, grund, a.id);
+    protokoll(S, 'wissenspunkte', { id: a.id, n: A.wp, stand: S.wissen.stand, grund });
+  }
+  A.neueEtappe = etappeAutomatisch();
   // Runensplitter für diese Aufgabe
   S.splitter = SP.splitterVon(S.splitter);
   A.splitter = SP.nachAufgabe(S.splitter, {
@@ -2023,7 +2513,7 @@ function sichtbarkeit() {
   syncen();
   tagAktualisieren(S);
   if (ansicht === 'aufgabe' && A && !A.fertig && dauer >= 3000) A.weg = (A.weg || 0) + 1; // auch bei Rechner-Aufgaben (Kopf-Bonus)
-  if (ansicht === 'aufgabe' && A && !A.fertig && !A.aufgabe.taschenrechner && dauer >= 3000) {
+  if (ansicht === 'aufgabe' && A && !A.fertig && !L.rechnerFrei(A.aufgabe) && dauer >= 3000) {
     S.tag.verlassen++;
     A.verlassen++;
     const n = S.tag.verlassen;
@@ -3159,6 +3649,48 @@ function klick(e) {
       break;
     }
     case 'taste': tastatur(el.dataset.k); break;
+    case 'schritteAn': schritteAn(false); break;
+    case 'logbuch': if (ansicht === 'spiel') spielBeenden(); zeigeLogbuch(); break;
+    case 'logbuchEintrag': zeigeLogbuch(el.dataset.id); break;
+    case 'logbuchGelesen': {
+      const st = lbStand();
+      if (!st.gelesen.includes(el.dataset.id)) { st.gelesen.push(el.dataset.id); protokoll(S, 'logbuch_gelesen', { id: el.dataset.id }); sichern(); }
+      if (!zweck) zweck = 'spiel';
+      neueAufgabe(); break;
+    }
+    case 'archiv': if (ansicht === 'spiel') spielBeenden(); zeigeArchiv(); break;
+    case 'archivKaufen': archivKaufen(el.dataset.id); break;
+    case 'archivKaufenJa': archivKaufenJa(el.dataset.id); break;
+    case 'archivOeffnen': protokoll(S, 'archiv_geoeffnet', { id: el.dataset.id }); sichern(); return; // Link öffnet selbst
+    case 'uebungszeit': A = null; S.laufend = null; zeigeUebungszeit(); break;
+    case 'uzTeilen': uzTeilen(); break;
+    case 'zpUmschalten': {
+      const t = aktuellerTeil();
+      if (!t || t.art !== 'zahl' || A.phase !== 'eingabe') break;
+      t.zp = !t.zp; if (!t.zp) t.e = ''; A.feld = 'z'; A.meldung = null;
+      zeigeAufgabe(); break;
+    }
+    case 'fTaste': {
+      const t = aktuellerTeil();
+      if (!t || t.art !== 'formel' || A.phase !== 'eingabe') break;
+      const k = el.dataset.k;
+      A.meldung = null;
+      if (k === '⌫') t.tokens.pop();
+      else if (t.tokens.length < 30) {
+        // Ziffern und Komma hängen an der Zahl davor
+        const letzte = t.tokens[t.tokens.length - 1];
+        if (/^[\d]$/.test(k) && letzte && /^[\d,]+$/.test(letzte)) t.tokens[t.tokens.length - 1] = letzte + k;
+        else t.tokens.push(k);
+      }
+      zeigeAufgabe(); break;
+    }
+    case 'fKarte': {
+      const t = aktuellerTeil();
+      const i = Number(el.dataset.i);
+      if (!t || t.art !== 'formel' || A.phase !== 'eingabe' || t.gelegt.includes(i)) break;
+      t.gelegt.push(i); A.meldung = null; zeigeAufgabe(); break;
+    }
+    case 'fZurueck': { const t = aktuellerTeil(); if (t && t.art === 'formel') { t.gelegt.pop(); zeigeAufgabe(); } break; }
     case 'feld': A.feld = el.dataset.feld; zeigeAufgabe(); break;
     case 'antwort': antwortGeben(); break;
     case 'springe': springeZu(Number(el.dataset.i)); break;

@@ -1,9 +1,9 @@
 // Offline-Speicher. VERSION muss zu version.json und APP_VERSION in js/app.js passen.
-const VERSION = 'schrein-2.14.1';
+const VERSION = 'schrein-2.15.0';
 const DATEIEN = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest',
-  'js/app.js', 'js/kristallmine.js', 'js/kristallmine-ui.js', 'kristallmine/km.css', 'js/splitter.js', 'js/bildschirm.js', 'js/bildschirm-bild.js', 'js/lernplan.js', 'js/steinschieber.js', 'js/steinschieber-level.js', 'js/steinschieber-ui.js', 'js/steinschieber-tipp.js', 'steinschieber/ss.css', 'js/anleitungen.js', 'js/spielbilder.js', 'anleitung.css', 'hinweiskarten.css', 'js/hinweiskarten.js', 'formeluebersicht.css', 'js/formeluebersicht.js', 'data/formeluebersicht.json', 'js/runenfall.js', 'js/runenfall-ui.js', 'runenfall/rn.css', 'js/runenreihen.js', 'js/runenreihen-ui.js', 'js/runenreihen-steine.js', 'runenreihen/rr.css', 'js/hoehlenkarte.js', 'js/hoehlenkarte-ui.js', 'hoehlenkarte/hk.css', 'js/runenbrecher.js', 'js/runenbrecher-ui.js', 'runenbrecher/rb.css', 'js/jadeschlange.js', 'js/jadeschlange-ui.js', 'jadeschlange/jsg.css', 'js/logic.js', 'js/namen.js', 'js/paket.js', 'js/bloecke.js', 'js/einrichtung.js', 'js/render.js', 'js/store.js', 'js/gen.js', 'js/sync.js',
-  'data/aufgaben.json', 'data/hinweise.json',
+  'js/app.js', 'js/kristallmine.js', 'js/kristallmine-ui.js', 'kristallmine/km.css', 'js/splitter.js', 'js/bildschirm.js', 'js/bildschirm-bild.js', 'js/lernplan.js', 'js/steinschieber.js', 'js/steinschieber-level.js', 'js/steinschieber-ui.js', 'js/steinschieber-tipp.js', 'steinschieber/ss.css', 'js/anleitungen.js', 'js/spielbilder.js', 'anleitung.css', 'hinweiskarten.css', 'js/hinweiskarten.js', 'formeluebersicht.css', 'js/formeluebersicht.js', 'data/formeluebersicht.json', 'js/runenfall.js', 'js/runenfall-ui.js', 'runenfall/rn.css', 'js/runenreihen.js', 'js/runenreihen-ui.js', 'js/runenreihen-steine.js', 'runenreihen/rr.css', 'js/hoehlenkarte.js', 'js/hoehlenkarte-ui.js', 'hoehlenkarte/hk.css', 'js/runenbrecher.js', 'js/runenbrecher-ui.js', 'runenbrecher/rb.css', 'js/jadeschlange.js', 'js/jadeschlange-ui.js', 'jadeschlange/jsg.css', 'js/logic.js', 'js/namen.js', 'js/paket.js', 'js/bloecke.js', 'js/einrichtung.js', 'js/render.js', 'js/store.js', 'js/gen.js', 'js/sync.js', 'js/physik.js', 'js/gen-physik.js', 'js/sternzeit.js', 'js/uebungszeit-bild.js', 'sternzeit.css',
+  'data/aufgaben.json', 'data/hinweise.json', 'data/logbuch.json', 'data/wissensarchiv.json',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'
 ];
 

@@ -1,0 +1,121 @@
+/* Gestaltung „Logbuch Sternzeit“ (Auftrag 13): eigene Gestaltung, angelehnt an Raumschiff-Konsolen
+   (dunkler Grund, runde Farbbalken und Winkel, ruhige Pastellfarben). Keine Original-Logos, Schriften oder Namen.
+   Gilt nur, wenn body die Klasse „sz“ hat (Start, Aufgaben, Logbuch, Archiv, Übungszeit). Hinweiskarten im Fenster bleiben hell. */
+
+/* Farben auch außerhalb der Gestaltung (z. B. Übungszeit-Seite im Schrein) */
+:root { --sz-grund: #07080F; --sz-panel: #141726; --sz-panel2: #1B1F33; --sz-text: #F1ECE4; --sz-matt: #A9A9C2;
+  --sz-orange: #FF9F5A; --sz-pfirsich: #FFCC99; --sz-flieder: #C9A0DC; --sz-blau: #8FBFFF; --sz-gelb: #F2D27A; }
+body.sz {
+  --sz-grund: #07080F; --sz-panel: #141726; --sz-panel2: #1B1F33; --sz-text: #F1ECE4; --sz-matt: #A9A9C2;
+  --sz-orange: #FF9F5A; --sz-pfirsich: #FFCC99; --sz-flieder: #C9A0DC; --sz-blau: #8FBFFF; --sz-gelb: #F2D27A;
+  background: var(--sz-grund); color: var(--sz-text);
+}
+/* Die bestehenden Bausteine (Aufgabe, Tastatur, Ergebnis) über ihre Farbvariablen umfärben – nur in #app, nicht im Fenster */
+body.sz #app {
+  --hg: #07080F; --karte: #141726; --flaeche: #141726; --text: #F1ECE4; --gedaempft: #A9A9C2; --linie: #3A3F5C;
+  --teal: #8FBFFF; --teal-dunkel: #FFCC99; --teal-hell: #262B45;
+  --amber: #FF9F5A; --amber-dunkel: #FFCC99; --amber-hell: #2A2236; --fuell: #F2D27A;
+  color: var(--text);
+}
+body.sz #app h1, body.sz #app h2, body.sz #app h3, body.sz #app .erfolg-titel, body.sz #app .lw-titel, body.sz #app .regel-titel {
+  font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; letter-spacing: .04em;
+}
+body.sz #app .btn { border-radius: 26px; background: #262B45; border-color: #262B45; color: var(--sz-text); }
+body.sz #app .btn-haupt { background: var(--sz-orange); border-color: var(--sz-orange); color: #120D08; text-transform: uppercase; letter-spacing: .08em; }
+body.sz #app .btn-amber-rand { background: var(--sz-flieder); border-color: var(--sz-flieder); color: #160E1A; }
+body.sz #app .btn-text { color: var(--sz-blau); }
+body.sz #app .karte.aufgabe { border: 0; border-top: 8px solid var(--sz-blau); border-radius: 18px; }
+body.sz #app .geschichte-box { color: var(--sz-text); }
+body.sz #app .frage { color: var(--sz-pfirsich); }
+body.sz #app .feld { background: #0B0D18; border-color: var(--sz-blau); color: var(--sz-text); border-radius: 12px; }
+body.sz #app .taste { background: #262B45; border-color: #262B45; color: var(--sz-text); border-radius: 14px; }
+body.sz #app .taste-sonder { background: var(--sz-flieder); border-color: var(--sz-flieder); color: #160E1A; }
+body.sz #app .taste-zp, body.sz #app .formel-tastatur .taste-var { background: var(--sz-blau); border-color: var(--sz-blau); color: #08111F; }
+body.sz #app .taste-zp.an { outline: 3px solid var(--sz-gelb); }
+body.sz #app .taste-ok { background: var(--sz-orange); border-color: var(--sz-orange); color: #160C04; }
+body.sz #app .zp-schalter { background: #262B45; }
+body.sz #app .zp-schalter button.an { background: var(--sz-blau); color: #08111F; }
+body.sz #app .wahl-btn { border-color: var(--sz-blau); color: var(--sz-text); background: #0B0D18; }
+body.sz #app .wahl-richtig { background: #1F3350; }
+body.sz #app .tipp { background: #2A2236; border-left-color: var(--sz-flieder); color: var(--sz-text); }
+body.sz #app .meldung { background: #262B45; color: var(--sz-pfirsich); }
+body.sz #app .ergebnis-karte { background: var(--sz-panel); border: 0; border-left: 10px solid var(--sz-orange); border-radius: 18px; }
+body.sz #app .loesungsweg { background: #0F1220; border-left-color: var(--sz-gelb); }
+body.sz #app .merkzettel { background: #0F1220; border-color: var(--sz-gelb); }
+body.sz #app .serie-chip { background: #262B45; color: var(--sz-blau); }
+body.sz #app .zeit-chip { color: var(--sz-pfirsich); }
+body.sz #app .hw-leiste { border-top-color: #262B45; }
+body.sz #app .formel-feld { background: #0B0D18; border-color: var(--sz-blau); }
+body.sz #app .formel-karte { background: var(--sz-pfirsich); border-color: var(--sz-pfirsich); color: #1C1108; }
+body.sz #app .knobel-zeile { color: var(--sz-gelb); letter-spacing: .04em; }
+body.sz #app .knobel-schritte { background: #3A3F5C; border-color: #3A3F5C; }
+body.sz #app .uz-hinweis { background: #2A2236; border-left-color: var(--sz-flieder); color: var(--sz-text); }
+body.sz #app .uz-panel { background: var(--sz-panel); border: 0; border-left: 10px solid var(--sz-orange); }
+body.sz #app .info-karte, body.sz #app .regel-karte { border-color: #262B45; }
+body.sz #app .test-leiste { background: #262B45; color: var(--sz-text); }
+body.sz #app .eingabe-bereich { background: var(--sz-grund); }
+body.sz #app .version-zeile { color: #5B6080; }
+body.sz #app .aufgabe-screen .sz-kopf { margin-bottom: 0; }
+
+/* ---------- Bausteine der Gestaltung ---------- */
+.sz-kopf { display: grid; grid-template-columns: 74px 1fr; grid-template-rows: auto 18px; gap: 0 6px; margin: -4px 0 4px; }
+.sz-ellbogen { grid-row: 1 / 3; background: var(--sz-orange); border-radius: 30px 0 0 0; position: relative; min-height: 64px; }
+.sz-ellbogen::after { content: ''; position: absolute; right: 0; bottom: 0; width: 26px; height: 18px; background: var(--sz-grund); border-radius: 14px 0 0 0; }
+.sz-titelzeile { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; padding: 2px 4px 6px; }
+.sz-titel { font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 19px; color: var(--sz-pfirsich); line-height: 1.05; }
+.sz-zeit { text-align: right; font-size: 12px; letter-spacing: .1em; color: var(--sz-matt); text-transform: uppercase; }
+.sz-zeit b { display: block; font-size: 17px; color: var(--sz-blau); letter-spacing: .04em; }
+.sz-leiste { display: flex; gap: 6px; }
+.sz-leiste i { height: 18px; display: block; }
+.sz-leiste i:nth-child(1) { flex: 3; background: var(--sz-orange); }
+.sz-leiste i:nth-child(2) { flex: 1; background: var(--sz-flieder); }
+.sz-leiste i:nth-child(3) { flex: 2; background: var(--sz-blau); border-radius: 0 9px 9px 0; }
+.sz-screen { gap: 12px; }
+.sz-gruss { margin: 0; font-size: 18px; }
+.sz-gruss b, .sz-pfirsich { color: var(--sz-pfirsich); }
+.sz-matt { color: var(--sz-matt); }
+.sz-panel { background: var(--sz-panel); border-radius: 18px; padding: 12px 14px; border-left: 10px solid var(--sz-flieder); }
+.sz-panel.blau { border-left-color: var(--sz-blau); } .sz-panel.orange { border-left-color: var(--sz-orange); } .sz-panel.gelb { border-left-color: var(--sz-gelb); }
+.sz-bz { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sz-bz .sz-knopf { width: auto; }
+.sz-label { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--sz-matt, #6B7280); }
+.sz-wert { font-size: 30px; font-weight: 700; color: var(--sz-pfirsich); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.sz-wert.gelb { color: var(--sz-gelb); }
+.sz-knopf { display: flex; align-items: center; justify-content: space-between; width: 100%; border: 0; border-radius: 28px; padding: 15px 22px; font: 700 18px 'Atkinson Hyperlegible', sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #120D08; background: var(--sz-orange); cursor: pointer; text-decoration: none; box-sizing: border-box; }
+.sz-knopf:active { transform: scale(.98); }
+.sz-knopf.flieder { background: var(--sz-flieder); } .sz-knopf.blau { background: var(--sz-blau); } .sz-knopf.matt { background: #3A3F5C; color: var(--sz-text); }
+.sz-knopf.klein { font-size: 15px; padding: 11px 16px; }
+.sz-knopf small { font-size: 12px; letter-spacing: .06em; opacity: .8; }
+.sz-knopf:disabled { opacity: .45; }
+.sz-zeile { display: flex; gap: 8px; } .sz-zeile > * { flex: 1; min-width: 0; }
+.sz-etappe { display: block; background: var(--sz-panel2); border-radius: 30px; padding: 8px 14px; color: var(--sz-blau); font-size: 15px; }
+.sz-etappe b { color: var(--sz-text); }
+.sz-punkte { display: inline-flex; align-items: center; gap: 6px; background: #F2D27A; color: #1B1405; border-radius: 20px; padding: 4px 12px; font-weight: 700; white-space: nowrap; }
+.sz-reiter { display: flex; gap: 6px; }
+.sz-reiter button { flex: 1; text-align: center; padding: 9px; border: 0; border-radius: 16px; background: #262B45; color: var(--sz-matt); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; font-size: 13px; }
+.sz-reiter button.an { background: var(--sz-flieder); color: #160E1A; }
+.sz-eintrag h3 { color: var(--sz-pfirsich); margin: 4px 0 8px; font-size: 20px; }
+.sz-eintrag p { line-height: 1.5; margin: 0 0 10px; }
+.sz-merke { background: #0F1220; border-radius: 14px; padding: 10px 12px; border-left: 6px solid var(--sz-gelb); }
+.sz-merke div { padding: 3px 0; }
+.sz-liste-kopf { color: var(--sz-blau); letter-spacing: .12em; text-transform: uppercase; font-size: 13px; font-weight: 700; margin: 6px 4px 0; }
+.sz-zeile-knopf { display: flex; justify-content: space-between; gap: 10px; width: 100%; text-align: left; background: var(--sz-panel); border: 0; border-radius: 16px; padding: 11px 14px; color: var(--sz-text); font-size: 16px; border-left: 6px solid var(--sz-flieder); }
+.sz-zeile-knopf.zu { opacity: .5; border-left-color: #3A3F5C; }
+.sz-archiv { background: var(--sz-panel); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.sz-archiv .meta { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--sz-matt); }
+.sz-archiv.zu { border: 1.5px dashed #444A6C; background: transparent; }
+.sz-archiv.verborgen { opacity: .55; }
+.sz-archiv b { color: var(--sz-pfirsich); }
+.sz-archiv-text { line-height: 1.45; }
+.sz-zeile-wp { display: flex; justify-content: space-between; align-items: center; }
+.sz-hinweisbox { background: #2A2236; border-radius: 16px; padding: 12px 14px; border-left: 8px solid var(--sz-flieder); line-height: 1.45; }
+body.sz .uz-screen .uz-titel { color: var(--sz-pfirsich); }
+body.sz .uz-code b { color: var(--sz-text); }
+body.sz #app .wk-schrein { background: var(--sz-panel); border-color: var(--sz-orange); color: var(--sz-text); }
+body.sz #app .wk-schrein .wk-titel { color: var(--sz-pfirsich); font-family: 'Atkinson Hyperlegible', sans-serif; letter-spacing: .06em; }
+body.sz #app .wk-bild { background: var(--sz-panel); border-color: var(--sz-blau); color: var(--sz-text); }
+body.sz #app .wk-bild .wk-titel { color: var(--sz-blau); }
+body.sz #app .mini-gewinn, body.sz #app .konto-zeile { color: var(--sz-text); }
+.sz-etappe b { white-space: nowrap; }
+body.sz #app .karte.aufgabe > .sz-label { margin-bottom: 8px; }
+.sz-zeile-knopf .sz-matt { white-space: nowrap; }

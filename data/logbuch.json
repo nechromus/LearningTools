@@ -1,0 +1,71 @@
+{
+ "info": "Logbuch-Einträge (Erklärungen), einer pro Etappe einer Lerneinheit. Erscheint vor der ersten Aufgabe einer neuen Etappe und bleibt im Logbuch abrufbar. {sternzeit} ersetzt die App durch die Sternzeit des Tages, an dem die Etappe freigeschaltet wurde. Einträge mit status statt Text sind noch nicht geschrieben; die Etappe bleibt dann gesperrt („kommt bald“). Quelle: Projekt, 13-logbuch (freigegeben 2026-10-21).",
+ "eintraege": [
+  {
+   "id": "lb-groessen-1", "paket": "groessen-zehnerpotenzen", "etappe": 1,
+   "titel": "Zahlen jenseits der Vorstellungskraft",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Die Physik beschreibt Dinge, die so groß oder so klein sind, dass unsere Alltagszahlen versagen: Die Sonne ist knapp 150 Millionen Kilometer entfernt, ein Wasserstoffatom hat eine Masse von etwa einem Millionstel eines Milliardstels eines Milliardstels eines Gramms.",
+    "Wissenschaftler schreiben solche Werte deshalb als Zahl mal Zehnerpotenz: 149 600 000 km = 1,496 · 10⁸ km. Vor dem Komma steht genau eine Ziffer, die nicht 0 ist. Die Hochzahl verrät, um wie viele Stellen das Komma gewandert ist.",
+    "Bei sehr kleinen Zahlen wandert das Komma nach rechts, die Hochzahl wird negativ: 0,0000075 m = 7,5 · 10⁻⁶ m. Denn 10⁻⁶ ist nichts anderes als 1 : 10⁶, also ein Millionstel."
+   ],
+   "merke": ["a · 10ⁿ mit 1 ≤ a < 10", "Komma nach links → Hochzahl positiv", "Komma nach rechts → Hochzahl negativ"]
+  },
+  {
+   "id": "lb-groessen-2", "paket": "groessen-zehnerpotenzen", "etappe": 2,
+   "titel": "Rechnen in Zehnerschritten",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Zehnerpotenzen sind nicht nur platzsparend – man kann mit ihnen auch elegant rechnen. 10³ · 10⁵ bedeutet: drei Zehner mal fünf Zehner, zusammen also acht Zehner, die miteinander multipliziert werden. Also 10⁸.",
+    "Allgemein gilt 10ᵐ · 10ⁿ = 10ᵐ⁺ⁿ und 10ᵐ : 10ⁿ = 10ᵐ⁻ⁿ – auch für negative Hochzahlen. Bei Zahlen wie 3 · 10² · 2,5 · 10³ rechnet man die Zahlen vor den Zehnerpotenzen und die Zehnerpotenzen einfach getrennt.",
+    "Mit diesem Werkzeug lässt sich zum Beispiel ausrechnen, wie lange das Sonnenlicht bis zur Erde unterwegs ist. Spoiler: Wir sehen die Sonne immer so, wie sie vor gut acht Minuten war."
+   ],
+   "merke": ["10ᵐ · 10ⁿ = 10ᵐ⁺ⁿ", "10ᵐ : 10ⁿ = 10ᵐ⁻ⁿ", "Zahlen und Zehnerpotenzen getrennt rechnen"]
+  },
+  {
+   "id": "lb-gewicht-1", "paket": "gewichtskraft-sonnensystem", "etappe": 1,
+   "titel": "Masse ist nicht Gewicht",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Bevor unsere Reise durchs Sonnensystem beginnt, eine Unterscheidung, die im Alltag oft verschwimmt: Masse und Gewichtskraft sind nicht dasselbe.",
+    "Die Masse m, gemessen in Kilogramm, ist eine Eigenschaft des Körpers selbst. Sie beschreibt zweierlei: wie schwer er ist und wie träge – also wie sehr er sich einer Änderung seiner Bewegung widersetzt. Sie ist überall im Universum gleich.",
+    "Die Gewichtskraft F_G, gemessen in Newton, entsteht erst durch die Anziehung eines Himmelskörpers. Sie hängt deshalb vom Ort ab: Auf dem Mond ist sie nur etwa ein Sechstel so groß wie auf der Erde. Eine Balkenwaage vergleicht Masse mit Masse und zeigt überall dasselbe; ein Federkraftmesser misst eine Kraft und zeigt auf dem Mond weniger an."
+   ],
+   "merke": ["Masse m in kg: überall gleich", "Gewichtskraft F_G in N: hängt vom Ort ab", "Masse = Schwere und Trägheit"]
+  },
+  {
+   "id": "lb-gewicht-2", "paket": "gewichtskraft-sonnensystem", "etappe": 2,
+   "titel": "Der Ortsfaktor",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Wir nähern uns dem Mars. Wie stark er unsere Sonde anziehen wird, verrät eine einzige Zahl: der Ortsfaktor g.",
+    "Er gibt an, welche Gewichtskraft auf jedes Kilogramm Masse wirkt. An der Erdoberfläche sind es 9,81 N/kg, auf dem Mond 1,62 N/kg, auf dem Mars 3,71 N/kg. Daraus folgt die wichtigste Formel dieser Etappe: F_G = m · g.",
+    "Physiker nennen g auch Fallbeschleunigung, die Einheit N/kg ist gleichwertig zu m/s². Warum das so ist, klären wir, wenn wir zur Bewegung der Körper kommen."
+   ],
+   "merke": ["F_G = m · g", "g Erde = 9,81 N/kg", "g Mond = 1,62 N/kg", "g Mars = 3,71 N/kg"]
+  },
+  {
+   "id": "lb-umstellen-1", "paket": "gleichungen-umstellen", "etappe": 1,
+   "titel": "Das Gleichgewicht der Gleichung",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Eine Gleichung ist wie eine Balkenwaage im Gleichgewicht: Links und rechts steht derselbe Wert. Sie bleibt wahr, solange man auf beiden Seiten dieselbe Rechenoperation ausführt. Mathematiker nennen das eine Äquivalenzumformung.",
+    "Das Ziel ist immer, die Unbekannte x allein auf eine Seite zu bringen. Man macht dazu rückgängig, was mit x passiert ist – in umgekehrter Reihenfolge: Aus 3x + 7 = 22 wird erst 3x = 15, dann x = 5.",
+    "Das Wort Algebra stammt übrigens aus dem Titel eines Buchs des Mathematikers al-Chwarizmi aus dem 9. Jahrhundert: „al-dschabr“ bedeutet so viel wie „das Ergänzen“ oder „das Wiederherstellen“."
+   ],
+   "merke": ["Auf beiden Seiten dasselbe tun", "Umkehroperation: + ↔ −, · ↔ :", "Probe durch Einsetzen"]
+  },
+  {
+   "id": "lb-umstellen-2", "paket": "gleichungen-umstellen", "etappe": 2,
+   "titel": "Formeln sind Gleichungen",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Jede physikalische Formel ist eine Gleichung – und lässt sich nach jeder ihrer Größen umstellen. Aus F_G = m · g wird m = F_G/g, sobald wir nicht die Kraft, sondern die Masse suchen.",
+    "Es gelten dieselben Regeln wie bei Gleichungen mit x, nur dass nun Buchstaben statt Zahlen verschoben werden. Steht die gesuchte Größe im Nenner, holt man sie zuerst heraus, indem man mit ihr multipliziert: ρ = m/V wird zu ρ · V = m und dann zu V = m/ρ.",
+    "Ein guter Trick zur Kontrolle: Setze einfache Zahlen ein und prüfe, ob beide Seiten übereinstimmen. Genau so prüft auch dieses Logbuch deine Antworten."
+   ],
+   "merke": ["Formel = Gleichung", "Gesuchte Größe im Nenner? Erst mit ihr multiplizieren", "Kontrolle durch Einsetzen"]
+  },
+  { "id": "lb-groessen-3", "etappe": 3, "status": "folgt im nächsten Aufgaben-Chat" },
+  { "id": "lb-groessen-4", "etappe": 4, "status": "folgt im nächsten Aufgaben-Chat" },
+  { "id": "lb-gewicht-3", "etappe": 3, "status": "folgt im nächsten Aufgaben-Chat" },
+  { "id": "lb-gewicht-4", "etappe": 4, "status": "folgt im nächsten Aufgaben-Chat" },
+  { "id": "lb-umstellen-3", "etappe": 3, "status": "folgt im nächsten Aufgaben-Chat" },
+  { "id": "lb-umstellen-4", "etappe": 4, "status": "folgt im nächsten Aufgaben-Chat" }
+ ]
+}

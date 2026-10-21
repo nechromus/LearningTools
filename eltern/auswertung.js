@@ -8,7 +8,7 @@ import * as LP from '../js/lernplan.js';
 
 const ZU_AUFGABE = new Set(['versuch', 'versuch_wiederholt', 'tipp_bestaetigt', 'hinweis', 'rechner', 'rechner_offen',
   'rechner_angeboten', 'rechner_optional', 'verlassen', 'sprung', 'loesung_gezeigt', 'bonus_teil_uebersprungen', 'hilfe',
-  'zu_schnell', 'vorlesen', 'gelesen', 'text_hilfe', 'hinweis_kurz', 'hinweis_lang', 'formeluebersicht']);
+  'zu_schnell', 'vorlesen', 'gelesen', 'text_hilfe', 'hinweis_kurz', 'hinweis_lang', 'formeluebersicht', 'schritte_an']);
 
 export const zahl = (w) => w == null ? '' : String(w).replace('.', ',').replace(/^-/, '−');
 
@@ -252,12 +252,14 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
         p.titel = `Fertig: ${ERGEBNIS[e.ergebnis]}`;
         p.text = [e.bildschirm != null ? `Bildschirmzeit +${minutenText(e.bildschirm)}${e.voll ? ' (Tagesgrenze erreicht)' : ''}` : '',
           e.bildschirm == null || e.sekunden ? `Spielzeit +${minutenText(e.sekunden)}${e.spielzeitVoll ? ' (Tagesgrenze erreicht)' : ''}` : '',
-          e.kopf ? 'im Kopf gerechnet (Bonus)' : '', `Dauer ${dauerText(e.ms)}`].filter(Boolean).join(' · ');
+          e.kopf ? 'im Kopf gerechnet (Bonus)' : '', e.knobeln ? (e.schritte ? 'Knobeln: in Schritten gelöst' : 'Knobeln: ohne Schritte gelöst') : '',
+          e.wp ? `+${e.wp} Wissenspunkte` : '', `Dauer ${dauerText(e.ms)}`].filter(Boolean).join(' · ');
         p.art = e.ergebnis === 'erst' ? 'ok' : e.ergebnis === 'zweit' ? 'info' : 'fehler';
         break;
       case 'aufgabe_abgebrochen': p.titel = 'Mit „Fertig“ verlassen'; p.text = [e.ohneEingabe ? 'ohne Eingabe' : '', e.wartet ? 'kommt beim nächsten Mal wieder' : ''].filter(Boolean).join(' · '); p.art = 'fehler'; break;
       case 'hilfe': p.titel = `„Hilf mir“ (${e.stufe}. Schritt)`; p.text = (e.zeilen || []).join(' · ') + ' · weniger Spielzeit'; p.art = 'fehler'; break;
       case 'uebersprungen': p.titel = 'Übersprungen'; break;
+      case 'schritte_an': p.titel = e.auto ? 'Knobeln: nach 2 Versuchen in Schritten weiter' : '„In Schritten rechnen“ gewählt'; p.text = e.versuche ? `vorher ${e.versuche} ${e.versuche === 1 ? 'Versuch' : 'Versuche'} ohne Schritte` : 'ohne eigenen Versuch'; p.art = e.auto ? 'fehler' : 'info'; break;
       case 'hinweis_kurz': p.titel = `Formelübersicht „${hinweisTitel[e.hinweis] || e.hinweis}“ geöffnet`; p.text = (e.abschnitte || []).length ? 'Kurzversion' : 'steht nicht in der Formelübersicht'; break;
       case 'hinweis_lang': p.titel = `Mehr Hilfe: langer Hinweis „${hinweisTitel[e.hinweis] || e.hinweis}“`; p.text = e.stufe === 0 ? 'gleich lang (ohne Formelübersicht)' : `Stufe ${e.stufe}${e.kosten === 'halb' ? ' · halbe Spielzeit' : ''}`; p.art = e.kosten === 'halb' ? 'fehler' : 'info'; break;
       case 'formeluebersicht': p.titel = 'Ganze Formelübersicht geöffnet'; p.text = `Seite ${e.seite}`; break;
@@ -369,6 +371,25 @@ export function abweichungenAus(paketGewichte, gewichte) {
 }
 
 // paketVon(id) liefert das Paket (mit gewichte) oder nichts, wenn es das Paket nicht mehr gibt
+// Übungszeit pro Tag: an, Höchstwert, Nachlauf; extraMin gilt nur heute
+export function uzWerte(r, heute = tagKey()) {
+  const g = BS.uzRegeln(r);
+  return { an: g.an, max: g.max, nachlauf_prozent: g.nachlauf_prozent, extraMin: g.extra && g.extra.tag === heute ? g.extra.min : 0 };
+}
+export function uzDatei(werte, heute = tagKey()) {
+  const w = werte || uzWerte(null, heute);
+  return BS.uzRegeln({ an: w.an, max: w.max, nachlauf_prozent: w.nachlauf_prozent, extra: w.extraMin > 0 ? { tag: heute, min: w.extraMin } : null });
+}
+// Anfragen „mehr Übungszeit“ (neueste zuerst)
+export function uzAnfragen(eintraege) {
+  return eintraege.filter(e => e.typ === 'uebungszeit_anfrage').slice().sort((a, b) => a.t < b.t ? 1 : -1);
+}
+// Wissenspunkte: Verlauf aus dem Protokoll (gutgeschrieben und ausgegeben, neueste zuerst)
+export function wissenVerlauf(eintraege) {
+  return eintraege.filter(e => e.typ === 'wissenspunkte' || e.typ === 'archiv_frei').map(e => ({ t: e.t, n: e.typ === 'archiv_frei' ? -e.kosten : e.n, id: e.id, grund: e.typ === 'archiv_frei' ? 'archiv' : e.grund, stand: e.stand }))
+    .sort((a, b) => a.t < b.t ? 1 : -1);
+}
+
 export function startWerte(einst, stand, paketVon = () => null) {
   const e = (stand && stand.einstellungen) || {};
   const w = (einst && einst.werte) || {};
@@ -386,6 +407,9 @@ export function startWerte(einst, stand, paketVon = () => null) {
     bildschirm: bzWerte(w.bildschirm || (stand && stand.bzRegeln)),
     spielzeitTag: szWerte(w.spielzeitTag || (stand && stand.szRegeln)),
     etappe_anzeigen: w.etappe_anzeigen === true,
+    gestaltung: ['schrein', 'sternzeit'].includes(w.gestaltung) ? w.gestaltung : 'schrein',
+    ...(typeof w.ansicht_name === 'string' ? { ansicht_name: w.ansicht_name } : {}),
+    uebungszeit: uzWerte(w.uebungszeit),
     ...mitPaketen(paketTeil(w, stand, e, paketVon), w, paketVon)
   };
 }
@@ -497,6 +521,8 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
     app: 'lernapp-2048-eltern', version, geaendert: jetzt.toISOString(),
     werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, langeHinweise: [0, 1, 2, 3].includes(werte.langeHinweise) ? werte.langeHinweise : 1, spielzeit: spielzeitRegeln(werte.spielzeit), bildschirm: bzDatei(werte.bildschirm, tagKey(jetzt)), spielzeitTag: szDatei(werte.spielzeitTag, tagKey(jetzt)), genStufen,
       ...(Array.isArray(werte.pakete) ? { pakete: werte.pakete.map(paketEintragDatei), etappe_anzeigen: !!werte.etappe_anzeigen } : {}),
+      gestaltung: werte.gestaltung === 'sternzeit' ? 'sternzeit' : 'schrein', ...(werte.ansicht_name ? { ansicht_name: werte.ansicht_name } : {}),
+      uebungszeit: uzDatei(werte.uebungszeit, tagKey(jetzt)),
       ...(werte.splitter ? { splitter: { preise: werte.splitter.preise, boni: werte.splitter.boni.slice(-50), frei: werte.splitter.frei } } : {}) }
   };
 }

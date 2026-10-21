@@ -827,3 +827,51 @@ mark.zahl-mark { background: #F6D26A; color: inherit; border-radius: 4px; paddin
 .fokus-box.an { border: 2.5px solid var(--amber); background: #FFF3D6; }
 .fokus-box.an .schalter-zeile b { color: var(--amber-dunkel); }
 .fokus-an { display: block; margin-top: 4px; font-size: 13px; font-weight: 700; color: #fff; background: var(--amber); border-radius: 6px; padding: 2px 8px; width: fit-content; }
+
+/* ---------- Physik und Umstellen (Auftrag 13): Zahl · 10ⁿ, Formeln, Knobeln, Übungszeit ---------- */
+.zp-eingabe { display: flex; align-items: flex-start; gap: 6px; flex-wrap: wrap; padding-top: 14px; }
+.zp-eingabe .feld { cursor: pointer; font-family: inherit; color: inherit; }
+.zp-eingabe .zp-zahl { min-width: 120px; }
+.zp-eingabe .zp-hoch { min-width: 58px; min-height: 40px; font-size: 19px; padding: 4px 8px; margin-top: -14px; }
+.zp-mal { font-size: 26px; font-weight: 700; margin-top: 10px; }
+.zp-eingabe .einheit { margin-top: 12px; }
+.zp-schalter { display: flex; justify-content: center; gap: 4px; margin: 0 auto 8px; background: var(--teal-hell); border-radius: 20px; padding: 3px; width: max-content; }
+.zp-schalter button { border: 0; background: none; padding: 6px 14px; border-radius: 16px; font-weight: 700; color: var(--gedaempft); }
+.zp-schalter button.an { background: var(--teal); color: #fff; }
+.taste-zp { font-size: 18px; }
+.taste-zp.an { background: var(--teal); color: #fff; }
+.formel-feld { min-height: 58px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 26px; font-weight: 700; border: 2px dashed var(--teal); border-radius: 10px; padding: 6px 12px; background: var(--flaeche); }
+.formel-feld.leer { font-size: 16px; font-weight: 400; color: var(--gedaempft); }
+.formel-cursor { color: var(--teal); animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.formel-karten { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.formel-karte { min-width: 50px; height: 50px; padding: 0 12px; border-radius: 12px; border: 2px solid var(--amber); background: var(--amber-hell); color: var(--amber-dunkel); font-size: 22px; font-weight: 700; }
+.formel-karte.weg { opacity: .25; }
+.formel-tastatur .taste { font-size: 22px; }
+.formel-tastatur .taste-var { background: var(--teal-hell); color: var(--teal-dunkel); }
+.taste-ok.voll { grid-column: 1 / -1; }
+.fr2 { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1.1; margin: 0 2px; }
+.fr2 > span:first-child { border-bottom: 2px solid currentColor; padding: 0 4px 1px; }
+.fr2 > span:last-child { padding: 1px 4px 0; }
+.wahl-btn.formel-wahl { font-size: 21px; }
+.knobel-zeile { color: var(--amber); font-weight: 700; margin: 0 0 8px; }
+.knobel-schritte { font-size: 17px; margin-top: 14px; }
+.knobel-schritte small { font-weight: 400; }
+.wp-chip { font-size: 14px; }
+.uz-hinweis { background: var(--amber-hell); border-left: 6px solid var(--amber); border-radius: 10px; padding: 10px 12px; color: var(--amber-dunkel); }
+.uz-fuss { margin: 0; text-align: center; color: var(--gedaempft); }
+.uz-panel { text-align: center; background: var(--karte); border: 1px solid var(--linie); border-radius: 18px; padding: 20px 14px; }
+.uz-stern { font-size: 40px; color: var(--amber); }
+.uz-titel { font-size: 22px; font-weight: 700; color: var(--amber-dunkel); }
+.uz-text { color: var(--gedaempft); margin: 8px 0 0; }
+.uz-code { text-align: center; color: var(--gedaempft); margin: 0; }
+.uz-code b { letter-spacing: .2em; color: var(--text); }
+.wp-gewinn { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.wp-gewinn small { color: var(--gedaempft); }
+.etappe-feier { display: flex; align-items: center; gap: 12px; background: #2A2236; color: #F1ECE4; border-radius: 16px; padding: 12px 14px; margin: 6px 0 10px; border-left: 8px solid #C9A0DC; animation: feier-ein .6s ease-out; }
+.etappe-feier b { display: block; color: #FFCC99; font-size: 19px; }
+.etappe-feier small { color: #A9A9C2; }
+.ef-stern { font-size: 34px; color: #F2D27A; animation: feier-stern 1.6s ease-in-out 2; }
+@keyframes feier-ein { from { transform: scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes feier-stern { 50% { transform: rotate(180deg) scale(1.3); } }
+@media (prefers-reduced-motion: reduce) { .etappe-feier, .ef-stern, .formel-cursor { animation: none; } }
