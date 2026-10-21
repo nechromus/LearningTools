@@ -24,7 +24,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.13.0';
+export const APP_VERSION = '2.14.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -318,6 +318,25 @@ async function testSchuelerLaden() {
   testSchueler = mit.filter(Boolean);
   return testSchueler;
 }
+// Kurzbeschreibung der Pakete für die Test-Leiste: „BOA Grundlagen 50 % · Zylinder 40 % (Etappe 2) · …“
+function paketKurz() {
+  if (pakete()) return S.pakete.map(p => `${p.paket.name} ${p.anteil} %${p.paket.etappen ? ` (Etappe ${p.etappe})` : ''}`).join(' · ');
+  return S.paket ? `Paket ${S.paket.name}` : '';
+}
+
+// Testgerät: Persona direkt auf dem Startbildschirm wählen (es wird nichts gesendet)
+function personaWahl(fehler = '') {
+  const liste = testSchueler ? [null, ...testSchueler] : null;
+  oeffneModal(`<div class="hinweis-text persona-wahl"><h2 class="modal-titel">Testen als …</h2>
+    <p class="gedaempft klein">Übernimmt Pakete und Einstellungen aus der Eltern-App. Es wird nichts gesendet, beim Schüler ändert sich nichts.</p>
+    ${fehler ? `<p class="meldung">${fehler}</p>` : ''}
+    ${!S.upload.token ? '<p>Erst im Elternbereich mit dem Daten-Repo verbinden.</p>'
+      : liste ? `<div class="persona-liste">${liste.map(o => `<button class="btn${(testAls() || null) === o ? ' btn-haupt' : ''}" data-act="personaSetzen" data-o="${esc(o || '')}">${o ? esc(ordnerName(o)) : 'Eigene Einstellungen'}</button>`).join('')}</div>`
+      : '<p class="gedaempft">Schüler werden geladen …</p>'}
+    <button class="btn" data-act="modalZu">Schließen</button></div>`);
+  if (!liste && S.upload.token) testSchuelerLaden().then(() => personaWahl()).catch(e => personaWahl(esc(e.message || 'Laden hat nicht geklappt.')));
+}
+
 async function testAlsSetzen(ordner) {
   S.upload.testAls = ordner || null;
   S.fern = {}; // neu anfangen, damit alle Werte (auch ältere Versionen) übernommen werden
@@ -676,9 +695,15 @@ function zeigeStart() {
   <div class="screen start">
     <header class="start-kopf">
       <div class="logo" id="logo" title="">${sechseck(56, '#DCEDED', '#1F6F75', '<text x="12" y="12.6" text-anchor="middle" dominant-baseline="central" font-family="Cinzel, serif" font-weight="700" font-size="6" fill="#0E4A4F">2048</text>')}</div>
-      <div><h1>Schrein der Zahlen</h1><p class="gedaempft">Hallo${name}!</p>${testAls() ? `<p class="test-als-chip">Test als ${esc(ordnerName(testAls()))}${S.paket ? ` · ${esc(S.paket.name)}` : ''}</p>` : ''}${testFokus() ? `<p class="test-als-chip">Gezielt: ${esc(THEMA_NAMEN[testFokus().thema])} · Stufe ${testFokus().stufe}</p>` : ''}</div>
+      <div><h1>Schrein der Zahlen</h1><p class="gedaempft">Hallo${name}!</p>${testFokus() ? `<p class="test-als-chip">Gezielt: ${esc(THEMA_NAMEN[testFokus().thema])} · Stufe ${testFokus().stufe}</p>` : ''}</div>
     </header>
 
+    ${S.upload.testgeraet ? `
+    <button class="test-leiste" data-act="personaWahl">
+      <span class="test-leiste-marke">Testgerät</span>
+      <span class="test-leiste-text">Testen als <b>${testAls() ? esc(ordnerName(testAls())) : 'eigene Einstellungen'}</b>${paketKurz() ? `<span class="klein">${esc(paketKurz())}</span>` : ''}</span>
+      <span class="test-leiste-pfeil">Ändern ›</span>
+    </button>` : ''}
     <section class="guthaben-karte">
       ${zeitSymbol(44)}
       <div><div class="guthaben-zahl">${L.formatZeit(S.guthaben)}</div><div class="gedaempft">Spielzeit</div></div>
@@ -3270,6 +3295,13 @@ function klick(e) {
       el.textContent = 'Wird geladen …';
       testSchuelerLaden().then(() => zeigeEltern()).catch(e => zeigeEltern(esc(e.message || 'Laden hat nicht geklappt.')));
       break;
+    case 'personaWahl': personaWahl(); break;
+    case 'personaSetzen': {
+      const o = el.dataset.o || null;
+      el.textContent = 'Wird übernommen …';
+      testAlsSetzen(o).then(() => { schliesseModal(); zeigeStart(); if (S.fern && S.fern.fehler) personaWahl(esc(S.fern.fehler)); });
+      break;
+    }
     case 'testAls': {
       const o = el.dataset.o || null;
       el.textContent = 'Wird übernommen …';
