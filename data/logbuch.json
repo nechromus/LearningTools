@@ -1,5 +1,5 @@
 {
- "info": "Logbuch-Einträge (Erklärungen), einer pro Etappe einer Lerneinheit. Erscheint vor der ersten Aufgabe einer neuen Etappe und bleibt im Logbuch abrufbar. {sternzeit} ersetzt die App durch die Sternzeit des Tages, an dem die Etappe freigeschaltet wurde. Einträge mit status statt Text sind noch nicht geschrieben; die Etappe bleibt dann gesperrt („kommt bald“). Quelle: Projekt, 13-logbuch (freigegeben 2026-10-21).",
+ "info": "Logbuch-Einträge (Erklärungen), einer pro Etappe einer Lerneinheit. Erscheint vor der ersten Aufgabe einer neuen Etappe und bleibt im Logbuch abrufbar. {sternzeit} ersetzt die App durch die Sternzeit des Tages, an dem die Etappe freigeschaltet wurde. Einträge mit status statt Text sind noch nicht geschrieben; die Etappe bleibt dann gesperrt („kommt bald“). Quelle: Projekt, 13- und 14-logbuch (freigegeben 2026-10-21).",
  "eintraege": [
   {
    "id": "lb-groessen-1", "paket": "groessen-zehnerpotenzen", "etappe": 1,
@@ -61,11 +61,65 @@
    ],
    "merke": ["Formel = Gleichung", "Gesuchte Größe im Nenner? Erst mit ihr multiplizieren", "Kontrolle durch Einsetzen"]
   },
-  { "id": "lb-groessen-3", "etappe": 3, "status": "folgt im nächsten Aufgaben-Chat" },
-  { "id": "lb-groessen-4", "etappe": 4, "status": "folgt im nächsten Aufgaben-Chat" },
-  { "id": "lb-gewicht-3", "etappe": 3, "status": "folgt im nächsten Aufgaben-Chat" },
-  { "id": "lb-gewicht-4", "etappe": 4, "status": "folgt im nächsten Aufgaben-Chat" },
-  { "id": "lb-umstellen-3", "etappe": 3, "status": "folgt im nächsten Aufgaben-Chat" },
-  { "id": "lb-umstellen-4", "etappe": 4, "status": "folgt im nächsten Aufgaben-Chat" }
+  {
+   "id": "lb-groessen-3", "paket": "groessen-zehnerpotenzen", "etappe": 3,
+   "titel": "Einheiten sind Zehnerpotenzen mit Namen",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Kilo, Zenti, Milli – hinter den Vorsilben der Einheiten stecken nichts anderes als Zehnerpotenzen: Kilo heißt 10³, Zenti 10⁻², Milli 10⁻³, Mikro 10⁻⁶. Ein Kilometer sind also 10³ m, ein Millimeter 10⁻³ m.",
+    "Bei Flächen und Volumen wird es spannender. Ein Quadratmeter ist ein Quadrat mit 1 m Seitenlänge, also 1000 mm mal 1000 mm – das sind 10⁶ mm². Bei einem Würfel kommt die dritte Dimension dazu: 1 m³ = 10⁹ mm³. Der Umrechnungsfaktor wird quadriert beziehungsweise hoch drei genommen.",
+    "Ein Liter ist übrigens keine eigene Größe, sondern genau ein Kubikdezimeter: ein Würfel mit 10 cm Kantenlänge."
+   ],
+   "merke": ["Kilo 10³ · Zenti 10⁻² · Milli 10⁻³ · Mikro 10⁻⁶", "Fläche: Faktor zum Quadrat", "Volumen: Faktor hoch drei", "1 L = 1 dm³ = 1000 cm³"]
+  },
+  {
+   "id": "lb-groessen-4", "paket": "groessen-zehnerpotenzen", "etappe": 4,
+   "titel": "Wie genau ist genau?",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Jede Messung ist ungenau – die Frage ist nur, wie sehr. Wissenschaftler zeigen das über die Zahl der gültigen Ziffern: 1,20 m sagt, dass auf den Zentimeter genau gemessen wurde. 1,2 m wäre nur auf zehn Zentimeter genau.",
+    "Führende Nullen zählen dabei nicht, sie zeigen nur die Lage des Kommas: 0,0045 m hat zwei gültige Ziffern. In wissenschaftlicher Schreibweise sieht man es sofort: 4,5 · 10⁻³ m.",
+    "Wer mehrmals misst, erkennt die Genauigkeit an der Streuung der Werte. Zwei Messreihen können denselben Mittelwert haben und trotzdem sehr unterschiedlich zuverlässig sein. Und noch eine Regel für Summen: Addieren lassen sich nur Größen in derselben Einheit."
+   ],
+   "merke": ["Gültige Ziffern ab der ersten Ziffer ≠ 0", "Endnullen hinter dem Komma zählen", "Streuung zeigt Genauigkeit", "Erst umrechnen, dann addieren"]
+  },
+  {
+   "id": "lb-gewicht-3", "paket": "gewichtskraft-sonnensystem", "etappe": 3,
+   "titel": "Rückwärts rechnen",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Ein Landemodul setzt auf einem unbekannten Planeten auf. Eine Probe mit bekannter Masse hängt am Kraftmesser – und schon lässt sich die Schwerkraft dieses Planeten bestimmen.",
+    "Die Formel F_G = m · g funktioniert in alle Richtungen: g = F_G/m liefert den Ortsfaktor, m = F_G/g die Masse. Genau so arbeiten auch Personenwaagen. Sie messen eigentlich eine Kraft und rechnen sie mit g = 9,81 N/kg in Kilogramm um – auf dem Mond würden sie deshalb falsch anzeigen.",
+    "Eine Balkenwaage dagegen vergleicht Masse mit Masse. Sie zeigt überall im Universum dasselbe, solange es überhaupt eine Schwerkraft gibt."
+   ],
+   "merke": ["g = F_G / m", "m = F_G / g", "Personenwaage misst eine Kraft"]
+  },
+  {
+   "id": "lb-gewicht-4", "paket": "gewichtskraft-sonnensystem", "etappe": 4,
+   "titel": "Die Extreme des Universums",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Zum Abschluss der Reise besuchen wir die Extreme. Auf dem Mount Everest ist g nur um 0,4 % kleiner als auf Meereshöhe – kaum messbar. Auf dem Jupiter ist g etwa 2,5-mal so groß wie auf der Erde.",
+    "Ganz anders bei ausgebrannten Sternen. Ein Weißer Zwerg presst die Masse einer Sonne auf die Größe der Erde zusammen; sein Ortsfaktor liegt bei einigen Millionen N/kg. Ein Neutronenstern ist noch dichter: über eine Sonnenmasse in einer Kugel von nur etwa 20 km Durchmesser, mit g in der Größenordnung von 10¹² N/kg.",
+    "Für Vergleiche braucht man oft gar keine Masse: Der Faktor zwischen zwei Gewichtskräften ist einfach das Verhältnis der Ortsfaktoren, denn die Masse kürzt sich heraus."
+   ],
+   "merke": ["Faktor = g₁ : g₂", "Prozent = Unterschied : Ausgangswert", "Weißer Zwerg ~ 10⁶ N/kg", "Neutronenstern ~ 10¹² N/kg"]
+  },
+  {
+   "id": "lb-umstellen-3", "paket": "gleichungen-umstellen", "etappe": 3,
+   "titel": "Schritt für Schritt zurück",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Steht die gesuchte Größe nicht allein, sondern eingebettet – mit einem Faktor davor, in einem Nenner, als Quadrat –, braucht man mehrere Umformungen. Die Regel bleibt dieselbe: Man macht rückgängig, was mit der Größe passiert ist, und zwar in umgekehrter Reihenfolge.",
+    "Bei s = ½ · a · t² ist a mit ½ und mit t² multipliziert. Bei reinen Produkten ist die Reihenfolge der Umformungen egal – praktisch ist es, zuerst den Bruch ½ zu beseitigen (mal 2) und danach durch t² zu teilen. Ergebnis: a = 2s/t².",
+    "Auch Einsteins E = m · c² ist nur eine Gleichung, die sich nach m umstellen lässt. Wer Formeln umstellen kann, muss sich nicht jede Variante einzeln merken."
+   ],
+   "merke": ["Umgekehrte Reihenfolge", "Brüche zuerst beseitigen", "Durch ganze Produkte teilen: : (a · b)"]
+  },
+  {
+   "id": "lb-umstellen-4", "paket": "gleichungen-umstellen", "etappe": 4,
+   "titel": "Summen, Klammern und Minuszeichen",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Kommt die gesuchte Größe in einer Summe vor, löst man sie in zwei Etappen heraus: erst alles abziehen, was nicht mit ihr verbunden ist, dann durch das teilen, womit sie multipliziert wird. Aus v = v₀ + a · t wird so t = (v − v₀)/a.",
+    "Die Klammer im Ergebnis ist kein Schmuck: Sie sagt, dass der ganze Unterschied v − v₀ durch a geteilt wird. Ohne Klammer würde nur v₀ geteilt.",
+    "Die häufigste Fehlerquelle ist ein Minus vor einer Klammer oder einem Bruch. Es dreht alle Vorzeichen darin um: −3 · (2x + 1) = −6x − 3. Bei Bruchgleichungen hilft der Hauptnenner, alle Brüche auf einmal zu beseitigen."
+   ],
+   "merke": ["Erst Summanden abziehen, dann teilen", "Klammer um Zähler und Nenner", "Minus vor Klammer dreht alle Vorzeichen", "Hauptnenner bei Brüchen"]
+  }
  ]
 }

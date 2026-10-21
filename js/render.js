@@ -17,6 +17,7 @@ export function mathe(text) {
     .replace(/(\d+)\/(\d+)/g, (_, z, n) => bruchHtml(z, n))
     .replace(/\bA_([GMO])\b/g, 'A<sub>$1</sub>')
     .replace(/\bF_G\b/g, 'F<sub>G</sub>')
+    .replace(/v₀/g, 'v<sub>0</sub>')
     .replace(/(\d) (€|cm|m(?![a-zäöüß])|%|Min\.)/g, '$1\u00A0$2');
 }
 

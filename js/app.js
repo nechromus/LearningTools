@@ -27,7 +27,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.15.0';
+export const APP_VERSION = '2.15.1';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1557,7 +1557,7 @@ function schritteAn(auto = false) {
 }
 
 // Formeln und Gleichungen mit echten Brüchen anzeigen (F_G mit tiefgestelltem G)
-const groesseHtml = (n) => (n === 'F_G' ? 'F<sub>G</sub>' : /^A_[GMO]$/.test(n) ? `A<sub>${n[2]}</sub>` : esc(n));
+const groesseHtml = (n) => (n === 'F_G' ? 'F<sub>G</sub>' : /^A_[GMO]$/.test(n) ? `A<sub>${n[2]}</sub>` : n === 'v₀' ? 'v<sub>0</sub>' : esc(n));
 function formelText(text) {
   const h = PH.gleichungHtml(text, PH.variablenIn(text), esc, groesseHtml);
   return h == null ? mathe(text) : h;
@@ -1587,7 +1587,7 @@ function zeigeAufgabe() {
         ${a.bonus ? `<div class="bonus-kopf"><span class="bonus-label">Bonus · freiwillig</span>${!A.fertig && A.teile.every(t => !t.versuche.length) ? '<button class="btn-text klein" data-act="ueberspringen">Überspringen</button>' : ''}</div>` : ''}
         ${sternzeit() ? `<div class="sz-label">${physik(a) ? 'Physik' : 'Mathe'} · ${esc(THEMA_NAMEN[a.thema] || a.thema)}</div>` : ''}
         ${a.geschichte ? geschichteHtml(a) : ''}
-        ${a.rechnung ? `<div class="rechnung">${rechnungHtml(a)}</div>` : ''}
+        ${a.rechnung ? `<div class="rechnung${a.rechnung.length > 22 ? ' lang' : ''}">${rechnungHtml(a)}</div>` : ''}
         ${a.bild ? `<div class="bild">${bildSvg(a.bild)}</div>` : ''}
         ${liestNoch() ? '' : `${!(a.typ === 'auswahl' || (a.typ === 'formel' && a.eingabe === 'auswahl')) ? `<p class="frage">${mathe(a.frage)}</p>` : ''}
         ${A.knobeln && !A.fertig ? '<div class="knobel-zeile">✦ Knobel erst selbst.</div>' : ''}
@@ -1905,7 +1905,7 @@ function fussHtml() {
   if (t.art === 'formel') {
     // Buchstaben-Tastatur: Größen der Aufgabe, Ziffern, Rechenzeichen, Klammern, Hoch 2
     const w = t.antwort;
-    const mitPi = /π/.test(A.aufgabe.rechnung || '');
+    const mitPi = /π/.test(A.aufgabe.rechnung || '') || (w.konstanten || []).includes('π');
     const groessen = w.variablen.map(v => `<button class="taste taste-var" data-act="fTaste" data-k="${esc(v)}">${groesseHtml(v)}</button>`).join('');
     const z = (k, kl = '') => `<button class="taste${kl}" data-act="fTaste" data-k="${k}">${k}</button>`;
     return `<div class="tastatur formel-tastatur">

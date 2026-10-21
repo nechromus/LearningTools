@@ -875,3 +875,4 @@ mark.zahl-mark { background: #F6D26A; color: inherit; border-radius: 4px; paddin
 @keyframes feier-ein { from { transform: scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes feier-stern { 50% { transform: rotate(180deg) scale(1.3); } }
 @media (prefers-reduced-motion: reduce) { .etappe-feier, .ef-stern, .formel-cursor { animation: none; } }
+.rechnung.lang { font-size: 23px; }
