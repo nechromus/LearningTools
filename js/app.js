@@ -24,7 +24,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.14.0';
+export const APP_VERSION = '2.14.1';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -99,7 +99,12 @@ export async function starten() {
   document.addEventListener('click', klick);
   // Testgerät: Bereich für „Gezielt testen“ gewählt → Übersicht der Stufen aktualisieren
   document.addEventListener('change', (e) => {
-    if (e.target && e.target.id === 't-thema') { S.testFokusEntwurf = e.target.value; zeigeEltern(); }
+    if (e.target && e.target.id === 't-thema') {
+      S.testFokusEntwurf = e.target.value;
+      // Gezielt testen ist an: neuer Bereich gilt sofort (Stufe bleibt)
+      if (testFokus()) { S.testFokus = { thema: e.target.value, stufe: testFokus().stufe }; protokoll(S, 'test_fokus', S.testFokus); sichern(); }
+      zeigeEltern();
+    }
   });
   document.addEventListener('visibilitychange', sichtbarkeit);
   document.addEventListener('keydown', taste);
@@ -695,13 +700,13 @@ function zeigeStart() {
   <div class="screen start">
     <header class="start-kopf">
       <div class="logo" id="logo" title="">${sechseck(56, '#DCEDED', '#1F6F75', '<text x="12" y="12.6" text-anchor="middle" dominant-baseline="central" font-family="Cinzel, serif" font-weight="700" font-size="6" fill="#0E4A4F">2048</text>')}</div>
-      <div><h1>Schrein der Zahlen</h1><p class="gedaempft">Hallo${name}!</p>${testFokus() ? `<p class="test-als-chip">Gezielt: ${esc(THEMA_NAMEN[testFokus().thema])} · Stufe ${testFokus().stufe}</p>` : ''}</div>
+      <div><h1>Schrein der Zahlen</h1><p class="gedaempft">Hallo${name}!</p></div>
     </header>
 
     ${S.upload.testgeraet ? `
     <button class="test-leiste" data-act="personaWahl">
       <span class="test-leiste-marke">Testgerät</span>
-      <span class="test-leiste-text">Testen als <b>${testAls() ? esc(ordnerName(testAls())) : 'eigene Einstellungen'}</b>${paketKurz() ? `<span class="klein">${esc(paketKurz())}</span>` : ''}</span>
+      <span class="test-leiste-text">Testen als <b>${testAls() ? esc(ordnerName(testAls())) : 'eigene Einstellungen'}</b>${testFokus() ? `<span class="fokus-an">Gezielt testen AN: ${esc(THEMA_NAMEN[testFokus().thema])} · Stufe ${testFokus().stufe}</span>` : paketKurz() ? `<span class="klein">${esc(paketKurz())}</span>` : ''}</span>
       <span class="test-leiste-pfeil">Ändern ›</span>
     </button>` : ''}
     <section class="guthaben-karte">
@@ -2842,17 +2847,20 @@ function zusammenfassung(tage = 7) {
 
 function testFokusHtml() {
   const f = testFokus();
-  const thema = (f && f.thema) || S.testFokusEntwurf || L.THEMEN[0];
-  const stufe = (f && f.stufe) || 1;
+  // Aus: nur der Schalter. Die Aufgaben kommen wie beim Schüler (normale Mischung).
+  if (!f) return `<div class="fokus-box">
+    <label class="schalter-zeile"><input type="checkbox" data-act="testFokusAn"><span><b>Gezielt testen</b><br><span class="gedaempft klein">Aus: Du bekommst die Aufgaben so, wie ${testAls() ? esc(ordnerName(testAls())) : 'mit deinen eigenen Einstellungen'} sie bekommt.</span></span></label>
+  </div>`;
+  const thema = f.thema;
   const opt = L.THEMEN.map(t => `<option value="${t}"${t === thema ? ' selected' : ''}>${esc(THEMA_NAMEN[t] || t)}</option>`).join('');
   const quellen = testAuswahl(thema).map(q => `Stufe ${q.st}: ${q.gen ? 'Baukasten' : ''}${q.gen && q.pool ? ' + ' : ''}${q.pool ? `${q.pool} aus dem Pool` : ''}${!q.gen && !q.pool ? 'keine Aufgaben' : ''}`).join(' · ');
-  return `<h4>Gezielt testen</h4>
-    <p class="gedaempft klein">Nur Aufgaben aus einem Bereich mit einer Stufe. Stufen der Baukästen ändern sich dabei nicht.</p>
+  return `<div class="fokus-box an">
+    <label class="schalter-zeile"><input type="checkbox" checked data-act="testFokusAus"><span><b>Gezielt testen ist AN</b><br><span class="klein">Es kommen nur Aufgaben aus diesem Bereich und dieser Stufe. Ausschalten = wieder wie beim Schüler.</span></span></label>
     <label class="feld-label">Bereich<select id="t-thema">${opt}</select></label>
-    <div class="test-als">${[1, 2, 3].map(st => `<button class="btn btn-klein${f && f.stufe === st && f.thema === thema ? ' btn-haupt' : ''}" data-act="testFokus" data-st="${st}">Stufe ${st}</button>`).join('')}
-      ${f ? '<button class="btn btn-klein" data-act="testFokusAus">Normale Mischung</button>' : ''}</div>
+    <div class="test-als">${[1, 2, 3].map(st => `<button class="btn btn-klein${f.stufe === st ? ' btn-haupt' : ''}" data-act="testFokus" data-st="${st}">Stufe ${st}</button>`).join('')}</div>
     <p class="klein gedaempft">${esc(quellen)}</p>
-    <p class="klein">Jetzt: <b>${f ? `${esc(THEMA_NAMEN[f.thema])} · Stufe ${f.stufe}` : 'normale Mischung'}</b></p>`;
+    <p class="klein">Jetzt: <b>${esc(THEMA_NAMEN[f.thema])} · Stufe ${f.stufe}</b>. Stufen der Baukästen ändern sich dabei nicht.</p>
+  </div>`;
 }
 
 function zeigeEltern(meldung = '') {
@@ -2904,7 +2912,7 @@ function zeigeEltern(meldung = '') {
       <p class="gedaempft klein">Übernimmt Aufgabenpaket und Einstellungen eines Schülers aus der Eltern-App. Bei ihm wird nichts verändert.</p>
       ${testSchueler ? `<div class="test-als">${[null, ...testSchueler].map(o => `<button class="btn btn-klein${(testAls() || null) === o ? ' btn-haupt' : ''}" data-act="testAls" data-o="${esc(o || '')}">${o ? esc(ordnerName(o)) : 'Eigene Einstellungen'}</button>`).join('')}</div>`
         : '<button class="btn btn-klein" data-act="testSchueler">Schüler laden</button>'}
-      <p class="klein">Jetzt: <b>${testAls() ? esc(ordnerName(testAls())) : 'eigene Einstellungen'}</b>${S.paket ? ` · Paket „${esc(S.paket.name)}“` : ''}</p>` : ''}
+      <p class="klein">Jetzt: <b>${testAls() ? esc(ordnerName(testAls())) : 'eigene Einstellungen'}</b>${paketKurz() ? ` · ${esc(paketKurz())}` : ''}</p>` : ''}
       ${S.upload.testgeraet ? testFokusHtml() : ''}
     </section>
 
@@ -3290,7 +3298,14 @@ function klick(e) {
       zeigeEltern(!leer.gen && !leer.pool ? `${esc(THEMA_NAMEN[thema])}, Stufe ${st}: Dafür gibt es keine Aufgaben. Es kommt die normale Mischung.` : `Gezielt: ${esc(THEMA_NAMEN[thema])}, Stufe ${st}.`);
       break;
     }
-    case 'testFokusAus': S.testFokus = null; protokoll(S, 'test_fokus', { thema: null }); sichern(); zeigeEltern('Wieder die normale Mischung.'); break;
+    case 'testFokusAn': {
+      const thema = L.THEMEN.includes(S.testFokusEntwurf) ? S.testFokusEntwurf : L.THEMEN[0];
+      S.testFokus = { thema, stufe: 1 };
+      protokoll(S, 'test_fokus', S.testFokus); sichern();
+      zeigeEltern(`Gezielt testen ist an: ${esc(THEMA_NAMEN[thema])}, Stufe 1. Wähle Bereich und Stufe.`);
+      break;
+    }
+    case 'testFokusAus': S.testFokus = null; protokoll(S, 'test_fokus', { thema: null }); sichern(); zeigeEltern(`Gezielt testen ist aus. Die Aufgaben kommen wieder wie ${testAls() ? `bei ${esc(ordnerName(testAls()))}` : 'mit deinen eigenen Einstellungen'}.`); break;
     case 'testSchueler':
       el.textContent = 'Wird geladen …';
       testSchuelerLaden().then(() => zeigeEltern()).catch(e => zeigeEltern(esc(e.message || 'Laden hat nicht geklappt.')));

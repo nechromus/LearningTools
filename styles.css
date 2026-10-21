@@ -822,3 +822,8 @@ mark.zahl-mark { background: #F6D26A; color: inherit; border-radius: 4px; paddin
 .test-leiste-text .klein { display: block; font-size: 13px; color: var(--gedaempft); }
 .test-leiste-pfeil { font-weight: 700; color: var(--teal); white-space: nowrap; }
 .persona-liste { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+/* Gezielt testen: deutlich an oder aus (2.14.1) */
+.fokus-box { border: 1.5px solid var(--linie); border-radius: var(--radius); padding: 10px 12px; margin-top: 10px; }
+.fokus-box.an { border: 2.5px solid var(--amber); background: #FFF3D6; }
+.fokus-box.an .schalter-zeile b { color: var(--amber-dunkel); }
+.fokus-an { display: block; margin-top: 4px; font-size: 13px; font-weight: 700; color: #fff; background: var(--amber); border-radius: 6px; padding: 2px 8px; width: fit-content; }
