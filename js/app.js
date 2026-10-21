@@ -21,7 +21,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.8.1';
+export const APP_VERSION = '2.9.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -743,10 +743,23 @@ function erzeuge(g, stufe, opts = {}) {
 // Gewichte der Themen: aus dem Paket der Eltern-App, sonst Übungsthema auf „viel“
 const gewichte = () => (S.paket && S.paket.gewichte) ? P.gewichteNorm(S.paket.gewichte) : P.gewichteOhnePaket(S.einstellungen.thema);
 
+function einmaleinsBlock(stufe) {
+  const letzte = S.verlauf.letzteIds.slice(-15);
+  let b;
+  for (let i = 0; i < 8; i++) { b = G.block('einmaleins', Math.random, stufe); if (!letzte.includes(b.id)) break; }
+  return b;
+}
+
 function kurzeAufgabe(g, fokus, { leicht = false } = {}) {
   const thema = P.kopfThema(g, Math.random, S.verlauf.kopfZuletzt);
   if (!thema) return null;
   S.verlauf.kopfZuletzt = thema;
+  // Einmaleins immer als Dreierblock (Wunsch Vater), mit der Stufe des Baukastens
+  if (thema === 'einmaleins') {
+    const b = einmaleinsBlock(leicht ? 1 : genStufe('einmaleins'));
+    if (!leicht) b.stufeZaehlt = true; // zählt für die Stufe des Baukastens (Einstieg nicht)
+    return b;
+  }
   if (leicht && P.BLOCK_GEN[thema] && Math.random() < 0.4) return G.block(P.BLOCK_GEN[thema], Math.random);
   if (!leicht && Math.random() < 0.15) {
     const p = L.waehleAufgabe(alleAufgaben(), { kategorie: 'thema', thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
@@ -840,7 +853,7 @@ function waehleAufgabe(kategorie) {
   }
   if (!a) a = kurzeAufgabe(g, fokus);
   if (!a) { const rest = pool.filter(x => !x.bonus); a = rest.length ? L.waehleAufgabe(rest, { kategorie: 'alle', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key }) : null; }
-  if (!a) a = erzeuge('einmaleins', 1);
+  if (!a) a = einmaleinsBlock(1);
   return { aufgabe: a, wdh: 0 };
 }
 
@@ -1418,7 +1431,8 @@ function abschliessen() {
     const st = S.statistik[a.id] || (S.statistik[a.id] = { gesehen: 0 });
     st.gesehen++; st.zuletzt = S.verlauf.zaehler; st.letztesErgebnis = ergebnis; st.letzterTag = S.tag.key;
   } else {
-    const g = a.generator;
+    // Einmaleins-Dreierblöcke (außer auf dem Einstiegsplatz) zählen für die Stufe des Einmaleins
+    const g = a.generator === 'block-einmaleins' && a.stufeZaehlt ? 'einmaleins' : a.generator;
     if (!a.bonus && !g.startsWith('block') && G.GENERATOREN[g]) {
       const st = S.genStufen[g] || (S.genStufen[g] = { stufe: 1, folge: 0 });
       if (ergebnis === 'erst' && A.hilfeGenutzt) st.folge = 0; // mit „Hilf mir“: Stufe bleibt

@@ -144,8 +144,9 @@ function potenzWeg(basis, exp) {
 
 // ---------- Einmaleins ----------
 
-export function einmaleins(stufe, rng) {
-  const geteilt = stufe === 3 && rng() < 0.6;
+export function einmaleins(stufe, rng, opts = {}) {
+  // Geteilt ab Stufe 2 (Wunsch Vater); opts.art erzwingt 'mal' oder 'geteilt' (für gemischte Dreierblöcke)
+  const geteilt = opts.art ? opts.art === 'geteilt' : stufe >= 2 && rng() < (stufe === 2 ? 0.4 : 0.5);
   let a = stufe === 1 ? zufall(rng, 2, 5) : zufall(rng, 3, 10);
   let b = stufe === 1 ? zufall(rng, 2, 10) : zufall(rng, 6, 10);
   if (rng() < 0.5) [a, b] = [b, a];
@@ -542,11 +543,13 @@ export function rabattGeschichte(stufe, rng) {
 
 // ---------- Dreierblock ----------
 
-export function block(gen, rng) {
+export function block(gen, rng, stufe = 1) {
   const teile = [];
   const ids = new Set();
-  for (let v = 0; v < 50 && teile.length < 3; v++) {
-    const t = GENERATOREN[gen](1, rng);
+  // Einmaleins ab Stufe 2: mal und geteilt gemischt (mindestens eine von beiden Arten)
+  const arten = gen === 'einmaleins' && stufe >= 2 ? (rng() < 0.5 ? ['mal', 'geteilt', 'mal'] : ['geteilt', 'mal', 'geteilt']) : null;
+  for (let v = 0; v < 80 && teile.length < 3; v++) {
+    const t = arten ? GENERATOREN[gen](stufe, rng, { art: arten[teile.length] }) : GENERATOREN[gen](stufe, rng);
     if (t.typ !== 'zahl' || ids.has(t.id)) continue;
     // Runden: alle drei auf dieselbe Stellenzahl, damit die Frage für alle gilt
     if (gen === 'runden' && teile.length && t.parameter[1] !== teile[0].parameter[1]) continue;
@@ -555,7 +558,7 @@ export function block(gen, rng) {
   return {
     id: `gen-block-${teile.map(t => t.id.replace('gen-', '')).join('+')}`,
     quelle: 'Baukasten', generator: `block-${gen}`, parameter: teile.map(t => t.parameter),
-    thema: teile[0].thema, typ: 'mehrfrage', stufe: 1, bonus: false,
+    thema: teile[0].thema, typ: 'mehrfrage', stufe, bonus: false,
     frage: gen === 'runden' ? (teile[0].parameter[1] === 0 ? 'Runde alle drei auf ganze Zahlen.' : teile[0].frage.replace('Runde auf', 'Runde alle drei auf')) : 'Rechne alle drei aus.',
     fragen: teile.map(t => gen === 'runden'
       ? { frage: t.rechnung.replace(/\s*≈\s*\?$/, ' ≈'), wert: t.antwort.wert, runden: t.parameter[1] }
