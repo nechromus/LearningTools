@@ -12,7 +12,7 @@ import * as BS from '../js/bildschirm.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.19.0';
+export const ELTERN_VERSION = '1.19.1';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -653,6 +653,7 @@ function bzEinstellungen(w) {
       <div class="einstell-block"><span>Kann für Bildschirmzeit üben<span class="klein gedaempft block">Vor der ersten Aufgabe fragt die App: Spielzeit oder Bildschirmzeit?</span></span>${seg('bzAn', [true, false], b.an, x => x ? 'An' : 'Aus')}</div>
       ${b.an ? `<div class="einstell-block"><span>Faktor zur Spielzeit</span>${seg('bzFaktor', BS.FAKTOREN, b.faktor, bruch)}<span class="klein gedaempft">1 = gleich viel wie Spielzeit. Gleiche Regeln (Serie, 2. Versuch, Hilfen).</span></div>
       <div class="einstell-block"><span>Höchstens pro Tag</span>${seg('bzMax', BS.HOECHSTWERTE, b.max)}<span class="klein gedaempft">Minuten. Gilt jeden Tag.</span></div>
+      <div class="einstell-block"><span>Abschicken ab</span>${seg('bzAb', BS.MINDESTWERTE, b.ab)}<span class="klein gedaempft">Minuten. Vorher kann ${esc(name())} noch nichts abschicken.</span></div>
       <div class="einstell-block"><span>Nur heute mehr zulassen</span>${seg('bzExtra', BS.EXTRAS, b.extraMin, x => '+' + x)}<span class="klein gedaempft">Heute: ${b.max + b.extraMin} Min. erlaubt, ${A.minutenText(heute)} verdient. Morgen gilt wieder der normale Wert.</span></div>` : ''}
     </section>`;
 }
@@ -1222,6 +1223,7 @@ document.addEventListener('click', (ev) => {
     case 'bzAn': entwurf.bildschirm = { ...entwurf.bildschirm, an: el.dataset.w === 'true' }; meldung = null; zeichne(); break;
     case 'bzFaktor': entwurf.bildschirm = { ...entwurf.bildschirm, faktor: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'bzMax': entwurf.bildschirm = { ...entwurf.bildschirm, max: Number(el.dataset.w) }; meldung = null; zeichne(); break;
+    case 'bzAb': entwurf.bildschirm = { ...entwurf.bildschirm, ab: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'bzExtra': entwurf.bildschirm = { ...entwurf.bildschirm, extraMin: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'paketStandard': { const pk = paketVon(entwurf.paket.id); entwurf.abweichungen = {}; if (pk) entwurf.gewichte = { ...pk.gewichte }; meldung = null; zeichne(); break; }
     case 'pgewicht': paketEntwurf.gewichte[el.dataset.t] = Number(el.dataset.w); meldung = null; zeichne(); break;

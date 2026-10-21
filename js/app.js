@@ -23,7 +23,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.11.1';
+export const APP_VERSION = '2.11.2';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -63,6 +63,8 @@ const BZ = () => BS.bzRegeln(S.bzRegeln);
 const bzKonto = () => (S.bildschirm = BS.kontoVon(S.bildschirm, L.tagKey()));
 let zweck = null;            // wofür in dieser Runde geübt wird: 'spiel' | 'bild' (Frage vor der ersten Aufgabe)
 const istBild = () => zweck === 'bild' && BZ().an;
+// „Ab 15 Min. kannst du abschicken. Noch 3 Min.“
+const abText = (k) => `Ab ${BS.minText(BS.abSek(BZ()))} kannst du abschicken. Noch ${BS.minText(BS.abSek(BZ()) - k.stand)}`;
 // Eigene, neutrale Zeichnungen (keine Marken-Logos)
 const konsoleSymbol = (h) => `<svg width="${Math.round(h * 1.6)}" height="${h}" viewBox="0 0 64 40" aria-hidden="true"><rect x="2" y="4" width="14" height="32" rx="7" fill="#5B6B8C"/><rect x="48" y="4" width="14" height="32" rx="7" fill="#5B6B8C"/><rect x="15" y="5" width="34" height="30" rx="3" fill="#1E2A3E"/><rect x="18" y="8" width="28" height="24" rx="1.5" fill="#6C8CCB"/><circle cx="9" cy="14" r="3" fill="#1E2A3E"/><circle cx="55" cy="24" r="3" fill="#1E2A3E"/><circle cx="55" cy="12" r="1.6" fill="#E3EAF7"/><circle cx="58" cy="15" r="1.6" fill="#E3EAF7"/><circle cx="52" cy="15" r="1.6" fill="#E3EAF7"/><path d="M7 26h4M9 24v4" stroke="#E3EAF7" stroke-width="1.6"/></svg>`;
 const computerSymbol = (h) => `<svg width="${Math.round(h * 1.2)}" height="${h}" viewBox="0 0 48 40" aria-hidden="true"><rect x="3" y="3" width="42" height="27" rx="3" fill="#1E2A3E"/><rect x="6" y="6" width="36" height="21" rx="1" fill="#8FB0E6"/><path d="M9 22l7-7 5 5 6-8 9 10" stroke="#2F4F8F" stroke-width="2" fill="none"/><rect x="20" y="30" width="8" height="5" fill="#5B6B8C"/><rect x="13" y="35" width="22" height="3" rx="1.5" fill="#5B6B8C"/></svg>`;
@@ -680,7 +682,8 @@ function zeigeStart() {
     <section class="bz-karte">
       <span class="bz-icons">${videoSymbol(40)}</span>
       <div class="bz-text"><div class="bz-zahl">${BS.minText(bz.stand)}</div><div class="gedaempft">Bildschirmzeit gesammelt</div></div>
-      <button class="btn btn-bz" data-act="bzSeite">Abschicken</button>
+      ${BS.kannAbschicken(bz, BZ()) ? '<button class="btn btn-bz" data-act="bzSeite">Abschicken</button>' : ''}
+      ${BS.kannAbschicken(bz, BZ()) ? '' : `<div class="bz-ab gedaempft">${abText(bz)}</div>`}
     </section>` : ''}
 
     ${slot ? `
@@ -759,25 +762,25 @@ function zeigeBildschirmzeit() {
   const jetzt = new Date();
   // Bild für die Nachricht schon jetzt zeichnen: Beim Tippen auf „Teilen“ muss das Teilen-Fenster sofort aufgehen (iPhone)
   bzBildDatei = null;
-  if (k.stand > 0) bildschirmBild({ sekunden: k.stand, aufgaben: k.aufgaben, code: k.code, name: S.einstellungen.name || '' }, jetzt).then(f => { bzBildDatei = f; });
+  if (BS.kannAbschicken(k, BZ())) bildschirmBild({ sekunden: k.stand, aufgaben: k.aufgaben, code: k.code, name: S.einstellungen.name || '' }, jetzt).then(f => { bzBildDatei = f; });
   $app.innerHTML = `
   <div class="screen bz-screen">
     <header class="topbar"><button class="btn-text" data-act="start">‹ Zurück</button></header>
     <div class="bz-gross-icon">${videoSymbol(64)}</div>
     <div class="bz-gross">${BS.minText(k.stand)}</div>
     <p class="bz-mitte bz-label">Bildschirmzeit</p>
-    ${k.stand > 0 ? `
+    ${BS.kannAbschicken(k, BZ()) ? `
     <p class="gedaempft bz-mitte">${esc(BS.zeitpunktText(jetzt))} Uhr<br>${k.aufgaben} ${k.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'} geschafft</p>
     <div><p class="gedaempft bz-mitte bz-code-label">Dein Code</p><div class="bz-code">${esc(k.code.split('').join(' '))}</div></div>
     <button class="btn btn-bz btn-gross" data-act="bzTeilen">Teilen</button>
     <p class="gedaempft bz-mitte">Schick die Nachricht an deine Eltern.<br>Danach steht hier wieder 0.</p>
-    <p class="meldung-bz" id="bz-meldung" hidden></p>` : '<p class="bz-mitte">Gerade ist nichts zum Abschicken da.</p>'}
+    <p class="meldung-bz" id="bz-meldung" hidden></p>` : `<p class="bz-mitte">${k.stand > 0 ? abText(k) : 'Gerade ist nichts zum Abschicken da.'}</p>`}
   </div>`;
 }
 
 async function bzTeilen() {
   const k = bzKonto();
-  if (!(k.stand > 0) || !k.code) return;
+  if (!BS.kannAbschicken(k, BZ()) || !k.code) return;
   const text = BS.nachrichtText(k, new Date());
   let geteilt = false, mitBild = false;
   if (navigator.share) {
@@ -1339,7 +1342,7 @@ function fussHtml() {
   if (A.fertig) {
     return `<div class="fuss-knoepfe">
       ${A.bild && A.bild.voll ? '<button class="btn btn-haupt btn-gross" data-act="zweckSpiel">Weiter für Spielzeit üben</button>' : '<button class="btn btn-haupt btn-gross" data-act="naechste">Nächste Aufgabe</button>'}
-      ${A.bild ? (A.bild.stand > 0 ? `<button class="btn btn-bz-rand" data-act="bzSeite">${BS.minText(A.bild.stand)} abschicken</button>` : '')
+      ${A.bild ? (BS.kannAbschicken(bzKonto(), BZ()) ? `<button class="btn btn-bz-rand" data-act="bzSeite">${BS.minText(bzKonto().stand)} abschicken</button>` : '')
         : `<button class="btn btn-amber-rand" data-act="zumSpiel">Zum Spiel · ${L.formatZeit(S.guthaben)}</button>`}
       ${A.bild && A.bild.voll ? '<button class="btn" data-act="start">Zum Start</button>' : ''}
     </div>`;
@@ -1377,6 +1380,7 @@ function ergebnisHtml() {
   if (b) {
     if (b.plus > 0) zeit = `<div class="mini-gewinn wk-bild"><span class="mini-icons">${bildIcons(0.62)}</span><div><b>+${BS.minText(b.plus)}</b><small>Bildschirmzeit</small></div></div>`;
     zeit += `<div class="konto-zeile"><span>Gesammelt</span><b>${BS.minText(b.stand)}</b></div>`;
+    if (b.stand > 0 && b.stand < BS.abSek(BZ())) zeit += `<p class="bz-ab gedaempft">${abText({ stand: b.stand })}</p>`;
     zeit += b.voll ? `<p class="bz-voll">Für heute ist die Bildschirmzeit voll. Du kannst weiter für Spielzeit üben.</p>`
       : `<div class="konto-zeile"><span>Heute noch möglich</span><b>${BS.minText(b.rest)}</b></div>`;
   } else if (sek > 0) {

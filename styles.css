@@ -805,3 +805,6 @@ mark.zahl-mark { background: #F6D26A; color: inherit; border-radius: 4px; paddin
 .bz-code-label { margin-bottom: 4px; }
 .bz-code { font: 700 30px ui-monospace, Menlo, monospace; letter-spacing: 4px; text-align: center; background: #fff; border: 2px dashed var(--bz); border-radius: 10px; padding: 10px; color: var(--bz-dunkel); }
 .meldung-bz { background: var(--bz-hell); border-radius: 8px; padding: 10px; margin: 0; }
+.bz-ab { font-size: 14px; margin: 4px 0 0; }
+.bz-karte .bz-ab { flex-basis: 100%; }
+.bz-karte { flex-wrap: wrap; }

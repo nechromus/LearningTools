@@ -6,18 +6,20 @@
 export const FAKTOREN = [0.5, 1, 1.5, 2];
 export const HOECHSTWERTE = [15, 30, 45, 60];   // Minuten pro Tag
 export const EXTRAS = [0, 15, 30, 60];           // „Nur heute mehr zulassen“ (Minuten)
-export const BZ_STANDARD = Object.freeze({ an: true, faktor: 1, max: 45, extra: null });
+export const MINDESTWERTE = [5, 10, 15, 30];     // Abschicken erst ab so vielen Minuten
+export const BZ_STANDARD = Object.freeze({ an: true, faktor: 1, max: 45, ab: 15, extra: null });
 
 // Einstellungen aus der Eltern-App prüfen. extra = { tag: 'JJJJ-MM-TT', min } gilt nur an diesem Tag.
 export function bzRegeln(r) {
   const S0 = BZ_STANDARD;
-  if (!r || typeof r !== 'object') return { an: S0.an, faktor: S0.faktor, max: S0.max, extra: null };
+  if (!r || typeof r !== 'object') return { an: S0.an, faktor: S0.faktor, max: S0.max, ab: S0.ab, extra: null };
   const extra = r.extra && /^\d{4}-\d{2}-\d{2}$/.test(r.extra.tag) && EXTRAS.includes(r.extra.min) && r.extra.min > 0
     ? { tag: r.extra.tag, min: r.extra.min } : null;
   return {
     an: typeof r.an === 'boolean' ? r.an : S0.an,
     faktor: FAKTOREN.includes(r.faktor) ? r.faktor : S0.faktor,
     max: HOECHSTWERTE.includes(r.max) ? r.max : S0.max,
+    ab: MINDESTWERTE.includes(r.ab) ? r.ab : S0.ab,
     extra
   };
 }
@@ -41,6 +43,10 @@ export function kontoVon(b, tag) {
     code: typeof k.code === 'string' && /^[A-Z0-9]{4}$/.test(k.code) ? k.code : null
   };
 }
+
+// Abschicken erst ab der Mindestzeit (Standard 15 Min.)
+export const abSek = (regeln) => bzRegeln(regeln).ab * 60;
+export const kannAbschicken = (konto, regeln) => konto.stand > 0 && konto.stand >= abSek(regeln);
 
 export const restSek = (konto, regeln) => Math.max(0, grenzeSek(regeln, konto.tag) - konto.heute);
 

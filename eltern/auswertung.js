@@ -386,12 +386,12 @@ export function startWerte(einst, stand, paketVon = () => null) {
 // Bildschirmzeit-Einstellungen für die Seite. extraMin gilt nur heute (danach 0).
 export function bzWerte(r, heute = tagKey()) {
   const g = BS.bzRegeln(r);
-  return { an: g.an, faktor: g.faktor, max: g.max, extraMin: g.extra && g.extra.tag === heute ? g.extra.min : 0 };
+  return { an: g.an, faktor: g.faktor, max: g.max, ab: g.ab, extraMin: g.extra && g.extra.tag === heute ? g.extra.min : 0 };
 }
 // Zurück in die Form der Einstellungsdatei
 export function bzDatei(werte, heute = tagKey()) {
   const w = werte || bzWerte(null, heute);
-  return BS.bzRegeln({ an: w.an, faktor: w.faktor, max: w.max, extra: w.extraMin > 0 ? { tag: heute, min: w.extraMin } : null });
+  return BS.bzRegeln({ an: w.an, faktor: w.faktor, max: w.max, ab: w.ab, extra: w.extraMin > 0 ? { tag: heute, min: w.extraMin } : null });
 }
 // Abgeschickte Bildschirmzeit (neueste zuerst)
 export function bzAnfragen(eintraege) {
