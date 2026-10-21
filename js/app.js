@@ -16,12 +16,13 @@ import { hoehlenkarteStarten } from './hoehlenkarte-ui.js';
 import { runenbrecherStarten } from './runenbrecher-ui.js';
 import { jadeschlangeStarten } from './jadeschlange-ui.js';
 import * as SP from './splitter.js';
+import * as BS from './bildschirm.js';
 import { ANLEITUNGEN } from './anleitungen.js';
 import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.10.0';
+export const APP_VERSION = '2.11.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -55,6 +56,20 @@ const sichern = () => speichern(S);
 // Runensplitter: kleiner leuchtender Jade-Splitter
 const splitterSymbol = (size = 22) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true" class="splitter-symbol"><polygon points="12,2 18,9 14,22 7,13" fill="#7ff2c6" stroke="#1E7A5F" stroke-width="1.4" stroke-linejoin="round"/><polygon points="12,2 14,22 7,13" fill="#3fbf92" opacity=".75"/><path d="M12 2 L13 12" stroke="#E9FFF6" stroke-width="1" opacity=".8"/></svg>`;
 const zeitSymbol = (size = 22) => sechseck(size, '#F5E6C6', '#9A5B06', '<path d="M12 7v5l3 2" stroke="#633806" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
+
+// ---------- Bildschirmzeit (Konsole, Computer, Videos außerhalb der App) ----------
+const BZ = () => BS.bzRegeln(S.bzRegeln);
+const bzKonto = () => (S.bildschirm = BS.kontoVon(S.bildschirm, L.tagKey()));
+let zweck = null;            // wofür in dieser Runde geübt wird: 'spiel' | 'bild' (Frage vor der ersten Aufgabe)
+const istBild = () => zweck === 'bild' && BZ().an;
+// Eigene, neutrale Zeichnungen (keine Marken-Logos)
+const konsoleSymbol = (h) => `<svg width="${Math.round(h * 1.6)}" height="${h}" viewBox="0 0 64 40" aria-hidden="true"><rect x="2" y="4" width="14" height="32" rx="7" fill="#5B6B8C"/><rect x="48" y="4" width="14" height="32" rx="7" fill="#5B6B8C"/><rect x="15" y="5" width="34" height="30" rx="3" fill="#1E2A3E"/><rect x="18" y="8" width="28" height="24" rx="1.5" fill="#6C8CCB"/><circle cx="9" cy="14" r="3" fill="#1E2A3E"/><circle cx="55" cy="24" r="3" fill="#1E2A3E"/><circle cx="55" cy="12" r="1.6" fill="#E3EAF7"/><circle cx="58" cy="15" r="1.6" fill="#E3EAF7"/><circle cx="52" cy="15" r="1.6" fill="#E3EAF7"/><path d="M7 26h4M9 24v4" stroke="#E3EAF7" stroke-width="1.6"/></svg>`;
+const computerSymbol = (h) => `<svg width="${Math.round(h * 1.2)}" height="${h}" viewBox="0 0 48 40" aria-hidden="true"><rect x="3" y="3" width="42" height="27" rx="3" fill="#1E2A3E"/><rect x="6" y="6" width="36" height="21" rx="1" fill="#8FB0E6"/><path d="M9 22l7-7 5 5 6-8 9 10" stroke="#2F4F8F" stroke-width="2" fill="none"/><rect x="20" y="30" width="8" height="5" fill="#5B6B8C"/><rect x="13" y="35" width="22" height="3" rx="1.5" fill="#5B6B8C"/></svg>`;
+const videoSymbol = (h) => `<svg width="${h}" height="${h}" viewBox="0 0 40 40" aria-hidden="true" class="video-symbol"><circle cx="20" cy="20" r="18" fill="#fff" stroke="#2F4F8F" stroke-width="2.5"/><path d="M16 12l12 8-12 8z" fill="#2F4F8F"/></svg>`;
+const vorschauKlein = (id, px) => `<span class="wk-spiel">${spielVorschau(id, Math.round(px))}</span>`;
+const schreinIcons = () => `${vorschauKlein('2048', 60)}${vorschauKlein('kristallmine', 60)}${zeitSymbol(56)}${vorschauKlein('runenfall', 60)}`;
+const schreinMini = () => `${vorschauKlein('2048', 40)}${zeitSymbol(34)}${vorschauKlein('kristallmine', 40)}`;
+const bildIcons = (g = 1) => `${konsoleSymbol(Math.round(44 * g))}${computerSymbol(Math.round(48 * g))}${videoSymbol(Math.round(46 * g))}`;
 
 // ============ Start ============
 
@@ -645,6 +660,8 @@ function zeigeStart() {
   const slot = R().basisMin > 0 ? L.basisSlotJetzt(new Date(), S.einstellungen, S.basisSlot) : null;
   const name = S.einstellungen.name ? `, ${esc(S.einstellungen.name)}` : '';
   const serieAktiv = S.serie.pos > 0 && Date.now() - S.serie.letzteAktivitaet < 20 * 60 * 1000;
+  zweck = null;
+  const bz = BZ().an ? bzKonto() : null;
   $app.innerHTML = `
   <div class="screen start">
     <header class="start-kopf">
@@ -657,6 +674,13 @@ function zeigeStart() {
       <div><div class="guthaben-zahl">${L.formatZeit(S.guthaben)}</div><div class="gedaempft">Spielzeit</div></div>
       <button class="splitter-chip" data-act="erfolge" aria-label="Runensplitter und Erfolge">${splitterSymbol(26)}<b>${SP.splitterVon(S.splitter).stand}</b></button>
     </section>
+
+    ${bz && bz.stand > 0 ? `
+    <section class="bz-karte">
+      <span class="bz-icons">${videoSymbol(40)}</span>
+      <div class="bz-text"><div class="bz-zahl">${BS.minText(bz.stand)}</div><div class="gedaempft">Bildschirmzeit gesammelt</div></div>
+      <button class="btn btn-bz" data-act="bzSeite">Abschicken</button>
+    </section>` : ''}
 
     ${slot ? `
     <section class="basis-karte">
@@ -684,6 +708,90 @@ function zeigeStart() {
     ${hatSpeicherFehler() ? '<p class="warnung">Der Speicher ist voll oder gesperrt. Bitte einem Erwachsenen Bescheid geben.</p>' : ''}
   </div>`;
   langDruecken(document.getElementById('logo'), elternZugang);
+}
+
+// ---------- Wofür übst du jetzt? (vor der ersten Aufgabe einer Runde) ----------
+function zeigeWahl() {
+  setzeAnsicht('wahl');
+  const k = bzKonto();
+  const rest = BS.restSek(k, BZ());
+  const grenze = BS.grenzeSek(BZ(), k.tag);
+  $app.innerHTML = `
+  <div class="screen wahl-screen">
+    <header class="topbar"><button class="btn-text" data-act="start">‹ Zurück</button></header>
+    <h2 class="wahl-frage">Wofür übst du jetzt?</h2>
+    <p class="gedaempft wahl-info">Du kannst es beim nächsten Mal wieder wählen.</p>
+    <button class="wahl-karte wk-schrein" data-act="zweck" data-w="spiel">
+      <span class="wk-titel">Spielzeit im Schrein</span>
+      <span class="wk-icons">${schreinIcons()}</span>
+      <span class="wk-text">Für 2048, Kristallmine, Runenfall und die anderen Spiele hier.</span>
+    </button>
+    <div class="oder">oder</div>
+    <button class="wahl-karte wk-bild${rest <= 0 ? ' voll' : ''}" data-act="zweck" data-w="bild"${rest <= 0 ? ' disabled' : ''}>
+      <span class="wk-titel">Bildschirmzeit</span>
+      <span class="wk-icons">${bildIcons()}</span>
+      <span class="wk-text">Für Konsole, Computer und Videos. Du schickst sie danach an deine Eltern.</span>
+      <span class="wk-staffel">${rest > 0 ? `Heute noch ${BS.minText(rest)} von ${BS.minText(grenze)} möglich` : `Für heute ist die Bildschirmzeit voll: ${BS.minText(grenze)}`}</span>
+    </button>
+    <p class="gedaempft wahl-fuss">${splitterSymbol(18)} Runensplitter gibt es bei beiden.</p>
+  </div>`;
+}
+
+// ---------- Bildschirmzeit abschicken ----------
+let bzGeschickt = null; // gerade abgeschickt: { sekunden } (für die Bestätigung)
+function zeigeBildschirmzeit() {
+  setzeAnsicht('bildschirm');
+  const k = bzKonto();
+  if (bzGeschickt) {
+    $app.innerHTML = `
+    <div class="screen bz-screen">
+      <header class="topbar"><button class="btn-text" data-act="start">‹ Zum Start</button></header>
+      <div class="bz-gross-icon">${videoSymbol(64)}</div>
+      <div class="erfolg-titel bz-titel">Abgeschickt!</div>
+      <p class="bz-mitte">${BS.minText(bzGeschickt.sekunden)} Bildschirmzeit sind unterwegs zu deinen Eltern.</p>
+      <button class="btn btn-haupt btn-gross" data-act="start">Zum Start</button>
+    </div>`;
+    return;
+  }
+  if (!k.code && k.stand > 0) { k.code = BS.neuerCode(); sichern(); }
+  const jetzt = new Date();
+  $app.innerHTML = `
+  <div class="screen bz-screen">
+    <header class="topbar"><button class="btn-text" data-act="start">‹ Zurück</button></header>
+    <div class="bz-gross-icon">${videoSymbol(64)}</div>
+    <div class="bz-gross">${BS.minText(k.stand)}</div>
+    <p class="bz-mitte bz-label">Bildschirmzeit</p>
+    ${k.stand > 0 ? `
+    <p class="gedaempft bz-mitte">${esc(BS.zeitpunktText(jetzt))} Uhr<br>${k.aufgaben} ${k.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'} geschafft</p>
+    <div><p class="gedaempft bz-mitte bz-code-label">Dein Code</p><div class="bz-code">${esc(k.code.split('').join(' '))}</div></div>
+    <button class="btn btn-bz btn-gross" data-act="bzTeilen">Teilen</button>
+    <p class="gedaempft bz-mitte">Schick die Nachricht an deine Eltern.<br>Danach steht hier wieder 0.</p>
+    <p class="meldung-bz" id="bz-meldung" hidden></p>` : '<p class="bz-mitte">Gerade ist nichts zum Abschicken da.</p>'}
+  </div>`;
+}
+
+async function bzTeilen() {
+  const k = bzKonto();
+  if (!(k.stand > 0) || !k.code) return;
+  const text = BS.nachrichtText(k, new Date());
+  let geteilt = false;
+  if (navigator.share) {
+    try { await navigator.share({ text }); geteilt = true; }
+    catch (e) { if (e && e.name === 'AbortError') return; } // abgebrochen: alles bleibt stehen
+  }
+  if (!geteilt) {
+    // Kein Teilen-Fenster (z. B. Computer): Text kopieren
+    try { await navigator.clipboard.writeText(text); } catch (e) { /* egal */ }
+    const m = document.getElementById('bz-meldung');
+    if (m && m.hidden) { m.hidden = false; m.textContent = 'Der Text ist kopiert. Füge ihn in deine Nachricht ein. Dann tippe noch einmal auf „Teilen“.'; return; }
+  }
+  const eintrag = BS.abschicken(k);
+  protokoll(S, 'bildschirmzeit', { ...eintrag, faktor: BZ().faktor });
+  sichern();
+  syncen();
+  bzGeschickt = { sekunden: eintrag.sekunden };
+  zeigeBildschirmzeit();
+  bzGeschickt = null;
 }
 
 function langDruecken(el, fn) {
@@ -986,8 +1094,8 @@ function zeigeAufgabe() {
   <div class="screen aufgabe-screen">
     <header class="topbar">
       <button class="btn-text" data-act="beenden">✕ Fertig</button>
-      <div class="serie-chip">Aufgabe ${A.serienPos} · <b>${tz} Min.</b></div>
-      <div class="zeit-chip">${zeitSymbol(18)}${L.formatZeit(S.guthaben)}</div>
+      <div class="serie-chip">Aufgabe ${A.serienPos} · <b>${istBild() ? String(min * BZ().faktor).replace('.', ',') : tz} Min.</b></div>
+      ${istBild() ? `<div class="zeit-chip bz-chip">${videoSymbol(18)}${BS.minText(bzKonto().stand)}</div>` : `<div class="zeit-chip">${zeitSymbol(18)}${L.formatZeit(S.guthaben)}</div>`}
     </header>
     <main class="aufgabe-inhalt">
       ${A.wartete && !A.fertig && A.teile.every(t => !t.versuche.length) ? '<p class="wartet-hinweis">Diese Aufgabe wartet noch auf dich.</p>' : ''}
@@ -1224,8 +1332,10 @@ function erledigtWert(t, wertHtml, roh = false) {
 function fussHtml() {
   if (A.fertig) {
     return `<div class="fuss-knoepfe">
-      <button class="btn btn-haupt btn-gross" data-act="naechste">Nächste Aufgabe</button>
-      <button class="btn btn-amber-rand" data-act="zumSpiel">Zum Spiel · ${L.formatZeit(S.guthaben)}</button>
+      ${A.bild && A.bild.voll ? '<button class="btn btn-haupt btn-gross" data-act="zweckSpiel">Weiter für Spielzeit üben</button>' : '<button class="btn btn-haupt btn-gross" data-act="naechste">Nächste Aufgabe</button>'}
+      ${A.bild ? (A.bild.stand > 0 ? `<button class="btn btn-bz-rand" data-act="bzSeite">${BS.minText(A.bild.stand)} abschicken</button>` : '')
+        : `<button class="btn btn-amber-rand" data-act="zumSpiel">Zum Spiel · ${L.formatZeit(S.guthaben)}</button>`}
+      ${A.bild && A.bild.voll ? '<button class="btn" data-act="start">Zum Start</button>' : ''}
     </div>`;
   }
   const t = aktuellerTeil();
@@ -1255,7 +1365,18 @@ function ergebnisHtml() {
   if (A.ergebnis === 'erst') kopf = `<div class="erfolg-titel">${A.serienPos % 3 === 0 ? `Stark${nm}!` : `Richtig${nm}!`}</div>`;
   else if (A.ergebnis === 'zweit') kopf = `<div class="erfolg-titel">Geschafft – im 2. Versuch!</div>`;
   else kopf = `<div class="erfolg-titel neutral">Jetzt weißt du, wie es geht.</div><p>Die Aufgabe kommt später noch einmal.</p>`;
-  const zeit = sek > 0 ? `<div class="zeit-gewinn">${zeitSymbol(28)} +${L.formatMinuten(sek)} Spielzeit</div>` : '';
+  // Verdiente Zeit im Stil des Auswahl-Bildschirms
+  let zeit = '';
+  const b = A.bild;
+  if (b) {
+    if (b.plus > 0) zeit = `<div class="mini-gewinn wk-bild"><span class="mini-icons">${bildIcons(0.62)}</span><div><b>+${BS.minText(b.plus)}</b><small>Bildschirmzeit</small></div></div>`;
+    zeit += `<div class="konto-zeile"><span>Gesammelt</span><b>${BS.minText(b.stand)}</b></div>`;
+    zeit += b.voll ? `<p class="bz-voll">Für heute ist die Bildschirmzeit voll. Du kannst weiter für Spielzeit üben.</p>`
+      : `<div class="konto-zeile"><span>Heute noch möglich</span><b>${BS.minText(b.rest)}</b></div>`;
+  } else if (sek > 0) {
+    zeit = `<div class="mini-gewinn wk-schrein"><span class="mini-icons">${schreinMini()}</span><div><b>+${L.formatMinuten(sek)}</b><small>Spielzeit im Schrein</small></div></div>
+      <div class="konto-zeile"><span>Jetzt hast du</span><b>${L.formatZeit(S.guthaben)} Min.</b></div>`;
+  }
   let strafe = '';
 
   if (A.rechnerHalb && A.ergebnis !== 'loesung' && R().rechner < 1) strafe += `<p class="gedaempft">Mit Taschenrechner gibt es ${L.anteilText(R().rechner)}.</p>`;
@@ -1270,7 +1391,8 @@ function ergebnisHtml() {
   }
   const weg = `<div class="loesungsweg"><div class="lw-titel">So geht's</div>${(a.loesungsweg || []).map(z => `<div class="lw-zeile">${mathe(z)}</div>`).join('')}<p class="lw-erkl">${mathe(a.erklaerung || '')}</p></div>`;
   const offen = A.ergebnis === 'loesung';
-  return `<section class="ergebnis-karte">${kopf}${zeit}${strafe}
+  if (b) strafe = strafe.replace(/Spielzeit/g, 'Bildschirmzeit');
+  return `<section class="ergebnis-karte${b ? ' bz-ergebnis' : ''}">${kopf}${zeit}${strafe}
     ${offen ? weg : `<details class="weg-details"><summary>Lösungsweg ansehen</summary>${weg}</details>`}
   </section>`;
 }
@@ -1466,12 +1588,22 @@ function abschliessen() {
   const sek = L.sekundenFuerAufgabe({ ergebnis, serienPos: A.serienPos, strafe: A.strafe, rechnerHalb: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, langHalb: !!A.langHalb, regeln: R() });
   S.laufend = null;
   let stufeHoch = null;
-  A.ergebnis = ergebnis; A.sekunden = sek; A.fertig = true; A.idx = A.teile.length - 1; A.phase = 'eingabe';
-  S.guthaben += sek;
+  A.ergebnis = ergebnis; A.fertig = true; A.idx = A.teile.length - 1; A.phase = 'eingabe';
   tagAktualisieren(S);
+  // Bildschirmzeit: gleiche Regeln, mal Faktor, eigenes Konto (höchstens bis zur Tagesgrenze)
+  A.bild = null;
+  if (istBild()) {
+    const k = bzKonto();
+    const g = BS.gutschreiben(k, sek, BZ());
+    A.bild = { plus: g.plus, voll: g.voll, stand: k.stand, rest: BS.restSek(k, BZ()) };
+    A.sekunden = 0;
+  } else {
+    A.sekunden = sek;
+    S.guthaben += sek;
+    S.tag.verdient += sek;
+  }
   S.tag.aufgaben++;
   if (ergebnis === 'erst') S.tag.ersterVersuch++;
-  S.tag.verdient += sek;
   if (!a.generator) {
     const st = S.statistik[a.id] || (S.statistik[a.id] = { gesehen: 0 });
     st.gesehen++; st.zuletzt = S.verlauf.zaehler; st.letztesErgebnis = ergebnis; st.letzterTag = S.tag.key;
@@ -1491,7 +1623,8 @@ function abschliessen() {
   S.verlauf.themaZuletzt[a.thema] = { ergebnis, stufe: a.stufe };
   S.serie.letzteAktivitaet = Date.now();
   protokoll(S, 'aufgabe_ende', {
-    id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: sek, serienPos: A.serienPos,
+    id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: A.sekunden, serienPos: A.serienPos,
+    ...(A.bild ? { bildschirm: A.bild.plus, voll: A.bild.voll || undefined } : {}),
     strafe: A.strafe, rechnerOptional: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, verlassen: A.verlassen, ms: Date.now() - A.start, hinweise: A.hinweise.slice(), hinweiseLang: (A.hinweiseLang || []).slice(), langHalb: !!A.langHalb,
     bonusTeile: A.teile.filter(t => t.bonus).map(t => t.status), merkTeile: A.teile.filter(t => t.merk).map(t => t.status),
     generator: a.generator || null
@@ -2814,7 +2947,17 @@ function klick(e) {
   switch (act) {
     case 'aufgaben':
       if (ansicht === 'spiel') spielBeenden();
+      // Vor der ersten Aufgabe einer Runde fragen: Spielzeit oder Bildschirmzeit?
+      if (ansicht === 'start' && BZ().an && !zweck) { zeigeWahl(); break; }
+      if (!zweck) zweck = 'spiel';
       neueAufgabe(); break;
+    case 'zweck':
+      zweck = el.dataset.w === 'bild' && BZ().an && BS.restSek(bzKonto(), BZ()) > 0 ? 'bild' : 'spiel';
+      protokoll(S, 'zweck', { zweck });
+      neueAufgabe(); break;
+    case 'zweckSpiel': zweck = 'spiel'; protokoll(S, 'zweck', { zweck, grund: 'voll' }); neueAufgabe(); break;
+    case 'bzSeite': zeigeBildschirmzeit(); break;
+    case 'bzTeilen': bzTeilen(); break;
     case 'spielen':
       zeigeSpiel(); break;
     case 'zumSpiel':

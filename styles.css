@@ -761,3 +761,47 @@ mark.zahl-mark { background: #F6D26A; color: inherit; border-radius: 4px; paddin
 .karte-btn { flex: 1; min-height: 52px; border-radius: 12px; border: 2px solid #9FC8C8; background: #FBFAF5; font-size: 22px; font-weight: 700; color: #1E2A2B; }
 .karte-btn.gewaehlt { background: #DCEDED; border-color: #1F6F75; box-shadow: 0 0 0 2px #1F6F75 inset; }
 .karte-btn:disabled { opacity: 1; }
+
+/* ---------- Bildschirmzeit (2.11.0) ---------- */
+:root { --bz: #2F4F8F; --bz-dunkel: #1E3566; --bz-hell: #E3EAF7; }
+.wahl-screen { gap: 12px; }
+.wahl-frage { margin: 4px 0 0; }
+.wahl-info { margin: 0; }
+.wahl-karte { display: flex; flex-direction: column; gap: 10px; text-align: left; border: 2px solid; border-radius: 16px; padding: 14px 16px; font: inherit; cursor: pointer; width: 100%; }
+.wk-schrein { background: linear-gradient(160deg, #F5E6C6, #EAD3A0); border-color: var(--amber); color: var(--amber-dunkel); }
+.wk-bild { background: linear-gradient(160deg, var(--bz-hell), #C9D6EF); border-color: var(--bz); color: var(--bz-dunkel); }
+.wahl-karte.voll { opacity: .6; cursor: default; }
+.wk-titel { font: 700 22px 'Cinzel', serif; }
+.wk-bild .wk-titel { font-family: inherit; font-size: 23px; }
+.wk-icons { display: flex; gap: 10px; align-items: center; justify-content: center; min-height: 84px; }
+.wk-icons svg, .mini-icons svg { filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .15)); }
+.wk-spiel { display: inline-block; line-height: 0; }
+.wk-text { font-size: 16px; }
+.wk-staffel { font-size: 14px; opacity: .9; }
+.oder { text-align: center; font-weight: 700; color: var(--gedaempft); margin: -4px 0; }
+.wahl-fuss { margin: 0; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.mini-gewinn { display: flex; align-items: center; gap: 12px; border-radius: 14px; padding: 12px 14px; border: 2px solid; margin: 8px 0; }
+.mini-icons { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+.mini-gewinn b { display: block; font-size: 30px; line-height: 1; white-space: nowrap; }
+.mini-gewinn small { display: block; font-size: 14px; }
+.konto-zeile { display: flex; justify-content: space-between; font-size: 15px; margin-top: 4px; }
+.ergebnis-karte.bz-ergebnis { background: #F3F6FC; border-color: var(--bz); }
+.ergebnis-karte.bz-ergebnis .erfolg-titel { color: var(--bz-dunkel); }
+.bz-voll { font-weight: 700; color: var(--bz-dunkel); }
+.btn-bz { background: var(--bz); border-color: var(--bz); color: #fff; }
+.btn-bz-rand { background: #fff; border-color: var(--bz); color: var(--bz-dunkel); }
+.bz-chip { color: var(--bz-dunkel); }
+.bz-karte { display: flex; align-items: center; gap: 14px; background: var(--bz-hell); border: 1.5px solid var(--bz); border-radius: var(--radius); padding: 12px 14px; }
+.bz-karte .bz-text { flex: 1; min-width: 0; }
+.bz-karte .btn { width: auto; }
+.bz-zahl { font-size: 28px; font-weight: 700; color: var(--bz-dunkel); line-height: 1.1; }
+.bz-icons { display: flex; }
+.bz-screen { gap: 12px; }
+.bz-gross-icon { display: flex; justify-content: center; margin-top: 8px; }
+.bz-gross { font-size: 56px; font-weight: 700; color: var(--bz-dunkel); text-align: center; line-height: 1; }
+.bz-mitte { text-align: center; margin: 0; }
+.bz-label { font-size: 19px; font-weight: 700; }
+.bz-titel { text-align: center; color: var(--bz-dunkel); }
+.bz-code-label { margin-bottom: 4px; }
+.bz-code { font: 700 30px ui-monospace, Menlo, monospace; letter-spacing: 4px; text-align: center; background: #fff; border: 2px dashed var(--bz); border-radius: 10px; padding: 10px; color: var(--bz-dunkel); }
+.meldung-bz { background: var(--bz-hell); border-radius: 8px; padding: 10px; margin: 0; }

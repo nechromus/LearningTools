@@ -21,6 +21,8 @@ function standard() {
     runenreihen: null, hoehlenkarte: null, runenbrecher: null, jadeschlange: null, // weitere Spiele: gespeicherter Stand        // Runenfall: laufendes Spiel mit Feld, Teil, Punkten und Rekord    // Steinschieber: { level, geschafft: [...], zuege: {...}, levelStand }
     einstellungen: { thema: 'minus-zahlen', basisVon: 14, basisBis: 21, pin: null, name: '', rechnerAngebot: true, langeHinweise: 1 },
     spielzeit: null,        // Spielzeit-Regeln aus der Eltern-App (null = Standard)
+    bzRegeln: null,         // Bildschirmzeit-Regeln aus der Eltern-App (js/bildschirm.js, null = Standard)
+    bildschirm: null,       // Bildschirmzeit-Konto: { stand, tag, heute, aufgaben, code }
     paket: null,            // Aufgabenpaket aus der Eltern-App: { id, name, gewichte } (null = Übungsthema)
     fern: { version: 0, geaendert: null, angewendet: null, geholt: null, fehler: null }, // Einstellungen aus der Eltern-App
     statistik: {},          // je Aufgabe: gesehen, zuletzt, letztesErgebnis, letzterTag
@@ -90,7 +92,7 @@ export async function dauerhaftSpeichernAnfragen() {
 // Gesichert wird, was Kind und Spiele erreicht haben. Nicht dabei: PIN, Zugangsschlüssel, Geräte-ID, Protokoll.
 export const STAND_FORMAT = 'lernapp-spielstand-1';
 const STAND_FELDER = ['guthaben', 'basisSlot', 'spiel', 'bloecke', 'statistik', 'verlauf', 'serie', 'tag', 'extraAufgaben',
-  'genStufen', 'wiederholen', 'spielzeit', 'paket', 'fern', 'wartet', 'kristallmine', 'splitter', 'anleitungen', 'steinschieber', 'runenfall', 'runenreihen', 'hoehlenkarte', 'runenbrecher', 'jadeschlange'];
+  'genStufen', 'wiederholen', 'spielzeit', 'paket', 'fern', 'wartet', 'kristallmine', 'splitter', 'anleitungen', 'steinschieber', 'runenfall', 'runenreihen', 'hoehlenkarte', 'runenbrecher', 'jadeschlange', 'bzRegeln', 'bildschirm'];
 
 export function spielstandAus(s, jetzt = new Date()) {
   const zustand = {};

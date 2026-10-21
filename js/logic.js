@@ -608,6 +608,7 @@ export function rechnerOptional(a) {
 // Baukasten-Stufen werden nur übernommen, wenn sie in einer neueren Version geändert wurden,
 // damit die App sie zwischendurch weiter selbst anpassen kann.
 import { splitterVon, fernAnwenden as fernSplitter } from './splitter.js';
+import { bzRegeln } from './bildschirm.js';
 
 export function fernAnwenden(z, datei) {
   const alt = (z.fern && z.fern.version) || 0;
@@ -628,6 +629,12 @@ export function fernAnwenden(z, datei) {
     const neu = spielzeitRegeln(w.spielzeit);
     if (JSON.stringify(neu) !== JSON.stringify(spielzeitRegeln(z.spielzeit))) geaendert.push('spielzeit');
     z.spielzeit = neu;
+  }
+  // Bildschirmzeit: an/aus, Faktor, Höchstwert pro Tag, „nur heute mehr“
+  if (w.bildschirm && typeof w.bildschirm === 'object') {
+    const neu = bzRegeln(w.bildschirm);
+    if (JSON.stringify(neu) !== JSON.stringify(bzRegeln(z.bzRegeln))) geaendert.push('bildschirm');
+    z.bzRegeln = neu;
   }
   // Aufgabenpaket mit Gewichten je Thema (0 aus, 1 wenig, 2 normal, 4 viel)
   if (w.paket && typeof w.paket === 'object' && w.gewichte && typeof w.gewichte === 'object') {

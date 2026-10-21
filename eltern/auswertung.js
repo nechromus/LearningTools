@@ -3,6 +3,7 @@ import { tagKey, potenzWert, SPIELZEIT_STANDARD, spielzeitRegeln } from '../js/l
 import { THEMA_NAMEN, FEHLER_NAMEN, GEN_NAMEN } from '../js/namen.js';
 import * as P from '../js/paket.js';
 import * as SP from '../js/splitter.js';
+import * as BS from '../js/bildschirm.js';
 
 const ZU_AUFGABE = new Set(['versuch', 'versuch_wiederholt', 'tipp_bestaetigt', 'hinweis', 'rechner', 'rechner_offen',
   'rechner_angeboten', 'rechner_optional', 'verlassen', 'sprung', 'loesung_gezeigt', 'bonus_teil_uebersprungen', 'hilfe',
@@ -248,7 +249,7 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
       case 'bonus_teil_uebersprungen': p.titel = 'Bonus-Teil übersprungen'; break;
       case 'aufgabe_ende':
         p.titel = `Fertig: ${ERGEBNIS[e.ergebnis]}`;
-        p.text = [`Spielzeit +${minutenText(e.sekunden)}`, `Dauer ${dauerText(e.ms)}`].join(' · ');
+        p.text = [e.bildschirm != null ? `Bildschirmzeit +${minutenText(e.bildschirm)}${e.voll ? ' (Tagesgrenze erreicht)' : ''}` : `Spielzeit +${minutenText(e.sekunden)}`, `Dauer ${dauerText(e.ms)}`].join(' · ');
         p.art = e.ergebnis === 'erst' ? 'ok' : e.ergebnis === 'zweit' ? 'info' : 'fehler';
         break;
       case 'aufgabe_abgebrochen': p.titel = 'Mit „Fertig“ verlassen'; p.text = [e.ohneEingabe ? 'ohne Eingabe' : '', e.wartet ? 'kommt beim nächsten Mal wieder' : ''].filter(Boolean).join(' · '); p.art = 'fehler'; break;
@@ -377,8 +378,28 @@ export function startWerte(einst, stand, paketVon = () => null) {
     spielzeit: spielzeitRegeln(w.spielzeit || (stand && stand.spielzeit) || SPIELZEIT_STANDARD),
     genStufen,
     splitter: splitterWerte(w.splitter, stand),
+    bildschirm: bzWerte(w.bildschirm || (stand && stand.bzRegeln)),
     ...paketTeil(w, stand, e, paketVon)
   };
+}
+
+// Bildschirmzeit-Einstellungen für die Seite. extraMin gilt nur heute (danach 0).
+export function bzWerte(r, heute = tagKey()) {
+  const g = BS.bzRegeln(r);
+  return { an: g.an, faktor: g.faktor, max: g.max, extraMin: g.extra && g.extra.tag === heute ? g.extra.min : 0 };
+}
+// Zurück in die Form der Einstellungsdatei
+export function bzDatei(werte, heute = tagKey()) {
+  const w = werte || bzWerte(null, heute);
+  return BS.bzRegeln({ an: w.an, faktor: w.faktor, max: w.max, extra: w.extraMin > 0 ? { tag: heute, min: w.extraMin } : null });
+}
+// Abgeschickte Bildschirmzeit (neueste zuerst)
+export function bzAnfragen(eintraege) {
+  return eintraege.filter(e => e.typ === 'bildschirmzeit').slice().sort((a, b) => a.t < b.t ? 1 : -1);
+}
+// Heute verdiente Bildschirmzeit (Sekunden)
+export function bzHeute(eintraege, heute = tagKey()) {
+  return eintraege.filter(e => e.typ === 'aufgabe_ende' && e.bildschirm && tagKey(new Date(e.t)) === heute).reduce((s, e) => s + e.bildschirm, 0);
 }
 
 // Runensplitter-Einstellungen: Preise der neuen Spiele, Boni und von Hand freigeschaltete Spiele
@@ -410,7 +431,7 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
   for (const g of geaenderteStufen) genStufen[g] = { stufe: werte.genStufen[g], v: version };
   return {
     app: 'lernapp-2048-eltern', version, geaendert: jetzt.toISOString(),
-    werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, langeHinweise: [0, 1, 2, 3].includes(werte.langeHinweise) ? werte.langeHinweise : 1, spielzeit: spielzeitRegeln(werte.spielzeit), genStufen,
+    werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, langeHinweise: [0, 1, 2, 3].includes(werte.langeHinweise) ? werte.langeHinweise : 1, spielzeit: spielzeitRegeln(werte.spielzeit), bildschirm: bzDatei(werte.bildschirm, tagKey(jetzt)), genStufen,
       ...(werte.splitter ? { splitter: { preise: werte.splitter.preise, boni: werte.splitter.boni.slice(-50), frei: werte.splitter.frei } } : {}) }
   };
 }

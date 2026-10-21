@@ -8,10 +8,11 @@ import * as A from './auswertung.js';
 import * as P from '../js/paket.js';
 import { LANG_STUFEN, langStufeInfo } from '../js/formeluebersicht.js';
 import * as SP from '../js/splitter.js';
+import * as BS from '../js/bildschirm.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.18.0';
+export const ELTERN_VERSION = '1.19.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -331,7 +332,7 @@ function uebersichtSeite() {
     ${leer}
     <div class="zwei-spalten">
       <div class="spalte">${balken}${!breit.matches ? auff : ''}</div>
-      <div class="spalte">${themen}${breit.matches ? auff : ''}</div>
+      <div class="spalte">${bzKarte()}${themen}${breit.matches ? auff : ''}</div>
     </div>
   </div>`;
 }
@@ -625,6 +626,7 @@ function einstellungenSeite() {
         <div class="segmente" role="group" aria-label="Lange Hinweise">${LANG_STUFEN.map(s => `<button class="segment${w.langeHinweise === s.stufe ? ' an' : ''}" data-act="langeHinweise" data-w="${s.stufe}" aria-pressed="${w.langeHinweise === s.stufe}">${s.name}</button>`).join('')}</div>
         <span class="klein gedaempft">${esc(langStufeInfo(w.langeHinweise).name)}: ${esc(langStufeInfo(w.langeHinweise).text)}.</span></div>
     </section>
+    ${bzEinstellungen(w)}
     <h2 class="abschnitt">Baukästen: Schwierigkeit und Häufigkeit</h2>
     <section class="karte liste-karte">
       ${Object.keys(GEN_NAMEN).map(g => baukastenZeile(g, w, liveStufe)).join('')}
@@ -639,6 +641,37 @@ function einstellungenSeite() {
 }
 
 // ---------- Runensplitter und neue Spiele ----------
+
+// Bildschirmzeit: an/aus, Faktor, Höchstwert pro Tag, „nur heute mehr“
+function bzEinstellungen(w) {
+  const b = w.bildschirm;
+  const seg = (act, werte, akt, text = (x) => x) => `<div class="segmente" role="group">${werte.map(x => `<button class="segment${x === akt ? ' an' : ''}" data-act="${act}" data-w="${x}" aria-pressed="${x === akt}">${text(x)}</button>`).join('')}</div>`;
+  const bruch = (x) => ({ 0.5: '½', 1: '1', 1.5: '1½', 2: '2' })[x];
+  const heute = A.bzHeute(D.daten.eintraege || []);
+  return `<h2 class="abschnitt">Bildschirmzeit</h2>
+    <section class="karte liste-karte">
+      <div class="einstell-block"><span>Kann für Bildschirmzeit üben<span class="klein gedaempft block">Vor der ersten Aufgabe fragt die App: Spielzeit oder Bildschirmzeit?</span></span>${seg('bzAn', [true, false], b.an, x => x ? 'An' : 'Aus')}</div>
+      ${b.an ? `<div class="einstell-block"><span>Faktor zur Spielzeit</span>${seg('bzFaktor', BS.FAKTOREN, b.faktor, bruch)}<span class="klein gedaempft">1 = gleich viel wie Spielzeit. Gleiche Regeln (Serie, 2. Versuch, Hilfen).</span></div>
+      <div class="einstell-block"><span>Höchstens pro Tag</span>${seg('bzMax', BS.HOECHSTWERTE, b.max)}<span class="klein gedaempft">Minuten. Gilt jeden Tag.</span></div>
+      <div class="einstell-block"><span>Nur heute mehr zulassen</span>${seg('bzExtra', BS.EXTRAS, b.extraMin, x => '+' + x)}<span class="klein gedaempft">Heute: ${b.max + b.extraMin} Min. erlaubt, ${A.minutenText(heute)} verdient. Morgen gilt wieder der normale Wert.</span></div>` : ''}
+    </section>`;
+}
+
+// Übersicht: heute verdient und abgeschickte Bildschirmzeit mit Code
+function bzKarte() {
+  const ein = D.daten.eintraege || [];
+  const liste = A.bzAnfragen(ein);
+  const w = A.bzWerte((D.daten.einst && D.daten.einst.werte && D.daten.einst.werte.bildschirm) || (neuesterStand() && neuesterStand().bzRegeln));
+  const heute = A.bzHeute(ein);
+  if (!liste.length && !heute) return '';
+  const zeitText = (t) => BS.zeitpunktText(new Date(t));
+  return `<section class="karte liste-karte bz-liste">
+    <div class="karte-kopf"><h2>Bildschirmzeit</h2></div>
+    <div class="bz-zeile"><div><b>Heute</b><span class="klein gedaempft block">verdient ${A.minutenText(heute)} von ${w.max + w.extraMin} Min.</span></div></div>
+    ${liste.slice(0, 10).map(e => `<div class="bz-zeile"><div><b>${esc(zeitText(e.t))}</b><span class="klein gedaempft block">${A.minutenText(e.sekunden)} · ${e.aufgaben} ${e.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}</span></div><span class="bz-code">${esc(e.code || '–')}</span></div>`).join('')}
+    ${liste.length ? '<p class="klein gedaempft">Stimmt der Code in der Nachricht mit dem hier überein, ist die Anfrage echt.</p>' : ''}
+  </section>`;
+}
 
 function splitterKurzText() {
   const st = neuesterStand(), sp = st && st.splitter;
@@ -1186,6 +1219,10 @@ document.addEventListener('click', (ev) => {
       meldung = null; zeichne(); break;
     }
     case 'langeHinweise': entwurf.langeHinweise = Number(el.dataset.w); meldung = null; zeichne(); break;
+    case 'bzAn': entwurf.bildschirm = { ...entwurf.bildschirm, an: el.dataset.w === 'true' }; meldung = null; zeichne(); break;
+    case 'bzFaktor': entwurf.bildschirm = { ...entwurf.bildschirm, faktor: Number(el.dataset.w) }; meldung = null; zeichne(); break;
+    case 'bzMax': entwurf.bildschirm = { ...entwurf.bildschirm, max: Number(el.dataset.w) }; meldung = null; zeichne(); break;
+    case 'bzExtra': entwurf.bildschirm = { ...entwurf.bildschirm, extraMin: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'paketStandard': { const pk = paketVon(entwurf.paket.id); entwurf.abweichungen = {}; if (pk) entwurf.gewichte = { ...pk.gewichte }; meldung = null; zeichne(); break; }
     case 'pgewicht': paketEntwurf.gewichte[el.dataset.t] = Number(el.dataset.w); meldung = null; zeichne(); break;
     case 'paketSpeichern': paketSpeichern(); break;
