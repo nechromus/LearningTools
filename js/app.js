@@ -21,7 +21,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.9.0';
+export const APP_VERSION = '2.10.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -77,6 +77,10 @@ export async function starten() {
   dauerhaftSpeichernAnfragen();
   updateEinrichten();
   document.addEventListener('click', klick);
+  // Testgerät: Bereich für „Gezielt testen“ gewählt → Übersicht der Stufen aktualisieren
+  document.addEventListener('change', (e) => {
+    if (e.target && e.target.id === 't-thema') { S.testFokusEntwurf = e.target.value; zeigeEltern(); }
+  });
   document.addEventListener('visibilitychange', sichtbarkeit);
   document.addEventListener('keydown', taste);
   setInterval(spielTick, 1000);
@@ -645,7 +649,7 @@ function zeigeStart() {
   <div class="screen start">
     <header class="start-kopf">
       <div class="logo" id="logo" title="">${sechseck(56, '#DCEDED', '#1F6F75', '<text x="12" y="12.6" text-anchor="middle" dominant-baseline="central" font-family="Cinzel, serif" font-weight="700" font-size="6" fill="#0E4A4F">2048</text>')}</div>
-      <div><h1>Schrein der Zahlen</h1><p class="gedaempft">Hallo${name}!</p>${testAls() ? `<p class="test-als-chip">Test als ${esc(ordnerName(testAls()))}${S.paket ? ` · ${esc(S.paket.name)}` : ''}</p>` : ''}</div>
+      <div><h1>Schrein der Zahlen</h1><p class="gedaempft">Hallo${name}!</p>${testAls() ? `<p class="test-als-chip">Test als ${esc(ordnerName(testAls()))}${S.paket ? ` · ${esc(S.paket.name)}` : ''}</p>` : ''}${testFokus() ? `<p class="test-als-chip">Gezielt: ${esc(THEMA_NAMEN[testFokus().thema])} · Stufe ${testFokus().stufe}</p>` : ''}</div>
     </header>
 
     <section class="guthaben-karte">
@@ -742,6 +746,39 @@ function erzeuge(g, stufe, opts = {}) {
 
 // Gewichte der Themen: aus dem Paket der Eltern-App, sonst Übungsthema auf „viel“
 const gewichte = () => (S.paket && S.paket.gewichte) ? P.gewichteNorm(S.paket.gewichte) : P.gewichteOhnePaket(S.einstellungen.thema);
+
+// ---------- Testgerät: gezielt testen (Bereich und Stufe wählbar) ----------
+// Welche Baukästen zu einem Thema gehören; Themen ohne Baukasten kommen nur aus dem Pool.
+const TEST_GEN = {
+  'minus-zahlen': ['minus-plus', 'geld-geschichte'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'], 'bruch-bild': ['bruch-bild'],
+  'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'rabatt': ['rabatt-geschichte'], 'neuer-preis': ['rabatt-geschichte'],
+  'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder']
+};
+const testFokus = () => (S.upload.testgeraet && S.testFokus && L.THEMEN.includes(S.testFokus.thema) ? S.testFokus : null);
+
+function testAufgabe(thema, stufe) {
+  const letzte = S.verlauf.letzteIds.slice(-10);
+  const pool = alleAufgaben().filter(a => a.thema === thema && a.stufe === stufe && !letzte.includes(a.id));
+  const gens = TEST_GEN[thema] || [];
+  const ausPool = () => pool.length ? wahl(pool) : null;
+  const ausBaukasten = () => {
+    if (!gens.length) return null;
+    const g = wahl(gens);
+    let a;
+    for (let i = 0; i < 8; i++) {
+      a = g === 'einmaleins' ? G.block('einmaleins', Math.random, stufe) : G.GENERATOREN[g](stufe, Math.random);
+      if (a && !letzte.includes(a.id)) break;
+    }
+    return a;
+  };
+  // Halb Pool, halb Baukasten, wenn es beides gibt
+  return (Math.random() < 0.5 ? ausPool() || ausBaukasten() : ausBaukasten() || ausPool()) || null;
+}
+
+function testAuswahl(thema) {
+  const gens = TEST_GEN[thema] || [];
+  return [1, 2, 3].map(st => ({ st, pool: alleAufgaben().filter(a => a.thema === thema && a.stufe === st).length, gen: gens.length > 0 }));
+}
 
 function einmaleinsBlock(stufe) {
   const letzte = S.verlauf.letzteIds.slice(-15);
@@ -909,13 +946,21 @@ function neueAufgabe() {
     zeigeAufgabe();
     return;
   }
-  const kategorie = MUSTER[S.verlauf.musterIndex % MUSTER.length];
-  const { aufgabe, wdh } = waehleAufgabe(kategorie);
-  S.verlauf.musterIndex++;
+  const fokus = testFokus();
+  let kategorie, aufgabe, wdh = 0;
+  if (fokus) {
+    kategorie = 'test';
+    aufgabe = testAufgabe(fokus.thema, fokus.stufe);
+  }
+  if (!aufgabe) {
+    kategorie = MUSTER[S.verlauf.musterIndex % MUSTER.length];
+    ({ aufgabe, wdh } = waehleAufgabe(kategorie));
+    S.verlauf.musterIndex++;
+  }
   A = {
     aufgabe, kategorie, serienPos: serieWeiter(), start: Date.now(),
     teile: teileVon(aufgabe), idx: 0, phase: 'eingabe', hinweise: [], verlassen: 0, strafe: 'keine',
-    fertig: false, meldung: null, feld: 'z', wdh
+    fertig: false, meldung: null, feld: 'z', wdh, test: !!fokus
   };
   // Geschichten Satz für Satz zeigen (weniger Text auf einmal)
   if (aufgabe.geschichte && L.saetzeVon(aufgabe.geschichte).length > 1) A.satz = 1;
@@ -1044,7 +1089,7 @@ function beendenJetzt() {
     const ohneEingabe = A.teile.every(t => !t.versuche.length);
     protokoll(S, 'aufgabe_abgebrochen', { id: A.aufgabe.id, teil: A.idx, ms: Date.now() - A.start, ohneEingabe, thema: A.aufgabe.thema, wartet: !A.aufgabe.bonus });
     // Freiwillige Bonus-Aufgaben dürfen weg. Alle anderen warten, bis sie gelöst sind.
-    if (!A.aufgabe.bonus) S.wartet = aufgabeSchnappschuss();
+    if (!A.aufgabe.bonus && !A.test) S.wartet = aufgabeSchnappschuss();
     // Die verlassene Aufgabe zählt nicht für die Serie
     S.serie.pos = Math.max(0, S.serie.pos - 1);
   }
@@ -1433,14 +1478,14 @@ function abschliessen() {
   } else {
     // Einmaleins-Dreierblöcke (außer auf dem Einstiegsplatz) zählen für die Stufe des Einmaleins
     const g = a.generator === 'block-einmaleins' && a.stufeZaehlt ? 'einmaleins' : a.generator;
-    if (!a.bonus && !g.startsWith('block') && G.GENERATOREN[g]) {
+    if (!a.bonus && !A.test && !g.startsWith('block') && G.GENERATOREN[g]) {
       const st = S.genStufen[g] || (S.genStufen[g] = { stufe: 1, folge: 0 });
       if (ergebnis === 'erst' && A.hilfeGenutzt) st.folge = 0; // mit „Hilf mir“: Stufe bleibt
       else if (ergebnis === 'erst') { st.folge++; if (st.folge >= 3 && st.stufe < 3) { st.stufe++; st.folge = 0; stufeHoch = { generator: g, stufe: st.stufe }; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } }
       else if (ergebnis === 'zweit') st.folge = 0;
       else { if (st.stufe > 1) { st.stufe--; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } st.folge = 0; }
     }
-    if (ergebnis === 'loesung' && (A.wdh || 0) < 2) S.wiederholen = [...S.wiederholen, { ab: S.verlauf.zaehler + 3, aufgabe: a, wdh: (A.wdh || 0) + 1 }].slice(-10);
+    if (ergebnis === 'loesung' && !A.test && (A.wdh || 0) < 2) S.wiederholen = [...S.wiederholen, { ab: S.verlauf.zaehler + 3, aufgabe: a, wdh: (A.wdh || 0) + 1 }].slice(-10);
   }
   S.verlauf.zaehler++;
   S.verlauf.themaZuletzt[a.thema] = { ergebnis, stufe: a.stufe };
@@ -2527,6 +2572,21 @@ function zusammenfassung(tage = 7) {
 
 
 
+function testFokusHtml() {
+  const f = testFokus();
+  const thema = (f && f.thema) || S.testFokusEntwurf || L.THEMEN[0];
+  const stufe = (f && f.stufe) || 1;
+  const opt = L.THEMEN.map(t => `<option value="${t}"${t === thema ? ' selected' : ''}>${esc(THEMA_NAMEN[t] || t)}</option>`).join('');
+  const quellen = testAuswahl(thema).map(q => `Stufe ${q.st}: ${q.gen ? 'Baukasten' : ''}${q.gen && q.pool ? ' + ' : ''}${q.pool ? `${q.pool} aus dem Pool` : ''}${!q.gen && !q.pool ? 'keine Aufgaben' : ''}`).join(' · ');
+  return `<h4>Gezielt testen</h4>
+    <p class="gedaempft klein">Nur Aufgaben aus einem Bereich mit einer Stufe. Stufen der Baukästen ändern sich dabei nicht.</p>
+    <label class="feld-label">Bereich<select id="t-thema">${opt}</select></label>
+    <div class="test-als">${[1, 2, 3].map(st => `<button class="btn btn-klein${f && f.stufe === st && f.thema === thema ? ' btn-haupt' : ''}" data-act="testFokus" data-st="${st}">Stufe ${st}</button>`).join('')}
+      ${f ? '<button class="btn btn-klein" data-act="testFokusAus">Normale Mischung</button>' : ''}</div>
+    <p class="klein gedaempft">${esc(quellen)}</p>
+    <p class="klein">Jetzt: <b>${f ? `${esc(THEMA_NAMEN[f.thema])} · Stufe ${f.stufe}` : 'normale Mischung'}</b></p>`;
+}
+
 function zeigeEltern(meldung = '') {
   setzeAnsicht('eltern');
   const fern = (S.fern && S.fern.version) > 0;
@@ -2577,6 +2637,7 @@ function zeigeEltern(meldung = '') {
       ${testSchueler ? `<div class="test-als">${[null, ...testSchueler].map(o => `<button class="btn btn-klein${(testAls() || null) === o ? ' btn-haupt' : ''}" data-act="testAls" data-o="${esc(o || '')}">${o ? esc(ordnerName(o)) : 'Eigene Einstellungen'}</button>`).join('')}</div>`
         : '<button class="btn btn-klein" data-act="testSchueler">Schüler laden</button>'}
       <p class="klein">Jetzt: <b>${testAls() ? esc(ordnerName(testAls())) : 'eigene Einstellungen'}</b>${S.paket ? ` · Paket „${esc(S.paket.name)}“` : ''}</p>` : ''}
+      ${S.upload.testgeraet ? testFokusHtml() : ''}
     </section>
 
     <section class="karte">
@@ -2789,7 +2850,7 @@ function klick(e) {
     }
     case 'start': zeigeStart(); break;
     case 'beenden':
-      if (A && !A.fertig && A.aufgabe.geschichte && !A.hilfeAngeboten && !A.textHilfe) { textHilfeAnbieten(); break; }
+      if (A && !A.fertig && !A.test && A.aufgabe.geschichte && !A.hilfeAngeboten && !A.textHilfe) { textHilfeAnbieten(); break; }
       beendenJetzt(); break;
     case 'textHilfeJa': textHilfeJa(); break;
     case 'textHilfeNein':
@@ -2942,6 +3003,15 @@ function klick(e) {
       }).catch(e => { f.textContent = e.message; });
       break;
     }
+    case 'testFokus': {
+      const thema = document.getElementById('t-thema').value, st = Number(el.dataset.st);
+      const leer = testAuswahl(thema).find(q => q.st === st);
+      S.testFokus = { thema, stufe: st };
+      protokoll(S, 'test_fokus', { thema, stufe: st }); sichern();
+      zeigeEltern(!leer.gen && !leer.pool ? `${esc(THEMA_NAMEN[thema])}, Stufe ${st}: Dafür gibt es keine Aufgaben. Es kommt die normale Mischung.` : `Gezielt: ${esc(THEMA_NAMEN[thema])}, Stufe ${st}.`);
+      break;
+    }
+    case 'testFokusAus': S.testFokus = null; protokoll(S, 'test_fokus', { thema: null }); sichern(); zeigeEltern('Wieder die normale Mischung.'); break;
     case 'testSchueler':
       el.textContent = 'Wird geladen …';
       testSchuelerLaden().then(() => zeigeEltern()).catch(e => zeigeEltern(esc(e.message || 'Laden hat nicht geklappt.')));
@@ -2955,6 +3025,7 @@ function klick(e) {
     }
     case 'testgeraet':
       if (!el.checked && S.upload.testAls) { S.upload.testAls = null; S.fern = {}; S.paket = null; }
+      if (!el.checked) S.testFokus = null;
       S.upload.testgeraet = el.checked;
       protokoll(S, 'testgeraet', { an: el.checked });
       sichern();
