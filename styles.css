@@ -911,7 +911,7 @@ mark.zahl-mark { background: #F6D26A; color: inherit; border-radius: 4px; paddin
 .uf-gleich { font-size: 24px; font-weight: 700; }
 .uf-tipp { margin-top: 10px; border-left: 4px solid var(--amber); background: var(--amber-hell); padding: 8px 12px; color: var(--amber-dunkel); border-radius: 0 10px 10px 0; font-size: 16px; }
 .cur { display: inline-block; width: 2px; height: 1.05em; background: var(--teal); vertical-align: middle; margin: 0 1px; }
-.box { display: inline-flex; min-width: 22px; min-height: 26px; border: 1.5px dashed var(--teal); border-radius: 4px; align-items: center; justify-content: center; padding: 0 3px; }
+.box { display: inline-flex; min-width: 30px; min-height: 30px; border: 1.5px dashed var(--teal); border-radius: 4px; align-items: center; justify-content: center; padding: 0 3px; }
 .box.aktiv { border-style: solid; background: var(--teal-hell); }
 .fr2 { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1.12; margin: 0 2px; }
 .fr2 > span:first-child { border-bottom: 2px solid currentColor; padding: 0 4px 2px; }
@@ -970,3 +970,11 @@ button.uf-seite { font: inherit; font-size: 22px; font-weight: 700; color: inher
 .aufgabe-screen.mit-uf .eingabe-bereich { padding-top: 6px; }
 .eingabe-bereich:empty { display: none; }
 .uf-meldung { margin: 8px 0 0; }
+
+/* Antippen in der Formel-Eingabe */
+.ed-z, .ed-teil { cursor: text; }
+.uf-seite .fr2 > .ed-teil { display: inline-block; min-width: 30px; min-height: 30px; text-align: center; }
+/* Beim Umformen auf dem Handy bewegt sich das Fenster nie, nur die Aufgabe scrollt */
+@media not all and (min-width: 900px) and (orientation: landscape) {
+  html:has(.aufgabe-screen.mit-uf), html:has(.aufgabe-screen.mit-uf) body { overflow: hidden; height: 100%; overscroll-behavior: none; }
+}

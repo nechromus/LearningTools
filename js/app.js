@@ -28,7 +28,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.17.0';
+export const APP_VERSION = '2.17.1';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1572,10 +1572,12 @@ function ufZeile(gl, op, kl) {
 // Eingabe mit echten Brüchen anzeigen
 function ufEdHtml(ed, mitCursor) {
   const z = (x) => (x === '·' ? ' · ' : x === '−' || x === '+' ? ` ${x} ` : x === ':' ? ' : ' : x === '²' ? '<sup>2</sup>' : x === '³' ? '<sup>3</sup>' : groesseHtml(x));
+  // Antippen: ein Zeichen setzt den Cursor davor oder dahinter, ein Teil (Zähler, Nenner, Wurzel) an sein Ende
+  const tipp = (p) => (mitCursor !== null ? ` data-act="ufCur" data-p="${p}"` : '');
   const seq = (liste) => liste.map(e => e.cursor ? '<span class="cur"></span>'
-    : e.bruch ? `<span class="fr2"><span>${teil(e.bruch[0])}</span><span>${teil(e.bruch[1])}</span></span>`
-    : e.wurzel ? `<span class="wurzel">√<span>${teil(e.wurzel)}</span></span>` : z(e.z)).join('');
-  const teil = (liste) => (liste.some(e => !e.cursor) ? seq(liste) : `<span class="box${liste.some(e => e.cursor) ? ' aktiv' : ''}">${seq(liste)}</span>`);
+    : e.bruch ? `<span class="fr2"><span class="ed-teil"${tipp(e.bruch[0].ende)}>${teil(e.bruch[0])}</span><span class="ed-teil"${tipp(e.bruch[1].ende)}>${teil(e.bruch[1])}</span></span>`
+    : e.wurzel ? `<span class="wurzel">√<span class="ed-teil"${tipp(e.wurzel.ende)}>${teil(e.wurzel)}</span></span>` : `<span class="ed-z"${tipp(e.p)} data-n="1">${z(e.z)}</span>`).join('');
+  const teil = (liste) => (liste.some(e => !e.cursor) ? seq(liste) : `<span class="box${liste.some(e => e.cursor) ? ' aktiv' : ''}"${tipp(liste.start)}>${seq(liste)}</span>`);
   return seq(UF.struktur(ed, mitCursor));
 }
 function umformHtml(t, aktiv) {
@@ -1648,10 +1650,28 @@ function ufSichtbar() {
   const el = document.querySelector('.uf-meldung') || document.querySelector(A.uf.phase === 'waehlen' ? '.uf-auswahl' : '.uf-zwei');
   const box = document.querySelector('.aufgabe-screen.mit-uf > .aufgabe-inhalt');
   if (!el || !box) return;
-  if (box.scrollHeight <= box.clientHeight + 1) { el.scrollIntoView({ block: 'nearest' }); return; }
+  if (getComputedStyle(box).overflowY !== 'auto') { el.scrollIntoView({ block: 'nearest' }); return; }
   const r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
   if (r.bottom > b.bottom - 8) box.scrollTop += r.bottom - b.bottom + 16;
   else if (r.top < b.top) box.scrollTop += r.top - b.top - 12;
+}
+// Antippen in einer Eingabe: Seite wählen und Cursor setzen
+function ufCur(el, e) {
+  const u = A && A.uf;
+  if (!u || A.fertig) return;
+  let p = Number(el.dataset.p);
+  if (el.dataset.n) { const r = el.getBoundingClientRect(); if (e.clientX > r.left + r.width / 2) p += 1; }
+  const seiteEl = el.closest('[data-s]');
+  let ed;
+  if (u.phase === 'waehlen') ed = u.term;
+  else if (seiteEl) {
+    const k = seiteEl.dataset.s;
+    if (u.app[k] != null || u.status[k] === 'ok') return;
+    u.seite = k; ed = u.ed[k];
+  }
+  if (!ed) return;
+  UF.cursorAuf(ed, p);
+  zeigeAufgabe();
 }
 function ufTaste(k) {
   const u = A && A.uf;
@@ -1828,6 +1848,8 @@ const rechnungHtml = (a) => (a.thema === 'umstellen' || a.typ === 'formel' ? for
 
 function zeigeAufgabe() {
   const a = A.aufgabe;
+  const altBox = document.querySelector('.aufgabe-screen.mit-uf > .aufgabe-inhalt');
+  const altScroll = altBox ? altBox.scrollTop : null;
   const min = L.minutenFuerPosition(A.serienPos, R());
   const tz = String(min).replace('.', ',');
   const icons = (a.hinweise || []).filter(id => HMAP[id]).map(id =>
@@ -1870,7 +1892,11 @@ function zeigeAufgabe() {
   </div>`;
   const aktiv = document.querySelector('.teil.aktiv');
   // Umformen: Tastatur fest am unteren Rand, darüber so viel Platz, dass sich jedes Feld über sie scrollen lässt
-  if (A.uf && !A.fertig) ufSichtbar();
+  if (A.uf && !A.fertig) {
+    const box = document.querySelector('.aufgabe-screen.mit-uf > .aufgabe-inhalt');
+    if (box && getComputedStyle(box).overflowY === 'auto') { window.scrollTo(0, 0); if (altScroll != null) box.scrollTop = altScroll; }
+    ufSichtbar();
+  }
   else if (aktiv && !A.fertig) aktiv.scrollIntoView({ block: 'nearest' });
 }
 
@@ -3997,6 +4023,7 @@ function klick(e) {
     case 'ufTaste': ufTaste(el.dataset.k); break;
     case 'ufTippen': if (A && A.uf) { A.uf.tippen = true; zeigeAufgabe(); } break;
     case 'ufTippenZu': if (A && A.uf) { A.uf.tippen = false; zeigeAufgabe(); } break;
+    case 'ufCur': ufCur(el, e); break;
     case 'ufSeite': if (A && A.uf && A.uf.phase === 'eintragen' && !A.uf.app[el.dataset.s] && A.uf.status[el.dataset.s] !== 'ok') { A.uf.seite = el.dataset.s; zeigeAufgabe(); } break;
     case 'ufPruefen': ufPruefen(); break;
     case 'ufWeiter': ufSchrittFertig(); break;

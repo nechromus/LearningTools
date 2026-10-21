@@ -326,24 +326,29 @@ export function alsText(ed) {
 }
 export const istLeer = (ed) => !ed.t.some(z => !STRUKTUR.has(z));
 // Baum der Eingabe für die Anzeige: [{z} | {bruch: [seq, seq]} | {wurzel: seq} | {cursor}]
+// Jedes Zeichen hat p (Cursor-Stelle davor), jede Folge die Stellen start und ende (nicht aufzählbar), zum Antippen.
 export function struktur(ed, mitCursor = true) {
   let i = 0;
+  const marke = (out, start, ende) => { Object.defineProperty(out, 'start', { value: start }); Object.defineProperty(out, 'ende', { value: ende }); return out; };
   const seq = (ende) => {
-    const out = [];
+    const out = [], start = i;
     while (i <= ed.t.length) {
       if (mitCursor && i === ed.c) out.push({ cursor: true });
-      if (i === ed.t.length) { i++; break; }
+      if (i === ed.t.length) { const e = i; i++; return marke(out, start, e); }
       const z = ed.t[i];
-      if (ende.includes(z)) return out;
+      if (ende.includes(z)) return marke(out, start, i);
+      const p = i;
       i++;
-      if (z === '⟨B') { const zae = seq(['⟨T']); i++; const nen = seq(['⟩B']); i++; out.push({ bruch: [zae, nen] }); }
-      else if (z === '⟨W') { const w = seq(['⟩W']); i++; out.push({ wurzel: w }); }
-      else out.push({ z });
+      if (z === '⟨B') { const zae = seq(['⟨T']); i++; const nen = seq(['⟩B']); i++; out.push({ bruch: [zae, nen], p }); }
+      else if (z === '⟨W') { const w = seq(['⟩W']); i++; out.push({ wurzel: w, p }); }
+      else out.push({ z, p });
     }
-    return out;
+    return marke(out, start, i);
   };
   return seq([]);
 }
+// Cursor an eine Stelle setzen (nach Antippen)
+export function cursorAuf(ed, p) { ed.c = Math.max(0, Math.min(ed.t.length, Number(p) || 0)); return ed; }
 
 // ---------- Bausteine zum Wählen der Umformung ----------
 // Glieder der Summen, ihre Faktoren, Nenner und „was mit der gesuchten Größe malgenommen ist“
