@@ -28,7 +28,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.17.2';
+export const APP_VERSION = '2.17.3';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -2088,10 +2088,12 @@ function teileHtml() {
     } else if (t.art === 'wahl') {
       const knoepfe = t.optionen.map((o, k) => {
         let kl = 'wahl-btn';
+        // Wörter als Antwort: kleiner und mit Silbentrennung, damit lange Wörter („Federkraftmesser“) in den Knopf passen
+        if (!t.formel && /[A-Za-zÄÖÜäöüß]{4}/.test(o)) kl += Math.max(...String(o).split(/\s+/).map(w => w.length)) >= 11 ? ' wahl-text lang' : ' wahl-text';
         if (!aktiv) { if (k === t.richtig) kl += ' wahl-richtig'; else if (t.gewaehlt === k) kl += ' wahl-falsch'; }
         return `<button class="${kl}${t.formel ? ' formel-wahl' : ''}" data-act="wahl" data-k="${k}" ${aktiv && A.phase === 'eingabe' ? '' : 'disabled'}>${t.formel ? formelText(o) : mathe(o)}</button>`;
       }).join('');
-      inhalt = `<div class="teil-label">${nr}<span><b>${mathe(t.label)}</b></span></div><div class="wahl-reihe">${knoepfe}</div>`;
+      inhalt = `<div class="teil-label">${nr}<span><b>${mathe(t.label)}</b></span></div><div class="wahl-reihe${/wahl-text lang/.test(knoepfe) ? ' wahl-spalte' : ''}">${knoepfe}</div>`;
     } else if (t.art === 'zuordnung') {
       inhalt = zuordnungHtml(aktiv);
     } else if (t.art === 'legen') {

@@ -138,6 +138,10 @@ code { font-size: 14px; }
   border: 2px solid var(--teal); border-radius: 10px; background: var(--flaeche); color: var(--teal-dunkel);
 }
 .wahl-btn:disabled { opacity: 1; }
+.wahl-btn { min-width: 0; flex-basis: 120px; -webkit-hyphens: auto; hyphens: auto; overflow-wrap: break-word; }
+.wahl-btn.wahl-text { font-size: 19px; line-height: 1.25; padding: 12px 10px; }
+.wahl-reihe.wahl-spalte { flex-direction: column; }
+.wahl-reihe.wahl-spalte > .wahl-btn { flex: none; width: 100%; padding: 12px 14px; }
 .wahl-richtig { background: var(--teal-hell); }
 .wahl-falsch { border-style: dashed; border-color: var(--linie); color: var(--gedaempft); }
 .tipp {
