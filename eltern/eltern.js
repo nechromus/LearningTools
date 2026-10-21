@@ -13,7 +13,7 @@ import * as LP from '../js/lernplan.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.23.0';
+export const ELTERN_VERSION = '1.23.1';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 

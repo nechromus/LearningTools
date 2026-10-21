@@ -966,6 +966,7 @@ button.uf-seite { font: inherit; font-size: 22px; font-weight: 700; color: inher
 .ft2 .bruch { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; font-size: 12px; }
 .ft2 .bruch i { display: block; width: 20px; border-top: 2px solid currentColor; margin: 2px 0; }
 .uf-tippen { display: block; margin: 6px 0 0; }
+.uf-zurueck { display: block; margin: 4px 0 0 auto; padding: 6px 0; }
 .aufgabe-screen.mit-uf .eingabe-bereich { padding-top: 6px; }
 .eingabe-bereich:empty { display: none; }
 .uf-meldung { margin: 8px 0 0; }
