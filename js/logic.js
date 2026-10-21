@@ -691,6 +691,8 @@ export function fernAnwenden(z, datei) {
   if (typeof w.rechnerAngebot === 'boolean' && w.rechnerAngebot !== (e.rechnerAngebot !== false)) { e.rechnerAngebot = w.rechnerAngebot; geaendert.push('rechnerAngebot'); }
   // Lange Hinweise: 0 gleich lang, 1 frei, 2 halbe Spielzeit, 3 aus
   if ([0, 1, 2, 3].includes(w.langeHinweise) && w.langeHinweise !== (e.langeHinweise ?? 1)) { e.langeHinweise = w.langeHinweise; geaendert.push('langeHinweise'); }
+  // „In Schritten umformen“: Start-Stufe (3 beide Seiten selbst, 2 eine Seite, 1 die App vereinfacht)
+  if ([1, 2, 3].includes(w.umform_stufe) && w.umform_stufe !== (e.umformStufe ?? 3)) { e.umformStufe = w.umform_stufe; geaendert.push('umformStufe'); }
   // Spielzeit im Schrein: Höchstwert pro Tag und „nur heute mehr“
   if (w.spielzeitTag && typeof w.spielzeitTag === 'object') {
     const neu = szRegeln(w.spielzeitTag);

@@ -13,7 +13,7 @@ import * as LP from '../js/lernplan.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.22.0';
+export const ELTERN_VERSION = '1.23.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -656,9 +656,10 @@ function gestaltungEinstellungen(w) {
   const seg = (act, werte, akt, text = (x) => x) => `<div class="segmente" role="group">${werte.map(x => `<button class="segment${x === akt ? ' an' : ''}" data-act="${act}" data-w="${x}" aria-pressed="${x === akt}">${text(x)}</button>`).join('')}</div>`;
   const st = neuesterStand();
   const heute = st && st.uebung && st.uebung.tag === L.tagKey() ? st.uebung.sek : 0;
-  return `<h2 class="abschnitt">Gestaltung und Übungszeit</h2>
+  return `<h2 class="abschnitt">Gestaltung, Umformen und Übungszeit</h2>
     <section class="karte liste-karte">
       <div class="einstell-block"><span>Gestaltung der App<span class="klein gedaempft block">Logbuch Sternzeit: dunkle Konsole, Logbuch, Wissensarchiv und Wissenspunkte. Hinweiskarten bleiben gleich.</span></span>${seg('gestaltung', ['schrein', 'sternzeit'], w.gestaltung, x => x === 'schrein' ? 'Schrein' : 'Logbuch Sternzeit')}</div>
+      <div class="einstell-block"><span>„In Schritten umformen“: Start-Stufe<span class="klein gedaempft block">3: beide Seiten selbst vereinfachen. 2: die App schreibt eine Seite. 1: die App vereinfacht. Die anderen Stufen gibt es als Hilfe.</span></span>${seg('umformStufe', [3, 2, 1], w.umform_stufe, x => 'Stufe ' + x)}</div>
       <div class="einstell-block"><span>Übungszeit pro Tag begrenzen<span class="klein gedaempft block">Gezählt wird die Zeit in Aufgaben. Danach fragt ${esc(name())} dich nach mehr.</span></span>${seg('uzAn', [true, false], u.an, x => x ? 'An' : 'Aus')}</div>
       ${u.an ? `<div class="einstell-block"><span>Höchstens pro Tag</span>${seg('uzMax', BS.UZ_HOECHSTWERTE, u.max)}<span class="klein gedaempft">Minuten. Dann kommt ein freundlicher Hinweis, die laufende Aufgabe darf fertig werden.</span></div>
       <div class="einstell-block"><span>Nachlauf</span>${seg('uzNachlauf', [0, 10, 20], u.nachlauf_prozent, x => x + ' %')}<span class="klein gedaempft">Danach ist für heute Schluss mit Üben: ${Math.round(u.max * (1 + u.nachlauf_prozent / 100))} Min.</span></div>
@@ -1261,7 +1262,7 @@ function minutenSetzen(feld, wert) {
 // damit der Browser nicht die alten Dateien aus seinem Zwischenspeicher nimmt.
 const DATEIEN = ['./', 'index.html', 'eltern.js', 'eltern.css', 'auswertung.js', 'vendor/qrcode.mjs', 'manifest.webmanifest',
   '../js/sync.js', '../js/logic.js', '../js/namen.js', '../js/render.js', '../js/paket.js', '../js/einrichtung.js',
-  '../js/physik.js', '../js/lernplan.js', '../js/bildschirm.js', '../js/splitter.js', '../js/hinweiskarten.js', '../data/logbuch.json'];
+  '../js/physik.js', '../js/umformen.js', '../js/lernplan.js', '../js/bildschirm.js', '../js/splitter.js', '../js/hinweiskarten.js', '../data/logbuch.json'];
 let basisVersion = null;   // Version der Übungs-App beim Laden dieser Seite
 let neueVersion = null;
 let updateSpaeter = false;
@@ -1388,6 +1389,7 @@ document.addEventListener('click', (ev) => {
     case 'bzFaktor': entwurf.bildschirm = { ...entwurf.bildschirm, faktor: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'bzMax': entwurf.bildschirm = { ...entwurf.bildschirm, max: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'gestaltung': entwurf.gestaltung = el.dataset.w; if (entwurf.gestaltung === 'sternzeit' && !entwurf.ansicht_name) entwurf.ansicht_name = 'Logbuch Sternzeit'; meldung = null; zeichne(); break;
+    case 'umformStufe': entwurf.umform_stufe = Number(el.dataset.w); meldung = null; zeichne(); break;
     case 'uzAn': entwurf.uebungszeit = { ...entwurf.uebungszeit, an: el.dataset.w === 'true' }; meldung = null; zeichne(); break;
     case 'uzMax': entwurf.uebungszeit = { ...entwurf.uebungszeit, max: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'uzNachlauf': entwurf.uebungszeit = { ...entwurf.uebungszeit, nachlauf_prozent: Number(el.dataset.w) }; meldung = null; zeichne(); break;

@@ -90,6 +90,7 @@ export function zerlegeFormel(text, variablen = []) {
     if (c === '²' || c === '³') { out.push({ t: 'hoch', v: c === '²' ? 2 : 3 }); i++; continue; }
     if (c === '½') { out.push({ t: 'zahl', v: 0.5, halb: true }); i++; continue; }
     if (c === 'π') { out.push({ t: 'zahl', v: Math.PI, pi: true }); i++; continue; }
+    if (c === '√') { out.push({ t: 'wurzel' }); i++; continue; }
     if (c === '=') { out.push({ t: '=' }); i++; continue; }
     return null; // unbekanntes Zeichen
   }
@@ -105,7 +106,7 @@ export function parseFormel(tokens) {
     while (peek() && peek().t === 'op' && (peek().v === '+' || peek().v === '-')) { const op = tokens[i++].v; l = { op, l, r: term() }; }
     return l;
   };
-  const startFaktor = (t) => t && (t.t === 'zahl' || t.t === 'var' || t.t === '(');
+  const startFaktor = (t) => t && (t.t === 'zahl' || t.t === 'var' || t.t === '(' || t.t === 'wurzel');
   const term = () => {
     let l = unaer();
     for (;;) {
@@ -129,6 +130,7 @@ export function parseFormel(tokens) {
     if (!t) throw new Error('Ausdruck endet zu früh');
     if (t.t === 'zahl') return { zahl: t.v, pi: !!t.pi, ...(t.halb ? { halb: true } : {}) };
     if (t.t === 'var') return { name: t.v };
+    if (t.t === 'wurzel') return { op: 'sqrt', l: potenz() };
     if (t.t === '(') { const e = expr(); if (!peek() || peek().t !== ')') throw new Error('Klammer fehlt'); i++; return { op: '()', l: e }; }
     throw new Error('Unerwartetes Zeichen');
   };
@@ -148,6 +150,7 @@ export function rechne(b, werte) {
     case 'neg': return -rechne(b.l, werte);
     case '^': return rechne(b.l, werte) ** b.n;
     case '()': return rechne(b.l, werte);
+    case 'sqrt': return Math.sqrt(rechne(b.l, werte));
   }
   return NaN;
 }
@@ -203,12 +206,17 @@ export function formelHtml(b, esc = (s) => s, name = (n) => n) {
     // „3x“ und „2(x + 3)“ ohne Malpunkt, wie geschrieben
     case '*': return b.impl && 'zahl' in b.l && !b.l.pi ? `${inner(b.l)}${inner(b.r)}` : `${inner(b.l)} · ${inner(b.r)}`;
     case '/': {
-      const ohneKl = (x) => (x && x.op === '()' ? x.l : x);
+      const ohneKl = (x) => { while (x && x.op === '()') x = x.l; return x; };
       return `<span class="fr2"><span>${inner(ohneKl(b.l))}</span><span>${inner(ohneKl(b.r))}</span></span>`;
     }
     case 'neg': return `−${inner(b.l)}`;
     case '^': return `${inner(b.l)}<sup>${b.n}</sup>`;
-    case '()': return `(${inner(b.l)})`;
+    case '()': {
+      // Klammern um einen Bruch oder eine Wurzel braucht man in der zweizeiligen Anzeige nicht
+      let k = b.l; while (k && k.op === '()') k = k.l;
+      return k && (k.op === '/' || k.op === 'sqrt' || 'name' in k || 'zahl' in k) ? inner(k) : `(${inner(b.l)})`;
+    }
+    case 'sqrt': { let k = b.l; while (k && k.op === '()') k = k.l; return `<span class="wurzel">√<span>${inner(k)}</span></span>`; }
   }
   return '';
 }

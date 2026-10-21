@@ -119,3 +119,29 @@ body.sz #app .mini-gewinn, body.sz #app .konto-zeile { color: var(--sz-text); }
 .sz-etappe b { white-space: nowrap; }
 body.sz #app .karte.aufgabe > .sz-label { margin-bottom: 8px; }
 .sz-zeile-knopf .sz-matt { white-space: nowrap; }
+
+/* „In Schritten umformen“ */
+body.sz .uf-stufe { background: #262B45; color: var(--sz-gelb); }
+body.sz .uf-zeile .op { color: var(--sz-orange); }
+body.sz .uf-zeile.neu { background: #1B2236; }
+body.sz .uf-b { background: #0B0D18; border-color: var(--sz-blau); color: var(--sz-text); }
+body.sz .uf-b.op { background: var(--sz-pfirsich); border-color: var(--sz-pfirsich); color: #1C1108; }
+body.sz .uf-b.an { box-shadow: 0 0 0 3px var(--sz-gelb); }
+body.sz .uf-b.lang { background: #262B45; border-color: #262B45; color: var(--sz-text); }
+body.sz .uf-auswahl { border-color: var(--sz-orange); }
+body.sz .uf-seite { background: #0B0D18; border-color: var(--sz-blau); }
+body.sz .uf-seite.fehler { background: #2A2236; border-color: var(--sz-flieder); }
+body.sz .uf-seite.fehler .mark { background: var(--sz-flieder); color: #160E1A; }
+body.sz .uf-seite.ok .mark, body.sz .uf-seite .mark { background: var(--sz-blau); color: #08111F; }
+body.sz .uf-seite.app { border-color: #3A3F5C; color: var(--sz-matt); }
+body.sz .uf-seite.app .mark { background: #3A3F5C; color: var(--sz-text); }
+body.sz .uf-tipp { background: #2A2236; border-left-color: var(--sz-flieder); color: var(--sz-text); }
+body.sz .cur { background: var(--sz-gelb); }
+body.sz .box { border-color: var(--sz-blau); }
+body.sz .box.aktiv { background: #1F3350; }
+body.sz .ft button { background: #262B45; border-color: #262B45; color: var(--sz-text); }
+body.sz .ft .var { background: var(--sz-blau); border-color: var(--sz-blau); color: #08111F; }
+body.sz .ft .sp { background: var(--sz-flieder); border-color: var(--sz-flieder); color: #160E1A; }
+body.sz .ft .ok { background: var(--sz-orange); border-color: var(--sz-orange); color: #160C04; }
+body.sz .uf-hilfe-box { border-color: var(--sz-blau); }
+body.sz .uf-hilfe-box b { color: var(--sz-blau); }

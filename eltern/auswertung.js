@@ -8,7 +8,7 @@ import * as LP from '../js/lernplan.js';
 
 const ZU_AUFGABE = new Set(['versuch', 'versuch_wiederholt', 'tipp_bestaetigt', 'hinweis', 'rechner', 'rechner_offen',
   'rechner_angeboten', 'rechner_optional', 'verlassen', 'sprung', 'loesung_gezeigt', 'bonus_teil_uebersprungen', 'hilfe',
-  'zu_schnell', 'vorlesen', 'gelesen', 'text_hilfe', 'hinweis_kurz', 'hinweis_lang', 'formeluebersicht', 'schritte_an']);
+  'zu_schnell', 'vorlesen', 'gelesen', 'text_hilfe', 'hinweis_kurz', 'hinweis_lang', 'formeluebersicht', 'schritte_an', 'umformen_an', 'umform_versuch', 'umform_schritt', 'umform_hilfe', 'umform_umweg', 'umform_fertig']);
 
 export const zahl = (w) => w == null ? '' : String(w).replace('.', ',').replace(/^-/, '−');
 
@@ -259,6 +259,12 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
       case 'aufgabe_abgebrochen': p.titel = 'Mit „Fertig“ verlassen'; p.text = [e.ohneEingabe ? 'ohne Eingabe' : '', e.wartet ? 'kommt beim nächsten Mal wieder' : ''].filter(Boolean).join(' · '); p.art = 'fehler'; break;
       case 'hilfe': p.titel = `„Hilf mir“ (${e.stufe}. Schritt)`; p.text = (e.zeilen || []).join(' · ') + ' · weniger Spielzeit'; p.art = 'fehler'; break;
       case 'uebersprungen': p.titel = 'Übersprungen'; break;
+      case 'umformen_an': p.titel = '„In Schritten umformen“ gewählt'; p.text = `Start auf Stufe ${e.stufe}`; break;
+      case 'umform_versuch': p.titel = `Schritt ${e.schritt} (${e.umformung}), ${e.seite === 'l' ? 'links' : 'rechts'}: ${e.eingabe}`; p.text = `${e.richtig ? 'passt' : 'noch nicht'} · ${e.versuch}. Versuch · Stufe ${e.stufe}`; p.art = e.richtig ? 'ok' : 'fehler'; break;
+      case 'umform_schritt': p.titel = `Schritt ${e.nr} fertig: ${e.eingabe.l} = ${e.eingabe.r}`; p.text = `${e.umformung} · Stufe ${e.stufe}${e.hilfe ? ' · mit Hilfe' : ''}`; p.art = e.hilfe ? 'info' : 'ok'; break;
+      case 'umform_hilfe': p.titel = e.art === 'vorschlag' ? `„Hilf mir“: Vorschlag ${e.vorschlag || '(allgemein)'}` : e.art === 'uebernommen' ? 'Vorschlag übernommen' : `Hilfe ${e.art.replace('stufe', 'Stufe ')}`; p.text = 'weniger Spielzeit'; p.art = 'fehler'; break;
+      case 'umform_umweg': p.titel = 'Umweg-Hinweis'; p.text = `${e.schritte} Schritte, nötig ${e.noetig}`; break;
+      case 'umform_fertig': p.titel = `Umgeformt in ${e.schritte} ${e.schritte === 1 ? 'Schritt' : 'Schritten'}`; p.text = `${e.loesung}${e.stimmt ? '' : ' · stimmt nicht mit der Antwort'}`; p.art = e.stimmt ? 'ok' : 'fehler'; break;
       case 'schritte_an': p.titel = e.auto ? 'Knobeln: nach 2 Versuchen in Schritten weiter' : '„In Schritten rechnen“ gewählt'; p.text = e.versuche ? `vorher ${e.versuche} ${e.versuche === 1 ? 'Versuch' : 'Versuche'} ohne Schritte` : 'ohne eigenen Versuch'; p.art = e.auto ? 'fehler' : 'info'; break;
       case 'hinweis_kurz': p.titel = `Formelübersicht „${hinweisTitel[e.hinweis] || e.hinweis}“ geöffnet`; p.text = (e.abschnitte || []).length ? 'Kurzversion' : 'steht nicht in der Formelübersicht'; break;
       case 'hinweis_lang': p.titel = `Mehr Hilfe: langer Hinweis „${hinweisTitel[e.hinweis] || e.hinweis}“`; p.text = e.stufe === 0 ? 'gleich lang (ohne Formelübersicht)' : `Stufe ${e.stufe}${e.kosten === 'halb' ? ' · halbe Spielzeit' : ''}`; p.art = e.kosten === 'halb' ? 'fehler' : 'info'; break;
@@ -408,6 +414,7 @@ export function startWerte(einst, stand, paketVon = () => null) {
     spielzeitTag: szWerte(w.spielzeitTag || (stand && stand.szRegeln)),
     etappe_anzeigen: w.etappe_anzeigen === true,
     gestaltung: ['schrein', 'sternzeit'].includes(w.gestaltung) ? w.gestaltung : 'schrein',
+    umform_stufe: [1, 2, 3].includes(w.umform_stufe) ? w.umform_stufe : 3,
     ...(typeof w.ansicht_name === 'string' ? { ansicht_name: w.ansicht_name } : {}),
     uebungszeit: uzWerte(w.uebungszeit),
     ...mitPaketen(paketTeil(w, stand, e, paketVon), w, paketVon)
@@ -521,7 +528,7 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
     app: 'lernapp-2048-eltern', version, geaendert: jetzt.toISOString(),
     werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, langeHinweise: [0, 1, 2, 3].includes(werte.langeHinweise) ? werte.langeHinweise : 1, spielzeit: spielzeitRegeln(werte.spielzeit), bildschirm: bzDatei(werte.bildschirm, tagKey(jetzt)), spielzeitTag: szDatei(werte.spielzeitTag, tagKey(jetzt)), genStufen,
       ...(Array.isArray(werte.pakete) ? { pakete: werte.pakete.map(paketEintragDatei), etappe_anzeigen: !!werte.etappe_anzeigen } : {}),
-      gestaltung: werte.gestaltung === 'sternzeit' ? 'sternzeit' : 'schrein', ...(werte.ansicht_name ? { ansicht_name: werte.ansicht_name } : {}),
+      gestaltung: werte.gestaltung === 'sternzeit' ? 'sternzeit' : 'schrein', umform_stufe: [1, 2, 3].includes(werte.umform_stufe) ? werte.umform_stufe : 3, ...(werte.ansicht_name ? { ansicht_name: werte.ansicht_name } : {}),
       uebungszeit: uzDatei(werte.uebungszeit, tagKey(jetzt)),
       ...(werte.splitter ? { splitter: { preise: werte.splitter.preise, boni: werte.splitter.boni.slice(-50), frei: werte.splitter.frei } } : {}) }
   };
