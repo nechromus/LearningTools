@@ -28,7 +28,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.17.1';
+export const APP_VERSION = '2.17.2';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -373,9 +373,15 @@ async function testAlsSetzen(ordner) {
   S.upload.testAls = ordner || null;
   S.fern = {}; // neu anfangen, damit alle Werte (auch ältere Versionen) übernommen werden
   S.paket = null; S.pakete = null; S.abweichungen = {}; // Schüler ohne Paket nutzt wie in seiner App das Übungsthema
+  // Werte, die nur manche Kinder haben, auf den Standard setzen. Sonst bliebe z. B. „Logbuch Sternzeit“ bei Tobias stehen.
+  personaZuruecksetzen(S);
   protokoll(S, 'test_als', { ordner: ordner || null });
   sichern();
   await fernHolen(true);
+}
+function personaZuruecksetzen(z) {
+  for (const f of ['gestaltung', 'ansichtName', 'uzRegeln', 'bzRegeln', 'szRegeln', 'etappeAnzeigen', 'fernEtappen']) delete z[f];
+  delete z.einstellungen.umformStufe;
 }
 const ordnerName = (o) => o.charAt(0).toUpperCase() + o.slice(1);
 
@@ -4166,7 +4172,7 @@ function klick(e) {
       break;
     }
     case 'testgeraet':
-      if (!el.checked && S.upload.testAls) { S.upload.testAls = null; S.fern = {}; S.paket = null; S.pakete = null; S.abweichungen = {}; }
+      if (!el.checked && S.upload.testAls) { S.upload.testAls = null; S.fern = {}; S.paket = null; S.pakete = null; S.abweichungen = {}; personaZuruecksetzen(S); }
       if (!el.checked) S.testFokus = null;
       S.upload.testgeraet = el.checked;
       protokoll(S, 'testgeraet', { an: el.checked });
