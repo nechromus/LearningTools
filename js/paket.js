@@ -2,6 +2,7 @@
 // Ein Paket wird pro Kind aktiviert; die Gewichte lassen sich pro Kind anpassen.
 // Format für Pakete (auch zum Erstellen mit Claude): siehe app-uebergabe/06-aufgabenpakete.md
 import { THEMEN } from './logic.js';
+import { etappenNorm, VARIANTEN, FAECHER, WEITER, FORMAT2, STUFE_MAX } from './lernplan.js';
 
 export const FORMAT = 'lernapp-paket-1';
 export const STUFEN = [
@@ -49,7 +50,8 @@ export const idAusName = (name) => String(name || '').toLowerCase()
   .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 
 // Prüft ein Paket (z. B. von Claude als Text erstellt). Gibt { paket, fehler, hinweise } zurück.
-export function paketPruefen(roh) {
+// optionen.poolIds: Set der Aufgaben-ids im Pool (prüft die ids der Etappen)
+export function paketPruefen(roh, { poolIds = null } = {}) {
   const fehler = [], hinweise = [];
   let p = roh;
   if (typeof roh === 'string') {
@@ -71,7 +73,32 @@ export function paketPruefen(roh) {
   }
   if (!Object.values(gewichte).some(v => v > 0) && !fehler.length) fehler.push('Mindestens ein Thema muss an sein.');
   if (!KOPF_THEMEN.some(t => gewichte[t] > 0) && !fehler.length) hinweise.push('Kein Thema für kurze Aufgaben ist an. Die App nimmt dann die anderen Themen.');
-  const paket = { format: FORMAT, id, name, beschreibung: String(p.beschreibung || '').slice(0, 300), gewichte };
+  // Format 2: Fach, Weiter-Regel, Etappen (12-lerneinheiten-und-pakete.md)
+  let etappen = [];
+  if (p.etappen != null) {
+    if (!Array.isArray(p.etappen)) fehler.push('„etappen“ muss eine Liste sein.');
+    else {
+      p.etappen.forEach((e, i) => {
+        const nr = i + 1;
+        if (!e || typeof e !== 'object') { fehler.push(`Etappe ${nr}: kein gültiger Eintrag.`); return; }
+        if (Number(e.nr) !== nr) fehler.push(`Etappe ${nr}: Nummer ${e.nr ?? 'fehlt'}. Die Etappen müssen lückenlos ab 1 nummeriert sein.`);
+        if (!String(e.name || '').trim()) fehler.push(`Etappe ${nr}: Name fehlt.`);
+        for (const [t, g] of Object.entries(e.grenzen || {})) {
+          if (!THEMEN.includes(t)) { hinweise.push(`Etappe ${nr}: Thema „${t}“ gibt es nicht, die Grenze wird ignoriert.`); continue; }
+          if (g && g.stufe_max != null && !(Number.isInteger(g.stufe_max) && g.stufe_max >= 1 && g.stufe_max <= STUFE_MAX)) fehler.push(`Etappe ${nr}, ${t}: stufe_max ${g.stufe_max} geht nicht (1 bis ${STUFE_MAX}).`);
+          for (const v of (g && g.ohne) || []) if (!(VARIANTEN[t] || []).includes(v)) fehler.push(`Etappe ${nr}, ${t}: Variante „${v}“ kennt die App nicht.`);
+        }
+        if (poolIds) for (const aid of e.aufgaben || []) if (!poolIds.has(aid)) fehler.push(`Etappe ${nr}: Aufgabe „${aid}“ gibt es in der Aufgabensammlung nicht.`);
+      });
+      etappen = etappenNorm(p.etappen);
+    }
+  }
+  if (p.fach != null && !FAECHER.includes(p.fach)) hinweise.push(`Fach „${p.fach}“ kennt die App noch nicht. Es wird „mathe“.`);
+  const paket = {
+    format: etappen.length ? FORMAT2 : FORMAT, id, name, fach: FAECHER.includes(p.fach) ? p.fach : 'mathe',
+    beschreibung: String(p.beschreibung || '').slice(0, 300), gewichte,
+    ...(etappen.length ? { weiter: WEITER.includes(p.weiter) ? p.weiter : 'hand', etappen } : {})
+  };
   return { paket: fehler.length ? null : paket, fehler, hinweise };
 }
 

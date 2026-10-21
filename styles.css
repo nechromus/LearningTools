@@ -814,3 +814,4 @@ mark.zahl-mark { background: #F6D26A; color: inherit; border-radius: 4px; paddin
 .kopf-bonus small { display: block; font-size: 14px; opacity: .9; }
 .wechsel-hinweis { background: #fff; border: 2px dashed var(--amber); border-radius: 12px; padding: 10px 12px; margin: 8px 0; font-weight: 600; color: var(--amber-dunkel); }
 .voll-hinweis { background: #fff; border: 2px dashed var(--linie); border-radius: 12px; padding: 10px 12px; margin: 8px 0; }
+.etappe-zeile { margin: 0; text-align: center; color: var(--teal-dunkel); background: var(--teal-hell); border-radius: 10px; padding: 8px 10px; }

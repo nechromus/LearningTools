@@ -274,3 +274,37 @@ textarea { width: 100%; border-radius: 10px; border: 1.5px solid #8A9696; backgr
 .bz-zeile { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--linie-hell); }
 .bz-liste .bz-code { font: 700 16px ui-monospace, Menlo, monospace; letter-spacing: 2px; }
 .bz-liste > p { padding: 8px 16px 12px; margin: 0; }
+
+/* Mehrere Pakete und Etappen (Eltern-App 1.21.0) */
+.pakete-karte .karte-kopf, .einheit-karte .karte-kopf { padding: 14px 16px 6px; }
+.pk { padding: 12px 16px; border-top: 1px solid var(--linie-hell); }
+.pk.gewaehlt { background: #FFF8E8; box-shadow: inset 4px 0 0 var(--amber); }
+.pk-kopf { display: flex; align-items: center; gap: 8px; }
+.pk-kopf b { flex: 1; }
+.rolle { font-size: 12px; font-weight: 700; border-radius: 20px; padding: 2px 9px; white-space: nowrap; }
+.r-grund { background: var(--teal-hell); color: var(--teal-dunkel); }
+.r-einheit { background: var(--amber-hell); color: var(--amber-dunkel); }
+.r-wiederholung { background: var(--linie-hell); color: var(--gedaempft); }
+.anteil { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.anteil input { flex: 1; accent-color: var(--teal); min-height: 32px; }
+.anteil b { width: 48px; text-align: right; }
+.etappe-link { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 14px; color: var(--teal-dunkel); text-decoration: none; min-height: 32px; }
+.etappe-link span { flex: 1; }
+.summe { display: flex; justify-content: space-between; padding: 10px 16px; border-top: 1px solid var(--linie-hell); font-weight: 700; }
+.summe .ok { color: #1E7A5F; }
+.summe .nicht-ok { color: var(--amber-dunkel); }
+.pad { padding: 0 16px; }
+.et { display: flex; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--linie-hell); align-items: flex-start; }
+.et .nr { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--linie-hell); color: var(--gedaempft); flex-shrink: 0; }
+.et.fertig .nr { background: var(--teal-hell); color: var(--teal-dunkel); }
+.et.aktuell { background: var(--amber-hell); }
+.et.aktuell .nr { background: var(--amber); color: #fff; }
+.et .txt { flex: 1; }
+.et .txt b, .et .txt span { display: block; }
+.et .marke { font-size: 12px; font-weight: 700; color: var(--amber-dunkel); }
+.sitzt, .sitzt-noch { margin: 8px 16px 0; padding: 10px 12px; border-radius: 10px; font-weight: 700; }
+.sitzt { background: #E4F2EC; color: #1E5A47; }
+.sitzt-noch { background: var(--linie-hell); color: var(--gedaempft); }
+.knopf-spalte { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; }
+.knopf.gestrichelt { border-style: dashed; }
+.einheit-spalten { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 20px; align-items: start; margin-top: 10px; }

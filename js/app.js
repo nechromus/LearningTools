@@ -17,13 +17,14 @@ import { runenbrecherStarten } from './runenbrecher-ui.js';
 import { jadeschlangeStarten } from './jadeschlange-ui.js';
 import * as SP from './splitter.js';
 import * as BS from './bildschirm.js';
+import * as LP from './lernplan.js';
 import { bildschirmBild } from './bildschirm-bild.js';
 import { ANLEITUNGEN } from './anleitungen.js';
 import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.12.0';
+export const APP_VERSION = '2.13.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -293,7 +294,9 @@ function standDaten() {
   return {
     app: 'lernapp-2048', version: APP_VERSION, nutzer: S.einstellungen.name, geraetId: S.geraetId, stand: new Date().toISOString(),
     einstellungen, guthaben: S.guthaben, spiel: { punkte: S.spiel.punkte, rekord: S.spiel.rekord, maxKachel: S.spiel.maxKachel },
-    genStufen: S.genStufen, spielzeit: R(), splitter: splitterKurz(), paket: S.paket, gewichte: gewichte(), fern: S.fern, statistik: S.statistik, zusammenfassung7Tage: zusammenfassung(7), letzterExport: S.letzterExport
+    genStufen: S.genStufen, spielzeit: R(), splitter: splitterKurz(), paket: S.paket, gewichte: gewichte(), fern: S.fern,
+    pakete: pakete() ? S.pakete.map(p => ({ id: p.id, name: p.paket.name, rolle: p.rolle, anteil: p.anteil, ...(p.paket.etappen ? { etappe: p.etappe, etappen: p.paket.etappen.length, ...(p.naechste ? { naechste: p.naechste } : {}) } : {}) })) : null,
+    etappeAnzeigen: !!S.etappeAnzeigen, statistik: S.statistik, zusammenfassung7Tage: zusammenfassung(7), letzterExport: S.letzterExport
   };
 }
 
@@ -318,7 +321,7 @@ async function testSchuelerLaden() {
 async function testAlsSetzen(ordner) {
   S.upload.testAls = ordner || null;
   S.fern = {}; // neu anfangen, damit alle Werte (auch ältere Versionen) übernommen werden
-  S.paket = null; // Schüler ohne Paket nutzt wie in seiner App das Übungsthema
+  S.paket = null; S.pakete = null; S.abweichungen = {}; // Schüler ohne Paket nutzt wie in seiner App das Übungsthema
   protokoll(S, 'test_als', { ordner: ordner || null });
   sichern();
   await fernHolen(true);
@@ -665,7 +668,10 @@ function zeigeStart() {
   const name = S.einstellungen.name ? `, ${esc(S.einstellungen.name)}` : '';
   const serieAktiv = S.serie.pos > 0 && Date.now() - S.serie.letzteAktivitaet < 20 * 60 * 1000;
   zweck = null;
+  etappenAktualisieren();
   const bz = BZ().an ? bzKonto() : null;
+  // „Du übst gerade: Zylinder · Etappe 2 von 4“ (nur wenn in der Eltern-App eingeschaltet)
+  const einheit = S.etappeAnzeigen && pakete() ? S.pakete.find(p => p.rolle === 'einheit' && p.paket.etappen && p.etappe > 0) : null;
   $app.innerHTML = `
   <div class="screen start">
     <header class="start-kopf">
@@ -693,6 +699,7 @@ function zeigeStart() {
       <button class="btn btn-amber" data-act="basis">Abholen</button>
     </section>` : ''}
 
+    ${einheit ? `<p class="etappe-zeile">Du übst gerade: <b>${esc(einheit.paket.name)}</b> · Etappe ${einheit.etappe} von ${einheit.paket.etappen.length}</p>` : ''}
     <button class="btn btn-haupt btn-gross" data-act="aufgaben">${S.wartet ? 'Weiter mit deiner Aufgabe' : 'Aufgaben machen'}</button>
     ${spieleStartHtml()}
 
@@ -851,7 +858,9 @@ function hauptTeile(a) {
 
 const MUSTER = ['leicht', 'thema', 'thema', 'text', 'mix', 'thema', 'struktur', 'mix', 'thema', 'abschluss'];
 const wahl = arr => arr[Math.floor(Math.random() * arr.length)];
-const genStufe = g => (S.genStufen[g] || { stufe: 1 }).stufe;
+// Stufe eines Baukastens, höchstens bis zur Grenze der aktuellen Etappe
+const stufeGrenze = g => grenzen().stufeMax[LP.GEN_THEMA[g]] || 3;
+const genStufe = g => Math.min((S.genStufen[g] || { stufe: 1 }).stufe, stufeGrenze(g));
 
 function fokusOptionen() {
   const n = S.log.slice(-300).filter(e => e.typ === 'versuch' && e.fehler === 'vorzeichen').length;
@@ -860,6 +869,8 @@ function fokusOptionen() {
 
 function erzeuge(g, stufe, opts = {}) {
   const letzte = S.verlauf.letzteIds.slice(-15);
+  // Etappe ohne „Was ist gesucht?“ (Zylinder, Etappe 3)
+  if ((grenzen().ohne[LP.GEN_THEMA[g]] || []).includes('auswahl')) opts = { ...opts, ohneAuswahl: true };
   let a;
   for (let i = 0; i < 8; i++) {
     a = G.GENERATOREN[g](stufe, Math.random, opts);
@@ -869,7 +880,45 @@ function erzeuge(g, stufe, opts = {}) {
 }
 
 // Gewichte der Themen: aus dem Paket der Eltern-App, sonst Übungsthema auf „viel“
-const gewichte = () => (S.paket && S.paket.gewichte) ? P.gewichteNorm(S.paket.gewichte) : P.gewichteOhnePaket(S.einstellungen.thema);
+const gewichte = () => pakete() ? LP.gewichteAlle(S.pakete, S.abweichungen) : (S.paket && S.paket.gewichte) ? P.gewichteNorm(S.paket.gewichte) : P.gewichteOhnePaket(S.einstellungen.thema);
+
+// ---------- Mehrere Pakete und Etappen (js/lernplan.js) ----------
+const pakete = () => (Array.isArray(S.pakete) && S.pakete.length ? S.pakete : null);
+let grenzenCache = null;
+function grenzen() {
+  const pk = pakete();
+  if (!pk) return { stufeMax: {}, ohne: {}, pool: {}, gesperrt: new Set() };
+  const schluessel = JSON.stringify(pk.map(p => [p.id, p.etappe])) + alleAufgaben().length;
+  if (grenzenCache && grenzenCache.k === schluessel) return grenzenCache.g;
+  const themen = new Map(alleAufgaben().map(a => [a.id, a.thema]));
+  const g = LP.grenzenVon(pk, id => themen.get(id), [...themen.keys()]);
+  grenzenCache = { k: schluessel, g };
+  return g;
+}
+const erlaubt = (a) => LP.aufgabeErlaubt(a, grenzen());
+// Nächste Etappe wird ab ihrem Datum wirksam (Gerätezeit)
+function etappenAktualisieren() {
+  if (!pakete()) return;
+  for (const w of LP.naechsteAnwenden(S.pakete, L.tagKey())) protokoll(S, 'etappe_neu', w);
+}
+// Lerneinheit mit „weiter: automatisch“: sitzt die Etappe (8 von 10 im 1. Versuch, ohne Hilfen), kommt am nächsten Tag die nächste
+function etappeAutomatisch() {
+  const p = (pakete() || []).find(x => x.id === A.paket);
+  if (!p || !p.paket.etappen || p.paket.weiter !== 'automatisch' || p.naechste || A.etappe !== p.etappe || p.etappe >= p.paket.etappen.length) return;
+  const letzte = S.log.filter(e => e.typ === 'aufgabe_ende' && e.paket === p.id && e.etappe === p.etappe).slice(-10).map(e => ({ ende: e }));
+  if (!LP.etappeSitzt(letzte).sitzt) return;
+  const d = new Date(); d.setDate(d.getDate() + 1);
+  p.naechste = { etappe: p.etappe + 1, ab: L.tagKey(d) };
+  protokoll(S, 'etappe_vorschlag', { paket: p.id, nach: p.etappe + 1, ab: p.naechste.ab });
+}
+const paketInfo = (id) => { const p = (pakete() || []).find(x => x.id === id); return p ? { paket: p.id, ...(p.paket.etappen ? { etappe: p.etappe } : {}) } : {}; };
+// Aus welchem Paket stammt eine Aufgabe (für Wiederholungen und wartende Aufgaben): erstes aktives Paket mit diesem Thema
+function paketFuerThema(t) {
+  const pk = pakete();
+  if (!pk) return null;
+  const p = LP.aktive(pk).find(p => (LP.gewichteVon(p, S.abweichungen)[t] || 0) > 0);
+  return p ? p.id : null;
+}
 
 // ---------- Testgerät: gezielt testen (Bereich und Stufe wählbar) ----------
 // Welche Baukästen zu einem Thema gehören; Themen ohne Baukasten kommen nur aus dem Pool.
@@ -923,7 +972,7 @@ function kurzeAufgabe(g, fokus, { leicht = false } = {}) {
   }
   if (leicht && P.BLOCK_GEN[thema] && Math.random() < 0.4) return G.block(P.BLOCK_GEN[thema], Math.random);
   if (!leicht && Math.random() < 0.15) {
-    const p = L.waehleAufgabe(alleAufgaben(), { kategorie: 'thema', thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
+    const p = L.waehleAufgabe(alleAufgaben().filter(erlaubt), { kategorie: 'thema', thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
     if (p && p.thema === thema && !p.geschichte && !p.bonus) return p;
   }
   // Minus-Zahlen: manchmal eine ganz kurze Geldgeschichte (1–2 Sätze), damit Text normal wird
@@ -936,14 +985,33 @@ function kurzeAufgabe(g, fokus, { leicht = false } = {}) {
 }
 
 function waehleAufgabe(kategorie) {
-  const g = gewichte();
-  const faellig = S.wiederholen.find(w => w.ab <= S.verlauf.zaehler && (g[w.aufgabe.thema] || 0) > 0);
+  const gAlle = gewichte();
+  const faellig = S.wiederholen.find(w => w.ab <= S.verlauf.zaehler && (gAlle[w.aufgabe.thema] || 0) > 0 && erlaubt(w.aufgabe));
   if (faellig && kategorie !== 'abschluss') {
     S.wiederholen = S.wiederholen.filter(w => w !== faellig);
-    return { aufgabe: faellig.aufgabe, wdh: faellig.wdh };
+    return { aufgabe: faellig.aufgabe, wdh: faellig.wdh, paket: paketFuerThema(faellig.aufgabe.thema) };
   }
-  // Nur Aufgaben aus Themen, die im Paket an sind
-  const pool = alleAufgaben().filter(a => (g[a.thema] || 0) > 0);
+  const pk = pakete();
+  if (!pk) return { ...waehleIn(kategorie, gAlle, true), paket: null };
+  // Mehrere Pakete: pro Platz erst das Paket nach Anteil, dann das Thema nach Gewicht.
+  // Pakete ohne passendes Thema für diesen Platz fallen heraus, ihre Anteile werden neu verteilt.
+  // Der Einstieg kommt immer aus dem Grundpaket.
+  const grund = LP.grundpaket(pk);
+  let offen = kategorie === 'leicht' ? [grund] : LP.aktive(pk);
+  if (!offen.length) offen = [grund];
+  while (offen.length) {
+    const p = LP.zieheNachAnteil(offen);
+    const r = waehleIn(kategorie, LP.gewichteVon(p, S.abweichungen), false);
+    if (r.aufgabe) return { ...r, paket: p.id };
+    offen = offen.filter(x => x !== p);
+  }
+  return { ...waehleIn(kategorie, LP.gewichteVon(grund, S.abweichungen), true), paket: grund.id };
+}
+
+// Aufgabe für einen Platz aus Themen mit diesen Gewichten. ersatz = am Ende irgendeine Aufgabe nehmen.
+function waehleIn(kategorie, g, ersatz) {
+  // Nur Aufgaben aus Themen, die im Paket an sind und deren Etappe erlaubt ist
+  const pool = alleAufgaben().filter(a => (g[a.thema] || 0) > 0 && erlaubt(a));
   const ausPool = (k, thema) => {
     const a = L.waehleAufgabe(pool, { kategorie: k, thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
     return a && L.passtKategorie(a, k, thema) && (g[a.thema] || 0) > 0 ? a : null;
@@ -1012,6 +1080,8 @@ function waehleAufgabe(kategorie) {
       break;
     }
   }
+  if (a && !erlaubt(a)) a = null;
+  if (!a && !ersatz) return { aufgabe: null, wdh: 0 };
   if (!a) a = kurzeAufgabe(g, fokus);
   if (!a) { const rest = pool.filter(x => !x.bonus); a = rest.length ? L.waehleAufgabe(rest, { kategorie: 'alle', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key }) : null; }
   if (!a) a = einmaleinsBlock(1);
@@ -1027,7 +1097,8 @@ function serieWeiter() {
 
 function startInfoVon(A, extra = {}) {
   const aufgabe = A.aufgabe;
-  const startInfo = { id: aufgabe.id, thema: aufgabe.thema, stufe: aufgabe.stufe, aufgabenTyp: aufgabe.typ, kategorie: A.kategorie, serienPos: A.serienPos, bonus: !!aufgabe.bonus, wiederholung: A.wdh || 0, ...extra };
+  const startInfo = { id: aufgabe.id, thema: aufgabe.thema, stufe: aufgabe.stufe, aufgabenTyp: aufgabe.typ, kategorie: A.kategorie, serienPos: A.serienPos, bonus: !!aufgabe.bonus, wiederholung: A.wdh || 0,
+    ...(A.paket ? { paket: A.paket } : {}), ...(A.etappe != null ? { etappe: A.etappe } : {}), ...extra };
   if (aufgabe.generator) Object.assign(startInfo, {
     generator: aufgabe.generator, parameter: aufgabe.parameter, rechnung: aufgabe.rechnung, geschichte: aufgabe.geschichte,
     teile: A.teile.map(t => t.art === 'zahl' ? [t.label || null, t.ziel.wert] : t.art === 'bruch' ? [t.antwort.zaehler, t.antwort.nenner] : t.art === 'wahl' ? [t.label, t.richtig] : null)
@@ -1049,7 +1120,7 @@ function wartendeAufgabe() {
   const w = S.wartet;
   if (!w || !w.aufgabe || !Array.isArray(w.teile)) { S.wartet = null; return null; }
   S.wartet = null;
-  if (!((gewichte()[w.aufgabe.thema] || 0) > 0)) return null;
+  if (!((gewichte()[w.aufgabe.thema] || 0) > 0) || !erlaubt(w.aufgabe)) return null;
   const neu = { ...w, start: Date.now(), phase: w.phase === 'tipp' ? 'tipp' : w.phase, meldung: null, fertig: false, rechnerOffen: false };
   if (neu.zuo) neu.zuo = { ...neu.zuo, falsch: new Set(neu.zuo.falsch || []) };
   neu.teile.forEach(t => { t.seit = Date.now(); });
@@ -1076,15 +1147,17 @@ function neueAufgabe() {
     kategorie = 'test';
     aufgabe = testAufgabe(fokus.thema, fokus.stufe);
   }
+  let paketId = null;
   if (!aufgabe) {
+    etappenAktualisieren();
     kategorie = MUSTER[S.verlauf.musterIndex % MUSTER.length];
-    ({ aufgabe, wdh } = waehleAufgabe(kategorie));
+    ({ aufgabe, wdh, paket: paketId } = waehleAufgabe(kategorie));
     S.verlauf.musterIndex++;
   }
   A = {
     aufgabe, kategorie, serienPos: serieWeiter(), start: Date.now(),
     teile: teileVon(aufgabe), idx: 0, phase: 'eingabe', hinweise: [], verlassen: 0, strafe: 'keine',
-    fertig: false, meldung: null, feld: 'z', wdh, test: !!fokus
+    fertig: false, meldung: null, feld: 'z', wdh, test: !!fokus, ...paketInfo(paketId)
   };
   // Geschichten Satz für Satz zeigen (weniger Text auf einmal)
   if (aufgabe.geschichte && L.saetzeVon(aufgabe.geschichte).length > 1) A.satz = 1;
@@ -1646,7 +1719,7 @@ function abschliessen() {
     if (!a.bonus && !A.test && !g.startsWith('block') && G.GENERATOREN[g]) {
       const st = S.genStufen[g] || (S.genStufen[g] = { stufe: 1, folge: 0 });
       if (ergebnis === 'erst' && A.hilfeGenutzt) st.folge = 0; // mit „Hilf mir“: Stufe bleibt
-      else if (ergebnis === 'erst') { st.folge++; if (st.folge >= 3 && st.stufe < 3) { st.stufe++; st.folge = 0; stufeHoch = { generator: g, stufe: st.stufe }; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } }
+      else if (ergebnis === 'erst') { st.folge++; if (st.folge >= 3 && st.stufe < stufeGrenze(g)) { st.stufe++; st.folge = 0; stufeHoch = { generator: g, stufe: st.stufe }; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } }
       else if (ergebnis === 'zweit') st.folge = 0;
       else { if (st.stufe > 1) { st.stufe--; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } st.folge = 0; }
     }
@@ -1659,10 +1732,12 @@ function abschliessen() {
     id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: A.sekunden, serienPos: A.serienPos,
     ...(A.bild ? { bildschirm: A.bild.plus, voll: A.bild.voll || undefined } : {}),
     ...(A.kopf ? { kopf: true } : {}), ...(A.sz && A.sz.voll ? { spielzeitVoll: true } : {}),
+    ...(A.paket ? { paket: A.paket } : {}), ...(A.etappe != null ? { etappe: A.etappe } : {}),
     strafe: A.strafe, rechnerOptional: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, verlassen: A.verlassen, ms: Date.now() - A.start, hinweise: A.hinweise.slice(), hinweiseLang: (A.hinweiseLang || []).slice(), langHalb: !!A.langHalb,
     bonusTeile: A.teile.filter(t => t.bonus).map(t => t.status), merkTeile: A.teile.filter(t => t.merk).map(t => t.status),
     generator: a.generator || null
   });
+  etappeAutomatisch();
   // Runensplitter für diese Aufgabe
   S.splitter = SP.splitterVon(S.splitter);
   A.splitter = SP.nachAufgabe(S.splitter, {
@@ -2847,6 +2922,7 @@ function zeigeEltern(meldung = '') {
       <h3>Einstellungen</h3>
       ${fern ? `
       <p class="meldung">Diese Einstellungen kommen aus der Eltern-App (Stand ${new Date(S.fern.angewendet).toLocaleString('de-DE')}).</p>
+      ${pakete() ? `<div class="info-zeile"><span>Pakete</span><b>${esc(S.pakete.map(p => `${p.paket.name} ${p.anteil} %${p.paket.etappen ? ` (Etappe ${p.etappe})` : ''}`).join(', '))}</b></div>` : ''}
       ${S.paket ? `<div class="info-zeile"><span>Aufgabenpaket</span><b>${esc(S.paket.name)}</b></div>
       <div class="info-zeile"><span>Mehr üben</span><b>${esc(Object.entries(gewichte()).filter(([, v]) => v === 4).map(([t]) => THEMA_NAMEN[t]).join(', ') || '–')}</b></div>
       <div class="info-zeile"><span>Aus</span><b>${esc(Object.entries(gewichte()).filter(([, v]) => v === 0).map(([t]) => THEMA_NAMEN[t]).join(', ') || '–')}</b></div>`
@@ -3202,7 +3278,7 @@ function klick(e) {
       break;
     }
     case 'testgeraet':
-      if (!el.checked && S.upload.testAls) { S.upload.testAls = null; S.fern = {}; S.paket = null; }
+      if (!el.checked && S.upload.testAls) { S.upload.testAls = null; S.fern = {}; S.paket = null; S.pakete = null; S.abweichungen = {}; }
       if (!el.checked) S.testFokus = null;
       S.upload.testgeraet = el.checked;
       protokoll(S, 'testgeraet', { an: el.checked });

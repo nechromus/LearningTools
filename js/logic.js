@@ -625,6 +625,7 @@ export function kopfBonus({ aufgabe, rechnerGenutzt, verlassen, ergebnis }) {
 // damit die App sie zwischendurch weiter selbst anpassen kann.
 import { splitterVon, fernAnwenden as fernSplitter } from './splitter.js';
 import { bzRegeln, szRegeln } from './bildschirm.js';
+import { paketeAusWerte } from './lernplan.js';
 
 export function fernAnwenden(z, datei) {
   const alt = (z.fern && z.fern.version) || 0;
@@ -658,6 +659,14 @@ export function fernAnwenden(z, datei) {
     if (JSON.stringify(neu) !== JSON.stringify(bzRegeln(z.bzRegeln))) geaendert.push('bildschirm');
     z.bzRegeln = neu;
   }
+  // Mehrere Pakete pro Kind mit Rolle, Anteil und Etappe (ein altes „paket“ wird ein Grundpaket mit 100 %)
+  const liste = paketeAusWerte(w);
+  if (liste) {
+    if (JSON.stringify(liste) !== JSON.stringify(z.pakete || null)) geaendert.push('pakete');
+    z.pakete = liste;
+    z.abweichungen = w.abweichungen && typeof w.abweichungen === 'object' ? { ...w.abweichungen } : {};
+  }
+  if (typeof w.etappe_anzeigen === 'boolean' && w.etappe_anzeigen !== !!z.etappeAnzeigen) { z.etappeAnzeigen = w.etappe_anzeigen; geaendert.push('etappeAnzeigen'); }
   // Aufgabenpaket mit Gewichten je Thema (0 aus, 1 wenig, 2 normal, 4 viel)
   if (w.paket && typeof w.paket === 'object' && w.gewichte && typeof w.gewichte === 'object') {
     const gewichte = {};

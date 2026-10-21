@@ -4,6 +4,7 @@ import { THEMA_NAMEN, FEHLER_NAMEN, GEN_NAMEN } from '../js/namen.js';
 import * as P from '../js/paket.js';
 import * as SP from '../js/splitter.js';
 import * as BS from '../js/bildschirm.js';
+import * as LP from '../js/lernplan.js';
 
 const ZU_AUFGABE = new Set(['versuch', 'versuch_wiederholt', 'tipp_bestaetigt', 'hinweis', 'rechner', 'rechner_offen',
   'rechner_angeboten', 'rechner_optional', 'verlassen', 'sprung', 'loesung_gezeigt', 'bonus_teil_uebersprungen', 'hilfe',
@@ -384,8 +385,53 @@ export function startWerte(einst, stand, paketVon = () => null) {
     splitter: splitterWerte(w.splitter, stand),
     bildschirm: bzWerte(w.bildschirm || (stand && stand.bzRegeln)),
     spielzeitTag: szWerte(w.spielzeitTag || (stand && stand.szRegeln)),
-    ...paketTeil(w, stand, e, paketVon)
+    etappe_anzeigen: w.etappe_anzeigen === true,
+    ...mitPaketen(paketTeil(w, stand, e, paketVon), w, paketVon)
   };
+}
+
+// Mehrere Pakete: Liste mit Rolle, Anteil, Etappe und dem Inhalt des Pakets (aus dem Daten-Repo, sonst die Kopie in der Einstellung).
+// Eine „nächste Etappe“, deren Datum erreicht ist, gilt als aktuelle Etappe (wie in der Übungs-App).
+export function mitPaketen(teil, w, paketVon, heute = tagKey()) {
+  const inhalt = (id, kopie) => LP.paketInhalt(paketVon(id) || { id, ...(kopie || {}) });
+  let pakete;
+  if (Array.isArray(w.pakete) && w.pakete.length) {
+    pakete = w.pakete.map(x => LP.eintragNorm({ ...x, paket: inhalt(x.id, x.paket) }));
+    LP.naechsteAnwenden(pakete, heute);
+  } else {
+    pakete = [LP.eintragNorm({ id: teil.paket.id, rolle: 'grund', anteil: 100, paket: inhalt(teil.paket.id, { name: teil.paket.name, gewichte: teil.gewichte }) })];
+  }
+  return { ...teil, pakete };
+}
+
+// Grundpaket der Liste in die alten Felder übernehmen (paket, gewichte), damit Themen-Seite und ältere Apps passen
+export function grundUebernehmen(werte, paketVon) {
+  const g = LP.grundpaket(werte.pakete);
+  if (!g) return werte;
+  const pk = paketVon(g.id);
+  const basis = pk ? pk.gewichte : g.paket.gewichte;
+  if (!werte.paket || werte.paket.id !== g.id) { werte.paket = { id: g.id, name: g.paket.name }; werte.abweichungen = {}; }
+  werte.gewichte = gewichteMit(basis, werte.abweichungen || {});
+  return werte;
+}
+
+// Aufgaben einer Etappe (fertig, in zeitlicher Reihenfolge)
+export function etappenAufgaben(aufgaben, paketId, etappe) {
+  return aufgaben.filter(r => r.ende && r.start && r.start.paket === paketId && r.start.etappe === etappe);
+}
+// Quote je Paket und je Etappe
+export function paketQuoten(aufgaben, vonTag) {
+  const out = {};
+  for (const r of aufgaben) {
+    if (!r.ende || !r.start || !r.start.paket || r.tag < vonTag) continue;
+    const q = out[r.start.paket] || (out[r.start.paket] = { anzahl: 0, erst: 0, etappen: {} });
+    q.anzahl++; if (r.ende.ergebnis === 'erst') q.erst++;
+    if (r.start.etappe != null) {
+      const e = q.etappen[r.start.etappe] || (q.etappen[r.start.etappe] = { anzahl: 0, erst: 0 });
+      e.anzahl++; if (r.ende.ergebnis === 'erst') e.erst++;
+    }
+  }
+  return out;
 }
 
 // Bildschirmzeit-Einstellungen für die Seite. extraMin gilt nur heute (danach 0).
@@ -450,17 +496,28 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
   return {
     app: 'lernapp-2048-eltern', version, geaendert: jetzt.toISOString(),
     werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, langeHinweise: [0, 1, 2, 3].includes(werte.langeHinweise) ? werte.langeHinweise : 1, spielzeit: spielzeitRegeln(werte.spielzeit), bildschirm: bzDatei(werte.bildschirm, tagKey(jetzt)), spielzeitTag: szDatei(werte.spielzeitTag, tagKey(jetzt)), genStufen,
+      ...(Array.isArray(werte.pakete) ? { pakete: werte.pakete.map(paketEintragDatei), etappe_anzeigen: !!werte.etappe_anzeigen } : {}),
       ...(werte.splitter ? { splitter: { preise: werte.splitter.preise, boni: werte.splitter.boni.slice(-50), frei: werte.splitter.frei } } : {}) }
   };
+}
+
+// Ein Paket beim Kind für die Datei: Rolle, Anteil, Etappe, nächste Etappe und eine Kopie des Inhalts (die Übungs-App liest keine Paket-Dateien)
+export function paketEintragDatei(p) {
+  const e = LP.eintragNorm(p);
+  return { id: e.id, rolle: e.rolle, anteil: e.anteil, ...(e.etappe != null ? { etappe: e.etappe } : {}), ...(e.naechste ? { naechste: e.naechste } : {}), paket: e.paket };
 }
 
 // Paket wurde geändert: neue Gewichte für ein Kind, das dieses Paket nutzt (Abweichungen bleiben). null = nichts zu tun.
 export function einstellungMitNeuemPaket(alt, paket, jetzt = new Date()) {
   const w = alt && alt.werte;
-  if (!w || !w.paket || w.paket.id !== paket.id) return null;
-  const abweichungen = w.abweichungen || abweichungenAus(paket.gewichte, w.gewichte);
-  const gewichte = gewichteMit(paket.gewichte, abweichungen);
-  const neu = { ...w, paket: { id: paket.id, name: paket.name }, abweichungen, gewichte };
+  const inListe = !!(w && Array.isArray(w.pakete) && w.pakete.some(p => p.id === paket.id));
+  if (!w || (!inListe && (!w.paket || w.paket.id !== paket.id))) return null;
+  let neu = { ...w };
+  if (inListe) neu.pakete = w.pakete.map(p => p.id === paket.id ? paketEintragDatei({ ...p, paket: LP.paketInhalt(paket) }) : p);
+  if (w.paket && w.paket.id === paket.id) {
+    const abweichungen = w.abweichungen || abweichungenAus(paket.gewichte, w.gewichte);
+    neu = { ...neu, paket: { id: paket.id, name: paket.name }, abweichungen, gewichte: gewichteMit(paket.gewichte, abweichungen) };
+  }
   if (JSON.stringify(neu) === JSON.stringify(w)) return null;
   neu.thema = hauptThema(neu);
   return { ...alt, version: alt.version + 1, geaendert: jetzt.toISOString(), werte: neu };

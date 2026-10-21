@@ -25,6 +25,9 @@ function standard() {
     szRegeln: null,         // Spielzeit im Schrein: Höchstwert pro Tag (js/bildschirm.js, null = Standard 45 Min.)
     bildschirm: null,       // Bildschirmzeit-Konto: { stand, tag, heute, aufgaben, code }
     paket: null,            // Aufgabenpaket aus der Eltern-App: { id, name, gewichte } (null = Übungsthema)
+    pakete: null,           // mehrere Pakete mit Rolle, Anteil und Etappe (js/lernplan.js); null = nur „paket“
+    abweichungen: {},       // Anpassungen pro Thema aus der Eltern-App (gelten in jedem Paket)
+    etappeAnzeigen: false,  // „Du übst gerade: … · Etappe n von m“ auf dem Startbildschirm
     fern: { version: 0, geaendert: null, angewendet: null, geholt: null, fehler: null }, // Einstellungen aus der Eltern-App
     statistik: {},          // je Aufgabe: gesehen, zuletzt, letztesErgebnis, letzterTag
     verlauf: { zaehler: 0, letzteIds: [], themaZuletzt: {}, musterIndex: 0 },
@@ -93,7 +96,7 @@ export async function dauerhaftSpeichernAnfragen() {
 // Gesichert wird, was Kind und Spiele erreicht haben. Nicht dabei: PIN, Zugangsschlüssel, Geräte-ID, Protokoll.
 export const STAND_FORMAT = 'lernapp-spielstand-1';
 const STAND_FELDER = ['guthaben', 'basisSlot', 'spiel', 'bloecke', 'statistik', 'verlauf', 'serie', 'tag', 'extraAufgaben',
-  'genStufen', 'wiederholen', 'spielzeit', 'paket', 'fern', 'wartet', 'kristallmine', 'splitter', 'anleitungen', 'steinschieber', 'runenfall', 'runenreihen', 'hoehlenkarte', 'runenbrecher', 'jadeschlange', 'bzRegeln', 'bildschirm', 'szRegeln'];
+  'genStufen', 'wiederholen', 'spielzeit', 'paket', 'fern', 'wartet', 'kristallmine', 'splitter', 'anleitungen', 'steinschieber', 'runenfall', 'runenreihen', 'hoehlenkarte', 'runenbrecher', 'jadeschlange', 'bzRegeln', 'bildschirm', 'szRegeln', 'pakete', 'abweichungen', 'etappeAnzeigen'];
 
 export function spielstandAus(s, jetzt = new Date()) {
   const zustand = {};

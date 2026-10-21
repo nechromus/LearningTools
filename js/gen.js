@@ -336,11 +336,14 @@ const ZYL_AUSSEN = [
 ];
 const ausBereich = (rng, [a, b, schritt = 1]) => a + schritt * zufall(rng, 0, Math.floor((b - a) / schritt));
 
-export function zylinder(stufe, rng) {
+export function zylinder(stufe, rng, opts = {}) {
   let art = 'V', g = null, r = zufall(rng, 2, 10), h = zufall(rng, 3, 20), mitD = false, m = false;
   if (stufe === 2) {
     mitD = rng() < 0.7;
     if (rng() < 0.6) { g = wahl(rng, ZYL_VOLUMEN); r = ausBereich(rng, g.r); h = ausBereich(rng, g.h); m = !!g.m; }
+  } else if (stufe === 3 && opts.ohneAuswahl) {
+    // Etappe „Oberfläche und Mantel“: ohne „Was ist gesucht?“, die Frage nennt, was gesucht ist
+    art = rng() < 0.5 ? 'O' : 'M';
   } else if (stufe === 3) {
     if (rng() < 0.35) art = 'O';
     else { g = wahl(rng, ZYL_AUSSEN); art = g.art; r = zufall(rng, 2, 8); h = zufall(rng, 5, 20); mitD = rng() < 0.5; }
@@ -388,7 +391,7 @@ export function zylinder(stufe, rng) {
     felder.geschichte = g.text ? g.text(`${h} ${e} hoch`, mass) : `${g.ding} ${g.pr} ist ${h} ${e} hoch. ${mass}`;
     felder.frage = g.frage;
   } else {
-    const was = art === 'V' ? 'sein Volumen' : 'seine Oberfläche';
+    const was = art === 'V' ? 'sein Volumen' : art === 'M' ? 'sein Mantel' : 'seine Oberfläche';
     felder.frage = `Ein Zylinder hat ${mitD ? `den Durchmesser d = ${2 * r}` : `den Radius r = ${r}`} ${e} und die Höhe h = ${h} ${e}. Wie groß ist ${was}?`;
   }
   return neu('zylinder', [art, mitD ? 'd' : 'r', mitD ? 2 * r : r, h, g ? (stufe === 3 ? ZYL_AUSSEN : ZYL_VOLUMEN).indexOf(g) : 'x'], felder);
