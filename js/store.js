@@ -19,7 +19,7 @@ function standard() {
     runenfall: null,
     anleitungen: {},        // Anleitungen schon gesehen: { spiel: true }
     runenreihen: null, hoehlenkarte: null, runenbrecher: null, jadeschlange: null, // weitere Spiele: gespeicherter Stand        // Runenfall: laufendes Spiel mit Feld, Teil, Punkten und Rekord    // Steinschieber: { level, geschafft: [...], zuege: {...}, levelStand }
-    einstellungen: { thema: 'minus-zahlen', basisVon: 14, basisBis: 21, pin: null, name: '', rechnerAngebot: true },
+    einstellungen: { thema: 'minus-zahlen', basisVon: 14, basisBis: 21, pin: null, name: '', rechnerAngebot: true, langeHinweise: 1 },
     spielzeit: null,        // Spielzeit-Regeln aus der Eltern-App (null = Standard)
     paket: null,            // Aufgabenpaket aus der Eltern-App: { id, name, gewichte } (null = Übungsthema)
     fern: { version: 0, geaendert: null, angewendet: null, geholt: null, fehler: null }, // Einstellungen aus der Eltern-App
@@ -95,8 +95,8 @@ const STAND_FELDER = ['guthaben', 'basisSlot', 'spiel', 'bloecke', 'statistik', 
 export function spielstandAus(s, jetzt = new Date()) {
   const zustand = {};
   for (const k of STAND_FELDER) zustand[k] = s[k] === undefined ? null : JSON.parse(JSON.stringify(s[k]));
-  const { thema, basisVon, basisBis, rechnerAngebot } = s.einstellungen;
-  return { format: STAND_FORMAT, nutzer: s.einstellungen.name, geraetId: s.geraetId, gespeichert: jetzt.toISOString(), zustand, einstellungen: { thema, basisVon, basisBis, rechnerAngebot } };
+  const { thema, basisVon, basisBis, rechnerAngebot, langeHinweise } = s.einstellungen;
+  return { format: STAND_FORMAT, nutzer: s.einstellungen.name, geraetId: s.geraetId, gespeichert: jetzt.toISOString(), zustand, einstellungen: { thema, basisVon, basisBis, rechnerAngebot, langeHinweise: langeHinweise || 1 } };
 }
 
 // Inhalt ohne Zeitstempel (zum Erkennen, ob sich etwas geändert hat)
@@ -122,7 +122,7 @@ export function spielstandAnwenden(s, datei) {
   }
   if (typeof s.guthaben !== 'number' || !(s.guthaben >= 0)) s.guthaben = 0;
   if (datei.einstellungen) {
-    for (const k of ['thema', 'basisVon', 'basisBis', 'rechnerAngebot']) if (datei.einstellungen[k] !== undefined) s.einstellungen[k] = datei.einstellungen[k];
+    for (const k of ['thema', 'basisVon', 'basisBis', 'rechnerAngebot', 'langeHinweise']) if (datei.einstellungen[k] !== undefined) s.einstellungen[k] = datei.einstellungen[k];
   }
   if (s.tag.key !== tagKey()) s.tag = { key: tagKey(), verlassen: 0, aufgaben: 0, ersterVersuch: 0, verdient: 0 };
   return true;

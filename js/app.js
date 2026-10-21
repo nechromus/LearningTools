@@ -2,6 +2,7 @@
 import * as L from './logic.js';
 import * as G from './gen.js';
 import * as U from './sync.js';
+import * as FU from './formeluebersicht.js';
 import { esc, mathe, bruchHtml, bildSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
 import { THEMA_NAMEN, GEN_NAMEN, FEHLER_NAMEN } from './namen.js';
 import * as P from './paket.js';
@@ -20,12 +21,12 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.7.0';
+export const APP_VERSION = '2.8.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
 if (S.laufend) { if (!S.wartet) S.wartet = S.laufend; S.laufend = null; }
-let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [], BASIS_IDS = new Set();
+let HINWEISE = [], HMAP = {}, BASIS_AUFGABEN = [], BASIS_IDS = new Set(), FORMELN = null;
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal');
 
@@ -67,6 +68,8 @@ export async function starten() {
     HINWEISE.forEach(x => { HMAP[x.id] = x; });
     BASIS_AUFGABEN = a.aufgaben;
     BASIS_IDS = new Set(a.aufgaben.map(x => x.id));
+    // Formelübersicht für die Kurz-Hinweise; fehlt sie, gibt es wie früher gleich den langen Hinweis
+    FORMELN = await fetch('data/formeluebersicht.json').then(r => r.json()).catch(() => null);
   } catch (e) {
     $app.innerHTML = `<div class="screen"><div class="karte"><p>Die Aufgaben konnten nicht geladen werden. Schau, ob das Internet an ist, und öffne die App noch einmal.</p></div></div>`;
     return;
@@ -1199,6 +1202,7 @@ function ergebnisHtml() {
 
   if (A.rechnerHalb && A.ergebnis !== 'loesung' && R().rechner < 1) strafe += `<p class="gedaempft">Mit Taschenrechner gibt es ${L.anteilText(R().rechner)}.</p>`;
   if (A.hilfeGenutzt && A.ergebnis !== 'loesung' && hilfeAnteil() < 1) strafe += `<p class="gedaempft">Mit „Hilf mir“ gibt es ${L.anteilText(hilfeAnteil())}.</p>`;
+  if (A.langHalb && A.ergebnis !== 'loesung') strafe += `<p class="gedaempft">Mit „Mehr Hilfe“ gibt es die Hälfte.</p>`;
   if (A.strafe === 'halb' && A.ergebnis !== 'loesung') strafe = '<p class="gedaempft">Du warst kurz außerhalb der App. Darum gibt es diesmal nur die Hälfte.</p>';
   if (A.strafe === 'null' && A.ergebnis !== 'loesung') strafe = '<p class="gedaempft">Du warst außerhalb der App. Bei Aufgaben ohne Taschenrechner gibt es dafür heute keine Spielzeit.</p>';
   if (A.splitter && A.splitter.length) {
@@ -1401,7 +1405,7 @@ function abschliessen() {
   let ergebnis = 'erst';
   if (pflicht.some(t => t.status === 'loesung')) ergebnis = 'loesung';
   else if (pflicht.some(t => t.status === 'zweit')) ergebnis = 'zweit';
-  const sek = L.sekundenFuerAufgabe({ ergebnis, serienPos: A.serienPos, strafe: A.strafe, rechnerHalb: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, regeln: R() });
+  const sek = L.sekundenFuerAufgabe({ ergebnis, serienPos: A.serienPos, strafe: A.strafe, rechnerHalb: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, langHalb: !!A.langHalb, regeln: R() });
   S.laufend = null;
   let stufeHoch = null;
   A.ergebnis = ergebnis; A.sekunden = sek; A.fertig = true; A.idx = A.teile.length - 1; A.phase = 'eingabe';
@@ -1429,7 +1433,7 @@ function abschliessen() {
   S.serie.letzteAktivitaet = Date.now();
   protokoll(S, 'aufgabe_ende', {
     id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: sek, serienPos: A.serienPos,
-    strafe: A.strafe, rechnerOptional: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, verlassen: A.verlassen, ms: Date.now() - A.start, hinweise: A.hinweise.slice(),
+    strafe: A.strafe, rechnerOptional: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, verlassen: A.verlassen, ms: Date.now() - A.start, hinweise: A.hinweise.slice(), hinweiseLang: (A.hinweiseLang || []).slice(), langHalb: !!A.langHalb,
     bonusTeile: A.teile.filter(t => t.bonus).map(t => t.status), merkTeile: A.teile.filter(t => t.merk).map(t => t.status),
     generator: a.generator || null
   });
@@ -1539,13 +1543,55 @@ function zuordnungAntwort() {
 
 // ---------- Hinweise, Taschenrechner ----------
 
+// ---------- Hinweise: zuerst die Kurzversion (Formelübersicht), „Mehr Hilfe“ öffnet den langen Hinweis ----------
+const langStufe = () => FU.langStufe(S.einstellungen.langeHinweise);
+const aufgabeId = () => (A && ansicht === 'aufgabe' ? A.aufgabe.id : null);
+
 function hinweisOeffnen(id) {
   const h = HMAP[id];
   if (!h) return;
   if (A && ansicht === 'aufgabe' && !A.hinweise.includes(id)) A.hinweise.push(id);
-  protokoll(S, 'hinweis', { hinweis: id, id: A && ansicht === 'aufgabe' ? A.aufgabe.id : null });
+  if (!FORMELN) {
+    protokoll(S, 'hinweis', { hinweis: id, id: aufgabeId() });
+    sichern();
+    return oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);
+  }
+  const abschnitte = FU.abschnitteFuer(FORMELN, id).map(a => a.id);
+  protokoll(S, 'hinweis_kurz', { hinweis: id, abschnitte, id: aufgabeId() });
+  sichern();
+  kurzZeigen(id);
+}
+
+function kurzZeigen(id) {
+  const h = HMAP[id];
+  const stufe = langStufe();
+  const halb = stufe === 2 && !(A && A.langHalb);
+  const mehr = stufe < 3 ? `<button class="btn btn-haupt" data-act="mehrHilfe" data-id="${id}">Mehr Hilfe${halb ? ' · ½ Zeit' : ''}</button>` : '';
+  oeffneModal(`<div class="kurz-kopf">${hinweisIcon(h, 40)}<div><p class="kurz-titel">${esc(h.titel)}</p><p class="kurz-unter">So steht es in der Formelübersicht</p></div></div>
+    ${FU.kurzHtml(FORMELN, id)}
+    <div class="kurz-knoepfe">${mehr}<button class="btn" data-act="formelSeite" data-s="${(FU.abschnitteFuer(FORMELN, id)[0] || { seite: 1 }).seite}">Ganze Formelübersicht</button></div>`);
+}
+
+function mehrHilfe(id) {
+  const h = HMAP[id];
+  const stufe = langStufe();
+  if (!h || stufe >= 3) return;
+  const kostet = stufe === 2 && A && ansicht === 'aufgabe' && !A.fertig;
+  if (kostet) A.langHalb = true;
+  if (A && ansicht === 'aufgabe') { A.hinweiseLang = A.hinweiseLang || []; if (!A.hinweiseLang.includes(id)) A.hinweiseLang.push(id); }
+  protokoll(S, 'hinweis_lang', { hinweis: id, stufe, kosten: kostet ? 'halb' : 'keine', id: aufgabeId() });
   sichern();
   oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);
+  if (ansicht === 'aufgabe' && A) zeigeAufgabe();
+}
+
+function formelSeite(nr) {
+  if (!FORMELN) return;
+  const s = nr === 2 ? 2 : 1;
+  protokoll(S, 'formeluebersicht', { seite: s, id: aufgabeId() });
+  sichern();
+  oeffneModal(`${FU.seiteHtml(FORMELN, s)}<div class="fue-blaettern"><button class="btn${s === 2 ? ' btn-haupt' : ''}" data-act="formelSeite" data-s="1" ${s === 1 ? 'disabled' : ''}>‹ Seite 1</button><button class="btn${s === 1 ? ' btn-haupt' : ''}" data-act="formelSeite" data-s="2" ${s === 2 ? 'disabled' : ''}>Seite 2 ›</button></div>`);
+  const box = document.querySelector('.modal-box'); if (box) box.scrollTop = 0;
 }
 
 function rechnerAngeboten(a) { return L.rechnerOptional(a) && S.einstellungen.rechnerAngebot !== false; }
@@ -2452,7 +2498,7 @@ function zusammenfassung(tage = 7) {
     if (e.typ === 'versuch' && e.fehler) fehler[e.fehler] = (fehler[e.fehler] || 0) + 1;
     if (e.typ === 'versuch' && e.schnell && !e.richtig) schnell++;
     if (e.typ === 'verlassen') verlassen++;
-    if (e.typ === 'hinweis') hinweise++;
+    if (e.typ === 'hinweis' || e.typ === 'hinweis_kurz') hinweise++;
     if (e.typ === 'spiel_ende') spielSek += e.sekunden || 0;
     if (e.typ === 'rechner') rechnerNutzung++;
   }
@@ -2561,6 +2607,7 @@ function zeigeEltern(meldung = '') {
       <div class="info-zeile"><span>2. Versuch / mit Rechner</span><b>${L.anteilText(R().zweit).replace('die ', '')} / ${L.anteilText(R().rechner).replace('die ', '')}</b></div>
       <div class="info-zeile"><span>Mit „Hilf mir“</span><b>${L.anteilText(R().hilfe ?? 0.5).replace('die ', '')}</b></div>
       <div class="info-zeile"><span>Freiwilliger Taschenrechner</span><b>${S.einstellungen.rechnerAngebot !== false ? 'an' : 'aus'}</b></div>
+      <div class="info-zeile"><span>Lange Hinweise</span><b>${FU.LANG_STUFEN[langStufe() - 1].name}</b></div>
       ` : `
       <label class="feld-label">Übungsthema<select id="e-thema">${optThema}</select></label>
       <div class="zwei-spalten">
@@ -2760,6 +2807,8 @@ function klick(e) {
       A.phase = 'eingabe'; A.meldung = null; zeigeAufgabe(); break;
     case 'weiter': naechsterTeil(); break;
     case 'hinweis': hinweisOeffnen(el.dataset.id); break;
+    case 'mehrHilfe': mehrHilfe(el.dataset.id); break;
+    case 'formelSeite': formelSeite(Number(el.dataset.s)); break;
     case 'rechner': rechnerOeffnen(); break;
     case 'rechnerOptional':
       if (A.rechnerHalb) { rechnerOeffnen(); break; }

@@ -6,11 +6,12 @@ import { THEMA_NAMEN, GEN_NAMEN } from '../js/namen.js';
 import { esc, mathe, bildSvg } from '../js/render.js';
 import * as A from './auswertung.js';
 import * as P from '../js/paket.js';
+import { LANG_STUFEN } from '../js/formeluebersicht.js';
 import * as SP from '../js/splitter.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.16.0';
+export const ELTERN_VERSION = '1.17.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -318,6 +319,7 @@ function uebersichtSeite() {
       <span class="themen-balken"><span style="width:${t.quote}%" class="${t.quote >= 75 ? 'gut' : 'mittel'}"></span></span>
       <span class="themen-quote">${t.quote} %</span>
       <span class="themen-info">${t.anzahl} · St. ${t.stufe || '–'}</span>
+      ${t.kurz ? `<span class="themen-kurz">Kommt mit der Formelübersicht aus: ${t.kurzOk} von ${t.kurz}${t.lang ? ` · ${t.lang}-mal „Mehr Hilfe“` : ''}</span>` : ''}
     </div>`).join('')}</section>` : '';
 
   const auff = k.auffaellig.length ? `<section class="hinweis-box"><h2>Auffällig</h2>${k.auffaellig.slice(0, 5).map(t => `<p>${esc(t)}</p>`).join('')}</section>` : '';
@@ -377,7 +379,7 @@ function spieleVonTag(tag) {
 // Aufgaben und Spiele eines Tages in zeitlicher Reihenfolge (je nach Filter)
 function gefiltert(liste, spiele = []) {
   if (filter === 'fehler') return liste.filter(r => r.ende && r.ende.ergebnis !== 'erst');
-  if (filter === 'hinweis') return liste.filter(r => r.events.some(e => e.typ === 'hinweis'));
+  if (filter === 'hinweis') return liste.filter(r => r.events.some(e => ['hinweis', 'hinweis_kurz', 'hinweis_lang'].includes(e.typ)));
   if (filter === 'spiele') return spiele;
   return [...liste, ...spiele].sort((a, b) => a.start.t < b.start.t ? -1 : 1);
 }
@@ -414,7 +416,7 @@ function aufgabenZeilen(liste, gewaehlt) {
     if (r.spiel) return spielZeile(r, gewaehlt);
     const a = A.aufgabeVon(r, D.pool);
     const extra = [];
-    if (r.events.some(e => e.typ === 'hinweis')) extra.push('Hinweis');
+    if (r.events.some(e => e.typ === 'hinweis_lang')) extra.push('Mehr Hilfe'); else if (r.events.some(e => ['hinweis', 'hinweis_kurz'].includes(e.typ))) extra.push('Hinweis');
     if (r.events.some(e => e.typ === 'rechner' || e.typ === 'rechner_optional')) extra.push('Rechner');
     if (r.events.some(e => e.typ === 'verlassen')) extra.push('App verlassen');
     if (r.events.some(e => e.typ === 'hilfe')) extra.push('Hilf mir');
@@ -619,6 +621,9 @@ function einstellungenSeite() {
       <a class="einstell-zeile" href="#splitter"><span>Runensplitter und neue Spiele</span><span class="wert">${splitterKurzText()}</span>${svg('weiter', 16)}</a>
       <a class="einstell-zeile" href="#spielzeit"><span>Spielzeit pro Aufgabe</span><span class="wert">${w.spielzeit.staffel.map(zahlText).join(' / ')} Min.</span>${svg('weiter', 16)}</a>
       <label class="einstell-zeile"><span>Freiwilliger Taschenrechner<span class="klein gedaempft block">bei großen Zahlen, kostet Spielzeit</span></span><input type="checkbox" class="schalter" id="e-rechner"${w.rechnerAngebot ? ' checked' : ''}></label>
+      <div class="einstell-block"><span>Lange Hinweise<span class="klein gedaempft block">Zuerst kommt immer die Formelübersicht. „Mehr Hilfe“ öffnet den langen Hinweis.</span></span>
+        <div class="segmente" role="group" aria-label="Lange Hinweise">${LANG_STUFEN.map(s => `<button class="segment${w.langeHinweise === s.stufe ? ' an' : ''}" data-act="langeHinweise" data-w="${s.stufe}" aria-pressed="${w.langeHinweise === s.stufe}">${s.name}</button>`).join('')}</div>
+        <span class="klein gedaempft">${esc(LANG_STUFEN[(w.langeHinweise || 1) - 1].name)}: ${esc(LANG_STUFEN[(w.langeHinweise || 1) - 1].text)}.</span></div>
     </section>
     <h2 class="abschnitt">Baukästen: Schwierigkeit und Häufigkeit</h2>
     <section class="karte liste-karte">
@@ -1180,6 +1185,7 @@ document.addEventListener('click', (ev) => {
       if (pk) entwurf.gewichte = A.gewichteMit(pk.gewichte, ab);
       meldung = null; zeichne(); break;
     }
+    case 'langeHinweise': entwurf.langeHinweise = Number(el.dataset.w); meldung = null; zeichne(); break;
     case 'paketStandard': { const pk = paketVon(entwurf.paket.id); entwurf.abweichungen = {}; if (pk) entwurf.gewichte = { ...pk.gewichte }; meldung = null; zeichne(); break; }
     case 'pgewicht': paketEntwurf.gewichte[el.dataset.t] = Number(el.dataset.w); meldung = null; zeichne(); break;
     case 'paketSpeichern': paketSpeichern(); break;

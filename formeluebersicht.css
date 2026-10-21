@@ -1,0 +1,40 @@
+/* Formelübersicht (Kurz-Hinweise), nach Vorlage 10-formeluebersicht-vorlage.html. Auf dem Handy gestapelt. */
+.fue { display: flex; flex-direction: column; gap: 8px; color: #1E2A2B; font-family: 'Atkinson Hyperlegible', 'Segoe UI', sans-serif; text-align: left; }
+.fue .row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; border: 1.5px solid #C9CFCF; border-left-width: 6px; border-radius: 9px; background: #FBFAF5; padding: 8px 10px; box-sizing: border-box; }
+.fue .row.blass { opacity: .42; }
+.fue .nm { display: flex; align-items: center; gap: 8px; }
+.fue .nm svg { flex-shrink: 0; }
+.fue .nt { font-family: Cinzel, Georgia, serif; font-weight: 700; font-size: 17px; line-height: 1.15; margin: 0; }
+.fue .nz { font-size: 13px; color: #4F5E5E; line-height: 1.2; }
+.fue .hb { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.fue .fx { display: grid; grid-template-columns: auto auto; justify-content: start; column-gap: 10px; row-gap: 4px; align-items: center; font-size: 16.5px; flex: 0 1 auto; min-width: 0; }
+.fue .fx .lb { font-size: 13px; color: #4F5E5E; }
+.fue .fx .f { white-space: nowrap; }
+.fue .fx .bl { opacity: .42; }
+.fue .vr { white-space: normal; display: flex; flex-wrap: wrap; column-gap: 14px; row-gap: 1px; font-size: 13.5px; color: #4F5E5E; margin-top: 3px; grid-column: 1 / -1; }
+.fue .sk { display: flex; justify-content: center; align-items: center; flex: 0 0 auto; margin-left: auto; }
+.fue .row.half .sk svg { width: 92px; height: auto; }
+.fue .pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.fue .fr { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1.05; font-size: 0.82em; margin: 0 2px; }
+.fue .fr span { display: block; line-height: 1.15; }
+.fue .fr span:first-child { border-bottom: 1.3px solid currentColor; padding: 0 2px; align-self: stretch; text-align: center; }
+.fue .sq { white-space: nowrap; }
+.fue .sq .ov { border-top: 1.3px solid currentColor; padding: 0 2px; }
+.fue sup.nw { font-size: .6em; margin-right: -3px; }
+.fue sub { font-size: .7em; }
+.fue .zf { display: flex; flex-direction: column; gap: 6px; font-size: 14.5px; line-height: 1.35; flex: 1 1 200px; }
+.fue .zf-f { font-size: 16px; }
+.fue .zf-e { color: #4F5E5E; font-size: 13px; }
+.fue .fue-leer { margin: 0; padding: 12px 14px; border-radius: 10px; background: #F4F1E8; border: 1.5px dashed #C9CFCF; font-size: 17px; line-height: 1.4; }
+.fue-seite .fue-kopf { margin-right: 34px; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; border-bottom: 2px solid #1F6F75; padding-bottom: 5px; }
+.fue-seite .fue-kopf h2 { margin: 0; font-family: Cinzel, Georgia, serif; font-size: 22px; }
+.fue-seite .fue-kopf span, .fue-seite .fue-info { font-size: 13.5px; color: #4F5E5E; }
+.fue-seite .fue-info { margin: 0 0 2px; }
+/* Kurzversion im Fenster: Kopf, Knöpfe */
+.kurz-kopf { display: flex; align-items: center; gap: 10px; margin: 0 34px 10px 0; }
+.kurz-kopf .kurz-titel { font-family: Cinzel, Georgia, serif; font-weight: 700; font-size: 19px; margin: 0; }
+.kurz-kopf .kurz-unter { font-size: 13.5px; color: #4F5E5E; margin: 0; }
+.kurz-knoepfe { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.kurz-knoepfe .btn { width: 100%; }
+.fue-blaettern { display: flex; gap: 8px; margin-top: 10px; }
+.fue-blaettern .btn { flex: 1; }

@@ -6,7 +6,7 @@ import * as SP from '../js/splitter.js';
 
 const ZU_AUFGABE = new Set(['versuch', 'versuch_wiederholt', 'tipp_bestaetigt', 'hinweis', 'rechner', 'rechner_offen',
   'rechner_angeboten', 'rechner_optional', 'verlassen', 'sprung', 'loesung_gezeigt', 'bonus_teil_uebersprungen', 'hilfe',
-  'zu_schnell', 'vorlesen', 'gelesen', 'text_hilfe']);
+  'zu_schnell', 'vorlesen', 'gelesen', 'text_hilfe', 'hinweis_kurz', 'hinweis_lang', 'formeluebersicht']);
 
 export const zahl = (w) => w == null ? '' : String(w).replace('.', ',').replace(/^-/, '−');
 
@@ -254,6 +254,9 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
       case 'aufgabe_abgebrochen': p.titel = 'Mit „Fertig“ verlassen'; p.text = [e.ohneEingabe ? 'ohne Eingabe' : '', e.wartet ? 'kommt beim nächsten Mal wieder' : ''].filter(Boolean).join(' · '); p.art = 'fehler'; break;
       case 'hilfe': p.titel = `„Hilf mir“ (${e.stufe}. Schritt)`; p.text = (e.zeilen || []).join(' · ') + ' · weniger Spielzeit'; p.art = 'fehler'; break;
       case 'uebersprungen': p.titel = 'Übersprungen'; break;
+      case 'hinweis_kurz': p.titel = `Formelübersicht „${hinweisTitel[e.hinweis] || e.hinweis}“ geöffnet`; p.text = (e.abschnitte || []).length ? 'Kurzversion' : 'steht nicht in der Formelübersicht'; break;
+      case 'hinweis_lang': p.titel = `Mehr Hilfe: langer Hinweis „${hinweisTitel[e.hinweis] || e.hinweis}“`; p.text = `Stufe ${e.stufe}${e.kosten === 'halb' ? ' · halbe Spielzeit' : ''}`; p.art = e.kosten === 'halb' ? 'fehler' : 'info'; break;
+      case 'formeluebersicht': p.titel = 'Ganze Formelübersicht geöffnet'; p.text = `Seite ${e.seite}`; break;
       case 'zu_schnell': p.titel = `Zu schnell geantwortet: ${e.eingabe}`; p.text = `nach ${sek(e.ms)} s · zählt nicht, „Lies noch einmal“`; p.art = 'fehler'; break;
       case 'vorlesen': p.titel = 'Geschichte vorlesen lassen'; break;
       case 'gelesen': p.titel = 'Geschichte Satz für Satz gelesen'; p.text = `${sek(e.ms)} s`; break;
@@ -272,8 +275,11 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
   const erst = auf.filter(r => r.ende.ergebnis === 'erst').length;
   const proThema = {};
   for (const r of auf) {
-    const t = proThema[r.thema] || (proThema[r.thema] = { thema: r.thema, name: THEMA_NAMEN[r.thema] || r.thema, anzahl: 0, erst: 0, loesung: 0, stufe: 0 });
+    const t = proThema[r.thema] || (proThema[r.thema] = { thema: r.thema, name: THEMA_NAMEN[r.thema] || r.thema, anzahl: 0, erst: 0, loesung: 0, stufe: 0, kurz: 0, kurzOk: 0, lang: 0 });
     t.anzahl++;
+    // Kurz-Hinweise: Kommt das Kind mit der Formelübersicht aus (gelöst ohne „Mehr Hilfe“)?
+    const k = kurzErgebnis(r);
+    if (k) { t.kurz++; if (k === 'ok') t.kurzOk++; if (k === 'lang') t.lang++; }
     if (r.ende.ergebnis === 'erst') t.erst++;
     if (r.ende.ergebnis === 'loesung') t.loesung++;
     t.stufe = r.stufe || t.stufe;
@@ -304,6 +310,9 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
     auffaellig.push(`Aufgabe ${weg.length}-mal ohne Eingabe verlassen${top.length ? ` (meist ${top.join(', ')})` : ''}`);
   }
   if (hilfe) auffaellig.push(`${hilfe}-mal „Hilf mir“ genutzt`);
+  for (const t of Object.values(proThema).filter(t => t.kurz).sort((a, b) => b.kurz - a.kurz).slice(0, 3)) {
+    auffaellig.push(`Kommt mit der Formelübersicht aus: ${t.kurzOk} von ${t.kurz} (${t.name})`);
+  }
   return {
     aufgaben: auf.length,
     erst,
@@ -317,6 +326,14 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
     tage,
     auffaellig
   };
+}
+
+// Kurz-Hinweis in einer Aufgabe: null (keiner geöffnet), 'ok' (gelöst ohne „Mehr Hilfe“), 'lang' („Mehr Hilfe“ genommen), 'nein' (nicht gelöst)
+export function kurzErgebnis(r) {
+  const ev = r.events || [];
+  if (!ev.some(e => e.typ === 'hinweis_kurz')) return null;
+  if (ev.some(e => e.typ === 'hinweis_lang')) return 'lang';
+  return r.ende && (r.ende.ergebnis === 'erst' || r.ende.ergebnis === 'zweit') ? 'ok' : 'nein';
 }
 
 // Wurde die Aufgabe ohne jede Eingabe verlassen? Neue Einträge haben das Feld, ältere werden aus den Versuchen bestimmt.
@@ -356,6 +373,7 @@ export function startWerte(einst, stand, paketVon = () => null) {
     basisVon: w.basisVon ?? e.basisVon ?? 14,
     basisBis: w.basisBis ?? e.basisBis ?? 21,
     rechnerAngebot: w.rechnerAngebot ?? (e.rechnerAngebot !== false),
+    langeHinweise: [1, 2, 3].includes(w.langeHinweise) ? w.langeHinweise : [1, 2, 3].includes(e.langeHinweise) ? e.langeHinweise : 1,
     spielzeit: spielzeitRegeln(w.spielzeit || (stand && stand.spielzeit) || SPIELZEIT_STANDARD),
     genStufen,
     splitter: splitterWerte(w.splitter, stand),
@@ -392,7 +410,7 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
   for (const g of geaenderteStufen) genStufen[g] = { stufe: werte.genStufen[g], v: version };
   return {
     app: 'lernapp-2048-eltern', version, geaendert: jetzt.toISOString(),
-    werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, spielzeit: spielzeitRegeln(werte.spielzeit), genStufen,
+    werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, langeHinweise: [1, 2, 3].includes(werte.langeHinweise) ? werte.langeHinweise : 1, spielzeit: spielzeitRegeln(werte.spielzeit), genStufen,
       ...(werte.splitter ? { splitter: { preise: werte.splitter.preise, boni: werte.splitter.boni.slice(-50), frei: werte.splitter.frei } } : {}) }
   };
 }

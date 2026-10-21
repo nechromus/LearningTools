@@ -222,9 +222,10 @@ export function anteilText(a) {
 }
 
 // ergebnis: 'erst' | 'zweit' | 'loesung'; strafe: 'keine' | 'halb' | 'null'
-export function sekundenFuerAufgabe({ ergebnis, serienPos, strafe = 'keine', rechnerHalb = false, hilfe = false, regeln = SPIELZEIT_STANDARD }) {
+export function sekundenFuerAufgabe({ ergebnis, serienPos, strafe = 'keine', rechnerHalb = false, hilfe = false, langHalb = false, regeln = SPIELZEIT_STANDARD }) {
   let min = minutenFuerPosition(serienPos, regeln);
   if (rechnerHalb) min *= regeln.rechner;
+  if (langHalb) min *= 0.5; // „Mehr Hilfe“ (langer Hinweis) in Stufe 2
   if (hilfe) min *= regeln.hilfe ?? SPIELZEIT_STANDARD.hilfe;
   if (ergebnis === 'zweit') min *= regeln.zweit;
   else if (ergebnis !== 'erst') min = 0;
@@ -621,6 +622,8 @@ export function fernAnwenden(z, datei) {
     if (von !== e.basisVon || bis !== e.basisBis) { e.basisVon = von; e.basisBis = bis; geaendert.push('basiszeit'); }
   }
   if (typeof w.rechnerAngebot === 'boolean' && w.rechnerAngebot !== (e.rechnerAngebot !== false)) { e.rechnerAngebot = w.rechnerAngebot; geaendert.push('rechnerAngebot'); }
+  // Lange Hinweise: 1 frei, 2 halbe Spielzeit, 3 aus
+  if ([1, 2, 3].includes(w.langeHinweise) && w.langeHinweise !== (e.langeHinweise || 1)) { e.langeHinweise = w.langeHinweise; geaendert.push('langeHinweise'); }
   if (w.spielzeit) {
     const neu = spielzeitRegeln(w.spielzeit);
     if (JSON.stringify(neu) !== JSON.stringify(spielzeitRegeln(z.spielzeit))) geaendert.push('spielzeit');
