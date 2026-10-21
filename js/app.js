@@ -17,12 +17,13 @@ import { runenbrecherStarten } from './runenbrecher-ui.js';
 import { jadeschlangeStarten } from './jadeschlange-ui.js';
 import * as SP from './splitter.js';
 import * as BS from './bildschirm.js';
+import { bildschirmBild } from './bildschirm-bild.js';
 import { ANLEITUNGEN } from './anleitungen.js';
 import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.11.0';
+export const APP_VERSION = '2.11.1';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -739,6 +740,7 @@ function zeigeWahl() {
 
 // ---------- Bildschirmzeit abschicken ----------
 let bzGeschickt = null; // gerade abgeschickt: { sekunden } (für die Bestätigung)
+let bzBildDatei = null;  // Bild zur Nachricht (PNG), vorbereitet beim Öffnen der Seite
 function zeigeBildschirmzeit() {
   setzeAnsicht('bildschirm');
   const k = bzKonto();
@@ -755,6 +757,9 @@ function zeigeBildschirmzeit() {
   }
   if (!k.code && k.stand > 0) { k.code = BS.neuerCode(); sichern(); }
   const jetzt = new Date();
+  // Bild für die Nachricht schon jetzt zeichnen: Beim Tippen auf „Teilen“ muss das Teilen-Fenster sofort aufgehen (iPhone)
+  bzBildDatei = null;
+  if (k.stand > 0) bildschirmBild({ sekunden: k.stand, aufgaben: k.aufgaben, code: k.code, name: S.einstellungen.name || '' }, jetzt).then(f => { bzBildDatei = f; });
   $app.innerHTML = `
   <div class="screen bz-screen">
     <header class="topbar"><button class="btn-text" data-act="start">‹ Zurück</button></header>
@@ -774,9 +779,10 @@ async function bzTeilen() {
   const k = bzKonto();
   if (!(k.stand > 0) || !k.code) return;
   const text = BS.nachrichtText(k, new Date());
-  let geteilt = false;
+  let geteilt = false, mitBild = false;
   if (navigator.share) {
-    try { await navigator.share({ text }); geteilt = true; }
+    mitBild = bzBildDatei && navigator.canShare && navigator.canShare({ files: [bzBildDatei], text });
+    try { await navigator.share(mitBild ? { files: [bzBildDatei], text } : { text }); geteilt = true; }
     catch (e) { if (e && e.name === 'AbortError') return; } // abgebrochen: alles bleibt stehen
   }
   if (!geteilt) {
@@ -786,7 +792,7 @@ async function bzTeilen() {
     if (m && m.hidden) { m.hidden = false; m.textContent = 'Der Text ist kopiert. Füge ihn in deine Nachricht ein. Dann tippe noch einmal auf „Teilen“.'; return; }
   }
   const eintrag = BS.abschicken(k);
-  protokoll(S, 'bildschirmzeit', { ...eintrag, faktor: BZ().faktor });
+  protokoll(S, 'bildschirmzeit', { ...eintrag, faktor: BZ().faktor, bild: !!mitBild });
   sichern();
   syncen();
   bzGeschickt = { sekunden: eintrag.sekunden };
