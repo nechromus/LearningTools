@@ -945,3 +945,18 @@ button.uf-seite { font: inherit; font-size: 22px; font-weight: 700; color: inher
   .aufgabe-screen.mit-uf > .aufgabe-inhalt { grid-column: 1; }
   .aufgabe-screen.mit-uf > .eingabe-bereich { grid-column: 2; position: sticky; top: 12px; margin: 0; padding-top: 0; }
 }
+/* Kompakte Formel-Tastatur (Umformen) */
+.ft2 { display: flex; flex-direction: column; gap: 5px; }
+.ft-oben { display: flex; gap: 5px; }
+.ft-oben button { flex: 1; min-width: 0; }
+.ft-oben .ok { flex: 2.2; }
+.ft-gitter { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+.ft2 button { height: 44px; border-radius: 10px; border: 1px solid var(--linie); background: var(--flaeche); font: 700 20px 'Atkinson Hyperlegible', sans-serif; color: var(--text); padding: 0; }
+.ft2 .var { background: var(--teal-hell); color: var(--teal-dunkel); border-color: var(--teal-hell); }
+.ft2 .sp { background: var(--karte); color: var(--teal-dunkel); }
+.ft2 .ok { background: var(--teal); color: #fff; border-color: var(--teal); font-size: 17px; }
+.ft2 button:disabled { opacity: .45; }
+.ft2 .bruch { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; font-size: 12px; }
+.ft2 .bruch i { display: block; width: 20px; border-top: 2px solid currentColor; margin: 2px 0; }
+.uf-tippen { display: block; margin: 6px 0 0; }
+.aufgabe-screen.mit-uf .eingabe-bereich { padding-top: 6px; }

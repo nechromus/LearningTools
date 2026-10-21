@@ -145,3 +145,16 @@ body.sz .ft .sp { background: var(--sz-flieder); border-color: var(--sz-flieder)
 body.sz .ft .ok { background: var(--sz-orange); border-color: var(--sz-orange); color: #160C04; }
 body.sz .uf-hilfe-box { border-color: var(--sz-blau); }
 body.sz .uf-hilfe-box b { color: var(--sz-blau); }
+body.sz .ft2 button { background: #262B45; border-color: #262B45; color: var(--sz-text); }
+body.sz .ft2 .var { background: var(--sz-blau); border-color: var(--sz-blau); color: #08111F; }
+body.sz .ft2 .sp { background: var(--sz-flieder); border-color: var(--sz-flieder); color: #160E1A; }
+body.sz .ft2 .ok { background: var(--sz-orange); border-color: var(--sz-orange); color: #160C04; }
+/* Beim Umformen: Kopf kleiner, damit mehr Platz für Gleichung und Tastatur bleibt */
+body.sz .aufgabe-screen.mit-uf .sz-kopf { grid-template-columns: 44px 1fr; grid-template-rows: auto 10px; }
+body.sz .aufgabe-screen.mit-uf .sz-ellbogen { min-height: 34px; border-radius: 18px 0 0 0; }
+body.sz .aufgabe-screen.mit-uf .sz-ellbogen::after { width: 16px; height: 10px; border-radius: 8px 0 0 0; }
+body.sz .aufgabe-screen.mit-uf .sz-titel { font-size: 13px; }
+body.sz .aufgabe-screen.mit-uf .sz-titel br { display: none; }
+body.sz .aufgabe-screen.mit-uf .sz-zeit { font-size: 10px; }
+body.sz .aufgabe-screen.mit-uf .sz-zeit b { font-size: 13px; display: inline; margin-left: 4px; }
+body.sz .aufgabe-screen.mit-uf .sz-leiste i { height: 10px; }

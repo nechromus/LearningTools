@@ -28,7 +28,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.16.0';
+export const APP_VERSION = '2.16.1';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -59,7 +59,7 @@ const sternzeitJetzt = () => PH.sternzeitText(PH.sternzeit(new Date()));
 function szKopf() {
   const n = appName();
   const i = n.indexOf(' ');
-  const titel = i > 0 ? `${esc(n.slice(0, i))}<br>${esc(n.slice(i + 1))}` : esc(n);
+  const titel = i > 0 ? `${esc(n.slice(0, i))}<br> ${esc(n.slice(i + 1))}` : esc(n);
   return `<div class="sz-kopf"><div class="sz-ellbogen"></div><div class="sz-titelzeile"><div class="sz-titel">${titel}</div><div class="sz-zeit">Sternzeit<b>${sternzeitJetzt()}</b></div></div><div class="sz-leiste"><i></i><i></i><i></i></div></div>`;
 }
 let A = null;                // aktive Aufgabe
@@ -1599,6 +1599,7 @@ function umformHtml(t, aktiv) {
       <p class="uf-frage">Was machst du auf beiden Seiten?</p>
       <div class="uf-bausteine">${ops}<span class="uf-trenner"></span>${terme}<span class="uf-trenner"></span>${fest}</div>
       <div class="uf-auswahl"><span>${auswahl}</span><button class="btn btn-haupt btn-klein" data-act="ufAnwenden" ${u.op && !UF.istLeer(u.term) ? '' : 'disabled'}>Anwenden</button></div>
+      ${u.tippen ? '' : `<button class="btn-text klein uf-tippen" data-act="ufTippen">⌨ Eigene Zahl oder Term tippen</button>`}
       ${u.vorschlag ? `<div class="uf-hilfe-box"><b>Vorschlag für den nächsten Schritt:</b> ${esc(u.vorschlag)}</div>` : ''}`;
   } else {
     const seite = (k) => {
@@ -1618,22 +1619,36 @@ function umformHtml(t, aktiv) {
   const umweg = u.umweg ? `<div class="uf-tipp">Du bist auf einem Umweg. Das ist erlaubt. Schau dir den Hinweis „Gleichungen umstellen“ an.</div>` : '';
   return kopf + inhalt + umweg;
 }
-// Formel-Tastatur: Größen, Bruch, Hoch 2, Wurzel, π, Klammern, Ziffern, Rechenzeichen
+// Formel-Tastatur (kompakt, 6 Spalten): oben die Größen und der Knopf zum Weitergehen, darunter Ziffern und Zeichen.
+// Beim Wählen der Umformung erscheint sie nur, wenn das Kind eine eigene Zahl oder einen Term tippen will.
 function ufFuss() {
   const u = A.uf;
   if (!u) return '';
+  if (u.phase === 'waehlen' && !u.tippen) return '';
   const offen = u.phase === 'waehlen' || (u.app[u.seite] == null && u.status[u.seite] !== 'ok' && u.stufe > 1);
   if (!offen) return '';
   const k = (x, kl = '', label = x) => `<button class="${kl}" data-act="ufTaste" data-k="${esc(x)}" aria-label="${esc(label)}">${x === 'bruch' ? '<span class="bruch"><span>□</span><i></i><span>□</span></span>' : x === '²' ? 'x²' : groesseHtml(x)}</button>`;
-  const vars = [...u.vars, ...(u.pi ? ['π'] : [])].slice(0, 9);
+  const vars = [...u.vars, ...(u.pi ? ['π'] : [])].slice(0, 6);
   const ok = u.phase === 'waehlen' ? `<button class="ok" data-act="ufAnwenden" ${u.op && !UF.istLeer(u.term) ? '' : 'disabled'}>Anwenden</button>` : '<button class="ok" data-act="ufPruefen">Seite fertig</button>';
-  return `<div class="ft">
-    ${vars.map(v => k(v, 'var')).join('')}${'<span class="ft-luecke"></span>'.repeat((5 - ((vars.length + 1) % 5)) % 5)}${k('bruch', 'sp bruch', 'Bruch')}
-    ${k('²', 'sp', 'hoch 2')}${k('√', 'sp', 'Wurzel')}${k('(', 'sp')}${k(')', 'sp')}${k(',', 'sp', 'Komma')}
-    ${k('7')}${k('8')}${k('9')}${k('+', 'sp', 'plus')}${k('⌫', 'sp', 'Löschen')}
-    ${k('4')}${k('5')}${k('6')}${k('−', 'sp', 'minus')}${k('←', 'sp nav', 'nach links')}
-    ${k('1')}${k('2')}${k('3')}${k('·', 'sp', 'mal')}${k('→', 'sp nav', 'nach rechts')}
-    ${k('0')}${k(':', 'sp', 'geteilt')}${ok}</div>`;
+  return `<div class="ft2">
+    <div class="ft-oben">${vars.map(v => k(v, 'var')).join('')}${ok}</div>
+    <div class="ft-gitter">
+      ${k('7')}${k('8')}${k('9')}${k('+', 'sp', 'plus')}${k('−', 'sp', 'minus')}${k('⌫', 'sp', 'Löschen')}
+      ${k('4')}${k('5')}${k('6')}${k('·', 'sp', 'mal')}${k(':', 'sp', 'geteilt')}${k('←', 'sp nav', 'nach links')}
+      ${k('1')}${k('2')}${k('3')}${k('(', 'sp')}${k(')', 'sp')}${k('→', 'sp nav', 'nach rechts')}
+      ${k('0')}${k(',', 'sp', 'Komma')}${k('²', 'sp', 'hoch 2')}${k('√', 'sp', 'Wurzel')}${k('bruch', 'sp bruch', 'Bruch')}${u.phase === 'waehlen' ? '<button class="sp" data-act="ufTippenZu" aria-label="Tastatur schließen">▾</button>' : '<span></span>'}
+    </div></div>`;
+}
+// Das gerade bearbeitete Feld über die Tastatur scrollen
+function ufSichtbar() {
+  if (!A || !A.uf || A.fertig) return;
+  const el = document.querySelector(A.uf.phase === 'waehlen' ? '.uf-auswahl' : '.uf-zwei');
+  const fuss = document.querySelector('.eingabe-bereich');
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  const unten = fuss && fuss.offsetHeight ? fuss.getBoundingClientRect().top : window.innerHeight;
+  if (r.bottom > unten - 8) window.scrollBy(0, r.bottom - unten + 16);
+  else if (r.top < 0) window.scrollBy(0, r.top - 12);
 }
 function ufTaste(k) {
   const u = A && A.uf;
@@ -1656,7 +1671,7 @@ function ufAnwenden(art) {
     if (u.op === '/' && UF.gleichwertig(term, '0', u.vars)) { A.meldung = 'Durch 0 kann man nicht teilen.'; return zeigeAufgabe(); }
     um = { art: 'op', op: u.op, term };
   } else um = { art };
-  u.u = um; u.vorschlag = null; u.tipp = null; A.meldung = null;
+  u.u = um; u.vorschlag = null; u.tipp = null; u.tippen = false; A.meldung = null;
   if (u.schritte.length + 1 > 2 * u.noetig && !u.umwegGezeigt) { u.umweg = true; u.umwegGezeigt = true; protokoll(S, 'umform_umweg', { id: A.aufgabe.id, schritte: u.schritte.length + 1, noetig: u.noetig }); }
   if (um.art === 'tauschen') {
     u.roh = { l: u.gl.r, r: u.gl.l };
@@ -1831,7 +1846,8 @@ function zeigeAufgabe() {
     <footer class="eingabe-bereich">${fussHtml()}</footer>
   </div>`;
   const aktiv = document.querySelector('.teil.aktiv');
-  if (aktiv && !A.fertig) aktiv.scrollIntoView({ block: 'nearest' });
+  if (A.uf && !A.fertig) ufSichtbar();
+  else if (aktiv && !A.fertig) aktiv.scrollIntoView({ block: 'nearest' });
 }
 
 // ---------- Textaufgaben: Satz für Satz, Vorlesen, Zahlen markieren ----------
@@ -3955,6 +3971,8 @@ function klick(e) {
     case 'ufFest': ufAnwenden(el.dataset.f); break;
     case 'ufAnwenden': ufAnwenden('op'); break;
     case 'ufTaste': ufTaste(el.dataset.k); break;
+    case 'ufTippen': if (A && A.uf) { A.uf.tippen = true; zeigeAufgabe(); } break;
+    case 'ufTippenZu': if (A && A.uf) { A.uf.tippen = false; zeigeAufgabe(); } break;
     case 'ufSeite': if (A && A.uf && A.uf.phase === 'eintragen' && !A.uf.app[el.dataset.s] && A.uf.status[el.dataset.s] !== 'ok') { A.uf.seite = el.dataset.s; zeigeAufgabe(); } break;
     case 'ufPruefen': ufPruefen(); break;
     case 'ufWeiter': ufSchrittFertig(); break;
