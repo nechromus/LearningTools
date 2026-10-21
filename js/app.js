@@ -28,7 +28,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.16.3';
+export const APP_VERSION = '2.16.4';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1599,6 +1599,7 @@ function umformHtml(t, aktiv) {
       <p class="uf-frage">Was machst du auf beiden Seiten?</p>
       <div class="uf-bausteine">${ops}<span class="uf-trenner"></span>${terme}<span class="uf-trenner"></span>${fest}</div>
       <div class="uf-auswahl"><span>${auswahl}</span><button class="btn btn-haupt btn-klein" data-act="ufAnwenden" ${u.op && !UF.istLeer(u.term) ? '' : 'disabled'}>Anwenden</button></div>
+      ${A.meldung && A.phase === 'eingabe' ? `<div class="meldung uf-meldung">${esc(A.meldung)}</div>` : ''}
       ${u.tippen ? '' : `<button class="btn-text klein uf-tippen" data-act="ufTippen">⌨ Eigene Zahl oder Term tippen</button>`}
       ${u.vorschlag ? `<div class="uf-hilfe-box"><b>Vorschlag für den nächsten Schritt:</b> ${esc(u.vorschlag)}</div>` : ''}`;
   } else {
@@ -1613,6 +1614,7 @@ function umformHtml(t, aktiv) {
     inhalt = `<div class="uf-weg">${weg}${ufZeile(u.gl, UF.umformungText(u.u), 'alt')}${ufZeile(u.roh, '', 'neu')}</div>
       <p class="uf-frage">${frage}</p>
       <div class="uf-zwei">${seite('l')}<span class="uf-gleich">=</span>${seite('r')}</div>
+      ${A.meldung && A.phase === 'eingabe' ? `<div class="meldung uf-meldung">${esc(A.meldung)}</div>` : ''}
       ${u.tipp ? `<div class="uf-tipp">${u.tipp}</div>` : ''}
       ${u.stufe === 1 || (u.app.l != null || u.status.l === 'ok') && (u.app.r != null || u.status.r === 'ok') ? '<div class="uf-knoepfe"><button class="btn btn-haupt" data-act="ufWeiter">Weiter</button></div>' : ''}`;
   }
@@ -1642,13 +1644,13 @@ function ufFuss() {
 // Das gerade bearbeitete Feld über die Tastatur scrollen
 function ufSichtbar() {
   if (!A || !A.uf || A.fertig) return;
-  const el = document.querySelector(A.uf.phase === 'waehlen' ? '.uf-auswahl' : '.uf-zwei');
-  const fuss = document.querySelector('.eingabe-bereich');
-  if (!el) return;
-  const r = el.getBoundingClientRect();
-  const unten = fuss && fuss.offsetHeight ? fuss.getBoundingClientRect().top : window.innerHeight;
-  if (r.bottom > unten - 8) window.scrollBy(0, r.bottom - unten + 16);
-  else if (r.top < 0) window.scrollBy(0, r.top - 12);
+  const el = document.querySelector('.uf-meldung') || document.querySelector(A.uf.phase === 'waehlen' ? '.uf-auswahl' : '.uf-zwei');
+  const box = document.querySelector('.aufgabe-screen.mit-uf > .aufgabe-inhalt');
+  if (!el || !box) return;
+  if (box.scrollHeight <= box.clientHeight + 1) { el.scrollIntoView({ block: 'nearest' }); return; }
+  const r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+  if (r.bottom > b.bottom - 8) box.scrollTop += r.bottom - b.bottom + 16;
+  else if (r.top < b.top) box.scrollTop += r.top - b.top - 12;
 }
 function ufTaste(k) {
   const u = A && A.uf;
@@ -1840,16 +1842,13 @@ function zeigeAufgabe() {
           ${rechnerAngeboten(a) && !A.fertig ? `<button class="btn btn-klein btn-rechner optional" data-act="rechnerOptional">${A.rechnerHalb || R().rechner >= 1 ? 'Taschenrechner' : R().rechner > 0 ? 'Taschenrechner · ½ Zeit' : 'Taschenrechner · keine Zeit'}</button>` : ''}
         </div>
       </article>
-      ${A.meldung && A.phase === 'eingabe' ? `<div class="meldung">${esc(A.meldung)}</div>` : ''}
+      ${A.meldung && A.phase === 'eingabe' && !(A.uf && !A.fertig) ? `<div class="meldung">${esc(A.meldung)}</div>` : ''}
       ${A.fertig ? ergebnisHtml() : ''}
     </main>
     <footer class="eingabe-bereich">${fussHtml()}</footer>
   </div>`;
   const aktiv = document.querySelector('.teil.aktiv');
   // Umformen: Tastatur fest am unteren Rand, darüber so viel Platz, dass sich jedes Feld über sie scrollen lässt
-  const fuss = document.querySelector('.aufgabe-screen.mit-uf > .eingabe-bereich');
-  const inhalt = document.querySelector('.aufgabe-screen.mit-uf > .aufgabe-inhalt');
-  if (fuss && inhalt) inhalt.style.paddingBottom = getComputedStyle(fuss).position === 'fixed' ? `${fuss.offsetHeight + 24}px` : '';
   if (A.uf && !A.fertig) ufSichtbar();
   else if (aktiv && !A.fertig) aktiv.scrollIntoView({ block: 'nearest' });
 }
