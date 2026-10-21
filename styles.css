@@ -960,3 +960,4 @@ button.uf-seite { font: inherit; font-size: 22px; font-weight: 700; color: inher
 .ft2 .bruch i { display: block; width: 20px; border-top: 2px solid currentColor; margin: 2px 0; }
 .uf-tippen { display: block; margin: 6px 0 0; }
 .aufgabe-screen.mit-uf .eingabe-bereich { padding-top: 6px; }
+.eingabe-bereich:empty { display: none; }
