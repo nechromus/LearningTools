@@ -309,3 +309,17 @@ textarea { width: 100%; border-radius: 10px; border: 1.5px solid #8A9696; backgr
 .knopf.gestrichelt { border-style: dashed; }
 .einheit-spalten { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 20px; align-items: start; margin-top: 10px; }
 .marke.bald { background: #EEE8F5; color: #5B3F7A; display: inline-block; width: max-content; padding: 0 8px; border-radius: 8px; }
+
+/* Tickets */
+.ticket-status { flex-shrink: 0; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: var(--linie-hell); color: var(--text); }
+.ticket-status.st-neu { background: #F5E6C6; color: #633806; }
+.ticket-status.st-claude { background: var(--teal-hell); color: var(--teal-dunkel, #1F6F75); }
+.ticket-status.st-erledigt { background: #E4E8E8; color: #5A6666; }
+.ticket-text { white-space: pre-wrap; margin: 0; padding: 12px 14px; }
+.ticket-bilder { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
+.ticket-bilder img { max-height: 340px; max-width: 100%; border-radius: 10px; border: 1px solid var(--linie-hell); display: block; }
+.ticket-bild-platz { width: 120px; height: 200px; border-radius: 10px; border: 1px dashed var(--linie-hell); display: flex; align-items: center; justify-content: center; }
+.ticket-auftrag { font: inherit; font-size: 15px; margin: 6px 0 10px; }
+.ticket-json { white-space: pre-wrap; word-break: break-word; font-size: 11px; max-height: 420px; overflow: auto; }
+.info-zeile { display: flex; justify-content: space-between; gap: 12px; padding: 8px 14px; border-top: 1px solid var(--linie-hell); }
+.info-zeile b { text-align: right; overflow-wrap: anywhere; }

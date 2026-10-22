@@ -417,6 +417,7 @@ export function startWerte(einst, stand, paketVon = () => null) {
     etappe_anzeigen: w.etappe_anzeigen === true,
     gestaltung: ['schrein', 'sternzeit'].includes(w.gestaltung) ? w.gestaltung : 'schrein',
     umform_stufe: [1, 2, 3].includes(w.umform_stufe) ? w.umform_stufe : 3,
+    feedback: w.feedback === true,
     ...(typeof w.ansicht_name === 'string' ? { ansicht_name: w.ansicht_name } : {}),
     uebungszeit: uzWerte(w.uebungszeit),
     ...mitPaketen(paketTeil(w, stand, e, paketVon), w, paketVon)
@@ -530,7 +531,7 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
     app: 'lernapp-2048-eltern', version, geaendert: jetzt.toISOString(),
     werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, langeHinweise: [0, 1, 2, 3].includes(werte.langeHinweise) ? werte.langeHinweise : 1, spielzeit: spielzeitRegeln(werte.spielzeit), bildschirm: bzDatei(werte.bildschirm, tagKey(jetzt)), spielzeitTag: szDatei(werte.spielzeitTag, tagKey(jetzt)), genStufen,
       ...(Array.isArray(werte.pakete) ? { pakete: werte.pakete.map(paketEintragDatei), etappe_anzeigen: !!werte.etappe_anzeigen } : {}),
-      gestaltung: werte.gestaltung === 'sternzeit' ? 'sternzeit' : 'schrein', umform_stufe: [1, 2, 3].includes(werte.umform_stufe) ? werte.umform_stufe : 3, ...(werte.ansicht_name ? { ansicht_name: werte.ansicht_name } : {}),
+      gestaltung: werte.gestaltung === 'sternzeit' ? 'sternzeit' : 'schrein', umform_stufe: [1, 2, 3].includes(werte.umform_stufe) ? werte.umform_stufe : 3, feedback: werte.feedback === true, ...(werte.ansicht_name ? { ansicht_name: werte.ansicht_name } : {}),
       uebungszeit: uzDatei(werte.uebungszeit, tagKey(jetzt)),
       ...(werte.splitter ? { splitter: { preise: werte.splitter.preise, boni: werte.splitter.boni.slice(-50), frei: werte.splitter.frei } } : {}) }
   };

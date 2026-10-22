@@ -13,7 +13,7 @@ import * as LP from '../js/lernplan.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 
-export const ELTERN_VERSION = '1.23.2';
+export const ELTERN_VERSION = '1.24.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -44,6 +44,7 @@ function konfigSichern() { try { localStorage.setItem(KEY, JSON.stringify(C)); }
 const icon = {
   uebersicht: '<path d="M4 19V10M10 19V5M16 19v-7M21 19H3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
   verlauf: '<path d="M5 6h14M5 12h14M5 18h9" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
+  tickets: '<path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   einstellungen: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="16" cy="7" r="2" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="10" cy="17" r="2" stroke="currentColor" stroke-width="2" fill="none"/>',
   zurueck: '<path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
   weiter: '<path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
@@ -227,8 +228,8 @@ function nutzerWahl(klasse) {
 }
 
 function navLinks(art) {
-  const aktiv = route.seite === 'aufgabe' || route.seite === 'spiel' ? 'verlauf' : ['spielzeit', 'gewichte', 'pakete', 'paket', 'qr', 'einheit', 'splitter'].includes(route.seite) ? 'einstellungen' : route.seite;
-  return [['uebersicht', 'Übersicht'], ['verlauf', 'Verlauf'], ['einstellungen', 'Einstellungen']].map(([k, t]) =>
+  const aktiv = route.seite === 'aufgabe' || route.seite === 'spiel' ? 'verlauf' : route.seite === 'ticket' ? 'tickets' : ['spielzeit', 'gewichte', 'pakete', 'paket', 'qr', 'einheit', 'splitter'].includes(route.seite) ? 'einstellungen' : route.seite;
+  return [['uebersicht', 'Übersicht'], ['verlauf', 'Verlauf'], ['tickets', 'Tickets'], ['einstellungen', 'Einstellungen']].map(([k, t]) =>
     `<a href="#${k}" class="${art}${aktiv === k ? ' aktiv' : ''}"${aktiv === k ? ' aria-current="page"' : ''}>${svg(k, 24)}<span>${t}</span></a>`).join('');
 }
 
@@ -277,8 +278,108 @@ function seiteHtml() {
     case 'paket': return paketSeite(route.arg);
     case 'einheit': return einheitSeite(route.arg);
     case 'qr': return qrSeite();
+    case 'tickets': return ticketsSeite();
+    case 'ticket': return ticketSeite(route.arg);
     default: return uebersichtSeite();
   }
+}
+
+// ---------- Tickets (Feedback aus der Übungs-App, feedback/ im Daten-Repo) ----------
+// Status: neu → claude (Auftrag an Claude) → erledigt. Claude liest die Tickets auf Bitte im Chat und trägt die Antwort ein.
+const T = { liste: null, laedt: false, fehler: null, bilder: {} };
+const TICKET_STATUS = { neu: 'Neu', claude: 'Für Claude', erledigt: 'Erledigt' };
+async function ticketsLaden() {
+  if (T.laedt) return;
+  T.laedt = true; T.fehler = null; zeichne();
+  try {
+    const dateien = (await U.ordnerLesen(C, 'feedback')).filter(f => f.type === 'file' && f.name.endsWith('.json'));
+    T.liste = (await Promise.all(dateien.map(f => U.dateiLesen(C, f.path).catch(() => null)))).filter(t => t && t.id)
+      .sort((a, b) => (a.erstellt < b.erstellt ? 1 : -1));
+  } catch (e) { T.fehler = e.message || 'Laden hat nicht geklappt.'; }
+  T.laedt = false; zeichne();
+}
+function ticketBildLaden(name) {
+  if (T.bilder[name] !== undefined) return;
+  T.bilder[name] = null;
+  U.dateiBlob(C, `feedback/${name}`).then(b => { T.bilder[name] = b ? URL.createObjectURL(b) : ''; zeichne(); }).catch(() => { T.bilder[name] = ''; zeichne(); });
+}
+const ticketWann = (iso) => { const d = new Date(iso); return `${d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' })} ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`; };
+const ticketVon = (t) => (t.von ? t.von.charAt(0).toUpperCase() + t.von.slice(1) : '?') + (t.kontext && t.kontext.testgeraet ? ` · Testgerät${t.kontext.testAls ? ' als ' + t.kontext.testAls.charAt(0).toUpperCase() + t.kontext.testAls.slice(1) : ''}` : '');
+function ticketsSeite() {
+  if (!T.liste && !T.laedt && !T.fehler) setTimeout(ticketsLaden, 0);
+  const filter = C.ticketFilter || 'offen';
+  const liste = (T.liste || []).filter(t => filter === 'alle' || (filter === 'offen' ? t.status !== 'erledigt' : t.status === filter));
+  const zahl = (st) => (T.liste || []).filter(t => st === 'offen' ? t.status !== 'erledigt' : t.status === st).length;
+  return `<div class="seite schmal-inhalt">${breit.matches ? '<h1>Tickets</h1>' : kopfSchmal('Tickets')}
+    <div class="segmente" role="group">${[['offen', 'Offen'], ['claude', 'Für Claude'], ['erledigt', 'Erledigt'], ['alle', 'Alle']].map(([k, t]) =>
+      `<button class="segment${filter === k ? ' an' : ''}" data-act="ticketFilter" data-w="${k}">${t}${k !== 'alle' && T.liste ? ` · ${zahl(k)}` : ''}</button>`).join('')}</div>
+    ${T.fehler ? `<p class="hinweis-box">${esc(T.fehler)}</p>` : ''}
+    ${T.laedt && !T.liste ? '<p class="gedaempft">Tickets werden geladen …</p>' : ''}
+    ${T.liste && !liste.length ? '<p class="gedaempft">Keine Tickets.</p>' : ''}
+    <section class="karte liste-karte">${liste.map(t => `<a class="zeile ticket-zeile" href="#ticket/${encodeURIComponent(t.id)}">
+      <span class="ticket-status st-${esc(t.status)}">${esc(TICKET_STATUS[t.status] || t.status)}</span>
+      <span class="zeile-haupt"><b>${esc(String(t.text || '').slice(0, 90))}${String(t.text || '').length > 90 ? ' …' : ''}</b><span class="klein gedaempft block">${ticketWann(t.erstellt)} · ${esc(ticketVon(t))}${t.kontext && t.kontext.aufgabe ? ' · ' + esc(t.kontext.aufgabe.id) : ''}</span></span></a>`).join('')}</section>
+    <button class="knopf" data-act="ticketsLaden">${T.laedt ? 'Lädt …' : 'Neu laden'}</button>
+  </div>`;
+}
+function ticketSeite(id) {
+  if (!T.liste && !T.laedt) setTimeout(ticketsLaden, 0);
+  const t = (T.liste || []).find(x => x.id === id);
+  if (!t) return `<div class="seite schmal-inhalt"><a href="#tickets" class="zurueck">‹ Tickets</a><p class="gedaempft">${T.laedt ? 'Lädt …' : 'Ticket nicht gefunden.'}</p></div>`;
+  (t.bilder || []).forEach(ticketBildLaden);
+  const k = t.kontext || {};
+  const a = k.aufgabe;
+  const zeile = (n, w) => (w == null || w === '' ? '' : `<div class="info-zeile"><span>${n}</span><b>${esc(String(w))}</b></div>`);
+  return `<div class="seite schmal-inhalt"><a href="#tickets" class="zurueck">‹ Tickets</a>
+    <h1>Ticket ${esc(t.id)}</h1>
+    <p><span class="ticket-status st-${esc(t.status)}">${esc(TICKET_STATUS[t.status] || t.status)}</span> <span class="gedaempft">${ticketWann(t.erstellt)} · ${esc(ticketVon(t))}</span></p>
+    <section class="karte"><p class="ticket-text">${esc(t.text || '')}</p></section>
+    <div class="ticket-bilder">${(t.bilder || []).map(b => T.bilder[b] ? `<a href="${T.bilder[b]}" target="_blank" rel="noopener"><img src="${T.bilder[b]}" alt="${b.endsWith('-foto.jpg') ? 'Foto' : 'Bild der App'}"></a>` : `<div class="ticket-bild-platz gedaempft klein">${T.bilder[b] === '' ? 'Bild fehlt' : 'Bild lädt …'}</div>`).join('')}</div>
+    ${t.antwort ? `<section class="karte"><h2 class="abschnitt">Antwort von Claude</h2><p class="ticket-text">${esc(t.antwort)}</p></section>` : ''}
+    <section class="karte">
+      <label class="block" for="ticket-auftrag"><b>Was soll Claude tun?</b> <span class="klein gedaempft">(optional)</span></label>
+      <textarea id="ticket-auftrag" class="ticket-auftrag" rows="3">${esc(t.auftrag || '')}</textarea>
+      <div class="knopf-reihe">
+        ${t.status !== 'claude' ? `<button class="knopf haupt" data-act="ticketStatus" data-id="${esc(t.id)}" data-w="claude">Auftrag an Claude</button>` : `<button class="knopf haupt" data-act="ticketAuftragKopieren" data-id="${esc(t.id)}">Text für den Chat kopieren</button>`}
+        ${t.status !== 'erledigt' ? `<button class="knopf" data-act="ticketStatus" data-id="${esc(t.id)}" data-w="erledigt">Erledigt</button>` : `<button class="knopf" data-act="ticketStatus" data-id="${esc(t.id)}" data-w="neu">Wieder öffnen</button>`}
+      </div>
+      ${T.meldung ? `<p class="klein">${esc(T.meldung)}</p>` : ''}
+    </section>
+    <h2 class="abschnitt">Stand der App</h2>
+    <section class="karte liste-karte">
+      ${zeile('Version', k.app)}${zeile('Ansicht', k.ansicht)}${zeile('Gestaltung', k.gestaltung)}
+      ${zeile('Pakete', (k.pakete || []).map(p => `${p.id} ${p.anteil} %${p.etappe != null ? ' E' + p.etappe : ''}`).join(' · '))}
+      ${zeile('Gezielt testen', k.testFokus ? `${k.testFokus.thema} · Stufe ${k.testFokus.stufe}` : '')}
+      ${a ? zeile('Aufgabe', `${a.id} (${a.thema}, ${a.typ})`) + zeile('Stand', `Teil ${a.idx + 1}, ${a.phase}${a.uf ? ', Umformen: ' + a.uf.phase + ', Stufe ' + a.uf.stufe : ''}${a.fertig ? ', fertig' : ''}`) + zeile('Meldung', a.meldung) : ''}
+      ${k.geraet ? zeile('Gerät', `${k.geraet.breite} × ${k.geraet.hoehe}${k.geraet.homeBildschirm ? ', Home-Bildschirm' : ', Browser'}${k.geraet.zoom !== '1' ? ', Zoom ' + k.geraet.zoom : ''}`) : ''}
+    </section>
+    <details class="karte"><summary>Alle Daten (für Claude)</summary><pre class="ticket-json">${esc(JSON.stringify(k, null, 1))}</pre></details>
+  </div>`;
+}
+async function ticketStatus(id, status) {
+  const t = (T.liste || []).find(x => x.id === id);
+  if (!t) return;
+  const auftrag = document.getElementById('ticket-auftrag');
+  const neu = { ...t, status, auftrag: auftrag ? auftrag.value.trim() : t.auftrag, verlauf: [...(t.verlauf || []), { zeit: new Date().toISOString(), status, wer: 'eltern' }] };
+  T.meldung = 'Wird gespeichert …'; zeichne();
+  try {
+    await U.dateiSchreiben(C, `feedback/${id}.json`, JSON.stringify(neu, null, 1), `Ticket ${id}: ${TICKET_STATUS[status] || status}`);
+    Object.assign(t, neu);
+    T.meldung = status === 'claude' ? 'Gespeichert. Sag Claude im Chat: „Bearbeite die Tickets für Claude.“' : 'Gespeichert.';
+    if (status === 'claude') ticketTextKopieren(t);
+  } catch (e) { T.meldung = `Speichern hat nicht geklappt: ${e.message || 'Fehler'}`; }
+  zeichne();
+}
+function ticketTextKopieren(t) {
+  const text = `Bitte bearbeite Ticket ${t.id} (feedback/${t.id}.json im Daten-Repo).${t.auftrag ? ' ' + t.auftrag : ''}`;
+  try { navigator.clipboard.writeText(text).catch(() => {}); } catch (e) { /* ohne Zwischenablage */ }
+  return text;
+}
+function ticketAuftragKopieren(id) {
+  const t = (T.liste || []).find(x => x.id === id);
+  if (!t) return;
+  ticketTextKopieren(t);
+  T.meldung = 'Text kopiert. Füge ihn im Chat mit Claude ein.'; zeichne();
 }
 
 // ---------- Übersicht ----------
@@ -659,6 +760,7 @@ function gestaltungEinstellungen(w) {
   return `<h2 class="abschnitt">Gestaltung, Umformen und Übungszeit</h2>
     <section class="karte liste-karte">
       <div class="einstell-block"><span>Gestaltung der App<span class="klein gedaempft block">Logbuch Sternzeit: dunkle Konsole, Logbuch, Wissensarchiv und Wissenspunkte. Hinweiskarten bleiben gleich.</span></span>${seg('gestaltung', ['schrein', 'sternzeit'], w.gestaltung, x => x === 'schrein' ? 'Schrein' : 'Logbuch Sternzeit')}</div>
+      <div class="einstell-block"><span>Feedback-Knopf<span class="klein gedaempft block">Kleiner Knopf am rechten Rand. ${esc(name())} kann damit ein Bild der App und einen Text schicken. Er landet unter „Tickets“. Auf Testgeräten ist er immer da.</span></span>${seg('feedbackAn', [true, false], w.feedback === true, x => x ? 'An' : 'Aus')}</div>
       <div class="einstell-block"><span>„In Schritten umformen“: Start-Stufe<span class="klein gedaempft block">3: beide Seiten selbst vereinfachen. 2: die App schreibt eine Seite. 1: die App vereinfacht. Die anderen Stufen gibt es als Hilfe.</span></span>${seg('umformStufe', [3, 2, 1], w.umform_stufe, x => 'Stufe ' + x)}</div>
       <div class="einstell-block"><span>Übungszeit pro Tag begrenzen<span class="klein gedaempft block">Gezählt wird die Zeit in Aufgaben. Danach fragt ${esc(name())} dich nach mehr.</span></span>${seg('uzAn', [true, false], u.an, x => x ? 'An' : 'Aus')}</div>
       ${u.an ? `<div class="einstell-block"><span>Höchstens pro Tag</span>${seg('uzMax', BS.UZ_HOECHSTWERTE, u.max)}<span class="klein gedaempft">Minuten. Dann kommt ein freundlicher Hinweis, die laufende Aufgabe darf fertig werden.</span></div>
@@ -1260,7 +1362,7 @@ function minutenSetzen(feld, wert) {
 // und die Version der Übungs-App (die Eltern-App nutzt deren Dateien in ../js/ mit).
 // Ohne Offline-Speicher: Vor dem Neuladen werden alle Dateien mit cache: 'reload' frisch geholt,
 // damit der Browser nicht die alten Dateien aus seinem Zwischenspeicher nimmt.
-const DATEIEN = ['./', 'index.html', 'eltern.js', 'eltern.css', 'auswertung.js', 'vendor/qrcode.mjs', 'manifest.webmanifest',
+const DATEIEN = ['../js/feedback.js', './', 'index.html', 'eltern.js', 'eltern.css', 'auswertung.js', 'vendor/qrcode.mjs', 'manifest.webmanifest',
   '../js/sync.js', '../js/logic.js', '../js/namen.js', '../js/render.js', '../js/paket.js', '../js/einrichtung.js',
   '../js/physik.js', '../js/umformen.js', '../js/lernplan.js', '../js/bildschirm.js', '../js/splitter.js', '../js/hinweiskarten.js', '../data/logbuch.json'];
 let basisVersion = null;   // Version der Übungs-App beim Laden dieser Seite
@@ -1390,6 +1492,11 @@ document.addEventListener('click', (ev) => {
     case 'bzMax': entwurf.bildschirm = { ...entwurf.bildschirm, max: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'gestaltung': entwurf.gestaltung = el.dataset.w; if (entwurf.gestaltung === 'sternzeit' && !entwurf.ansicht_name) entwurf.ansicht_name = 'Logbuch Sternzeit'; meldung = null; zeichne(); break;
     case 'umformStufe': entwurf.umform_stufe = Number(el.dataset.w); meldung = null; zeichne(); break;
+    case 'feedbackAn': entwurf.feedback = el.dataset.w === 'true'; meldung = null; zeichne(); break;
+    case 'ticketsLaden': ticketsLaden(); break;
+    case 'ticketFilter': C.ticketFilter = el.dataset.w; konfigSichern(); zeichne(); break;
+    case 'ticketStatus': ticketStatus(el.dataset.id, el.dataset.w); break;
+    case 'ticketAuftragKopieren': ticketAuftragKopieren(el.dataset.id); break;
     case 'uzAn': entwurf.uebungszeit = { ...entwurf.uebungszeit, an: el.dataset.w === 'true' }; meldung = null; zeichne(); break;
     case 'uzMax': entwurf.uebungszeit = { ...entwurf.uebungszeit, max: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'uzNachlauf': entwurf.uebungszeit = { ...entwurf.uebungszeit, nachlauf_prozent: Number(el.dataset.w) }; meldung = null; zeichne(); break;

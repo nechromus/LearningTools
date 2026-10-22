@@ -725,6 +725,8 @@ export function fernAnwenden(z, datei) {
     z.pakete = liste;
     z.abweichungen = w.abweichungen && typeof w.abweichungen === 'object' ? { ...w.abweichungen } : {};
   }
+  // Feedback-Knopf pro Kind (Testgeräte haben ihn immer)
+  if (typeof w.feedback === 'boolean' && w.feedback !== !!z.feedbackAn) { z.feedbackAn = w.feedback; geaendert.push('feedback'); }
   if (typeof w.etappe_anzeigen === 'boolean' && w.etappe_anzeigen !== !!z.etappeAnzeigen) { z.etappeAnzeigen = w.etappe_anzeigen; geaendert.push('etappeAnzeigen'); }
   // Gestaltung pro Kind: schrein (Standard) oder sternzeit („Logbuch Sternzeit“)
   if (GESTALTUNGEN.includes(w.gestaltung) && w.gestaltung !== (z.gestaltung || 'schrein')) { z.gestaltung = w.gestaltung; geaendert.push('gestaltung'); }

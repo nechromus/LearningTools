@@ -23,12 +23,13 @@ import { uebungszeitBild } from './uebungszeit-bild.js';
 import * as PH from './physik.js';
 import * as SZ from './sternzeit.js';
 import * as UF from './umformen.js';
+import * as FB from './feedback.js';
 import { ANLEITUNGEN } from './anleitungen.js';
 import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.18.0';
+export const APP_VERSION = '2.19.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -43,6 +44,7 @@ let ss = null;               // laufender Steinschieber (ebenso)
 let rn = null;               // laufender Runenfall (ebenso)
 let ms = null;               // laufendes Modul-Spiel { id, spiel } (Runenreihen, Höhlenkarte, Runenbrecher, Jadeschlange)
 function setzeAnsicht(name) {
+  feedbackKnopfZeigen();
   if (km) { const k = km; km = null; k.beenden(); }
   if (ss) { const k = ss; ss = null; k.beenden(); }
   if (rn) { const k = rn; rn = null; k.beenden(); }
@@ -121,6 +123,8 @@ export async function starten() {
   dauerhaftSpeichernAnfragen();
   updateEinrichten();
   document.addEventListener('click', klick);
+  document.addEventListener('change', (e) => { if (e.target && e.target.id === 'fb-foto') feedbackFoto(e.target); });
+  feedbackKnopfZeigen();
   // Testgerät: Bereich für „Gezielt testen“ gewählt → Übersicht der Stufen aktualisieren
   document.addEventListener('change', (e) => {
     if (e.target && e.target.id === 't-thema') {
@@ -380,7 +384,7 @@ async function testAlsSetzen(ordner) {
   await fernHolen(true);
 }
 function personaZuruecksetzen(z) {
-  for (const f of ['gestaltung', 'ansichtName', 'uzRegeln', 'bzRegeln', 'szRegeln', 'etappeAnzeigen', 'fernEtappen']) delete z[f];
+  for (const f of ['gestaltung', 'ansichtName', 'uzRegeln', 'bzRegeln', 'szRegeln', 'etappeAnzeigen', 'fernEtappen', 'feedbackAn']) delete z[f];
   delete z.einstellungen.umformStufe;
 }
 const ordnerName = (o) => o.charAt(0).toUpperCase() + o.slice(1);
@@ -404,6 +408,7 @@ async function fernHolen(erzwingen = false) {
     fernLaeuft = false;
     sichern();
   }
+  feedbackKnopfZeigen();
   if (geaendert) {
     if (ansicht === 'start') zeigeStart();
     else if (ansicht === 'eltern') zeigeEltern('Neue Einstellungen aus der Eltern-App übernommen.');
@@ -3939,6 +3944,89 @@ function importieren() {
 
 // ============ Modal ============
 
+// ---------- Feedback ----------
+// Knopf am rechten Rand: auf Testgeräten immer, sonst wenn in der Eltern-App für das Kind eingeschaltet.
+// Senden geht auch vom Testgerät (einzige Ausnahme, nur nach „Senden“). Ablage: feedback/ im Daten-Repo.
+const feedbackMoeglich = () => !!(S.upload && S.upload.repo && S.upload.token && (S.upload.testgeraet || S.feedbackAn));
+let FBE = null; // Entwurf { bild, foto, kontext, sendet }
+function feedbackKnopfZeigen() {
+  let k = document.querySelector('.fb-knopf');
+  if (!feedbackMoeglich()) { if (k) k.remove(); return; }
+  if (!k) {
+    k = document.createElement('button');
+    k.className = 'fb-knopf'; k.dataset.act = 'feedback'; k.setAttribute('aria-label', 'Feedback geben');
+    k.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    document.body.appendChild(k);
+  }
+}
+function feedbackKontext() {
+  const kopie = (x) => { try { return x == null ? null : JSON.parse(JSON.stringify(x)); } catch (e) { return null; } };
+  const a = A && A.aufgabe;
+  return {
+    app: APP_VERSION, zeit: new Date().toISOString(), ansicht, gestaltung: S.gestaltung || 'schrein',
+    nutzer: S.einstellungen.name || null, ordner: S.einstellungen.name ? nutzerOrdner() : null,
+    testgeraet: !!S.upload.testgeraet, testAls: S.upload.testAls || null, testFokus: kopie(S.testFokus) || null,
+    fernVersion: (S.fern && S.fern.version) || null,
+    pakete: (pakete() || []).map(p => ({ id: p.id, rolle: p.rolle, anteil: p.anteil, etappe: p.etappe ?? null })),
+    geraet: {
+      ua: navigator.userAgent, breite: window.innerWidth, hoehe: window.innerHeight, dpr: window.devicePixelRatio || 1,
+      zoom: getComputedStyle(document.documentElement).getPropertyValue('--zoom').trim() || '1',
+      homeBildschirm: !!(window.navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches))
+    },
+    aufgabe: a ? {
+      id: a.id, thema: a.thema, typ: a.typ, aufgabe: kopie(a), phase: A.phase, idx: A.idx, fertig: !!A.fertig, meldung: A.meldung || null,
+      knobeln: !!A.knobeln, schritteAn: !!A.schritteAn, serienPos: A.serienPos, paket: A.paket || null, etappe: A.etappe ?? null,
+      teile: kopie(A.teile), uf: kopie(A.uf)
+    } : null,
+    log: kopie(S.log.slice(-40))
+  };
+}
+async function feedbackStart() {
+  if (!feedbackMoeglich() || (FBE && FBE.sendet)) return;
+  const k = document.querySelector('.fb-knopf');
+  if (k) k.classList.add('laedt');
+  const kontext = feedbackKontext();
+  const bild = await FB.appBild();
+  if (k) k.classList.remove('laedt');
+  FBE = { bild, foto: null, kontext, sendet: false, text: '' };
+  feedbackZeigen();
+}
+function feedbackZeigen(fehler = '') {
+  const e = FBE;
+  oeffneModal(`<div class="hinweis-text fb-box"><h2 class="modal-titel">Feedback</h2>
+    ${e.bild ? `<img class="fb-bild" src="data:image/jpeg;base64,${e.bild}" alt="Bild der App">` : '<p class="gedaempft klein">Das Bild der App hat nicht geklappt. Du kannst ein eigenes Foto anhängen.</p>'}
+    <label class="fb-label" for="fb-text">Was ist dir aufgefallen?</label>
+    <textarea id="fb-text" class="fb-text" rows="4" maxlength="4000" placeholder="Zum Beispiel: Die Taste ist verdeckt.">${esc(e.text || '')}</textarea>
+    <label class="btn btn-klein fb-foto-knopf">${e.foto ? '✓ Foto angehängt · ändern' : '+ Eigenes Foto anhängen'}<input type="file" id="fb-foto" accept="image/*" hidden></label>
+    ${fehler ? `<p class="meldung">${esc(fehler)}</p>` : ''}
+    <p class="gedaempft klein">Mit dem Text gehen das Bild und der Stand der App mit (Aufgabe, Version, Gerät).</p>
+    <div class="fb-knoepfe"><button class="btn" data-act="modalZu">Abbrechen</button><button class="btn btn-haupt" data-act="feedbackSenden"${e.sendet ? ' disabled' : ''}>${e.sendet ? 'Wird gesendet …' : 'Senden'}</button></div>
+  </div>`, () => { if (FBE && !FBE.sendet) FBE = null; });
+}
+async function feedbackFoto(input) {
+  if (!FBE || !input.files || !input.files[0]) return;
+  FBE.text = (document.getElementById('fb-text') || {}).value || FBE.text;
+  FBE.foto = await FB.fotoVerkleinern(input.files[0]);
+  feedbackZeigen(FBE.foto ? '' : 'Das Foto konnte nicht gelesen werden.');
+}
+async function feedbackSenden() {
+  if (!FBE || FBE.sendet) return;
+  FBE.text = ((document.getElementById('fb-text') || {}).value || '').trim();
+  if (!FBE.text) return feedbackZeigen('Schreib kurz, was dir aufgefallen ist.');
+  FBE.sendet = true; feedbackZeigen();
+  try {
+    const von = S.einstellungen.name ? nutzerOrdner() : 'unbekannt';
+    const id = await FB.senden({ repo: S.upload.repo, token: S.upload.token }, { text: FBE.text, bild: FBE.bild, foto: FBE.foto, kontext: FBE.kontext, von });
+    protokoll(S, 'feedback', { id });
+    sichern();
+    FBE = null;
+    oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Danke!</h2><p>Dein Feedback ist angekommen.</p><button class="btn btn-haupt" data-act="modalZu">Schließen</button></div>`);
+  } catch (err) {
+    FBE.sendet = false;
+    feedbackZeigen(`Senden hat nicht geklappt: ${err.message || 'Fehler'}. Versuch es gleich noch einmal.`);
+  }
+}
+
 function oeffneModal(html, beimSchliessen = null) {
   modalSchliessen = beimSchliessen;
   $modal.innerHTML = `<div class="modal-hinter" data-act="modalZu"></div><div class="modal-box" role="dialog" aria-modal="true"><button class="modal-x" data-act="modalZu" aria-label="Schließen">✕</button>${html}</div>`;
@@ -4127,6 +4215,8 @@ function klick(e) {
     case 'zuoSlot': zuoAuswahl(Number(el.dataset.g), el.dataset.s); break;
     case 'zuoWahl': zuoWaehlen(Number(el.dataset.g), el.dataset.s, Number(el.dataset.o)); break;
     case 'modalZu': schliesseModal(); break;
+    case 'feedback': feedbackStart(); break;
+    case 'feedbackSenden': feedbackSenden(); break;
     case 'spielZurueck': spielBeenden(); zeigeStart(); break;
     case 'neuesSpiel':
       if (S.spiel.punkte > 0) {
@@ -4254,6 +4344,7 @@ function klick(e) {
       if (!el.checked && S.upload.testAls) { S.upload.testAls = null; S.fern = {}; S.paket = null; S.pakete = null; S.abweichungen = {}; personaZuruecksetzen(S); }
       if (!el.checked) S.testFokus = null;
       S.upload.testgeraet = el.checked;
+      feedbackKnopfZeigen();
       protokoll(S, 'testgeraet', { an: el.checked });
       sichern();
       zeigeEltern(el.checked ? 'Testgerät: Es werden keine Daten übertragen.' : 'Testgerät aus: Daten werden wieder übertragen (wenn eingerichtet).');

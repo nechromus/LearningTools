@@ -982,3 +982,14 @@ button.uf-seite { font: inherit; font-size: 22px; font-weight: 700; color: inher
 @media not all and (min-width: 900px) and (orientation: landscape) {
   html:has(.aufgabe-screen.mit-uf), html:has(.aufgabe-screen.mit-uf) body { overflow: hidden; height: 100%; overscroll-behavior: none; }
 }
+
+/* Feedback: kleiner Knopf am rechten Rand */
+.fb-knopf { position: fixed; right: 0; top: 46%; z-index: 40; width: 30px; height: 44px; border: 0; border-radius: 10px 0 0 10px;
+  background: rgba(31, 111, 117, .55); color: #fff; display: flex; align-items: center; justify-content: center; padding: 0 0 0 4px; cursor: pointer; }
+.fb-knopf.laedt { opacity: .4; }
+.fb-box { display: flex; flex-direction: column; gap: 10px; }
+.fb-bild { max-height: 38vh; max-width: 100%; align-self: center; border-radius: 10px; border: 1px solid var(--linie); }
+.fb-label { font-weight: 700; }
+.fb-text { width: 100%; font: inherit; font-size: 17px; padding: 10px; border-radius: 10px; border: 2px solid var(--linie); background: var(--flaeche); color: inherit; box-sizing: border-box; }
+.fb-foto-knopf { align-self: flex-start; cursor: pointer; }
+.fb-knoepfe { display: flex; gap: 10px; justify-content: flex-end; }

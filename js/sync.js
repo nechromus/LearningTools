@@ -64,6 +64,20 @@ export async function dateiSchreiben(cfg, pfad, inhalt, nachricht) {
   return false;
 }
 
+// Neue Datei mit fertigem Base64-Inhalt anlegen (Bilder fürs Feedback). Der Name ist neu, deshalb ohne sha.
+export async function dateiNeuBase64(cfg, pfad, b64, nachricht) {
+  const p = await anfrage(cfg, 'PUT', pfadUrl(cfg, pfad), { message: nachricht, content: b64 });
+  if (!p.ok) throw new UploadFehler(p.status, fehlerText(p.status));
+  return true;
+}
+// Datei als Blob lesen (Bilder in der Eltern-App). Gibt null zurück, wenn es sie nicht gibt.
+export async function dateiBlob(cfg, pfad) {
+  const r = await anfrage(cfg, 'GET', pfadUrl(cfg, pfad), undefined, 'application/vnd.github.raw+json');
+  if (r.status === 404) return null;
+  if (!r.ok) throw new UploadFehler(r.status, fehlerText(r.status));
+  return r.blob();
+}
+
 const pfadUrl = (cfg, pfad) => `${API}/repos/${cfg.repo}/contents/${pfad.split('/').map(encodeURIComponent).join('/')}`;
 
 // Liest eine JSON-Datei aus dem Repo. Gibt null zurück, wenn es sie nicht gibt.
