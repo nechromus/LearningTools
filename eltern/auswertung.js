@@ -540,7 +540,7 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
 // Ein Paket beim Kind für die Datei: Rolle, Anteil, Etappe, nächste Etappe und eine Kopie des Inhalts (die Übungs-App liest keine Paket-Dateien)
 export function paketEintragDatei(p) {
   const e = LP.eintragNorm(p);
-  return { id: e.id, rolle: e.rolle, anteil: e.anteil, ...(e.etappe != null ? { etappe: e.etappe } : {}), ...(e.naechste ? { naechste: e.naechste } : {}), paket: e.paket };
+  return { id: e.id, rolle: e.rolle, anteil: e.anteil, ...(e.etappe != null ? { etappe: e.etappe } : {}), ...(e.naechste ? { naechste: e.naechste } : {}), ...(e.start ? { start: e.start } : {}), paket: e.paket };
 }
 
 // Paket wurde geändert: neue Gewichte für ein Kind, das dieses Paket nutzt (Abweichungen bleiben). null = nichts zu tun.

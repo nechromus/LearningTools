@@ -29,7 +29,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.19.2';
+export const APP_VERSION = '2.20.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -409,6 +409,7 @@ async function fernHolen(erzwingen = false) {
     sichern();
   }
   feedbackKnopfZeigen();
+  if ((S.startOffen || []).length) startSenden();
   if (geaendert) {
     if (ansicht === 'start') zeigeStart();
     else if (ansicht === 'eltern') zeigeEltern('Neue Einstellungen aus der Eltern-App übernommen.');
@@ -1212,7 +1213,10 @@ function fokusOptionen() {
 function erzeuge(g, stufe, opts = {}) {
   const letzte = S.verlauf.letzteIds.slice(-15);
   // Etappe ohne „Was ist gesucht?“ (Zylinder, Etappe 3)
-  if (LP.baukastenGrenze(g, grenzen()).ohne.includes('auswahl')) opts = { ...opts, ohneAuswahl: true };
+  const bgOhne = LP.baukastenGrenze(g, grenzen()).ohne;
+  if (bgOhne.includes('auswahl')) opts = { ...opts, ohneAuswahl: true };
+  // Varianten, die die Etappe nicht erlaubt (Dichte: vergleich, verhaeltnis, gewichtskraft)
+  if (bgOhne.length) opts = { ...opts, ohne: bgOhne };
   let a;
   for (let i = 0; i < 8; i++) {
     a = G.GENERATOREN[g](stufe, Math.random, opts);
@@ -1242,6 +1246,49 @@ const erlaubt = (a) => LP.aufgabeErlaubt(a, grenzen());
 function etappenAktualisieren() {
   if (!pakete()) return;
   for (const w of LP.naechsteAnwenden(S.pakete, L.tagKey())) protokoll(S, 'etappe_neu', w);
+  paketStarts();
+}
+// Paket mit „start“ (Auftrag 15): startet, sobald das auslösende Paket seine Etappe erreicht.
+// Etappe 1, Rollen und Anteile aus start; danach steht der Wechsel auch in einstellungen.json (Version + 1).
+// Gibt die neu begonnenen Pakete für die Feier „Neue Etappe freigeschaltet“ zurück.
+function paketStarts() {
+  const pk = pakete();
+  if (!pk) return [];
+  const neu = [];
+  for (const p of LP.startFaellig(pk)) {
+    const info = LP.startAusfuehren(pk, p.id);
+    if (!info) continue;
+    grenzenCache = null;
+    protokoll(S, 'paket_start', { paket: info.paket, ausgeloest_durch: info.ausgeloest_durch, etappe: info.etappe });
+    if (!S.upload.testgeraet) S.startOffen = [...new Set([...(S.startOffen || []), info.paket])];
+    if (info.neu && p.paket.etappen) neu.push({ paket: p.id, name: p.paket.name, nr: p.etappe, von: 0, anzahl: p.paket.etappen.length, etappeName: p.paket.etappen[p.etappe - 1].name });
+  }
+  if (neu.length || (S.startOffen || []).length) { logbuchAktualisieren(); sichern(); startSenden(); }
+  return neu;
+}
+// Gestartete Pakete in daten/<name>/einstellungen.json eintragen (nie auf Testgeräten)
+let startLaeuft = false;
+async function startSenden() {
+  const u = S.upload;
+  if (startLaeuft || u.testgeraet || !u.token || !u.repo || !S.einstellungen.name || !(S.startOffen || []).length) return;
+  startLaeuft = true;
+  const pfad = `daten/${fernOrdner()}/einstellungen.json`;
+  try {
+    for (const id of S.startOffen.slice()) {
+      const alt = await U.dateiLesen(u, pfad);
+      const neu = LP.startInDatei(alt, id);
+      if (neu) {
+        await U.dateiSchreiben(u, pfad, JSON.stringify(neu, null, 1), `Einstellungen für ${fernOrdner()} (Version ${neu.version}): Paket ${id} gestartet`);
+        L.fernAnwenden(S, neu);
+      }
+      S.startOffen = S.startOffen.filter(x => x !== id);
+      sichern();
+    }
+  } catch (e) {
+    protokoll(S, 'paket_start_offen', { fehler: e.message || 'Senden hat nicht geklappt.' });
+  } finally {
+    startLaeuft = false;
+  }
 }
 // Lerneinheit mit „weiter: automatisch“: Sitzt die Etappe (8 von 10 im 1. Versuch, ohne „Hilf mir“ und „Mehr Hilfe“),
 // öffnet sich die nächste sofort (wenn sie schon offen ist, also nicht „kommt bald“). Gibt die neue Etappe zurück.
@@ -1274,7 +1321,7 @@ const TEST_GEN = {
   'minus-zahlen': ['minus-plus', 'geld-geschichte'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'], 'bruch-bild': ['bruch-bild'],
   'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'rabatt': ['rabatt-geschichte'], 'neuer-preis': ['rabatt-geschichte'],
   'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder'],
-  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen']
+  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
 };
 const testFokus = () => (S.upload.testgeraet && S.testFokus && L.THEMEN.includes(S.testFokus.thema) ? S.testFokus : null);
 
@@ -2327,7 +2374,7 @@ function ergebnisHtml() {
     zeit += `<p class="voll-hinweis"><b>Die Spielzeit im Schrein ist für heute voll.</b><br>${bzRest > 0 ? `Du kannst noch ${BS.minText(bzRest)} Bildschirmzeit verdienen.` : 'Runensplitter gibt es weiter.'}</p>`;
   }
   if (A.wp > 0) zeit = `<div class="wp-gewinn"><span class="sz-punkte">◆ +${A.wp} WP</span><small>Wissenspunkte · jetzt ${SZ.wissenVon(S.wissen).stand}</small></div>` + zeit;
-  if (A.neueEtappe) zeit = `<div class="etappe-feier"><div class="ef-stern" aria-hidden="true">✦</div><div><b>Neue Etappe freigeschaltet!</b><small>${esc(A.neueEtappe.name)} · Etappe ${A.neueEtappe.nr} von ${A.neueEtappe.anzahl}: ${mathe(A.neueEtappe.etappeName)}</small></div></div>` + zeit;
+  if ((A.neueEtappe || []).length) zeit = A.neueEtappe.map(n => `<div class="etappe-feier"><div class="ef-stern" aria-hidden="true">✦</div><div><b>Neue Etappe freigeschaltet!</b><small>${esc(n.name)} · Etappe ${n.nr} von ${n.anzahl}: ${mathe(n.etappeName)}</small></div></div>`).join('') + zeit;
   if (A.kopf) zeit = `<div class="kopf-bonus">${kopfSymbol(44)}<div><b>Im Kopf gerechnet!</b><small>Ohne Taschenrechner. Das ist stark.</small></div></div>` + zeit;
   let strafe = '';
 
@@ -2642,7 +2689,7 @@ function abschliessen() {
     S.wissen = SZ.wissenPlus(SZ.wissenVon(S.wissen), A.wp, grund, a.id);
     protokoll(S, 'wissenspunkte', { id: a.id, n: A.wp, stand: S.wissen.stand, grund });
   }
-  A.neueEtappe = etappeAutomatisch();
+  A.neueEtappe = [etappeAutomatisch(), ...paketStarts()].filter(Boolean);
   // Runensplitter für diese Aufgabe
   S.splitter = SP.splitterVon(S.splitter);
   A.splitter = SP.nachAufgabe(S.splitter, {

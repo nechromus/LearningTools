@@ -1,5 +1,5 @@
 {
-  "info": "Hinweise (Sheikah-Zeichen). Kopie von app-uebergabe/02-hinweise.json aus dem Claude-Projekt. Reihenfolge ist fest. Neue Hinweise nur hinten anfügen. Stand 17.10.2026 (Hinweise 12, 13 und 14 neu). Stand 18.10.2026: Hinweise 15 (Zylinder) und 16 (Bruch von einer Zahl) aus dem Woche-5-Chat. Aussehen in der App wie die Karten aus 07-hinweiskarten.html (js/hinweiskarten.js). Hinweise 17 (Kegel) und 18 (Pyramide) aus dem Aufgaben-Chat.",
+  "info": "Hinweise (Sheikah-Zeichen). Kopie von app-uebergabe/02-hinweise.json aus dem Claude-Projekt. Reihenfolge ist fest. Neue Hinweise nur hinten anfügen. Stand 17.10.2026 (Hinweise 12, 13 und 14 neu). Stand 18.10.2026: Hinweise 15 (Zylinder) und 16 (Bruch von einer Zahl) aus dem Woche-5-Chat. Aussehen in der App wie die Karten aus 07-hinweiskarten.html (js/hinweiskarten.js). Hinweise 17 (Kegel) und 18 (Pyramide) aus dem Aufgaben-Chat. 22.10.2026: Hinweis 22 Dichte.",
   "icon_form": {
     "beschreibung": "Sechseck, viewBox 0 0 24 24, Füllung = farbe_hell, Rand = farbe (1.6 px), Symbol mittig in farbe_text, Schrift Atkinson Hyperlegible fett",
     "polygon": "12,1.5 21.5,7 21.5,17 12,22.5 2.5,17 2.5,7"
@@ -415,6 +415,26 @@
       ],
       "beispiel": "ρ = m/V   | · V   →   ρ · V = m   | : ρ   →   V = m/ρ",
       "fach": "mathe"
+    },
+    {
+      "nr": 22,
+      "id": "dichte",
+      "titel": "Dichte",
+      "symbol": "ρ",
+      "farbe": "#4D7C0F",
+      "farbe_hell": "#E8F2D3",
+      "farbe_text": "#345409",
+      "regeln": [
+        "Dichte ρ = m/V (Masse durch Volumen)",
+        "Umgestellt: m = ρ · V und V = m/ρ",
+        "1 g/cm³ = 1 kg/dm³ = 1000 kg/m³",
+        "Wasser: ρ ≈ 1,00 g/cm³",
+        "Die Dichte hängt vom Stoff ab, nicht vom Ort",
+        "Gewichtskraft: erst m = ρ · V, dann F_G = m · g"
+      ],
+      "beispiel": "m = 63,2 g, V = 8,00 cm³ → ρ = 63,2 g : 8,00 cm³ = 7,90 g/cm³",
+      "fach": "physik",
+      "hinweis_schreibweise": "ρ = griechisch Rho"
     }
   ]
 }

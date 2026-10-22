@@ -14,7 +14,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.25.0';
+export const ELTERN_VERSION = '1.26.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -50,6 +50,7 @@ const icon = {
   einstellungen: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="16" cy="7" r="2" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="10" cy="17" r="2" stroke="currentColor" stroke-width="2" fill="none"/>',
   zurueck: '<path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
   weiter: '<path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
+  uhr: '<circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
   neu: '<path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v4h-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
 };
 const svg = (name, size = 22) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${icon[name]}</svg>`;
@@ -396,7 +397,7 @@ function ticketSeite(id) {
     <h2 class="abschnitt">Stand der App</h2>
     <section class="karte liste-karte">
       ${zeile('Version', k.app)}${zeile('Ansicht', k.ansicht)}${zeile('Gestaltung', k.gestaltung)}
-      ${zeile('Pakete', (k.pakete || []).map(p => `${p.id} ${p.anteil} %${p.etappe != null ? ' E' + p.etappe : ''}`).join(' · '))}
+      ${zeile('Pakete', (k.pakete || []).map(p => `${p.id} ${p.anteil} %${p.etappe != null ? ' E' + p.etappe : ''}${p.start ? ' (wartet)' : ''}`).join(' · '))}
       ${zeile('Gezielt testen', k.testFokus ? `${k.testFokus.thema} · Stufe ${k.testFokus.stufe}` : '')}
       ${a ? zeile('Aufgabe', `${a.id} (${a.thema}, ${a.typ})`) + zeile('Stand', `Teil ${a.idx + 1}, ${a.phase}${a.uf ? ', Umformen: ' + a.uf.phase + ', Stufe ' + a.uf.stufe : ''}${a.fertig ? ', fertig' : ''}`) + zeile('Meldung', a.meldung) : ''}
       ${k.geraet ? zeile('Gerät', `${k.geraet.breite} × ${k.geraet.hoehe}${k.geraet.homeBildschirm ? ', Home-Bildschirm' : ', Browser'}${k.geraet.zoom !== '1' ? ', Zoom ' + k.geraet.zoom : ''}`) : ''}
@@ -1002,12 +1003,17 @@ function paketeKarte(w, gewaehlt = null) {
   const frei = allePakete().filter(p => !w.pakete.some(x => x.id === p.id));
   return `<section class="karte liste-karte pakete-karte">
     <div class="karte-kopf"><h2>Pakete</h2><button class="knopf-text" data-act="pkVorschlag">50 / 40 / 10 vorschlagen</button></div>
-    ${w.pakete.map(p => `<div class="pk${p.id === gewaehlt ? ' gewaehlt' : ''}">
+    ${w.pakete.map(p => LP.wartetAufStart(p) ? `<div class="pk wartet${p.id === gewaehlt ? ' gewaehlt' : ''}">
+      <div class="pk-kopf"><b>${esc(p.paket.name)}</b><span class="rolle r-wartet">wartet</span></div>
+      <p class="start-zeile">${svg('uhr', 16)}<span>${esc(gross(LP.startText(p, w.pakete)))}. Dann ${esc(p.start.anteile[p.id] ?? 0)} %.</span></p>
+      <a class="etappe-link" href="#einheit/${encodeURIComponent(p.id)}"><span>Start und Etappen ansehen</span>${svg('weiter', 16)}</a>
+    </div>` : `<div class="pk${p.id === gewaehlt ? ' gewaehlt' : ''}">
       <div class="pk-kopf"><b>${esc(p.paket.name)}</b>${rolleChip(p.rolle)}</div>
       <label class="anteil"><span class="unsichtbar">Anteil ${esc(p.paket.name)}</span><input type="range" min="0" max="100" step="10" value="${p.anteil}" data-pk="${esc(p.id)}"><b>${p.anteil} %</b></label>
       <a class="etappe-link" href="#einheit/${encodeURIComponent(p.id)}"><span>${esc(etappeText(p))}</span>${svg('weiter', 16)}</a>
     </div>`).join('')}
     <div class="summe"><span>Zusammen</span><span class="${summe === 100 ? 'ok' : 'nicht-ok'}">${summe} %${summe === 100 ? ' ✓' : ' – bitte auf 100 % bringen'}</span></div>
+    ${w.pakete.filter(LP.wartetAufStart).map(p => `<p class="klein gedaempft pad start-hinweis">Startet ${esc(p.paket.name)}, gelten die geplanten Anteile. Was du vorher hier änderst, wird dann überschrieben.</p>`).join('')}
     ${frei.length ? `<label class="einstell-zeile"><span>Paket hinzufügen</span><select id="pk-neu"><option value="">Wählen …</option>${frei.map(p => `<option value="${esc(p.id)}">${esc(p.name)}${p.etappen ? ` (${p.etappen.length} Etappen)` : ''}</option>`).join('')}</select></label>` : ''}
     <label class="einstell-zeile"><span>Etappe dem Kind zeigen<span class="klein gedaempft block">„Du übst gerade: Zylinder · Etappe 2 von 4“ auf dem Startbildschirm</span></span><input type="checkbox" class="schalter" id="e-etappe"${w.etappe_anzeigen ? ' checked' : ''}></label>
   </section>`;
@@ -1020,21 +1026,47 @@ function einheitDetail(w, p) {
   const sitzt = et && p.etappe > 0 ? LP.etappeSitzt(A.etappenAufgaben(D.daten.aufgaben, p.id, p.etappe)) : null;
   const n = et ? et.length : 0;
   return `<section class="karte liste-karte einheit-karte">
-    <div class="karte-kopf"><h2>${esc(p.paket.name)}</h2>${rolleChip(p.rolle)}<span class="klein gedaempft">${p.anteil} %</span></div>
+    <div class="karte-kopf"><h2>${esc(p.paket.name)}</h2>${LP.wartetAufStart(p) ? '<span class="rolle r-wartet">wartet</span>' : `${rolleChip(p.rolle)}<span class="klein gedaempft">${p.anteil} %</span>`}</div>
     ${p.paket.beschreibung ? `<p class="klein gedaempft pad">${esc(p.paket.beschreibung)}</p>` : ''}
+    ${LP.wartetAufStart(p) ? startKarte(w, p) : ''}
     ${et ? `<p class="klein gedaempft pad">Weiter: ${{ hand: 'von Hand', vorschlag: 'Vorschlag', automatisch: 'automatisch' }[p.paket.weiter]}${p.naechste ? ` · Etappe ${p.naechste.etappe} ab ${p.naechste.ab === morgen() ? 'morgen' : ''} (${tagKurz(p.naechste.ab)})`.replace('ab  (', 'ab (') : ''}</p>
     ${et.map(e => `<div class="et${e.nr < p.etappe ? ' fertig' : ''}${e.nr === p.etappe ? ' aktuell' : ''}"><span class="nr">${e.nr}</span><div class="txt"><b>${mathe(e.name)}</b><span class="klein gedaempft">${esc(e.bogen || '')}${qText(e.nr)}</span>${e.nr === p.etappe ? '<span class="marke">aktuell</span>' : ''}${!LP.etappeOffen(p.paket, e.nr, D.logbuch || []) ? '<span class="marke bald">kommt bald</span>' : ''}${p.naechste && p.naechste.etappe === e.nr ? `<span class="marke">${p.naechste.ab === morgen() ? 'ab morgen' : 'ab ' + tagKurz(p.naechste.ab)}</span>` : ''}</div></div>`).join('')}
     ${sitzt && sitzt.anzahl ? `<p class="${sitzt.sitzt ? 'sitzt' : 'sitzt-noch'}">Etappe ${p.etappe}${sitzt.sitzt ? ' sitzt' : ''}: ${sitzt.gut} von ${sitzt.anzahl} im 1. Versuch${sitzt.anzahl < 10 ? ' (letzte Aufgaben der Etappe)' : ''}</p>` : ''}
-    <div class="knopf-spalte">
+    ${LP.wartetAufStart(p) ? '' : `<div class="knopf-spalte">
       <button class="knopf haupt" data-act="etBogen" data-pk="${esc(p.id)}"${(p.naechste ? p.naechste.etappe : p.etappe) >= n ? ' disabled' : ''}>Bogen erledigt – nächste Etappe ab morgen</button>
       <div class="knopf-reihe"><button class="knopf" data-act="etSofort" data-pk="${esc(p.id)}"${!p.naechste && p.etappe >= n ? ' disabled' : ''}>Sofort</button><button class="knopf" data-act="etZurueck" data-pk="${esc(p.id)}"${!p.naechste && p.etappe <= 0 ? ' disabled' : ''}>Eine Etappe zurück</button></div>
       ${p.rolle === 'einheit' ? `<button class="knopf gestrichelt" data-act="einheitFertig" data-pk="${esc(p.id)}">Einheit fertig → Wiederholung</button>` : ''}
-    </div>` : `<p class="klein gedaempft pad">Dieses Paket hat keine Etappen. Die Themen stellst du unter „Aufgabenpakete“ ein.</p>`}
+    </div>`}` : `<p class="klein gedaempft pad">Dieses Paket hat keine Etappen. Die Themen stellst du unter „Aufgabenpakete“ ein.</p>`}
   </section>
   <section class="karte liste-karte">
     <label class="einstell-zeile"><span>Rolle</span><select id="pk-rolle" data-pk="${esc(p.id)}">${LP.ROLLEN.map(r => `<option value="${r}"${r === p.rolle ? ' selected' : ''}>${LP.ROLLEN_NAMEN[r]}</option>`).join('')}</select></label>
     ${p.rolle !== 'grund' ? `<div class="knopf-spalte"><button class="knopf" data-act="pkWeg" data-pk="${esc(p.id)}">Paket entfernen</button></div>` : '<p class="klein gedaempft pad">Das Grundpaket lässt sich nicht entfernen. Mach zuerst ein anderes Paket zum Grundpaket.</p>'}
   </section>`;
+}
+
+// Paket mit „start“ (Auftrag 15): wann es startet, was sich dann ändert, Knöpfe „Jetzt starten“ und „Start entfernen“
+const gross = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+// Etappe laut Lerndaten der App (automatisch weitergeschaltet), sonst laut Einstellung
+function etappeInApp(id, liste) {
+  const ev = ((D.daten && D.daten.eintraege) || []).filter(e => e.typ === 'etappe_neu' && e.paket === id && typeof e.nach === 'number');
+  const ein = (liste.find(x => x.id === id) || {}).etappe || 0;
+  return ev.length ? Math.max(ein, ev[ev.length - 1].nach) : ein;
+}
+function startKarte(w, p) {
+  const st = p.start;
+  const ausl = w.pakete.find(x => x.id === st.wenn.paket);
+  const stand = ausl ? etappeInApp(ausl.id, w.pakete) : 0;
+  const nameVon = (id) => { const x = w.pakete.find(y => y.id === id); return x ? x.paket.name : id; };
+  const rolleVon = (id) => st.rollen[id] || (w.pakete.find(y => y.id === id) || {}).rolle;
+  const ids = [...new Set([...Object.keys(st.anteile), ...w.pakete.map(x => x.id)])].filter(id => w.pakete.some(x => x.id === id));
+  return `<div class="start-box">
+    <p class="start-titel">${svg('uhr', 18)}<b>${esc(gross(LP.startText(p, w.pakete)))}</b></p>
+    ${ausl ? `<p class="klein">${esc(ausl.paket.name)} steht ${stand >= st.wenn.etappe ? 'schon auf' : 'gerade auf'} Etappe ${stand} von ${(ausl.paket.etappen || []).length}.</p>` : `<p class="klein amber">Das Paket „${esc(st.wenn.paket)}“ fehlt bei ${esc(name())}. Ohne es startet ${esc(p.paket.name)} nicht von selbst.</p>`}
+    <p class="klein gedaempft">Dann gilt, am selben Tag:</p>
+    <div class="start-anteile">${ids.map(id => `<div class="${id === p.id ? 'neu' : ''}"><span>${esc(nameVon(id))}</span>${rolleChip(rolleVon(id))}<b>${st.anteile[id] ?? 0} %</b></div>`).join('')}</div>
+    <p class="klein gedaempft">${esc(p.paket.name)} beginnt mit Etappe 1 und dem Logbuch-Eintrag. Änderst du vorher Rollen oder Anteile, gelten beim Start trotzdem diese Anteile.</p>
+    <div class="knopf-reihe"><button class="knopf haupt breit" data-act="pkStartJetzt" data-pk="${esc(p.id)}">Jetzt starten</button><button class="knopf breit" data-act="pkStartWeg" data-pk="${esc(p.id)}">Start entfernen</button></div>
+  </div>`;
 }
 
 function einheitSeite(id) {
@@ -1564,6 +1596,18 @@ document.addEventListener('click', (ev) => {
       if (!confirm(`„${p.paket.name}“ wird Wiederholung mit 10 %. Das Grundpaket „${g.paket.name}“ bekommt ${frei} % dazu (dann ${g.anteil + frei} %). Einverstanden?`)) break;
       p.rolle = 'wiederholung'; p.etappe = p.paket.etappen ? p.paket.etappen.length : p.etappe; delete p.naechste;
       p.anteil = Math.min(10, p.anteil); g.anteil += frei;
+      paketeGeaendert(); break;
+    }
+    case 'pkStartJetzt': {
+      const p = entwurf.pakete.find(x => x.id === el.dataset.pk);
+      if (!p || !p.start || !confirm(`„${p.paket.name}“ jetzt starten? Etappe 1 und die geplanten Anteile gelten, sobald du speicherst und ${name()} die App öffnet.`)) break;
+      LP.startAusfuehren(entwurf.pakete, p.id);
+      paketeGeaendert(); break;
+    }
+    case 'pkStartWeg': {
+      const p = entwurf.pakete.find(x => x.id === el.dataset.pk);
+      if (!p || !p.start || !confirm(`Start von „${p.paket.name}“ entfernen? Das Paket bleibt bei 0 % und startet nicht mehr von selbst. Du kannst es später mit „Sofort“ beginnen.`)) break;
+      delete p.start;
       paketeGeaendert(); break;
     }
     case 'pkWeg': {

@@ -1,5 +1,5 @@
 {
- "info": "Wissensarchiv (vom Vater freigegeben, 2026-10-21). Jeder Eintrag wird ab der genannten Etappe sichtbar und kostet Wissenspunkte. Texte eigen geschrieben, Links extern. Quelle: Projekt, 13-wissensarchiv.",
+ "info": "Wissensarchiv (vom Vater freigegeben, 2026-10-21). Jeder Eintrag wird ab der genannten Etappe sichtbar und kostet Wissenspunkte. Texte eigen geschrieben, Links extern. Quelle: Projekt, 13-wissensarchiv. 22.10.2026: 8 Einträge zum Paket Dichte (Auftrag 15).",
  "eintraege": [
   {
    "id": "wa-powers-of-ten", "ab": { "paket": "groessen-zehnerpotenzen", "etappe": 1 }, "kosten": 10,
@@ -48,6 +48,126 @@
    "sprache": "de", "art": "Video", "titel": "Hier endet das Universum", "quelle": "Terra X Lesch & Co (YouTube)",
    "url": "https://www.youtube.com/watch?v=fy8jTiECCWI",
    "text": "Hat das Universum einen Rand? Harald Lesch zeigt, dass es mehrere „Horizonte“ gibt – Grenzen, die entstehen, weil Licht eine endliche Geschwindigkeit hat und sich der Raum ausdehnt. Wer schon ausgerechnet hat, dass Sonnenlicht gut 8 Minuten zu uns braucht, ist hier genau richtig."
+  },
+  {
+   "id": "wa-anomalie-wasser",
+   "ab": {
+    "paket": "dichte-stoffe",
+    "etappe": 1
+   },
+   "kosten": 10,
+   "sprache": "de",
+   "art": "Artikel",
+   "titel": "Anomalie des Wassers",
+   "quelle": "LEIFIphysik",
+   "url": "https://www.leifiphysik.de/waermelehre/ausdehnung-bei-erwaermung/grundwissen/anomalie-des-wassers",
+   "text": "Fast jeder Stoff wird beim Abkühlen dichter – Wasser nicht ganz. Seine größte Dichte hat es bei 4 °C, darunter dehnt es sich wieder aus, und als Eis braucht es noch mehr Platz. Deshalb sammelt sich am Grund tiefer Seen 4 °C warmes Wasser, während oben das Eis schwimmt. Fische überwintern so im flüssigen Wasser darunter.",
+   "geprueft": "2026-10-21: selbst geöffnet (WebFetch), lädt ohne Anmeldung, erklärt 4 °C und schwimmendes Eis · vom Vater freigegeben (Review 2026-10-22)"
+  },
+  {
+   "id": "wa-saturn-facts",
+   "ab": {
+    "paket": "dichte-stoffe",
+    "etappe": 2
+   },
+   "kosten": 10,
+   "sprache": "en",
+   "art": "Artikel",
+   "titel": "Saturn: Facts",
+   "quelle": "NASA Science",
+   "url": "https://science.nasa.gov/saturn/facts/",
+   "text": "Saturn ist rund neunmal so breit wie die Erde und trotzdem der einzige Planet, dessen mittlere Dichte unter der von Wasser liegt. Die NASA-Seite erklärt, woraus der Gasriese besteht, warum seine Ringe so dünn sind und wie lang ein Tag auf Saturn dauert.",
+   "geprueft": "2026-10-21: selbst geöffnet (WebFetch), lädt, nennt die Dichte unter der von Wasser · vom Vater freigegeben (Review 2026-10-22)"
+  },
+  {
+   "id": "wa-erde-unter-usa",
+   "ab": {
+    "paket": "dichte-stoffe",
+    "etappe": 2
+   },
+   "kosten": 15,
+   "sprache": "de",
+   "art": "Video",
+   "titel": "Forscher entdecken verborgenen Kontinent unter den USA",
+   "quelle": "Breaking Lab (YouTube)",
+   "url": "https://www.youtube.com/watch?v=V5d_-K_a5Gk",
+   "text": "Niemand kann Hunderte Kilometer tief bohren – und trotzdem kennen Forscher den Untergrund Nordamerikas immer genauer. Fast zwei Jahrzehnte lang haben sie dafür quer durch die USA gemessen. Heraus kam eine neue Karte mit Strukturen, die bisher niemand kannte, darunter die Reste eines verborgenen alten Kontinents. Das Video zeigt, wie man mit Messungen an der Oberfläche tief ins Erdinnere schaut.",
+   "geprueft": "2026-10-22: selbst geöffnet (WebFetch), Titel, Kanal Breaking Lab und Datum 30.07.2026 bestätigt. Laut Beschreibung neue Karte des Untergrunds aus fast 20 Jahren Messungen (USMT-Projekt). Dichte wird in der Beschreibung nicht genannt – bitte prüfen, ob es das gemeinte Video ist. · vom Vater freigegeben (Review Runde 2, 2026-10-22)"
+  },
+  {
+   "id": "wa-aerogel",
+   "ab": {
+    "paket": "dichte-stoffe",
+    "etappe": 3
+   },
+   "kosten": 15,
+   "sprache": "en",
+   "art": "Artikel",
+   "titel": "Guinness Records Names JPL's Aerogel World's Lightest Solid",
+   "quelle": "NASA JPL (2002)",
+   "url": "https://www.jpl.nasa.gov/news/guinness-records-names-jpls-aerogel-worlds-lightest-solid/",
+   "text": "2002 stellte ein Aerogel aus dem Jet Propulsion Laboratory einen Weltrekord auf: nur 3 mg pro Kubikzentimeter, kaum dichter als Luft. Es besteht wie Glas aus Siliziumdioxid, ist aber zu über 99 % Luft. Die Sonde Stardust fing mit solchem Material Staub des Kometen Wild 2 ein und brachte ihn zur Erde.",
+   "geprueft": "2026-10-21: selbst geöffnet (WebFetch), Pressemitteilung vom 7. Mai 2002, nennt Stardust · vom Vater freigegeben (Review 2026-10-22)"
+  },
+  {
+   "id": "wa-archimedes-ted",
+   "ab": {
+    "paket": "dichte-stoffe",
+    "etappe": 4
+   },
+   "kosten": 10,
+   "sprache": "en",
+   "art": "Video",
+   "titel": "How taking a bath led to Archimedes' principle",
+   "quelle": "TED-Ed (YouTube)",
+   "url": "https://www.youtube.com/watch?v=ijj58xD5fDI",
+   "text": "König Hieron hat einen Verdacht: Hat sein Goldschmied ihn betrogen? Der animierte Kurzfilm erzählt, wie Archimedes in der Badewanne auf die Lösung kam – und auf das archimedische Prinzip, das bis heute erklärt, warum Schiffe schwimmen. Mit deinem Wissen über Dichte kannst du die Rechnung hinter der Geschichte selbst nachvollziehen.",
+   "geprueft": "2026-10-22: selbst geöffnet (WebFetch), Titel, offizieller Kanal TED-Ed und Datum 06.09.2012 bestätigt. Beschreibung: König, verdächtiger Goldschmied, Archimedes' Prinzip. · vom Vater freigegeben (Review Runde 2, 2026-10-22)"
+  },
+  {
+   "id": "wa-schwimmen-video",
+   "ab": {
+    "paket": "dichte-stoffe",
+    "etappe": 4
+   },
+   "kosten": 10,
+   "sprache": "de",
+   "art": "Video",
+   "titel": "Schwimmen, schweben und sinken in Abhängigkeit von der Dichte",
+   "quelle": "physikdigital (YouTube)",
+   "url": "https://www.youtube.com/watch?v=rR__kZJyZWA",
+   "text": "Eine kurze Animation zeigt, was passiert, wenn ein Körper dichter, gleich dicht oder weniger dicht ist als die Flüssigkeit um ihn herum. Danach verstehst du auch, wie ein U-Boot gezielt auf- und abtauchen kann.",
+   "geprueft": "2026-10-21: selbst geöffnet (WebFetch), Titel und Kanal bestätigt (kleiner Bildungskanal) · vom Vater freigegeben (Review 2026-10-22)"
+  },
+  {
+   "id": "wa-neutronensterne",
+   "ab": {
+    "paket": "dichte-stoffe",
+    "etappe": 5
+   },
+   "kosten": 20,
+   "sprache": "de",
+   "art": "Artikel",
+   "titel": "Neutronensterne",
+   "quelle": "Welt der Physik",
+   "url": "https://www.weltderphysik.de/gebiet/universum/sterne/weltall-neutronensterne/",
+   "text": "Ein Teelöffel Blei hat eine Masse von gut 11 g, ein Teelöffel aus dem Inneren der Sonne etwa 750 g. Ein Teelöffel Neutronenstern-Materie dagegen käme auf rund eine Milliarde Tonnen. Der Artikel erklärt, wie solche Sterne entstehen und warum sie nur etwa 20 km groß sind.",
+   "geprueft": "2026-10-21: selbst geöffnet (WebFetch), lädt, Teelöffel-Vergleich steht dort · vom Vater freigegeben (Review 2026-10-22)"
+  },
+  {
+   "id": "wa-neutron-stars-video",
+   "ab": {
+    "paket": "dichte-stoffe",
+    "etappe": 5
+   },
+   "kosten": 20,
+   "sprache": "en",
+   "art": "Video",
+   "titel": "Neutron Stars – The Most Extreme Things that are not Black Holes",
+   "quelle": "Kurzgesagt – In a Nutshell (YouTube)",
+   "url": "https://www.youtube.com/watch?v=udFxKZRyQt4",
+   "text": "Ein Stern explodiert, und übrig bleibt ein Kern so dicht wie ein riesiger Atomkern – nur wenige Kilometer groß, aber mit mehr Masse als die Sonne. Der animierte Film nimmt dich mit von der Oberfläche bis ins Innere. Eine deutsche Fassung gibt es auf dem Kanal „Dinge Erklärt – Kurzgesagt“.",
+   "geprueft": "2026-10-21: selbst geöffnet (WebFetch), Titel und offizieller Kanal bestätigt (10.11.2019) · vom Vater freigegeben (Review 2026-10-22)"
   }
  ]
 }

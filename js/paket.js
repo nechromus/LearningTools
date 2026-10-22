@@ -15,10 +15,10 @@ export const KOPF_GEN = {
   'minus-zahlen': ['minus-plus'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'], 'einmaleins': ['einmaleins'],
   'mal-10': ['mal10'], 'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'runden': ['runden'], 'bruch-bild': ['bruch-bild'],
   // Physik und Umstellen (Auftrag 13): kommen wie kurze Aufgaben, etwa halb Pool, halb Baukasten
-  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen']
+  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
 };
 // Themen, die etwa zur Hälfte aus dem Pool kommen (mit Geschichten), sonst aus dem Baukasten (neutrale Zahlen)
-export const HALB_POOL = ['zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen'];
+export const HALB_POOL = ['zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte'];
 export const BLOCK_GEN = { 'einmaleins': 'einmaleins', 'potenzen': 'potenz', 'mal-10': 'mal10', 'minus-zahlen': 'minus-plus' };
 export const KOPF_THEMEN = Object.keys(KOPF_GEN);
 export const WEITERE_THEMEN = THEMEN.filter(t => !KOPF_THEMEN.includes(t));

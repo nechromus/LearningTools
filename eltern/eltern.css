@@ -308,6 +308,20 @@ textarea { width: 100%; border-radius: 10px; border: 1.5px solid #8A9696; backgr
 .knopf-spalte { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; }
 .knopf.gestrichelt { border-style: dashed; }
 .einheit-spalten { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 20px; align-items: start; margin-top: 10px; }
+.r-wartet { background: #EEE8F5; color: #5B3F7A; }
+.pk.wartet { background: #FAF8FC; }
+.start-zeile { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0 0; font-size: 14px; color: #5B3F7A; }
+.start-zeile svg, .start-titel svg { flex-shrink: 0; margin-top: 1px; }
+.start-hinweis { padding-top: 0; padding-bottom: 10px; }
+.start-box { margin: 8px 16px 12px; padding: 12px 14px; border-radius: var(--radius); background: #F6F2FA; border: 1.5px solid #D9CCE8; display: flex; flex-direction: column; gap: 8px; }
+.start-box p { margin: 0; }
+.start-titel { display: flex; gap: 8px; align-items: flex-start; color: #5B3F7A; }
+.start-anteile { display: flex; flex-direction: column; gap: 4px; background: var(--weiss); border-radius: 10px; padding: 6px 10px; }
+.start-anteile div { display: flex; align-items: center; gap: 8px; min-height: 30px; }
+.start-anteile div span:first-child { flex: 1; }
+.start-anteile div b { width: 48px; text-align: right; }
+.start-anteile .neu span:first-child { font-weight: 700; }
+.start-box .knopf-reihe .knopf { padding: 0 10px; }
 .marke.bald { background: #EEE8F5; color: #5B3F7A; display: inline-block; width: max-content; padding: 0 8px; border-radius: 8px; }
 
 /* Tickets */

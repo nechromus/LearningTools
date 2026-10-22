@@ -1,5 +1,5 @@
 {
- "info": "Logbuch-Einträge (Erklärungen), einer pro Etappe einer Lerneinheit. Erscheint vor der ersten Aufgabe einer neuen Etappe und bleibt im Logbuch abrufbar. {sternzeit} ersetzt die App durch die Sternzeit des Tages, an dem die Etappe freigeschaltet wurde. Einträge mit status statt Text sind noch nicht geschrieben; die Etappe bleibt dann gesperrt („kommt bald“). Quelle: Projekt, 13- und 14-logbuch (freigegeben 2026-10-21).",
+ "info": "Logbuch-Einträge (Erklärungen), einer pro Etappe einer Lerneinheit. Erscheint vor der ersten Aufgabe einer neuen Etappe und bleibt im Logbuch abrufbar. {sternzeit} ersetzt die App durch die Sternzeit des Tages, an dem die Etappe freigeschaltet wurde. Einträge mit status statt Text sind noch nicht geschrieben; die Etappe bleibt dann gesperrt („kommt bald“). Quelle: Projekt, 13- und 14-logbuch (freigegeben 2026-10-21). 22.10.2026: lb-dichte-1 bis -5 (Auftrag 15).",
  "eintraege": [
   {
    "id": "lb-groessen-1", "paket": "groessen-zehnerpotenzen", "etappe": 1,
@@ -120,6 +120,88 @@
     "Die häufigste Fehlerquelle ist ein Minus vor einer Klammer oder einem Bruch. Es dreht alle Vorzeichen darin um: −3 · (2x + 1) = −6x − 3. Bei Bruchgleichungen hilft der Hauptnenner, alle Brüche auf einmal zu beseitigen."
    ],
    "merke": ["Erst Summanden abziehen, dann teilen", "Klammer um Zähler und Nenner", "Minus vor Klammer dreht alle Vorzeichen", "Hauptnenner bei Brüchen"]
+  },
+  {
+   "id": "lb-dichte-1",
+   "paket": "dichte-stoffe",
+   "etappe": 1,
+   "titel": "Wie viel Masse passt in einen Würfel?",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Zwei Würfel, jeder genau einen Kubikzentimeter groß: einer aus Kiefernholz, einer aus Gold. Gleiches Volumen, aber die Masse des Goldwürfels ist über dreißigmal so groß. Was die beiden unterscheidet, ist nicht ihre Größe, sondern ihr Stoff.",
+    "Physiker fassen das in einer Größe zusammen, der Dichte ρ (griechisch Rho): ρ = m/V, Masse geteilt durch Volumen. Sie verrät, welche Masse in jedem Kubikzentimeter steckt. Bei Wasser ist es fast genau 1 g, bei Gold 19,3 g, bei Luft nur etwa 1,2 mg.",
+    "Weil sich weder Masse noch Volumen ändern, wenn ein Körper zum Mond reist, ändert sich auch seine Dichte nicht. Die Dichte ist eine Eigenschaft des Stoffes und kein Merkmal des Ortes. Deshalb lässt sich ein unbekanntes Material über seine Dichte erkennen, auf der Erde genauso wie auf dem Mars."
+   ],
+   "merke": [
+    "ρ = m/V",
+    "Einheit g/cm³",
+    "Stoffeigenschaft, ortsunabhängig",
+    "Wasser ≈ 1,00 g/cm³"
+   ]
+  },
+  {
+   "id": "lb-dichte-2",
+   "paket": "dichte-stoffe",
+   "etappe": 2,
+   "titel": "Dieselbe Dichte, drei Einheiten",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Im Labor misst man Dichten meist in g/cm³, Astronomen und Ingenieure rechnen lieber in kg/m³. Der Stoff ist derselbe, nur die Einheit wechselt – so wie man eine Strecke in Metern oder Kilometern angeben kann.",
+    "Der Umrechnungsfaktor folgt aus zwei Zehnerpotenzen: Ein Kilogramm sind 10³ g, ein Kubikmeter sind 10⁶ cm³. Also ist 1 g/cm³ = 10⁶ g/m³ = 10³ kg/m³ = 1000 kg/m³. Saturn mit seinen 687 kg/m³ hat also eine Dichte von 0,687 g/cm³.",
+    "Eine dritte Einheit ist besonders praktisch: kg/dm³. Da ein Liter genau ein Kubikdezimeter ist, entspricht sie kg/L. Und weil Gramm und Kubikzentimeter beide um den Faktor 1000 kleiner sind als Kilogramm und Kubikdezimeter, gilt sogar 1 kg/dm³ = 1 g/cm³ – ohne jede Umrechnung."
+   ],
+   "merke": [
+    "1 g/cm³ = 1 kg/dm³ = 1 kg/L",
+    "1 g/cm³ = 1000 kg/m³",
+    "kg/m³ → g/cm³: durch 1000"
+   ]
+  },
+  {
+   "id": "lb-dichte-3",
+   "paket": "dichte-stoffe",
+   "etappe": 3,
+   "titel": "Wiegen ohne Waage",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Wer die Dichte eines Stoffes kennt, braucht oft gar keine Waage mehr. Aus ρ = m/V wird umgestellt m = ρ · V: Volumen messen, mit der Dichte multiplizieren, fertig. Genauso folgt V = m/ρ, wenn man wissen will, wie viel Platz eine bestimmte Masse braucht.",
+    "Raumfahrtingenieure rechnen ständig so. Flüssiger Wasserstoff, ein Raketentreibstoff, hat nur eine Dichte von etwa 0,07 g/cm³. Beim Außentank des Space Shuttle war der Wasserstofftank deshalb fast dreimal so groß wie der Sauerstofftank – obwohl er nur gut ein Sechstel so viel Masse fasste.",
+    "Wichtig ist, dass die Einheiten zueinander passen: Gramm zu g/cm³ und cm³, Kilogramm zu kg/m³ und m³. Sonst stimmt die Zahl um Faktoren von 1000 nicht."
+   ],
+   "merke": [
+    "m = ρ · V",
+    "V = m/ρ",
+    "Einheiten passend wählen"
+   ]
+  },
+  {
+   "id": "lb-dichte-4",
+   "paket": "dichte-stoffe",
+   "etappe": 4,
+   "titel": "Der Fingerabdruck der Stoffe",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Jeder reine Stoff hat seine eigene Dichte: Aluminium 2,70 g/cm³, Kupfer 8,96 g/cm³, Gold 19,32 g/cm³. Wer Masse und Volumen eines Fundstücks misst, kann in einer Dichtetabelle nachsehen, woraus es vermutlich besteht.",
+    "Berühmt ist die Legende von Archimedes, der prüfen sollte, ob eine Königskrone aus reinem Gold ist. Ihr Volumen lässt sich messen, indem man sie ins Wasser taucht: Sie verdrängt genau ihr eigenes Volumen. Ist die Dichte kleiner als die von Gold, wurde ein leichteres Metall beigemischt. Erzählt wird die Geschichte allerdings erst rund 200 Jahre später – ob sie so stattfand, weiß niemand.",
+    "Auch Vergleiche gehen ohne Tabelle: Bei gleichem Volumen verhalten sich die Massen wie die Dichten, bei gleicher Masse die Volumen umgekehrt. Und ein massiver Körper schwimmt, wenn seine Dichte kleiner ist als die der Flüssigkeit."
+   ],
+   "merke": [
+    "Dichte → Stoff (Tabelle)",
+    "gleiches V: m_A : m_B = ρ_A : ρ_B",
+    "gleiche m: V_A : V_B = ρ_B : ρ_A",
+    "ρ < ρ_Wasser → schwimmt"
+   ]
+  },
+  {
+   "id": "lb-dichte-5",
+   "paket": "dichte-stoffe",
+   "etappe": 5,
+   "titel": "Vom Teelöffel zum Neutronenstern",
+   "absaetze": [
+    "Logbuch, Sternzeit {sternzeit}. Jetzt verbinden sich zwei Etappen dieser Reise. Aus Dichte und Volumen folgt die Masse: m = ρ · V. Aus der Masse und dem Ortsfaktor folgt die Gewichtskraft: F_G = m · g. Zusammen ergibt das F_G = ρ · V · g.",
+    "Damit lassen sich auch Dinge berechnen, die niemand je in der Hand halten wird. Neutronensterne, die ausgebrannten Kerne explodierter Sterne, haben eine Dichte in der Größenordnung von 10¹⁷ kg/m³. Ein Teelöffel ihrer Materie hätte eine Masse von Milliarden Tonnen.",
+    "Ein Stolperstein bleibt: Der Ortsfaktor wird in N/kg angegeben. Die Masse muss deshalb in Kilogramm vorliegen, bevor man sie mit g multipliziert. Und auf dem Mond ist die Masse dieselbe – nur die Gewichtskraft ist kleiner."
+   ],
+   "merke": [
+    "m = ρ · V",
+    "F_G = m · g = ρ · V · g",
+    "Masse erst in kg umrechnen"
+   ]
   }
  ]
 }

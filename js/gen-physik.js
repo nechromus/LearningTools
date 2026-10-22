@@ -385,3 +385,275 @@ export function formelnStimmig() {
   return fehler;
 }
 export { FORMELN };
+
+// ---------- Dichte (ρ = m/V), Auftrag 15 ----------
+// Varianten = Muster im Pool (quelle „Muster <name>“). Grenzen je Etappe über „ohne“.
+// Stufe 1: rho, quader (ρ gesucht) · Stufe 2: umrechnen · Stufe 3: masse-volumen, quader (m gesucht), vergleich, verhaeltnis, gewichtskraft
+export const DICHTE_VARIANTEN = { rho: 1, quader: 1, umrechnen: 2, 'masse-volumen': 3, vergleich: 3, verhaeltnis: 3, gewichtskraft: 3 };
+// Wie zahlDe, aber vierstellige Zahlen ohne Leerzeichen (1350 g, 13 530 kg/m³)
+const zD = (x) => { const t = zahlDe(x); return /^\d\u00A0\d{3}(,|$)/.test(t) ? t.replace('\u00A0', '') : t; };
+// Zahl mit n gültigen Ziffern, Nullen am Ende bleiben stehen: 8,00 und 13,0
+export function zahlZ(x, n) {
+  const r = aufZiffern(x, n);
+  const e = Math.floor(Math.log10(Math.abs(r || 1)));
+  const stellen = Math.max(0, n - 1 - e);
+  return stellen > 0 ? zD(r).split(',')[0] + ',' + r.toFixed(stellen).split('.')[1] : zD(r);
+}
+const basisD = { fach: 'physik', thema: 'dichte', hinweise: ['dichte'] };
+const knobelD = (k = 2) => ({ typ: 'schritte', modus: 'knobeln', wissenspunkte: { knobeln: k, schritte: 1 } });
+// Dichte mit 2 oder 3 gültigen Ziffern zwischen 0,2 und 20 g/cm³
+const zufallsDichte = (rng, n = 3) => aufZiffern(wahl(rng, [zufall(rng, 20, 99) / 100, zufall(rng, 10, 99) / 10, zufall(rng, 100, 199) / 10]), n);
+const dichteText = (rho) => `${zahlZ(rho, 3)} g/cm³`;
+
+function dichteRho(rng) {
+  const V = wahl(rng, [zufall(rng, 4, 20), zufall(rng, 2, 30) * 5, zufall(rng, 3, 25) * 10, zufall(rng, 11, 99) / 2]);
+  const m = aufZiffern(zufallsDichte(rng) * V, 3);
+  const rho = m / V;
+  if (rho < 0.2 || rho > 20 || m < 1) return dichteRho(rng);
+  return neu('dichte', ['rho', m, V], {
+    ...basisD, variante: 'rho', typ: 'zahl', stufe: 1,
+    rechnung: `m = ${zahlZ(m, 3)} g · V = ${zahlZ(V, 3)} cm³`, frage: 'Berechne die Dichte ρ.',
+    antwort: { wert: rho, einheit: 'g/cm³', gueltige_ziffern: 3 },
+    loesungsweg: ['ρ = m/V', `ρ = ${zahlZ(m, 3)} g : ${zahlZ(V, 3)} cm³ = ${dichteText(rho)}`],
+    erklaerung: 'Die Dichte sagt, welche Masse in einem Kubikzentimeter eines Stoffes steckt.'
+  });
+}
+
+function dichteQuader(rng, mGesucht) {
+  if (!mGesucht) {
+    const a = zufall(rng, 2, 10), b = zufall(rng, 2, 10), c = zufall(rng, 2, 20) / 2;
+    const V = glatt(a * b * c);
+    const m = aufZiffern(zufallsDichte(rng, 2) * V, 2);
+    const rho = m / V;
+    if (rho < 0.2 || rho > 20 || V < 5) return dichteQuader(rng, false);
+    return neu('dichte', ['quader', 'rho', a, b, c, m], {
+      ...basisD, ...knobelD(2), variante: 'quader', stufe: 1,
+      rechnung: `Quader: a = ${zahlZ(a, 2)} cm · b = ${zahlZ(b, 2)} cm · c = ${zahlZ(c, 2)} cm · m = ${zD(m)} g`,
+      frage: 'Berechne die Dichte ρ des Quaders.',
+      antwort: { wert: rho, einheit: 'g/cm³', gueltige_ziffern: 2 },
+      schritte: [{ text: 'Volumen V =', wert: V, einheit: 'cm³' }, { text: 'ρ =', wert: rho, einheit: 'g/cm³', gueltige_ziffern: 2 }],
+      loesungsweg: [`V = a · b · c = ${zahlKurz(a)} · ${zahlKurz(b)} · ${zahlKurz(c)} cm³ = ${zD(V)} cm³`, `ρ = m/V = ${zD(m)} g : ${zD(V)} cm³ = ${zahlZ(rho, 2)} g/cm³`],
+      erklaerung: 'Erst das Volumen aus den Kantenlängen, dann die Dichte.'
+    });
+  }
+  const a = zufall(rng, 2, 12), b = zufall(rng, 2, 10), c = zufall(rng, 1, 6);
+  const V = a * b * c;
+  const rho = zufallsDichte(rng);
+  const m = glatt(rho * V);
+  return neu('dichte', ['quader', 'm', a, b, c, rho], {
+    ...basisD, ...knobelD(2), variante: 'quader', stufe: 3,
+    rechnung: `Quader: ${a} cm × ${b} cm × ${c} cm · ρ = ${dichteText(rho)}`,
+    frage: 'Berechne die Masse m des Quaders.',
+    antwort: { wert: m, einheit: 'g', gueltige_ziffern: 3 },
+    schritte: [{ text: 'V =', wert: V, einheit: 'cm³' }, { text: 'm =', wert: m, einheit: 'g', gueltige_ziffern: 3 }],
+    loesungsweg: [`V = ${a} · ${b} · ${c} cm³ = ${zD(V)} cm³`, `m = ρ · V = ${dichteText(rho)} · ${zD(V)} cm³ = ${zD(m)} g`, `m ≈ ${zahlZ(m, 3)} g`],
+    erklaerung: 'Erst das Volumen, dann m = ρ · V.'
+  });
+}
+
+function dichteUmrechnen(rng) {
+  const art = wahl(rng, ['zuKgM3', 'zuGCm3', 'kgDm3', 'klein', 'ausKgDm3']);
+  const z = { ...basisD, variante: 'umrechnen', stufe: 2 };
+  if (art === 'zuKgM3') {
+    const rho = zufallsDichte(rng);
+    return neu('dichte', ['umrechnen', 1, rho], { ...z, typ: 'zahl', rechnung: `ρ = ${dichteText(rho)}`, frage: 'Rechne in kg/m³ um.',
+      antwort: { wert: glatt(rho * 1000), einheit: 'kg/m³' },
+      loesungsweg: ['1 g/cm³ = 1 kg/dm³ = 1000 kg/m³', `${zahlZ(rho, 3)} · 1000 = ${zD(glatt(rho * 1000))} kg/m³`],
+      erklaerung: 'Ein Kubikmeter hat 10⁶ cm³, ein Kilogramm 10³ g. Zusammen ergibt das den Faktor 10⁶ : 10³ = 1000.' });
+  }
+  if (art === 'zuGCm3') {
+    const k = wahl(rng, [zufall(rng, 11, 99) * 10, zufall(rng, 2, 19) * 50, zufall(rng, 101, 199) * 10]);
+    return neu('dichte', ['umrechnen', 2, k], { ...z, typ: 'zahl', rechnung: `ρ = ${zD(k)} kg/m³`, frage: 'Rechne in g/cm³ um.',
+      antwort: { wert: glatt(k / 1000), einheit: 'g/cm³' },
+      loesungsweg: ['1000 kg/m³ = 1 g/cm³', `${zD(k)} : 1000 = ${zD(glatt(k / 1000))} g/cm³`],
+      erklaerung: 'Von kg/m³ zu g/cm³ teilt man durch 1000.' });
+  }
+  if (art === 'kgDm3') {
+    const rho = zufall(rng, 5, 199) / 10;
+    const hin = rng() < 0.5;
+    return neu('dichte', ['umrechnen', 3, rho, hin ? 1 : 0], { ...z, typ: 'zahl', rechnung: `ρ = ${zahlKurz(rho)} ${hin ? 'kg/dm³' : 'g/cm³'}`, frage: `Rechne in ${hin ? 'g/cm³' : 'kg/dm³'} um.`,
+      antwort: { wert: rho, einheit: hin ? 'g/cm³' : 'kg/dm³' },
+      loesungsweg: ['1 kg = 1000 g und 1 dm³ = 1000 cm³', hin ? `${zahlKurz(rho)} kg/dm³ = ${zD(glatt(rho * 1000))} g : 1000 cm³ = ${zahlKurz(rho)} g/cm³` : `${zahlKurz(rho)} g/cm³ = ${zahlKurz(rho)} kg/dm³`],
+      erklaerung: 'Zähler und Nenner werden beide mit 1000 umgerechnet – der Zahlenwert bleibt gleich. kg/dm³ und g/cm³ sind gleich große Einheiten.' });
+  }
+  if (art === 'klein') {
+    const ziffern = zufall(rng, 11, 99);
+    const e = wahl(rng, [3, 4]);
+    const rho = glatt(ziffern / 10 ** e); // 0,0036 oder 0,00036
+    return neu('dichte', ['umrechnen', 4, rho], { ...z, typ: 'zahl', rechnung: `ρ = ${zD(rho)} g/cm³`, frage: 'Rechne in kg/m³ um.',
+      antwort: { wert: glatt(rho * 1000), einheit: 'kg/m³' },
+      loesungsweg: ['1 g/cm³ = 1000 kg/m³', `${zD(rho)} · 1000 = ${zD(glatt(rho * 1000))} kg/m³`],
+      erklaerung: 'So kleine Dichten haben Gase. Für sie ist kg/m³ die handlichere Einheit.' });
+  }
+  // ρ aus kg und dm³, Ergebnis in kg/m³
+  const V = zufall(rng, 4, 40) / 10, rho = zufall(rng, 6, 99) / 10;
+  const m = glatt(rho * V);
+  if (String(m).replace('.', '').replace(/^0+/, '').length > 3) return dichteUmrechnen(rng);
+  return neu('dichte', ['umrechnen', 5, m, V], { ...z, ...knobelD(2),
+    rechnung: `m = ${zahlKurz(m)} kg · V = ${zahlKurz(V)} dm³`, frage: 'Berechne die Dichte ρ in kg/m³.',
+    antwort: { wert: glatt(rho * 1000), einheit: 'kg/m³', gueltige_ziffern: 2 },
+    schritte: [{ text: 'ρ in kg/dm³ =', wert: rho, einheit: 'kg/dm³' }, { text: 'ρ in kg/m³ =', wert: glatt(rho * 1000), einheit: 'kg/m³', gueltige_ziffern: 2 }],
+    loesungsweg: [`ρ = ${zahlKurz(m)} kg : ${zahlKurz(V)} dm³ = ${zahlKurz(rho)} kg/dm³`, `1 m³ = 1000 dm³ → ${zahlKurz(rho)} · 1000 = ${zD(glatt(rho * 1000))} kg/m³`],
+    erklaerung: 'Erst in der passenden Einheit rechnen, dann umrechnen.' });
+}
+
+function dichteMasseVolumen(rng) {
+  const art = wahl(rng, ['m', 'V', 'Vkg']);
+  const z = { ...basisD, variante: 'masse-volumen', stufe: 3 };
+  if (art === 'm') {
+    const rho = zufallsDichte(rng), V = wahl(rng, [zufall(rng, 5, 50) * 2, zufall(rng, 2, 40) * 5, zufall(rng, 101, 499)]);
+    const m = glatt(rho * V);
+    return neu('dichte', ['masse-volumen', 'm', rho, V], { ...z, typ: 'zahl',
+      rechnung: `ρ = ${dichteText(rho)} · V = ${zahlZ(V, 3)} cm³`, frage: 'Berechne die Masse m.',
+      antwort: { wert: m, einheit: 'g', gueltige_ziffern: 3 },
+      loesungsweg: ['ρ = m/V   | · V', 'm = ρ · V', `m = ${dichteText(rho)} · ${zahlZ(V, 3)} cm³ = ${zD(m)} g`, `m ≈ ${zahlZ(m, 3)} g`],
+      erklaerung: 'Die Einheit cm³ kürzt sich weg, übrig bleibt g.' });
+  }
+  if (art === 'V') {
+    const rho = aufZiffern(zufallsDichte(rng), 2), V = zufall(rng, 3, 80) * 5;
+    const m = glatt(rho * V);
+    if (String(m).replace('.', '').replace(/^0+/, '').length > 4) return dichteMasseVolumen(rng);
+    return neu('dichte', ['masse-volumen', 'V', rho, m], { ...z, typ: 'zahl',
+      rechnung: `ρ = ${zahlZ(rho, 2)} g/cm³ · m = ${zD(m)} g`, frage: 'Berechne das Volumen V.',
+      antwort: { wert: V, einheit: 'cm³', gueltige_ziffern: 2 },
+      loesungsweg: ['ρ = m/V   | · V   | : ρ', 'V = m/ρ', `V = ${zD(m)} g : ${zahlZ(rho, 2)} g/cm³ = ${zD(V)} cm³`],
+      erklaerung: rho < 1 ? 'Ist die Dichte kleiner als 1 g/cm³, ist das Volumen in cm³ größer als die Masse in g.' : 'Ist die Dichte größer als 1 g/cm³, ist das Volumen in cm³ kleiner als die Masse in g.' });
+  }
+  // Masse in kg, erst in g umrechnen
+  const rho = wahl(rng, [0.8, 1.25, 1.6, 2, 2.5, 4, 5, 8, 0.25, 0.5]);
+  const mkg = zufall(rng, 2, 40) / 2;
+  const mg = glatt(mkg * 1000), V = glatt(mg / rho);
+  return neu('dichte', ['masse-volumen', 'Vkg', rho, mkg], { ...z, ...knobelD(2),
+    rechnung: `ρ = ${zahlZ(rho, 3)} g/cm³ · m = ${zahlZ(mkg, 2)} kg`, frage: 'Berechne das Volumen V in cm³.',
+    antwort: { wert: V, einheit: 'cm³', gueltige_ziffern: 2 },
+    schritte: [{ text: 'm in g =', wert: mg, einheit: 'g' }, { text: 'V =', wert: V, einheit: 'cm³', gueltige_ziffern: 2 }],
+    loesungsweg: [`m = ${zahlZ(mkg, 2)} kg = ${zD(mg)} g`, `V = m/ρ = ${zD(mg)} g : ${zahlZ(rho, 3)} g/cm³ = ${zD(V)} cm³`],
+    erklaerung: 'Masse und Dichte müssen zueinander passende Einheiten haben: g zu g/cm³.' });
+}
+
+function dichteVergleich(rng) {
+  const rhoA = wahl(rng, [0.8, 0.9, 1.2, 1.5, 2.5, 2.7, 4.5, 7.8, 8.9, 11.3, 19.3]);
+  const gleich = rng() < 0.5;
+  const rhoB = gleich ? rhoA : aufZiffern(rhoA * wahl(rng, [0.5, 0.8, 1.25, 1.5, 2]), 2);
+  const VA = zufall(rng, 4, 40) * 10;            // cm³
+  const VB = zufall(rng, 2, 20) / 10;            // dm³
+  const mA = glatt(rhoA * VA);                   // g
+  const mB = glatt(rhoB * VB);                   // kg
+  return neu('dichte', ['vergleich', rhoA, rhoB, VA, VB], {
+    ...basisD, ...knobelD(3), variante: 'vergleich', stufe: 3,
+    rechnung: `Körper A: m = ${zD(mA)} g, V = ${zD(VA)} cm³ · Körper B: m = ${zD(mB)} kg, V = ${zahlZ(VB, 3)} dm³`,
+    frage: 'Berechne beide Dichten. Können A und B aus demselben Stoff bestehen?',
+    antwort: { wert: rhoA, einheit: 'g/cm³', gueltige_ziffern: 3 },
+    schritte: [
+      { text: 'ρ_A =', wert: rhoA, einheit: 'g/cm³', gueltige_ziffern: 3 },
+      { text: 'ρ_B =', wert: rhoB, einheit: 'g/cm³', gueltige_ziffern: 3 },
+      { text: 'Gleicher Stoff möglich?', optionen: ['Ja', 'Nein'], richtig: gleich ? 0 : 1 }
+    ],
+    loesungsweg: [`ρ_A = ${zD(mA)} g : ${zD(VA)} cm³ = ${dichteText(rhoA)}`, `ρ_B = ${zD(mB)} kg : ${zahlZ(VB, 3)} dm³ = ${zahlZ(rhoB, 3)} kg/dm³ = ${dichteText(rhoB)}`,
+      gleich ? 'gleiche Dichte → gleicher Stoff möglich' : 'verschiedene Dichten → nicht derselbe Stoff'],
+    erklaerung: 'Erst beide Dichten in derselben Einheit, dann vergleichen. Gleiche Dichte beweist nicht denselben Stoff, verschiedene Dichten schließen ihn aber aus.'
+  });
+}
+
+function dichteVerhaeltnis(rng) {
+  const art = wahl(rng, ['m', 'V', 'rho']);
+  const z = { ...basisD, variante: 'verhaeltnis', typ: 'zahl', stufe: 3 };
+  if (art === 'm' || art === 'V') {
+    const k = zufall(rng, 2, 6);
+    const klein = wahl(rng, [zufall(rng, 5, 30) / 10, zufall(rng, 2, 9) / 2]);
+    const gross = glatt(klein * k);
+    if (art === 'm') return neu('dichte', ['verhaeltnis', 'm', gross, klein], { ...z,
+      rechnung: `V_A = V_B · ρ_A = ${zahlKurz(gross)} g/cm³ · ρ_B = ${zahlKurz(klein)} g/cm³`,
+      frage: 'Zwei Körper haben dasselbe Volumen. Wievielmal so groß ist die Masse m_A wie m_B?',
+      antwort: { wert: k },
+      loesungsweg: ['m = ρ · V, V gleich', `m_A : m_B = ρ_A : ρ_B = ${zahlKurz(gross)} : ${zahlKurz(klein)} = ${k}`],
+      erklaerung: 'Bei gleichem Volumen verhalten sich die Massen wie die Dichten – das Volumen kürzt sich heraus.' });
+    return neu('dichte', ['verhaeltnis', 'V', klein, gross], { ...z,
+      rechnung: `m_A = m_B · ρ_A = ${zahlKurz(klein)} g/cm³ · ρ_B = ${zahlKurz(gross)} g/cm³`,
+      frage: 'Zwei Körper haben dieselbe Masse. Wievielmal so groß ist das Volumen V_A wie V_B?',
+      antwort: { wert: k },
+      loesungsweg: ['V = m/ρ, m gleich', `V_A : V_B = ρ_B : ρ_A = ${zahlKurz(gross)} : ${zahlKurz(klein)} = ${k}`],
+      erklaerung: 'Bei gleicher Masse ist es umgekehrt: Der Stoff mit der kleineren Dichte braucht mehr Platz.' });
+  }
+  // Faktoren für Masse und Volumen
+  const [fV, fm] = wahl(rng, [[1.5, 3], [2, 6], [2, 3], [2.5, 5], [4, 2], [1.5, 6], [3, 1.5], [2, 5], [4, 6], [0.5, 2], [2.5, 10]]);
+  const r = glatt(fm / fV);
+  return neu('dichte', ['verhaeltnis', 'rho', fV, fm], { ...z,
+    rechnung: `V_A = ${zahlKurz(fV)} · V_B · m_A = ${zahlKurz(fm)} · m_B`,
+    frage: 'Wievielmal so groß ist die Dichte ρ_A wie ρ_B?',
+    antwort: { wert: r },
+    loesungsweg: [`ρ_A = m_A/V_A = (${zahlKurz(fm)} · m_B) : (${zahlKurz(fV)} · V_B)`, `= (${zahlKurz(fm)} : ${zahlKurz(fV)}) · m_B/V_B = ${zahlKurz(r)} · ρ_B`],
+    erklaerung: `Die Faktoren für Masse und Volumen lassen sich getrennt rechnen: ${zahlKurz(fm)} : ${zahlKurz(fV)} = ${zahlKurz(r)}.` });
+}
+
+function dichteGewichtskraft(rng) {
+  const [ort, g] = wahl(rng, [['Erde', 9.81], ['Erde', 9.81], ['Mond', 1.62]]);
+  const gT = `g = ${gText(g)} N/kg`;
+  const art = wahl(rng, ['V', 'wuerfel', 'quader', 'zylinder', 'liter']);
+  const z = { ...basisD, ...knobelD(2), variante: 'gewichtskraft', stufe: 3, hinweise: ['dichte', 'gewichtskraft'], taschenrechner: true };
+  const rho = zufallsDichte(rng, 2);
+  const ende = (V, Vtext, schritteV, wegV, extra = {}) => {
+    const mg = rho * V, mkg = mg / 1000, F = mkg * g;
+    return {
+      ...z, ...extra,
+      rechnung: Vtext.startsWith('V =') ? `ρ = ${zahlZ(rho, 2)} g/cm³ · ${Vtext} · ${gT}` : `${Vtext} · ρ = ${zahlZ(rho, 2)} g/cm³ · ${gT}`,
+      frage: `Berechne die Gewichtskraft F_G${ort === 'Mond' ? ' auf dem Mond' : ''}.`,
+      antwort: { wert: F, einheit: 'N', gueltige_ziffern: 3 },
+      schritte: [...schritteV, { text: 'm in kg =', wert: mkg, einheit: 'kg', gueltige_ziffern: 3 }, { text: 'F_G =', wert: F, einheit: 'N', gueltige_ziffern: 3 }],
+      loesungsweg: [...wegV, `m = ρ · V = ${zahlZ(rho, 2)} · ${zD(glatt(V))} g = ${zD(glatt(mg))} g ≈ ${zahlZ(mkg, 3)} kg`, `F_G = m · g = ${zahlZ(mkg, 3)} kg · ${gText(g)} N/kg ≈ ${zahlZ(F, 3)} N`],
+      erklaerung: 'Zwei Schritte: Aus Dichte und Volumen folgt die Masse, aus Masse und Ortsfaktor die Gewichtskraft. Die Masse vorher in kg umrechnen, weil g in N/kg angegeben ist.'
+    };
+  };
+  if (art === 'V') {
+    const V = zufall(rng, 2, 40) * 50;
+    return neu('dichte', ['gewichtskraft', 'V', rho, V, g], ende(V, `V = ${zD(V)} cm³`, [], []));
+  }
+  if (art === 'wuerfel') {
+    const a = zufall(rng, 3, 15);
+    const V = a ** 3;
+    return neu('dichte', ['gewichtskraft', 'w', rho, a, g], ende(V, `Würfel: a = ${a} cm`, [{ text: 'V =', wert: V, einheit: 'cm³' }], [`V = a³ = (${a} cm)³ = ${zD(V)} cm³`]));
+  }
+  if (art === 'quader') {
+    const a = zufall(rng, 4, 20), b = zufall(rng, 2, 10), c = zufall(rng, 1, 8);
+    const V = a * b * c;
+    return neu('dichte', ['gewichtskraft', 'q', rho, a, b, c, g], ende(V, `Quader: ${a} cm × ${b} cm × ${c} cm`, [{ text: 'V =', wert: V, einheit: 'cm³' }], [`V = ${a} · ${b} · ${c} cm³ = ${zD(V)} cm³`]));
+  }
+  if (art === 'zylinder') {
+    const r = zufall(rng, 2, 8) / (rng() < 0.5 ? 1 : 2) + (rng() < 0.3 ? 0.5 : 0), h = zufall(rng, 3, 20);
+    const V = Math.PI * r * r * h;
+    return neu('dichte', ['gewichtskraft', 'z', rho, r, h, g], ende(V, `Zylinder: r = ${zahlZ(r, 2)} cm · h = ${zahlZ(h, 3)} cm`,
+      [{ text: 'V =', wert: V, einheit: 'cm³', gueltige_ziffern: 3 }], [`V = π · r² · h = π · ${zahlKurz(glatt(r * r))} · ${h} cm³ = ${zahlKurz(Math.round(V * 100) / 100)} cm³`],
+      { hinweise: ['dichte', 'gewichtskraft', 'zylinder'] }));
+  }
+  // Volumen in Litern: mit kg/dm³ ohne Umweg
+  const L = zufall(rng, 2, 40) / 2;
+  const mkg = glatt(rho * L), F = mkg * g;
+  return neu('dichte', ['gewichtskraft', 'L', rho, L, g], {
+    ...z, typ: 'zahl', modus: undefined, wissenspunkte: undefined,
+    rechnung: `ρ = ${zahlZ(rho, 2)} g/cm³ · V = ${zahlZ(L, 2)} L · ${gT}`,
+    frage: `Berechne die Gewichtskraft F_G${ort === 'Mond' ? ' auf dem Mond' : ''}.`,
+    antwort: { wert: F, einheit: 'N', gueltige_ziffern: 2 },
+    loesungsweg: [`V = ${zahlZ(L, 2)} L = ${zahlZ(L, 2)} dm³ und ${zahlZ(rho, 2)} g/cm³ = ${zahlZ(rho, 2)} kg/dm³`, `m = ${zahlZ(rho, 2)} kg/dm³ · ${zahlZ(L, 2)} dm³ = ${zahlKurz(mkg)} kg`, `F_G = ${zahlKurz(mkg)} kg · ${gText(g)} N/kg = ${zahlKurz(glatt(F))} N ≈ ${zahlZ(F, 2)} N`],
+    erklaerung: 'Mit kg/dm³ und Litern geht es ohne Umweg: Ein Liter ist ein Kubikdezimeter.'
+  });
+}
+
+// opts.ohne: Varianten, die die aktuelle Etappe nicht erlaubt
+export function dichte(stufe, rng, opts = {}) {
+  const st = Math.min(3, Math.max(1, stufe || 1));
+  const ohne = opts.ohne || [];
+  let moeglich = Object.entries(DICHTE_VARIANTEN).filter(([v, s]) => s <= st && !ohne.includes(v));
+  if (!moeglich.length) moeglich = [['rho', 1]];
+  // Varianten der aktuellen Stufe kommen doppelt so oft
+  const v = wahl(rng, moeglich.flatMap(([n, s]) => (s === st ? [n, n] : [n])));
+  let a;
+  if (v === 'rho') a = dichteRho(rng);
+  else if (v === 'quader') a = dichteQuader(rng, st >= 3 && rng() < 0.6);
+  else if (v === 'umrechnen') a = dichteUmrechnen(rng);
+  else if (v === 'masse-volumen') a = dichteMasseVolumen(rng);
+  else if (v === 'vergleich') a = dichteVergleich(rng);
+  else if (v === 'verhaeltnis') a = dichteVerhaeltnis(rng);
+  else a = dichteGewichtskraft(rng);
+  for (const k of Object.keys(a)) if (a[k] === undefined) delete a[k];
+  return a;
+}

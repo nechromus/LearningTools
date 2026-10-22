@@ -15,14 +15,15 @@ export const ROLLEN_NAMEN = { grund: 'Grundpaket', einheit: 'Lerneinheit', wiede
 export const WEITER = ['hand', 'vorschlag', 'automatisch'];
 export const FAECHER = ['mathe', 'physik'];
 // Varianten der Baukästen, die eine Etappe abschalten kann
-export const VARIANTEN = { zylinder: ['auswahl'] };
+export const VARIANTEN = { zylinder: ['auswahl'], dichte: ['rho', 'quader', 'umrechnen', 'masse-volumen', 'vergleich', 'verhaeltnis', 'gewichtskraft'] };
 export const STUFE_MAX = 3;
 // Baukasten → Thema (für die Stufen-Grenzen)
 export const GEN_THEMA = {
   'minus-plus': 'minus-zahlen', 'geld-geschichte': 'minus-zahlen', 'reihenfolge': 'reihenfolge', 'potenz': 'potenzen', 'bruch-bild': 'bruch-bild',
   'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'rabatt-geschichte': 'rabatt', 'runden': 'runden', 'kugel': 'kugel',
   'einmaleins': 'einmaleins', 'mal10': 'mal-10', 'zylinder': 'zylinder',
-  'zehnerpotenz': 'zehnerpotenzen', 'einheiten': 'einheiten', 'gewichtskraft': 'gewichtskraft', 'gleichung': 'umstellen', 'formel-umstellen': 'umstellen'
+  'zehnerpotenz': 'zehnerpotenzen', 'einheiten': 'einheiten', 'gewichtskraft': 'gewichtskraft', 'gleichung': 'umstellen', 'formel-umstellen': 'umstellen',
+  'dichte': 'dichte'
 };
 // Schlüssel in „grenzen“: Name eines Baukastens (seit Auftrag 13) oder eines Themas (gilt dann für alle Baukästen des Themas)
 export const grenzenSchluesselOk = (k) => !!GEN_THEMA[k] || THEMEN.includes(k);
@@ -85,7 +86,72 @@ export function eintragNorm(e) {
     out.etappe = ganz(e.etappe, 0, n, 0);
     if (e.naechste && datumOk(e.naechste.ab)) out.naechste = { etappe: ganz(e.naechste.etappe, 0, n, out.etappe), ab: e.naechste.ab };
   }
+  const st = startNorm(e && e.start);
+  if (st) out.start = st;
   return out;
+}
+
+// ---------- Automatischer Start eines Pakets (Feld start, Auftrag 15, vom Vater freigegeben 2026-10-21) ----------
+// start: { wenn: { paket, etappe }, rollen: { id: rolle }, anteile: { id: prozent } }
+const idOk = (x) => typeof x === 'string' && /^[a-z0-9][a-z0-9-]{0,39}$/.test(x);
+export function startNorm(s) {
+  if (!s || typeof s !== 'object' || !s.wenn || !idOk(s.wenn.paket)) return null;
+  const rollen = {}, anteile = {};
+  for (const [id, r] of Object.entries(s.rollen || {})) if (idOk(id) && ROLLEN.includes(r)) rollen[id] = r;
+  for (const [id, a] of Object.entries(s.anteile || {})) if (idOk(id) && Number.isFinite(Number(a))) anteile[id] = ganz(a, 0, 100, 0);
+  return { wenn: { paket: s.wenn.paket, etappe: ganz(s.wenn.etappe, 1, 99, 1) }, rollen, anteile };
+}
+// Wartet das Paket auf seinen Start? (start gesetzt, noch nicht begonnen)
+export const wartetAufStart = (p) => !!(p && p.start && !(p.etappe > 0));
+// Pakete, deren Auslöser erreicht ist
+export function startFaellig(liste) {
+  return (liste || []).filter(p => p.start && (liste.find(x => x.id === p.start.wenn.paket) || {}).etappe >= p.start.wenn.etappe);
+}
+// Start ausführen: Etappe 1, Rollen und Anteile aus start, start entfernen. Gibt { paket, ausgeloest_durch, etappe, neu } zurück.
+// Pakete, die in anteile fehlen, bekommen 0 %, wenn die genannten Anteile zusammen 100 ergeben.
+export function startAusfuehren(liste, id) {
+  const p = (liste || []).find(x => x.id === id);
+  if (!p || !p.start) return null;
+  const st = p.start;
+  const neu = !(p.etappe > 0);
+  if ((p.paket.etappen || []).length) p.etappe = Math.max(1, p.etappe || 0);
+  delete p.naechste;
+  for (const [pid, r] of Object.entries(st.rollen)) { const x = liste.find(y => y.id === pid); if (x) x.rolle = r; }
+  const genannt = Object.entries(st.anteile).filter(([pid]) => liste.some(y => y.id === pid));
+  if (genannt.reduce((s, [, a]) => s + a, 0) === 100) for (const x of liste) x.anteil = st.anteile[x.id] || 0;
+  else for (const [pid, a] of genannt) liste.find(y => y.id === pid).anteil = a;
+  // genau ein Grundpaket
+  let grund = false;
+  for (const x of liste) { if (x.rolle === 'grund') { if (grund) x.rolle = 'einheit'; grund = true; } }
+  if (!grund && liste.length) liste[0].rolle = 'grund';
+  delete p.start;
+  return { paket: p.id, ausgeloest_durch: st.wenn.paket, etappe: p.etappe, neu };
+}
+// Text für die Eltern-App: „startet, wenn Masse und Gewichtskraft Etappe 4 erreicht“
+export function startText(p, liste) {
+  if (!p || !p.start) return '';
+  const w = (liste || []).find(x => x.id === p.start.wenn.paket);
+  return `startet, wenn ${w ? w.paket.name : p.start.wenn.paket} Etappe ${p.start.wenn.etappe} erreicht`;
+}
+// Start in der Einstellungsdatei ausführen (für die Übungs-App). Gibt die neue Datei zurück oder null.
+export function startInDatei(datei, id, jetzt = new Date()) {
+  const w = datei && datei.werte;
+  if (!w || !Array.isArray(w.pakete)) return null;
+  const roh = w.pakete.find(x => x && x.id === id);
+  if (!roh || !roh.start) return null;
+  const liste = w.pakete.map(x => ({ ...x }));
+  // gleiche Regeln wie startAusfuehren, aber auf den Rohdaten (Inhalt der Pakete bleibt unverändert)
+  const norm = liste.map(x => eintragNorm(x));
+  const info = startAusfuehren(norm, id);
+  if (!info) return null;
+  const pakete = liste.map((x, i) => {
+    const n = norm[i];
+    const out = { ...x, rolle: n.rolle, anteil: n.anteil };
+    if (n.etappe != null) out.etappe = n.etappe;
+    if (x.id === id) { delete out.start; delete out.naechste; }
+    return out;
+  });
+  return { ...datei, version: (Number(datei.version) || 0) + 1, geaendert: jetzt.toISOString(), werte: { ...w, pakete } };
 }
 
 // Pakete aus der Einstellungsdatei. Altes werte.paket gilt als einziges Grundpaket mit 100 %.
@@ -212,6 +278,7 @@ export function aufgabeErlaubt(a, gr) {
   if (bg.gesperrt) return false;
   if ((a.stufe || 1) > bg.stufeMax) return false;
   if (bg.ohne.includes('auswahl') && (a.schritte || []).some(s => s.optionen)) return false;
+  if (a.variante && bg.ohne.includes(a.variante)) return false;
   return true;
 }
 

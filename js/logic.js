@@ -486,9 +486,9 @@ export function hoechsteKachel(feld) {
 // ---------- Aufgaben aus JSON kontrollieren (Elternbereich, Tools) ----------
 
 export const TYPEN = ['zahl', 'auswahl', 'bruch', 'schritte', 'zuordnung', 'mehrfrage', 'zehnerpotenz', 'formel'];
-export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen'];
+export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte'];
 // Fach je Thema (Auftrag 13). Fehlt das Feld fach an der Aufgabe, gilt das Fach des Themas.
-export const PHYSIK_THEMEN = ['zehnerpotenzen', 'einheiten', 'gewichtskraft'];
+export const PHYSIK_THEMEN = ['zehnerpotenzen', 'einheiten', 'gewichtskraft', 'dichte'];
 export const fachVon = (a) => (a && (a.fach || (PHYSIK_THEMEN.includes(a.thema) ? 'physik' : 'mathe'))) || 'mathe';
 // Körper mit Taschenrechner: eigene Plätze (Schritte und Abschluss), nicht bei Text und Struktur aus dem allgemeinen Pool
 export const KOERPER = ['kugel', 'zylinder', 'kegel', 'pyramide'];

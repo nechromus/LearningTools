@@ -7,14 +7,14 @@ export const THEMA_NAMEN = {
   'kreisdiagramm': 'Kreisdiagramm', 'runden': 'Runden', 'kugel': 'Kugel',
   'einmaleins': 'Einmaleins', 'mal-10': 'Mal 10 und durch 10',
   'zylinder': 'Zylinder', 'kegel': 'Kegel', 'pyramide': 'Pyramide',
-  'zehnerpotenzen': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Masse und Gewichtskraft', 'umstellen': 'Gleichungen umstellen'
+  'zehnerpotenzen': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Masse und Gewichtskraft', 'umstellen': 'Gleichungen umstellen', 'dichte': 'Dichte'
 };
 
 export const GEN_NAMEN = {
   'minus-plus': 'Minus-Zahlen', 'reihenfolge': 'Reihenfolge', 'potenz': 'Potenzen', 'einmaleins': 'Einmaleins',
   'mal10': 'Mal 10 / durch 10', 'prozent': 'Prozent von …', 'baukasten': 'Prozent-Baukasten', 'runden': 'Runden',
   'bruch-bild': 'Bruch aus Bild', 'kugel': 'Kugel', 'zylinder': 'Zylinder', 'geld-geschichte': 'Geld-Geschichten', 'rabatt-geschichte': 'Rabatt-Geschichten',
-  'zehnerpotenz': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Gewichtskraft', 'gleichung': 'Gleichungen', 'formel-umstellen': 'Formeln umstellen'
+  'zehnerpotenz': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Gewichtskraft', 'gleichung': 'Gleichungen', 'formel-umstellen': 'Formeln umstellen', 'dichte': 'Dichte'
 };
 
 export const FEHLER_NAMEN = {

@@ -1,8 +1,8 @@
 // Aufgaben-Baukästen: erzeugen Varianten im Projektformat (eng nach den Regeln aus 03-aufgabenformat-und-erstellung.md).
 // Jede Aufgabe hat "generator" und "parameter"; die id entsteht aus den Zahlen.
 
-import { zehnerpotenz, einheiten, gewichtskraft, gleichung, formelUmstellen } from './gen-physik.js';
-export { zehnerpotenz, einheiten, gewichtskraft, gleichung, formelUmstellen };
+import { zehnerpotenz, einheiten, gewichtskraft, gleichung, formelUmstellen, dichte } from './gen-physik.js';
+export { zehnerpotenz, einheiten, gewichtskraft, gleichung, formelUmstellen, dichte };
 
 const M = '−';
 const zufall = (rng, a, b) => a + Math.floor(rng() * (b - a + 1));
@@ -578,7 +578,7 @@ export const GENERATOREN = {
   'minus-plus': minusPlus, 'reihenfolge': reihenfolge, 'potenz': potenz, 'einmaleins': einmaleins, 'mal10': mal10,
   'prozent': prozent, 'baukasten': baukasten, 'runden': runden, 'bruch-bild': bruchBild, 'kugel': kugel, 'zylinder': zylinder,
   'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte,
-  'zehnerpotenz': zehnerpotenz, 'einheiten': einheiten, 'gewichtskraft': gewichtskraft, 'gleichung': gleichung, 'formel-umstellen': formelUmstellen
+  'zehnerpotenz': zehnerpotenz, 'einheiten': einheiten, 'gewichtskraft': gewichtskraft, 'gleichung': gleichung, 'formel-umstellen': formelUmstellen, 'dichte': dichte
 };
 
 // Welche Baukästen zu welchem Übungsthema gehören
@@ -587,7 +587,7 @@ export const THEMA_GENERATOREN = {
   'bruch-bild': ['bruch-bild'], 'zuordnung': ['bruch-bild'], 'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'],
   'rabatt': ['prozent', 'baukasten'], 'neuer-preis': ['prozent', 'baukasten'], 'kreisdiagramm': ['prozent'],
   'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'zylinder': ['zylinder'], 'kegel': ['potenz', 'runden'], 'pyramide': ['potenz'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'],
-  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen']
+  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
 };
 export const MIX_GENERATOREN = ['einmaleins', 'potenz', 'mal10', 'prozent', 'runden', 'bruch-bild', 'minus-plus', 'reihenfolge', 'baukasten', 'einmaleins'];
 export const BLOCK_GENERATOREN = ['einmaleins', 'potenz', 'mal10', 'minus-plus', 'einmaleins'];
