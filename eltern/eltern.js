@@ -12,8 +12,9 @@ import * as BS from '../js/bildschirm.js';
 import * as LP from '../js/lernplan.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
+import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.24.0';
+export const ELTERN_VERSION = '1.25.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -44,6 +45,7 @@ function konfigSichern() { try { localStorage.setItem(KEY, JSON.stringify(C)); }
 const icon = {
   uebersicht: '<path d="M4 19V10M10 19V5M16 19v-7M21 19H3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
   verlauf: '<path d="M5 6h14M5 12h14M5 18h9" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
+  lernplan: '<rect x="3" y="5" width="18" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4M7 14h5M7 17h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   tickets: '<path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   einstellungen: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="16" cy="7" r="2" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="10" cy="17" r="2" stroke="currentColor" stroke-width="2" fill="none"/>',
   zurueck: '<path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
@@ -229,7 +231,7 @@ function nutzerWahl(klasse) {
 
 function navLinks(art) {
   const aktiv = route.seite === 'aufgabe' || route.seite === 'spiel' ? 'verlauf' : route.seite === 'ticket' ? 'tickets' : ['spielzeit', 'gewichte', 'pakete', 'paket', 'qr', 'einheit', 'splitter'].includes(route.seite) ? 'einstellungen' : route.seite;
-  return [['uebersicht', 'Übersicht'], ['verlauf', 'Verlauf'], ['tickets', 'Tickets'], ['einstellungen', 'Einstellungen']].map(([k, t]) =>
+  return [['uebersicht', 'Übersicht'], ['verlauf', 'Verlauf'], ['lernplan', 'Lernplan'], ['tickets', 'Tickets'], ['einstellungen', 'Einstellungen']].map(([k, t]) =>
     `<a href="#${k}" class="${art}${aktiv === k ? ' aktiv' : ''}"${aktiv === k ? ' aria-current="page"' : ''}>${svg(k, 24)}<span>${t}</span></a>`).join('');
 }
 
@@ -260,6 +262,7 @@ function zeichne() {
       <nav class="tabs">${navLinks('tab')}</nav>
     </div>`;
   }
+  if (route.seite === 'lernplan') lernplanEinhaengen();
 }
 
 function seiteHtml() {
@@ -278,10 +281,55 @@ function seiteHtml() {
     case 'paket': return paketSeite(route.arg);
     case 'einheit': return einheitSeite(route.arg);
     case 'qr': return qrSeite();
+    case 'lernplan': return lernplanSeite();
     case 'tickets': return ticketsSeite();
     case 'ticket': return ticketSeite(route.arg);
     default: return uebersichtSeite();
   }
+}
+
+// ---------- Lernplan (daten/<name>/lernplan.json, Export der Lernplan-Seite in claude.ai) ----------
+// Gleicher Code wie die Seite in claude.ai (lernplan.mjs, gebaut aus lernplan/ im Code-Repo). Hier nur lesbar.
+const LPL = {}; // je Kind: { laedt, fehler, daten, el, inst, geholt }
+function lernplanLaden(ordner, neu = false) {
+  const z = LPL[ordner] || (LPL[ordner] = {});
+  if (z.laedt || (z.geholt && !neu)) return;
+  z.laedt = true; z.fehler = null;
+  U.dateiLesen(C, `daten/${ordner}/lernplan.json`).then(d => {
+    z.daten = d && d.format === 'lernplan-1' ? d : null; z.geholt = Date.now();
+    if (z.inst && z.daten) z.inst.setzen(Lernplan.ausExport(z.daten));
+    if (z.el) z.el.querySelector('.lp-info') && (z.el.querySelector('.lp-info').innerHTML = lernplanInfo(z.daten));
+  }).catch(e => { z.fehler = e.message || 'Laden hat nicht geklappt.'; }).finally(() => { z.laedt = false; zeichne(); });
+}
+function lernplanInfo(d) {
+  if (!d) return '';
+  const ex = d.exportiert ? new Date(d.exportiert) : null;
+  const wann = ex && !isNaN(ex) ? `${ex.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' })}, ${ex.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : '';
+  return `${wann ? `<span>Exportiert ${esc(wann)}</span>` : ''}${d.quelle && /^https:\/\/claude\.ai\//.test(d.quelle) ? `<a href="${esc(d.quelle)}" target="_blank" rel="noopener">In Claude bearbeiten ↗</a>` : ''}<span>Nur zum Lesen</span>`;
+}
+function lernplanSeite() {
+  const ordner = C.nutzer;
+  const z = LPL[ordner] || {};
+  if (!z.geholt && !z.laedt && !z.fehler) setTimeout(() => lernplanLaden(ordner), 0);
+  const kopf = breit.matches ? '' : kopfSchmal('Lernplan');
+  if (z.fehler && !z.daten) return `<div class="seite lp-seite">${kopf}<p class="hinweis-box">${esc(z.fehler)}</p><button class="knopf" data-act="lernplanNeu">Nochmal versuchen</button></div>`;
+  if (!z.daten) return `<div class="seite lp-seite">${kopf}<section class="karte"><p class="pad">${z.laedt || !z.geholt ? 'Der Lernplan wird geladen …' : `Für ${esc(name())} gibt es noch keinen Lernplan in der Eltern-App. Die Kinder-Chats legen ihn an, sobald sie die Lernplan-Seite ändern.`}</p></section></div>`;
+  return `<div class="seite lp-seite">${kopf}<div id="lp-platz"></div><button class="knopf knopf-klein lp-neu" data-act="lernplanNeu">${z.laedt ? 'Lädt …' : 'Neu laden'}</button></div>`;
+}
+// Nach dem Zeichnen: den Lernplan des Kindes einhängen. Das Element bleibt bestehen, damit Ansicht, Auswahl und Aufklappen erhalten bleiben.
+function lernplanEinhaengen() {
+  const platz = document.getElementById('lp-platz');
+  const z = LPL[C.nutzer];
+  if (!platz || !z || !z.daten) return;
+  if (!z.el) {
+    z.el = document.createElement('div');
+    z.inst = Lernplan.erstellen(z.el, { daten: z.daten, eingebettet: true, hell: true, speicher: 'lp-open-' + C.nutzer, info: lernplanInfo(z.daten) });
+  }
+  platz.appendChild(z.el);
+  const tabs = document.querySelector('.tabs');
+  z.el.style.setProperty('--lp-unten', tabs && tabs.offsetHeight ? `${tabs.offsetHeight}px` : '0px');
+  const main = platz.closest('main');
+  z.el.style.setProperty('--lp-links', main ? `${Math.round(main.getBoundingClientRect().left)}px` : '0px');
 }
 
 // ---------- Tickets (Feedback aus der Übungs-App, feedback/ im Daten-Repo) ----------
@@ -1362,7 +1410,7 @@ function minutenSetzen(feld, wert) {
 // und die Version der Übungs-App (die Eltern-App nutzt deren Dateien in ../js/ mit).
 // Ohne Offline-Speicher: Vor dem Neuladen werden alle Dateien mit cache: 'reload' frisch geholt,
 // damit der Browser nicht die alten Dateien aus seinem Zwischenspeicher nimmt.
-const DATEIEN = ['../js/feedback.js', './', 'index.html', 'eltern.js', 'eltern.css', 'auswertung.js', 'vendor/qrcode.mjs', 'manifest.webmanifest',
+const DATEIEN = ['../js/feedback.js', 'lernplan.mjs', 'lernplan.css', './', 'index.html', 'eltern.js', 'eltern.css', 'auswertung.js', 'vendor/qrcode.mjs', 'manifest.webmanifest',
   '../js/sync.js', '../js/logic.js', '../js/namen.js', '../js/render.js', '../js/paket.js', '../js/einrichtung.js',
   '../js/physik.js', '../js/umformen.js', '../js/lernplan.js', '../js/bildschirm.js', '../js/splitter.js', '../js/hinweiskarten.js', '../data/logbuch.json'];
 let basisVersion = null;   // Version der Übungs-App beim Laden dieser Seite
@@ -1494,6 +1542,7 @@ document.addEventListener('click', (ev) => {
     case 'umformStufe': entwurf.umform_stufe = Number(el.dataset.w); meldung = null; zeichne(); break;
     case 'feedbackAn': entwurf.feedback = el.dataset.w === 'true'; meldung = null; zeichne(); break;
     case 'ticketsLaden': ticketsLaden(); break;
+    case 'lernplanNeu': lernplanLaden(C.nutzer, true); break;
     case 'ticketFilter': C.ticketFilter = el.dataset.w; konfigSichern(); zeichne(); break;
     case 'ticketStatus': ticketStatus(el.dataset.id, el.dataset.w); break;
     case 'ticketAuftragKopieren': ticketAuftragKopieren(el.dataset.id); break;
