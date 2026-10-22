@@ -8,7 +8,7 @@ import * as LP from '../js/lernplan.js';
 
 const ZU_AUFGABE = new Set(['versuch', 'versuch_wiederholt', 'tipp_bestaetigt', 'hinweis', 'rechner', 'rechner_offen',
   'rechner_angeboten', 'rechner_optional', 'verlassen', 'sprung', 'loesung_gezeigt', 'bonus_teil_uebersprungen', 'hilfe',
-  'zu_schnell', 'vorlesen', 'gelesen', 'text_hilfe', 'hinweis_kurz', 'hinweis_lang', 'formeluebersicht', 'schritte_an', 'umformen_an', 'umform_versuch', 'umform_schritt', 'umform_hilfe', 'umform_umweg', 'umform_zurueck', 'umform_fertig']);
+  'zu_schnell', 'vorlesen', 'gelesen', 'text_hilfe', 'hinweis_kurz', 'hinweis_lang', 'formeluebersicht', 'schritte_an', 'umformen_an', 'umform_versuch', 'umform_schritt', 'umform_hilfe', 'umform_umweg', 'umform_zurueck', 'umform_aufstellen', 'umform_fertig']);
 
 export const zahl = (w) => w == null ? '' : String(w).replace('.', ',').replace(/^-/, '−');
 
@@ -262,7 +262,8 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
       case 'umformen_an': p.titel = '„In Schritten umformen“ gewählt'; p.text = `Start auf Stufe ${e.stufe}`; break;
       case 'umform_versuch': p.titel = `Schritt ${e.schritt} (${e.umformung}), ${e.seite === 'l' ? 'links' : 'rechts'}: ${e.eingabe}`; p.text = `${e.richtig ? 'passt' : 'noch nicht'} · ${e.versuch}. Versuch · Stufe ${e.stufe}`; p.art = e.richtig ? 'ok' : 'fehler'; break;
       case 'umform_schritt': p.titel = `Schritt ${e.nr} fertig: ${e.eingabe.l} = ${e.eingabe.r}`; p.text = `${e.umformung} · Stufe ${e.stufe}${e.hilfe ? ' · mit Hilfe' : ''}`; p.art = e.hilfe ? 'info' : 'ok'; break;
-      case 'umform_hilfe': p.titel = e.art === 'vorschlag' ? `„Hilf mir“: Vorschlag ${e.vorschlag || '(allgemein)'}` : e.art === 'uebernommen' ? 'Vorschlag übernommen' : `Hilfe ${e.art.replace('stufe', 'Stufe ')}`; p.text = 'weniger Spielzeit'; p.art = 'fehler'; break;
+      case 'umform_hilfe': p.titel = e.art === 'vorschlag' ? `„Hilf mir“: Vorschlag ${e.vorschlag || '(allgemein)'}` : e.art === 'uebernommen' ? 'Vorschlag übernommen' : e.art === 'aufstellen-tipp' ? '„Hilf mir“ beim Aufstellen: Denkfrage' : e.art === 'aufstellen-gleichung' ? '„Mehr Hilfe“: App schreibt die Gleichung' : `Hilfe ${e.art.replace('stufe', 'Stufe ')}`; p.text = 'weniger Spielzeit'; p.art = 'fehler'; break;
+      case 'umform_aufstellen': p.titel = e.richtig ? 'Gleichung aufgestellt' : 'Gleichung passt noch nicht'; p.text = e.eingabe; p.art = e.richtig ? 'ok' : 'fehler'; break;
       case 'umform_zurueck': p.titel = 'Schritt zurück'; p.text = e.von === 'eintragen' ? `Umformung „${e.umformung}“ neu gewählt` : `Schritt „${e.umformung}“ aufgehoben`; break;
       case 'umform_umweg': p.titel = 'Umweg-Hinweis'; p.text = `${e.schritte} Schritte, nötig ${e.noetig}`; break;
       case 'umform_fertig': p.titel = `Umgeformt in ${e.schritte} ${e.schritte === 1 ? 'Schritt' : 'Schritten'}`; p.text = `${e.loesung}${e.zurueck ? ` · ${e.zurueck}× zurück` : ''}${e.stimmt ? '' : ' · stimmt nicht mit der Antwort'}`; p.art = e.stimmt ? 'ok' : 'fehler'; break;

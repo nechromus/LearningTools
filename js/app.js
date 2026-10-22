@@ -28,7 +28,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.17.3';
+export const APP_VERSION = '2.18.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1558,16 +1558,18 @@ function ufAn() {
   const a = A.aufgabe;
   const vars = UF.groessenVon(a);
   if (A.teile.some(t => t.versuche.some(v => !v.richtig))) A.knobelFalsch = true;
+  const auf = UF.mussAufstellen(a);
   A.uf = {
-    gl: UF.seiten(a.rechnung), ziel: UF.zielVon(a), vars, pi: /π/.test(a.rechnung) || ((a.antwort && a.antwort.konstanten) || []).includes('π'),
-    schritte: [], phase: 'waehlen', op: null, term: UF.leer(), roh: null, ed: { l: UF.leer(), r: UF.leer() }, seite: 'l',
+    gl: auf ? null : UF.seiten(a.rechnung), zielGl: auf ? UF.seiten(UF.gleichungVon(a)) : null, ziel: UF.zielVon(a), vars,
+    pi: /π/.test(UF.gleichungVon(a) || '') || ((a.antwort && a.antwort.konstanten) || []).includes('π'),
+    schritte: [], phase: auf ? 'aufstellen' : 'waehlen', op: null, term: UF.leer(), roh: null, ed: { l: UF.leer(), r: UF.leer() }, seite: 'l',
     stufe: ufStartStufe(), app: {}, status: {}, versuche: { l: 0, r: 0 }, noetig: UF.noetigeSchritte(a), vorschlag: null, falsch: false, hilfe: false
   };
   A.knobeln = false; A.schritteAn = true;
   A.teile = [{ art: 'umformen' }];
   teileStarten(A.teile);
   A.idx = 0; A.phase = 'eingabe'; A.meldung = null;
-  protokoll(S, 'umformen_an', { id: a.id, stufe: A.uf.stufe, ms: Date.now() - A.start });
+  protokoll(S, 'umformen_an', { id: a.id, stufe: A.uf.stufe, aufstellen: auf, ms: Date.now() - A.start });
   sichern();
   zeigeAufgabe();
 }
@@ -1589,17 +1591,31 @@ function ufEdHtml(ed, mitCursor) {
 function umformHtml(t, aktiv) {
   const u = A.uf;
   if (!u) return '';
-  const stufeText = { 3: 'Stufe 3: beide Seiten selbst', 2: 'Hilfe: Stufe 2', 1: 'Hilfe: Stufe 1' }[u.stufe];
+  const stufeText = u.phase === 'aufstellen' ? 'Zuerst: Gleichung aufstellen' : { 3: 'Stufe 3: beide Seiten selbst', 2: 'Hilfe: Stufe 2', 1: 'Hilfe: Stufe 1' }[u.stufe];
   const weg = u.schritte.map(s => ufZeile(s.vorher, UF.umformungText(s.u), 'alt')).join('');
   const kopf = `<div class="uf-kopf"><span class="uf-titel">In Schritten umformen</span>${aktiv ? `<span class="uf-stufe">${stufeText}</span>` : ''}</div>`;
   if (!aktiv) {
+    if (!u.gl) return kopf;
     const f = UF.fertig(u.gl, u.ziel, u.vars);
     return `${kopf}<div class="uf-weg">${weg}${ufZeile(u.gl, '✓', 'neu')}</div>
       ${f ? `<div class="uf-fertig"><div class="gedaempft">${groesseHtml(u.ziel)} steht allein. Fertig!</div><div class="gross">${groesseHtml(u.ziel)} = ${ufSeiteHtml(f.loesung)}</div></div>` : ''}`;
   }
   let inhalt;
-  const zurueck = u.phase === 'eintragen' || u.schritte.length ? `<button class="btn-text klein uf-zurueck" data-act="ufZurueck">↶ Schritt zurück</button>` : '';
-  if (u.phase === 'waehlen') {
+  const seite = (k) => {
+    if (u.app[k] != null) return `<div class="uf-seite app"><span class="mark">von der App</span><span>${ufSeiteHtml(u.app[k])}</span></div>`;
+    const st = u.status[k];
+    const kl = `uf-seite${st === 'ok' ? ' ok' : st === 'fehler' ? ' fehler' : ''}${u.seite === k && st !== 'ok' ? ' aktiv' : ''}`;
+    const mark = st === 'ok' ? '<span class="mark">passt</span>' : st === 'fehler' ? '<span class="mark">noch nicht</span>' : '';
+    return `<button class="${kl}" data-act="ufSeite" data-s="${k}" aria-label="${k === 'l' ? 'linke' : 'rechte'} Seite">${mark}<span>${ufEdHtml(u.ed[k], u.seite === k && st !== 'ok') || '&nbsp;'}</span></button>`;
+  };
+  const zurueck = u.phase === 'eintragen' || u.schritte.length || (u.phase === 'waehlen' && u.zielGl) ? `<button class="btn-text klein uf-zurueck" data-act="ufZurueck">↶ Schritt zurück</button>` : '';
+  if (u.phase === 'aufstellen') {
+    inhalt = `<p class="uf-frage">Stelle die Gleichung mit ${groesseHtml(u.ziel)} auf. Trag links und rechts vom „=“ ein.</p>
+      <div class="uf-zwei">${seite('l')}<span class="uf-gleich">=</span>${seite('r')}</div>
+      ${A.meldung && A.phase === 'eingabe' ? `<div class="meldung uf-meldung">${esc(A.meldung)}</div>` : ''}
+      ${u.tipp ? `<div class="uf-tipp">${u.tipp}</div>` : ''}
+      ${u.app.l != null ? '<div class="uf-knoepfe"><button class="btn btn-haupt" data-act="ufWeiter">Weiter</button></div>' : ''}`;
+  } else if (u.phase === 'waehlen') {
     const ops = ['+', '-', '*', '/'].map(o => `<button class="uf-b op${u.op === o ? ' an' : ''}" data-act="ufOp" data-o="${o}" aria-label="Rechenzeichen ${OPZ[o]}">${OPZ[o]}</button>`).join('');
     const terme = UF.bausteine(u.gl, u.ziel, u.vars).map(x => `<button class="uf-b" data-act="ufTerm" data-t="${esc(x)}"><span>${ufSeiteHtml(x)}</span></button>`).join('');
     const fest = `<button class="uf-b lang" data-act="ufFest" data-f="tauschen">Seiten tauschen</button><button class="uf-b lang" data-act="ufFest" data-f="klammer">Klammer auflösen</button><button class="uf-b lang" data-act="ufFest" data-f="wurzel" aria-label="Wurzel ziehen">√</button>`;
@@ -1612,13 +1628,6 @@ function umformHtml(t, aktiv) {
       ${u.tippen ? '' : `<button class="btn-text klein uf-tippen" data-act="ufTippen">⌨ Eigene Zahl oder Term tippen</button>`}
       ${u.vorschlag ? `<div class="uf-hilfe-box"><b>Vorschlag für den nächsten Schritt:</b> ${esc(u.vorschlag)}</div>` : ''}`;
   } else {
-    const seite = (k) => {
-      if (u.app[k] != null) return `<div class="uf-seite app"><span class="mark">von der App</span><span>${ufSeiteHtml(u.app[k])}</span></div>`;
-      const st = u.status[k];
-      const kl = `uf-seite${st === 'ok' ? ' ok' : st === 'fehler' ? ' fehler' : ''}${u.seite === k && st !== 'ok' ? ' aktiv' : ''}`;
-      const mark = st === 'ok' ? '<span class="mark">passt</span>' : st === 'fehler' ? '<span class="mark">noch nicht</span>' : '';
-      return `<button class="${kl}" data-act="ufSeite" data-s="${k}" aria-label="${k === 'l' ? 'linke' : 'rechte'} Seite">${mark}<span>${ufEdHtml(u.ed[k], u.seite === k && st !== 'ok') || '&nbsp;'}</span></button>`;
-    };
     const frage = u.stufe === 1 ? 'Die App hat vereinfacht. Lies den Schritt durch.' : u.stufe === 2 ? 'Vereinfache die Seite, die noch offen ist.' : 'Vereinfache beide Seiten.';
     inhalt = `<div class="uf-weg">${weg}${ufZeile(u.gl, UF.umformungText(u.u), 'alt')}${ufZeile(u.roh, '', 'neu')}</div>${zurueck}
       <p class="uf-frage">${frage}</p>
@@ -1636,11 +1645,13 @@ function ufFuss() {
   const u = A.uf;
   if (!u) return '';
   if (u.phase === 'waehlen' && !u.tippen) return '';
-  const offen = u.phase === 'waehlen' || (u.app[u.seite] == null && u.status[u.seite] !== 'ok' && u.stufe > 1);
+  const offen = u.phase === 'waehlen' || (u.phase === 'aufstellen' ? u.app.l == null : u.app[u.seite] == null && u.status[u.seite] !== 'ok' && u.stufe > 1);
   if (!offen) return '';
   const k = (x, kl = '', label = x) => `<button class="${kl}" data-act="ufTaste" data-k="${esc(x)}" aria-label="${esc(label)}">${x === 'bruch' ? '<span class="bruch"><span>□</span><i></i><span>□</span></span>' : x === '²' ? 'x²' : groesseHtml(x)}</button>`;
   const vars = [...u.vars, ...(u.pi ? ['π'] : [])].slice(0, 6);
-  const ok = u.phase === 'waehlen' ? `<button class="ok" data-act="ufAnwenden" ${u.op && !UF.istLeer(u.term) ? '' : 'disabled'}>Anwenden</button>` : '<button class="ok" data-act="ufPruefen">Seite fertig</button>';
+  const ok = u.phase === 'waehlen' ? `<button class="ok" data-act="ufAnwenden" ${u.op && !UF.istLeer(u.term) ? '' : 'disabled'}>Anwenden</button>`
+    : u.phase === 'aufstellen' && !UF.istLeer(u.ed.l) && !UF.istLeer(u.ed.r) ? '<button class="ok" data-act="ufPruefen">Gleichung prüfen</button>'
+    : '<button class="ok" data-act="ufPruefen">Seite fertig</button>';
   return `<div class="ft2">
     <div class="ft-oben">${vars.map(v => k(v, 'var')).join('')}${ok}</div>
     <div class="ft-gitter">
@@ -1686,6 +1697,7 @@ function ufTaste(k) {
   if (!ed) return;
   UF.tippen(ed, k);
   if (u.phase === 'eintragen') u.status[u.seite] = null;
+  if (u.phase === 'aufstellen' && u.status.l === 'fehler') u.status = {};
   A.meldung = null;
   zeigeAufgabe();
 }
@@ -1722,8 +1734,43 @@ function ufStufeAnwenden() {
   if (u.stufe <= 1) for (const s of ['l', 'r']) if (u.status[s] !== 'ok' && u.app[s] == null) u.app[s] = fertigText[s];
   u.seite = u.app.l == null && u.status.l !== 'ok' ? 'l' : 'r';
 }
+// Gleichung aus der Geschichte aufstellen (Textaufgaben ohne Gleichung)
+function ufAufstellenPruefen() {
+  const u = A.uf;
+  const k = u.seite, andere = k === 'l' ? 'r' : 'l';
+  if (UF.istLeer(u.ed[k])) { A.meldung = 'Trag zuerst die Seite ein.'; return zeigeAufgabe(); }
+  if (UF.istLeer(u.ed[andere])) { u.seite = andere; A.meldung = null; return zeigeAufgabe(); }
+  const gl = { l: UF.alsText(u.ed.l), r: UF.alsText(u.ed.r) };
+  const ok = UF.gleichungPasst(gl, u.zielGl, u.vars);
+  if (ok === null) { A.meldung = 'Die Gleichung ist noch nicht fertig. Schau auf Klammern und Brüche.'; return zeigeAufgabe(); }
+  if (ok && UF.fertig(gl, u.ziel, u.vars)) { A.meldung = `Das ist schon die Lösung. Schreib zuerst die Gleichung aus der Geschichte auf, mit ${u.ziel} in einer Rechnung.`; return zeigeAufgabe(); }
+  u.versuche.l++;
+  protokoll(S, 'umform_aufstellen', { id: A.aufgabe.id, eingabe: `${UF.lesbar(gl.l, u.vars)} = ${UF.lesbar(gl.r, u.vars)}`, richtig: ok, versuch: u.versuche.l });
+  A.meldung = null;
+  if (ok) { u.status = { l: 'ok', r: 'ok' }; return ufAufgestellt(gl); }
+  u.falsch = true; u.status = { l: 'fehler', r: 'fehler' };
+  if (u.versuche.l >= 2) {
+    u.app = { ...u.zielGl }; u.hilfe = true;
+    u.tipp = 'Diese Gleichung schreibt jetzt die App. Vergleiche sie mit der Geschichte.';
+  } else {
+    u.tipp = `Die Gleichung passt noch nicht. Lies die Geschichte noch einmal. Was rechnest du mit ${esc(u.ziel)}? Was soll herauskommen?`;
+  }
+  sichern();
+  zeigeAufgabe();
+}
+// Gleichung steht: weiter mit dem Umformen
+function ufAufgestellt(gl) {
+  const u = A.uf;
+  u.aufEd = { l: { t: [...u.ed.l.t], c: u.ed.l.c }, r: { t: [...u.ed.r.t], c: u.ed.r.c } };
+  u.gl = gl || { ...u.zielGl };
+  u.phase = 'waehlen'; u.op = null; u.term = UF.leer(); u.app = {}; u.status = {}; u.ed = { l: UF.leer(), r: UF.leer() };
+  u.versuche = { l: 0, r: 0 }; u.tipp = null; u.seite = 'l'; u.stufe = ufStartStufe();
+  sichern();
+  zeigeAufgabe();
+}
 function ufPruefen() {
   const u = A && A.uf;
+  if (u && u.phase === 'aufstellen') return ufAufstellenPruefen();
   if (!u || u.phase !== 'eintragen') return;
   const k = u.seite;
   if (u.app[k] != null || u.status[k] === 'ok') return;
@@ -1782,6 +1829,13 @@ function ufZurueck() {
   let umformung;
   if (u.phase === 'eintragen') {
     umformung = UF.umformungText(u.u);
+  } else if (!u.schritte.length && u.zielGl) {
+    // zurück zum Aufstellen der Gleichung
+    protokoll(S, 'umform_zurueck', { id: A.aufgabe.id, schritt: 0, von: 'waehlen', umformung: 'Gleichung aufstellen' });
+    u.zurueck = (u.zurueck || 0) + 1;
+    u.phase = 'aufstellen'; u.gl = null; u.op = null; u.term = UF.leer(); u.app = {}; u.status = {}; u.tipp = null; u.vorschlag = null; u.tippen = false;
+    u.ed = u.aufEd || { l: UF.leer(), r: UF.leer() }; u.versuche = { l: 0, r: 0 }; u.seite = 'l';
+    A.meldung = null; sichern(); return zeigeAufgabe();
   } else {
     const s = u.schritte.pop();
     if (!s) return;
@@ -1799,6 +1853,7 @@ function ufHilfeKnopf() {
   const u = A.uf;
   if (!u) return '';
   const kosten = A.hilfeGenutzt || hilfeAnteil() >= 1 ? '' : hilfeAnteil() > 0 ? ' · ½ Zeit' : ' · keine Zeit';
+  if (u.phase === 'aufstellen') return u.app.l != null ? '' : `<button class="btn btn-klein btn-hilfe" data-act="ufHilfe">${u.aufTipp ? 'Mehr Hilfe' : 'Hilf mir'}${kosten}</button>`;
   if (u.phase === 'waehlen') return `<button class="btn btn-klein btn-hilfe" data-act="ufHilfe">${u.vorschlag ? 'Vorschlag übernehmen' : 'Hilf mir'}${kosten}</button>`;
   if (u.stufe === 1) return '';
   return `<button class="btn btn-klein btn-hilfe" data-act="ufHilfe">${u.stufe === 3 ? 'Hilf mir' : 'Mehr Hilfe'}${kosten}</button>`;
@@ -1807,6 +1862,22 @@ function ufHilfe() {
   const u = A && A.uf;
   if (!u) return;
   A.hilfeGenutzt = true;
+  if (u.phase === 'aufstellen') {
+    u.hilfe = true;
+    if (!u.aufTipp) {
+      // Denkhilfe: die erste Frage aus den Schritten der Aufgabe
+      const s1 = (A.aufgabe.schritte || []).find(x => x.text && !/^\s*x\s*=/.test(x.text));
+      u.aufTipp = true;
+      u.tipp = `${s1 ? `Denk zuerst an diese Frage: ${esc(s1.text)} ` : ''}Schreib das mit ${esc(u.ziel)}. Setz es gleich dem, was herauskommen soll.`;
+      protokoll(S, 'umform_hilfe', { id: A.aufgabe.id, schritt: 0, art: 'aufstellen-tipp' });
+    } else {
+      u.app = { ...u.zielGl }; u.status = {};
+      u.tipp = 'So heißt die Gleichung. Vergleiche sie mit der Geschichte.';
+      protokoll(S, 'umform_hilfe', { id: A.aufgabe.id, schritt: 0, art: 'aufstellen-gleichung' });
+    }
+    sichern();
+    return zeigeAufgabe();
+  }
   if (u.phase === 'waehlen') {
     const v = UF.vorschlag(A.aufgabe, u.gl, u.schritte.length, u.vars);
     if (!u.vorschlag) {
@@ -2283,6 +2354,7 @@ const normal = (x) => String(x || '').replace(/\s+/g, '').replace(/[=≈→?]+$/
 function hilfeDaten(t) {
   const a = A.aufgabe;
   if (!t || t.merk || t.art === 'wahl' || t.art === 'legen' || t.art === 'zuordnung') return null;
+  if (umformWeg(a)) return { zeilen: [], tipp: true, mehr: false };
   const haupt = A.teile.filter(x => !x.merk);
   const nr = haupt.indexOf(t);
   const anz = L.hilfeAnzeige(a.loesungsweg || [], haupt.length, nr, Math.max(1, (t.hilfe || 0) + 1));
@@ -2293,11 +2365,15 @@ function hilfeDaten(t) {
   return anz;
 }
 
+// Lösungsweg mit Umform-Zeilen („Gleichung   | Umformung“): „Hilf mir“ zeigt die Zeilen nicht, sondern nur einen Tipp
+const umformWeg = (a) => (a.loesungsweg || []).some(z => String(z).includes('|'));
+const UMFORM_TIPP = 'Schreib eine Gleichung mit x auf. Dann mach rückgängig, was mit x passiert. Geh dabei in umgekehrter Reihenfolge vor.';
 function hilfeKnopf() {
   if (!A || A.fertig || A.phase !== 'eingabe') return '';
   const t = aktuellerTeil();
   if (!t) return '';
   if (t.art === 'umformen') return ufHilfeKnopf();
+  if (t.hilfe && umformWeg(A.aufgabe)) return '';
   if (t.hilfe) {
     // weiterer Schritt nur, wenn es noch einen gibt
     const haupt = A.teile.filter(x => !x.merk);
@@ -2308,6 +2384,7 @@ function hilfeKnopf() {
 }
 
 function hilfeBox(t) {
+  if (umformWeg(A.aufgabe)) return `<div class="hilfe-box"><div class="hilfe-titel">So fängst du an</div><p class="hilfe-text">${UMFORM_TIPP}</p></div>`;
   const haupt = A.teile.filter(x => !x.merk);
   const anz = L.hilfeAnzeige(A.aufgabe.loesungsweg || [], haupt.length, haupt.indexOf(t), t.hilfe);
   if (!anz.zeilen.length) return '';
@@ -4032,9 +4109,9 @@ function klick(e) {
     case 'ufTippen': if (A && A.uf) { A.uf.tippen = true; zeigeAufgabe(); } break;
     case 'ufTippenZu': if (A && A.uf) { A.uf.tippen = false; zeigeAufgabe(); } break;
     case 'ufCur': ufCur(el, e); break;
-    case 'ufSeite': if (A && A.uf && A.uf.phase === 'eintragen' && !A.uf.app[el.dataset.s] && A.uf.status[el.dataset.s] !== 'ok') { A.uf.seite = el.dataset.s; zeigeAufgabe(); } break;
+    case 'ufSeite': if (A && A.uf && (A.uf.phase === 'eintragen' || A.uf.phase === 'aufstellen') && !A.uf.app[el.dataset.s] && A.uf.status[el.dataset.s] !== 'ok') { A.uf.seite = el.dataset.s; zeigeAufgabe(); } break;
     case 'ufPruefen': ufPruefen(); break;
-    case 'ufWeiter': ufSchrittFertig(); break;
+    case 'ufWeiter': if (A && A.uf && A.uf.phase === 'aufstellen') ufAufgestellt(null); else ufSchrittFertig(); break;
     case 'ufZurueck': ufZurueck(); break;
     case 'ufHilfe': ufHilfe(); break;
     case 'rechnerJa':

@@ -14,9 +14,18 @@ export function seiten(gleichung) {
   const teile = String(gleichung).split('=');
   return teile.length === 2 ? { l: teile[0].trim(), r: teile[1].trim() } : null;
 }
+// Gleichung der Aufgabe: aus der Rechnung. Bei Textaufgaben ohne Gleichung („Stelle eine Gleichung auf“)
+// die erste Zeile des Lösungswegs, die eine Gleichung mit x ist. Diese stellt das Kind zuerst selbst auf.
+export function gleichungVon(a) {
+  if (!a) return null;
+  if (seiten(a.rechnung || '')) return String(a.rechnung);
+  for (const z of wegVon(a)) if (seiten(z.gleichung) && /x/.test(z.gleichung)) return z.gleichung;
+  return null;
+}
+export const mussAufstellen = (a) => !!a && !seiten(a.rechnung || '') && !!gleichungVon(a);
 // Größen einer Aufgabe: Formel-Aufgaben aus der Rechnung, Gleichungen mit x
 export function groessenVon(a) {
-  const r = String(a.rechnung || '');
+  const r = String(gleichungVon(a) || a.rechnung || '');
   const v = new Set(variablenIn(r));
   if (a.antwort && Array.isArray(a.antwort.variablen)) a.antwort.variablen.forEach(x => v.add(x));
   if (a.antwort && a.antwort.ziel) v.add(a.antwort.ziel);
@@ -26,12 +35,12 @@ export function groessenVon(a) {
 // Gesuchte Größe: bei Formeln antwort.ziel, bei Gleichungen x
 export function zielVon(a) {
   if (a.typ === 'formel' && a.antwort && a.antwort.ziel) return a.antwort.ziel;
-  return /x/.test(String(a.rechnung || '')) ? 'x' : null;
+  return /x/.test(String(gleichungVon(a) || '')) ? 'x' : null;
 }
 // Kann diese Aufgabe in Schritten umgeformt werden?
 export function umformbar(a) {
   if (!a || a.thema !== 'umstellen' || !['zahl', 'formel'].includes(a.typ)) return false;
-  const s = seiten(a.rechnung || '');
+  const s = seiten(gleichungVon(a) || '');
   const z = zielVon(a);
   if (!s || !z) return false;
   const vars = groessenVon(a);
@@ -51,6 +60,23 @@ export function gleichwertig(a, b, vars, rng = Math.random) {
     const x = rechne(ba, w), y = rechne(bb, w);
     if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
     if (Math.abs(x - y) > 1e-7 * Math.max(1, Math.abs(x), Math.abs(y))) return false;
+    gut++;
+  }
+  return gut >= 4;
+}
+// Passt eine selbst aufgestellte Gleichung? Gleichwertig heißt hier: (L − R) ist ein festes Vielfaches (≠ 0)
+// von (L − R) der Lösungsweg-Gleichung. Damit zählen auch umgestellte Schreibweisen (35x + 150 = 1200).
+export function gleichungPasst(eing, ziel, vars, rng = Math.random) {
+  const f = baum(`(${eing.l}) ${'\u2212'} (${eing.r})`, vars), g = baum(`(${ziel.l}) ${'\u2212'} (${ziel.r})`, vars);
+  if (!f || !g) return null;
+  let k = null, gut = 0;
+  for (const w of proben(vars, 16, rng)) {
+    const x = rechne(f, w), y = rechne(g, w);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    if (Math.abs(y) < 1e-9) { if (Math.abs(x) > 1e-7) return false; continue; }
+    const q = x / y;
+    if (k === null) { if (Math.abs(q) < 1e-9) return false; k = q; }
+    else if (Math.abs(q - k) > 1e-7 * Math.max(1, Math.abs(k))) return false;
     gut++;
   }
   return gut >= 4;
@@ -322,7 +348,9 @@ function tokens(text) {
 }
 // Text der Eingabe für die Prüfung (Brüche als „((a)/(b))“)
 export function alsText(ed) {
-  return ed.t.map(z => ({ '⟨B': '((', '⟨T': ')/(', '⟩B': '))', '⟨W': '√(', '⟩W': ')' }[z] || z)).join(' ').replace(/\s+/g, ' ').trim();
+  // Ziffern und Komma einer Zahl ohne Leerzeichen (sonst stünde „− 1 5 0“ im Weg)
+  const zahl = (z) => /^[\d,]$/.test(z);
+  return ed.t.map((z, i) => (i && !(zahl(z) && zahl(ed.t[i - 1])) ? ' ' : '') + ({ '⟨B': '((', '⟨T': ')/(', '⟩B': '))', '⟨W': '√(', '⟩W': ')' }[z] || z)).join('').replace(/\s+/g, ' ').trim();
 }
 export const istLeer = (ed) => !ed.t.some(z => !STRUKTUR.has(z));
 // Baum der Eingabe für die Anzeige: [{z} | {bruch: [seq, seq]} | {wurzel: seq} | {cursor}]
