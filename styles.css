@@ -993,3 +993,7 @@ button.uf-seite { font: inherit; font-size: 22px; font-weight: 700; color: inher
 .fb-text { width: 100%; font: inherit; font-size: 17px; padding: 10px; border-radius: 10px; border: 2px solid var(--linie); background: var(--flaeche); color: inherit; box-sizing: border-box; }
 .fb-foto-knopf { align-self: flex-start; cursor: pointer; }
 .fb-knoepfe { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* Vorzeichen-Taste zeigt +/− (2.21.0) */
+.taste.taste-vz { font-size: 0.8em; letter-spacing: 0.02em; }
+.meldung.meldung-in-karte { margin: 10px 0 4px; }

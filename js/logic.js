@@ -673,6 +673,15 @@ export function wissenspunkteFuer(a, { ergebnis, schritte }) {
 import { splitterVon, fernAnwenden as fernSplitter } from './splitter.js';
 import { bzRegeln, szRegeln, uzRegeln } from './bildschirm.js';
 export const GESTALTUNGEN = ['schrein', 'sternzeit'];
+// Bedienung pro Kind (Wünsche aus Aliatras erster Nutzung, 2026-10-22). Schlüssel in einstellungen.json → Feld in S.einstellungen, Standard.
+export const BEDIENUNG = [
+  { k: 'satzweise', f: 'satzweise', std: true, titel: 'Geschichten Satz für Satz', text: 'Längere Geschichten kommen Satz für Satz mit „Nächster Satz“. Aus: der ganze Text steht gleich da.' },
+  { k: 'verstanden', f: 'verstandenKnopf', std: true, titel: '„Verstanden“ nach einem Fehler', text: 'Nach einer falschen Antwort muss der Tipp mit „Verstanden“ bestätigt werden. Aus: der Tipp bleibt stehen, weitertippen genügt.' },
+  { k: 'spielzeit_zeigen', f: 'spielzeitZeigen', std: true, titel: 'Spielzeit und Spiele zeigen', text: 'Aus: keine Spielzeit, kein „Abholen“, keine Spiele und keine Minuten in der Aufgabe. Bildschirmzeit bleibt, wenn sie an ist.' },
+  { k: 'rechner_frei', f: 'rechnerFrei', std: false, titel: 'Taschenrechner immer ohne Abzug', text: 'An: Der Taschenrechner kostet nie Zeit.' },
+  { k: 'umformen_sofort', f: 'umformenSofort', std: false, titel: 'Gleichungen gleich in Schritten umformen', text: 'An: Gleichungen starten direkt mit „In Schritten umformen“, ohne Abzug bei den Wissenspunkten.' }
+];
+export const bedienung = (e, k) => { const b = BEDIENUNG.find(x => x.k === k); return typeof (e || {})[b.f] === 'boolean' ? e[b.f] : b.std; };
 import { paketeAusWerte } from './lernplan.js';
 import { pruefeFormel as pruefeFormelFn, pruefeGueltig } from './physik.js';
 
@@ -693,6 +702,7 @@ export function fernAnwenden(z, datei) {
   if ([0, 1, 2, 3].includes(w.langeHinweise) && w.langeHinweise !== (e.langeHinweise ?? 1)) { e.langeHinweise = w.langeHinweise; geaendert.push('langeHinweise'); }
   // „In Schritten umformen“: Start-Stufe (3 beide Seiten selbst, 2 eine Seite, 1 die App vereinfacht)
   if ([1, 2, 3].includes(w.umform_stufe) && w.umform_stufe !== (e.umformStufe ?? 3)) { e.umformStufe = w.umform_stufe; geaendert.push('umformStufe'); }
+  for (const b of BEDIENUNG) if (typeof w[b.k] === 'boolean' && w[b.k] !== bedienung(e, b.k)) { e[b.f] = w[b.k]; geaendert.push(b.f); }
   // Spielzeit im Schrein: Höchstwert pro Tag und „nur heute mehr“
   if (w.spielzeitTag && typeof w.spielzeitTag === 'object') {
     const neu = szRegeln(w.spielzeitTag);

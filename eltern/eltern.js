@@ -14,7 +14,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.26.0';
+export const ELTERN_VERSION = '1.27.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -385,6 +385,7 @@ function ticketSeite(id) {
     <section class="karte"><p class="ticket-text">${esc(t.text || '')}</p></section>
     <div class="ticket-bilder">${(t.bilder || []).map(b => T.bilder[b] ? `<a href="${T.bilder[b]}" target="_blank" rel="noopener"><img src="${T.bilder[b]}" alt="${b.endsWith('-foto.jpg') ? 'Foto' : 'Bild der App'}"></a>` : `<div class="ticket-bild-platz gedaempft klein">${T.bilder[b] === '' ? 'Bild fehlt' : 'Bild lädt …'}</div>`).join('')}</div>
     ${t.antwort ? `<section class="karte"><h2 class="abschnitt">Antwort von Claude</h2><p class="ticket-text">${esc(t.antwort)}</p></section>` : ''}
+    ${t.fuer_kind ? `<section class="karte"><h2 class="abschnitt">So sieht es das Kind</h2><p class="ticket-text">${esc(t.fuer_kind)}</p><p class="klein gedaempft">Erscheint einmal auf dem Startbildschirm, sobald das Ticket erledigt ist.</p></section>` : ''}
     <section class="karte">
       <label class="block" for="ticket-auftrag"><b>Was soll Claude tun?</b> <span class="klein gedaempft">(optional)</span></label>
       <textarea id="ticket-auftrag" class="ticket-auftrag" rows="3">${esc(t.auftrag || '')}</textarea>
@@ -806,11 +807,12 @@ function gestaltungEinstellungen(w) {
   const seg = (act, werte, akt, text = (x) => x) => `<div class="segmente" role="group">${werte.map(x => `<button class="segment${x === akt ? ' an' : ''}" data-act="${act}" data-w="${x}" aria-pressed="${x === akt}">${text(x)}</button>`).join('')}</div>`;
   const st = neuesterStand();
   const heute = st && st.uebung && st.uebung.tag === L.tagKey() ? st.uebung.sek : 0;
-  return `<h2 class="abschnitt">Gestaltung, Umformen und Übungszeit</h2>
+  return `<h2 class="abschnitt">Gestaltung, Bedienung und Übungszeit</h2>
     <section class="karte liste-karte">
       <div class="einstell-block"><span>Gestaltung der App<span class="klein gedaempft block">Logbuch Sternzeit: dunkle Konsole, Logbuch, Wissensarchiv und Wissenspunkte. Hinweiskarten bleiben gleich.</span></span>${seg('gestaltung', ['schrein', 'sternzeit'], w.gestaltung, x => x === 'schrein' ? 'Schrein' : 'Logbuch Sternzeit')}</div>
       <div class="einstell-block"><span>Feedback-Knopf<span class="klein gedaempft block">Kleiner Knopf am rechten Rand. ${esc(name())} kann damit ein Bild der App und einen Text schicken. Er landet unter „Tickets“. Auf Testgeräten ist er immer da.</span></span>${seg('feedbackAn', [true, false], w.feedback === true, x => x ? 'An' : 'Aus')}</div>
       <div class="einstell-block"><span>„In Schritten umformen“: Start-Stufe<span class="klein gedaempft block">3: beide Seiten selbst vereinfachen. 2: die App schreibt eine Seite. 1: die App vereinfacht. Die anderen Stufen gibt es als Hilfe.</span></span>${seg('umformStufe', [3, 2, 1], w.umform_stufe, x => 'Stufe ' + x)}</div>
+      ${L.BEDIENUNG.map(b => `<div class="einstell-block"><span>${esc(b.titel)}<span class="klein gedaempft block">${esc(b.text)}</span></span>${seg('bedienung" data-k="' + b.k, [true, false], w[b.k] ?? b.std, x => x ? 'An' : 'Aus')}</div>`).join('')}
       <div class="einstell-block"><span>Übungszeit pro Tag begrenzen<span class="klein gedaempft block">Gezählt wird die Zeit in Aufgaben. Danach fragt ${esc(name())} dich nach mehr.</span></span>${seg('uzAn', [true, false], u.an, x => x ? 'An' : 'Aus')}</div>
       ${u.an ? `<div class="einstell-block"><span>Höchstens pro Tag</span>${seg('uzMax', BS.UZ_HOECHSTWERTE, u.max)}<span class="klein gedaempft">Minuten. Dann kommt ein freundlicher Hinweis, die laufende Aufgabe darf fertig werden.</span></div>
       <div class="einstell-block"><span>Nachlauf</span>${seg('uzNachlauf', [0, 10, 20], u.nachlauf_prozent, x => x + ' %')}<span class="klein gedaempft">Danach ist für heute Schluss mit Üben: ${Math.round(u.max * (1 + u.nachlauf_prozent / 100))} Min.</span></div>
@@ -1573,6 +1575,7 @@ document.addEventListener('click', (ev) => {
     case 'gestaltung': entwurf.gestaltung = el.dataset.w; if (entwurf.gestaltung === 'sternzeit' && !entwurf.ansicht_name) entwurf.ansicht_name = 'Logbuch Sternzeit'; meldung = null; zeichne(); break;
     case 'umformStufe': entwurf.umform_stufe = Number(el.dataset.w); meldung = null; zeichne(); break;
     case 'feedbackAn': entwurf.feedback = el.dataset.w === 'true'; meldung = null; zeichne(); break;
+    case 'bedienung': entwurf[el.dataset.k] = el.dataset.w === 'true'; meldung = null; zeichne(); break;
     case 'ticketsLaden': ticketsLaden(); break;
     case 'lernplanNeu': lernplanLaden(C.nutzer, true); break;
     case 'ticketFilter': C.ticketFilter = el.dataset.w; konfigSichern(); zeichne(); break;

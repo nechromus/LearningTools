@@ -167,3 +167,6 @@ body.sz #modal .sz-modal .modal-titel { color: var(--sz-pfirsich); font-family: 
 body.sz #modal .sz-modal .modal-x { color: var(--sz-matt); }
 body.sz #modal .sz-modal .gedaempft { color: var(--sz-matt); }
 body.sz #modal .modal-hinter { background: rgba(3, 4, 10, .7); }
+
+/* Zurück oben in Logbuch und Archiv (Wunsch Aliatra, 2.21.0) */
+body.sz #app .sz-zurueck { align-self: flex-start; background: none; border: 0; color: var(--sz-blau); font: inherit; font-weight: 700; font-size: 17px; letter-spacing: .04em; padding: 6px 2px; min-height: 44px; cursor: pointer; }

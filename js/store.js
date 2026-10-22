@@ -29,7 +29,9 @@ function standard() {
     abweichungen: {},       // Anpassungen pro Thema aus der Eltern-App (gelten in jedem Paket)
     etappeAnzeigen: false,  // „Du übst gerade: … · Etappe n von m“ auf dem Startbildschirm
     fernEtappen: null,      // Etappen aus der letzten Einstellungsdatei (zum Erkennen von Änderungen der Eltern)
-    startOffen: [],         // Pakete, die hier gestartet sind (Feld start), aber noch nicht in einstellungen.json stehen
+    startOffen: [],
+    feedbackOffen: null,    // eigene Tickets, die noch nicht erledigt sind (null = noch nie nachgesehen)
+    feedbackNeu: [],        // erledigte Tickets, die das Kind noch nicht gesehen hat: [{ id, text, fuerKind }]         // Pakete, die hier gestartet sind (Feld start), aber noch nicht in einstellungen.json stehen
     ansichtName: '',        // Name der App bei Gestaltung Sternzeit (Standard „Logbuch Sternzeit“)
     gestaltung: 'schrein',  // schrein (Standard) oder sternzeit („Logbuch Sternzeit“), aus der Eltern-App
     uzRegeln: null,         // Übungszeit pro Tag (js/bildschirm.js uzRegeln, null = aus)

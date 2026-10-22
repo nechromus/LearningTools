@@ -29,7 +29,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.20.1';
+export const APP_VERSION = '2.21.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -70,7 +70,10 @@ let spielSitzung = null;     // { start, sekunden }
 let versteckt = null;        // Zeitpunkt, an dem die App verlassen wurde
 
 
-const R = () => L.spielzeitRegeln(S.spielzeit);
+// Bedienung pro Kind (Eltern-App „Gestaltung, Bedienung und Übungszeit“)
+const bed = (k) => L.bedienung(S.einstellungen, k);
+// Taschenrechner ohne Abzug: wie Rechner-Anteil 1
+const R = () => { const r = L.spielzeitRegeln(S.spielzeit); return bed('rechner_frei') ? { ...r, rechner: 1 } : r; };
 const minText = m => `${String(m).replace('.', ',')} ${m === 1 ? 'Minute' : 'Minuten'}`;
 const alleAufgaben = () => [...BASIS_AUFGABEN, ...S.extraAufgaben];
 const sichern = () => speichern(S);
@@ -83,6 +86,8 @@ const BZ = () => BS.bzRegeln(S.bzRegeln);
 const bzKonto = () => (S.bildschirm = BS.kontoVon(S.bildschirm, L.tagKey()));
 let zweck = null;            // wofür in dieser Runde geübt wird: 'spiel' | 'bild' (Frage vor der ersten Aufgabe)
 const istBild = () => zweck === 'bild' && BZ().an;
+// Zeit (Spielzeit oder Bildschirmzeit) in der Aufgabe zeigen? Ohne Spielzeit nur, wenn für Bildschirmzeit geübt wird.
+const zeitZeigen = () => bed('spielzeit_zeigen') || istBild();
 // „Ab 15 Min. kannst du abschicken. Noch 3 Min.“
 const abText = (k) => `Ab ${BS.minText(BS.abSek(BZ()))} kannst du abschicken. Noch ${BS.minText(BS.abSek(BZ()) - k.stand)}`;
 // Eigene, neutrale Zeichnungen (keine Marken-Logos)
@@ -386,6 +391,7 @@ async function testAlsSetzen(ordner) {
 function personaZuruecksetzen(z) {
   for (const f of ['gestaltung', 'ansichtName', 'uzRegeln', 'bzRegeln', 'szRegeln', 'etappeAnzeigen', 'fernEtappen', 'feedbackAn']) delete z[f];
   delete z.einstellungen.umformStufe;
+  for (const b of L.BEDIENUNG) delete z.einstellungen[b.f];
 }
 const ordnerName = (o) => o.charAt(0).toUpperCase() + o.slice(1);
 
@@ -734,6 +740,8 @@ function zeigeStart() {
   if (neuLadenGeplant) { neuLadenWennRuhig(); return; }
   if (S.upload.standWartet) standAbgleich(true).catch(() => {});
   syncen();
+  feedbackRueckmeldungHolen();
+  setTimeout(feedbackRueckmeldungZeigen, 300);
   tagAktualisieren(S);
   const slot = R().basisMin > 0 ? L.basisSlotJetzt(new Date(), S.einstellungen, S.basisSlot) : null;
   const name = S.einstellungen.name ? `, ${esc(S.einstellungen.name)}` : '';
@@ -753,11 +761,11 @@ function zeigeStart() {
     </header>
 
     ${S.upload.testgeraet ? testLeisteHtml() : ''}
-    <section class="guthaben-karte">
+    ${bed('spielzeit_zeigen') ? `<section class="guthaben-karte">
       ${zeitSymbol(44)}
       <div><div class="guthaben-zahl">${L.formatZeit(S.guthaben)}</div><div class="gedaempft">Spielzeit</div></div>
       <button class="splitter-chip" data-act="erfolge" aria-label="Runensplitter und Erfolge">${splitterSymbol(26)}<b>${SP.splitterVon(S.splitter).stand}</b></button>
-    </section>
+    </section>` : ''}
 
     ${bz && bz.stand > 0 ? `
     <section class="bz-karte">
@@ -767,7 +775,7 @@ function zeigeStart() {
       ${BS.kannAbschicken(bz, BZ()) ? '' : `<div class="bz-ab gedaempft">${abText(bz)}</div>`}
     </section>` : ''}
 
-    ${slot ? `
+    ${slot && bed('spielzeit_zeigen') ? `
     <section class="basis-karte">
       <div><b>${minText(R().basisMin)} Spielzeit sind da!</b><div class="gedaempft">Jede Stunde gibt es ${minText(R().basisMin)} geschenkt.</div></div>
       <button class="btn btn-amber" data-act="basis">Abholen</button>
@@ -777,21 +785,21 @@ function zeigeStart() {
     ${uzGesperrt() ? `<section class="info-karte"><b>Für heute hast du dein Pensum erreicht.</b><div class="gedaempft">Die Spiele sind weiter offen.</div></section>
     <button class="btn btn-haupt btn-gross" data-act="uebungszeit">Eltern fragen</button>`
       : `<button class="btn btn-haupt btn-gross" data-act="aufgaben">${S.wartet ? 'Weiter mit deiner Aufgabe' : 'Aufgaben machen'}</button>`}
-    ${spieleStartHtml()}
+    ${bed('spielzeit_zeigen') ? spieleStartHtml() : ''}
 
     <section class="info-karte">
       <div class="info-zeile"><span>Heute geschafft</span><b>${S.tag.aufgaben} ${S.tag.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}</b></div>
-      <div class="info-zeile"><span>Heute verdient</span><b>${L.formatMinuten(S.tag.verdient)} von ${BS.minText(BS.szGrenzeSek(S.szRegeln, S.tag.key))}</b></div>
+      ${bed('spielzeit_zeigen') ? '' : '<!--'}<div class="info-zeile"><span>Heute verdient</span><b>${L.formatMinuten(S.tag.verdient)} von ${BS.minText(BS.szGrenzeSek(S.szRegeln, S.tag.key))}</b></div>${bed('spielzeit_zeigen') ? '' : '-->'}
       ${serieAktiv ? `<div class="info-zeile"><span>Deine Serie</span><b>${S.serie.pos} am Stück</b></div>` : ''}
     </section>
 
-    <section class="regel-karte">
+    ${bed('spielzeit_zeigen') ? '' : '<!--'}<section class="regel-karte">
       <div class="regel-titel">So bekommst du Spielzeit</div>
       <div class="stufen">
         ${R().staffel.map((m, k) => `<div><b>${String(m).replace('.', ',')}</b> Min.<span>${['Aufg. 1–3', 'Aufg. 4–6', 'Aufg. 7–9', 'ab Aufg. 10'][k]}</span></div>`).join('')}
       </div>
       <p class="gedaempft klein">Pro richtige Aufgabe. Je mehr am Stück, desto mehr Zeit. Die Serie endet, wenn du spielst oder 20 Minuten Pause machst.</p>
-    </section>
+    </section>${bed('spielzeit_zeigen') ? '' : '-->'}
     <p class="version-zeile">Version ${APP_VERSION}</p>
     ${hatSpeicherFehler() ? '<p class="warnung">Der Speicher ist voll oder gesperrt. Bitte einem Erwachsenen Bescheid geben.</p>' : ''}
   </div>`;
@@ -860,6 +868,7 @@ function zeigeLogbuch(oeffnen = null) {
   $app.innerHTML = `
   <div class="screen sz-screen">
     ${szKopf()}
+    <button class="sz-zurueck" data-act="start">‹ Zum Start</button>
     <div class="sz-reiter"><button class="an" data-act="logbuch">Logbuch</button><button data-act="archiv">Archiv</button></div>
     ${liste.length ? bloecke : '<p class="sz-matt">Noch keine Einträge.</p>'}
     <button class="sz-knopf" data-act="aufgaben">Aufgaben machen <small>▶</small></button>
@@ -887,6 +896,7 @@ function zeigeArchiv(meldung = '') {
   $app.innerHTML = `
   <div class="screen sz-screen">
     ${szKopf()}
+    <button class="sz-zurueck" data-act="start">‹ Zum Start</button>
     <div class="sz-reiter"><button data-act="logbuch">Logbuch</button><button class="an" data-act="archiv">Archiv</button></div>
     <div class="sz-zeile-wp"><span class="sz-label">Deine Wissenspunkte</span><span class="sz-punkte">◆ ${w.stand} WP</span></div>
     ${meldung ? `<div class="sz-hinweisbox">${meldung}</div>` : ''}
@@ -1008,26 +1018,27 @@ function zeigeStartSternzeit({ bz, slot, serieAktiv }) {
   const sp = SP.splitterVon(S.splitter);
   const gesperrt = uzGesperrt();
   const neu = ungelesen().length;
+  const spz = bed('spielzeit_zeigen');
   $app.innerHTML = `
   <div class="screen sz-screen start">
     <div class="logo sz-logo-flaeche" id="logo">${szKopf()}</div>
     <p class="sz-gruss">Willkommen an Bord${nm ? `, <b>${nm}</b>` : ''}.</p>
     ${S.upload.testgeraet ? testLeisteHtml() : ''}
+    ${gesperrt ? `<div class="sz-panel orange"><b class="sz-pfirsich">Für heute hast du dein Pensum erreicht.</b><div class="sz-matt">Logbuch, Archiv${spz ? ' und Spiele sind' : ' sind'} weiter offen.</div></div>
+    <button class="sz-knopf" data-act="uebungszeit">Eltern fragen <small>▶</small></button>`
+      : `<button class="sz-knopf sz-start-knopf" data-act="aufgaben">${S.wartet ? 'Weiter mit deiner Aufgabe' : 'Aufgaben machen'} <small>▶</small></button>`}
+    <div class="sz-zeile"><button class="sz-knopf flieder klein" data-act="logbuch">Logbuch${neu ? ` · ${neu} neu` : ''}</button><button class="sz-knopf blau klein" data-act="archiv">Archiv</button></div>
     ${etappen.map(p => `<div class="sz-etappe">◆ ${esc(p.paket.name)} · <b>Etappe ${p.etappe} von ${p.paket.etappen.length}</b></div>`).join('')}
     <div class="sz-zeile">
-      <div class="sz-panel blau"><div class="sz-label">Spielzeit</div><div class="sz-wert">${L.formatZeit(S.guthaben)}</div></div>
+      ${spz ? `<div class="sz-panel blau"><div class="sz-label">Spielzeit</div><div class="sz-wert">${L.formatZeit(S.guthaben)}</div></div>` : ''}
       <div class="sz-panel gelb"><div class="sz-label">Wissenspunkte</div><div class="sz-wert gelb">${w.stand}</div></div>
     </div>
     ${bz && bz.stand > 0 ? `<div class="sz-panel blau sz-bz"><div><div class="sz-label">Bildschirmzeit gesammelt</div><div class="sz-wert">${BS.minText(bz.stand)}</div></div>${BS.kannAbschicken(bz, BZ()) ? '<button class="sz-knopf blau klein" data-act="bzSeite">Abschicken</button>' : `<span class="sz-matt klein">${abText(bz)}</span>`}</div>` : ''}
-    ${slot ? `<div class="sz-panel orange sz-bz"><div><b>${minText(R().basisMin)} Spielzeit sind da!</b></div><button class="sz-knopf klein" data-act="basis">Abholen</button></div>` : ''}
-    ${gesperrt ? `<div class="sz-panel orange"><b class="sz-pfirsich">Für heute hast du dein Pensum erreicht.</b><div class="sz-matt">Logbuch, Archiv und Spiele sind weiter offen.</div></div>
-    <button class="sz-knopf" data-act="uebungszeit">Eltern fragen <small>▶</small></button>`
-      : `<button class="sz-knopf" data-act="aufgaben">${S.wartet ? 'Weiter mit deiner Aufgabe' : 'Aufgaben machen'} <small>▶</small></button>`}
-    <div class="sz-zeile"><button class="sz-knopf flieder klein" data-act="logbuch">Logbuch${neu ? ` · ${neu} neu` : ''}</button><button class="sz-knopf blau klein" data-act="archiv">Archiv</button></div>
-    <button class="sz-knopf matt klein" data-act="spielauswahl">Spiele <small>${sp.stand} Runensplitter</small></button>
+    ${slot && spz ? `<div class="sz-panel orange sz-bz"><div><b>${minText(R().basisMin)} Spielzeit sind da!</b></div><button class="sz-knopf klein" data-act="basis">Abholen</button></div>` : ''}
+    ${spz ? `<button class="sz-knopf matt klein" data-act="spielauswahl">Spiele <small>${sp.stand} Runensplitter</small></button>` : ''}
     <div class="sz-panel"><div class="sz-label">Heute</div>
       <div>${S.tag.aufgaben} ${S.tag.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'} · ${S.tag.ersterVersuch} im 1. Versuch${serieAktiv ? ` · Serie ${S.serie.pos}` : ''}</div>
-      <div class="sz-matt klein">Spielzeit verdient: ${L.formatMinuten(S.tag.verdient)} von ${BS.minText(BS.szGrenzeSek(S.szRegeln, S.tag.key))}${UZ().an ? ` · Übungszeit: ${Math.floor(uzKonto().sek / 60)} Min.` : ''}</div></div>
+      ${spz || UZ().an ? `<div class="sz-matt klein">${[spz ? `Spielzeit verdient: ${L.formatMinuten(S.tag.verdient)} von ${BS.minText(BS.szGrenzeSek(S.szRegeln, S.tag.key))}` : '', UZ().an ? `Übungszeit: ${Math.floor(uzKonto().sek / 60)} Min.` : ''].filter(Boolean).join(' · ')}</div>` : ''}</div>
     <p class="version-zeile">Version ${APP_VERSION}</p>
     ${hatSpeicherFehler() ? '<p class="warnung">Der Speicher ist voll oder gesperrt. Bitte einem Erwachsenen Bescheid geben.</p>' : ''}
   </div>`;
@@ -1583,7 +1594,7 @@ function neueAufgabe() {
     fertig: false, meldung: null, feld: 'z', wdh, test: !!fokus, ...paketInfo(paketId)
   };
   // Geschichten Satz für Satz zeigen (weniger Text auf einmal)
-  if (aufgabe.geschichte && L.saetzeVon(aufgabe.geschichte).length > 1) A.satz = 1;
+  if (aufgabe.geschichte && L.saetzeVon(aufgabe.geschichte).length > 1 && bed('satzweise')) A.satz = 1;
   teileStarten(A.teile);
   if (aufgabe.modus === 'knobeln') A.knobeln = true;
   if (aufgabe.typ === 'zuordnung') zuordnungVorbereiten();
@@ -1591,6 +1602,7 @@ function neueAufgabe() {
   S.verlauf.letzteIds = [...S.verlauf.letzteIds, aufgabe.id].slice(-20);
   sichern();
   setzeAnsicht('aufgabe');
+  if (ufSofort()) return ufAn(true);
   zeigeAufgabe();
 }
 
@@ -1604,9 +1616,12 @@ function teileStarten(teile) {
 // Stufe 3: beide Seiten selbst, Stufe 2: die App schreibt eine Seite, Stufe 1: die App vereinfacht. Start-Stufe aus der Eltern-App.
 const ufStartStufe = () => ([1, 2, 3].includes(S.einstellungen.umformStufe) ? S.einstellungen.umformStufe : 3);
 const ufAngebot = () => !!(A && !A.uf && !A.fertig && A.phase === 'eingabe' && !liestNoch() && UF.umformbar(A.aufgabe));
+// Gleichungen gleich in Schritten umformen (Schalter pro Kind), ohne Abzug bei den Wissenspunkten
+const ufSofort = () => bed('umformen_sofort') && ufAngebot() && !A.teile.some(t => t.versuche.length);
 const OPZ = { '+': '+', '-': '−', '*': '·', '/': ':' };
-function ufAn() {
+function ufAn(sofort = false) {
   if (!ufAngebot()) return;
+  if (sofort) A.ufSofort = true;
   const a = A.aufgabe;
   const vars = UF.groessenVon(a);
   if (A.teile.some(t => t.versuche.some(v => !v.richtig))) A.knobelFalsch = true;
@@ -1621,7 +1636,7 @@ function ufAn() {
   A.teile = [{ art: 'umformen' }];
   teileStarten(A.teile);
   A.idx = 0; A.phase = 'eingabe'; A.meldung = null;
-  protokoll(S, 'umformen_an', { id: a.id, stufe: A.uf.stufe, aufstellen: auf, ms: Date.now() - A.start });
+  protokoll(S, 'umformen_an', { id: a.id, stufe: A.uf.stufe, aufstellen: auf, ms: Date.now() - A.start, ...(sofort ? { sofort: true } : {}) });
   sichern();
   zeigeAufgabe();
 }
@@ -1680,7 +1695,7 @@ function umformHtml(t, aktiv) {
       ${u.tippen ? '' : `<button class="btn-text klein uf-tippen" data-act="ufTippen">⌨ Eigene Zahl oder Term tippen</button>`}
       ${u.vorschlag ? `<div class="uf-hilfe-box"><b>Vorschlag für den nächsten Schritt:</b> ${esc(u.vorschlag)}</div>` : ''}`;
   } else {
-    const frage = u.stufe === 1 ? 'Die App hat vereinfacht. Lies den Schritt durch.' : u.stufe === 2 ? 'Vereinfache die Seite, die noch offen ist.' : 'Vereinfache beide Seiten.';
+    const frage = u.stufe === 1 ? 'Die App hat vereinfacht. Lies den Schritt durch.' : u.stufe === 2 ? 'Vereinfache die Seite, die noch offen ist. Tippe sie an, schreib sie neu und tippe auf „Seite prüfen“.' : 'Vereinfache beide Seiten. Tippe eine Seite an, schreib sie neu und tippe auf „Seite prüfen“.';
     inhalt = `<div class="uf-weg">${weg}${ufZeile(u.gl, UF.umformungText(u.u), 'alt')}${ufZeile(u.roh, '', 'neu')}</div>${zurueck}
       <p class="uf-frage">${frage}</p>
       <div class="uf-zwei">${seite('l')}<span class="uf-gleich">=</span>${seite('r')}</div>
@@ -1703,7 +1718,7 @@ function ufFuss() {
   const vars = [...u.vars, ...(u.pi ? ['π'] : [])].slice(0, 6);
   const ok = u.phase === 'waehlen' ? `<button class="ok" data-act="ufAnwenden" ${u.op && !UF.istLeer(u.term) ? '' : 'disabled'}>Anwenden</button>`
     : u.phase === 'aufstellen' && !UF.istLeer(u.ed.l) && !UF.istLeer(u.ed.r) ? '<button class="ok" data-act="ufPruefen">Gleichung prüfen</button>'
-    : '<button class="ok" data-act="ufPruefen">Seite fertig</button>';
+    : `<button class="ok" data-act="ufPruefen">${u.seite === 'r' ? 'Rechte' : 'Linke'} Seite prüfen</button>`;
   return `<div class="ft2">
     <div class="ft-oben">${vars.map(v => k(v, 'var')).join('')}${ok}</div>
     <div class="ft-gitter">
@@ -1904,7 +1919,7 @@ function ufZurueck() {
 function ufHilfeKnopf() {
   const u = A.uf;
   if (!u) return '';
-  const kosten = A.hilfeGenutzt || hilfeAnteil() >= 1 ? '' : hilfeAnteil() > 0 ? ' · ½ Zeit' : ' · keine Zeit';
+  const kosten = A.hilfeGenutzt || hilfeAnteil() >= 1 || !zeitZeigen() ? '' : hilfeAnteil() > 0 ? ' · ½ Zeit' : ' · keine Zeit';
   if (u.phase === 'aufstellen') return u.app.l != null ? '' : `<button class="btn btn-klein btn-hilfe" data-act="ufHilfe">${u.aufTipp ? 'Mehr Hilfe' : 'Hilf mir'}${kosten}</button>`;
   if (u.phase === 'waehlen') return `<button class="btn btn-klein btn-hilfe" data-act="ufHilfe">${u.vorschlag ? 'Vorschlag übernehmen' : 'Hilf mir'}${kosten}</button>`;
   if (u.stufe === 1) return '';
@@ -1985,13 +2000,15 @@ function zeigeAufgabe() {
     `<button class="hw-btn${A.meldung && A.phase === 'tipp' ? ' pulsieren' : ''}" data-act="hinweis" data-id="${id}" aria-label="Hinweis ${esc(HMAP[id].titel)}">${hinweisIcon(HMAP[id], 42)}</button>`).join('');
 
   const wpMoeglich = sternzeit() && A.knobeln && !A.fertig && a.wissenspunkte ? a.wissenspunkte : null;
+  // Ohne „Verstanden“: Tipp direkt unter der Eingabe, damit ihn die Tastatur nicht verdeckt
+  const tippInKarte = !bed('verstanden') && !!A.meldung && A.phase === 'eingabe' && !(A.uf && !A.fertig);
   $app.innerHTML = `
   <div class="screen aufgabe-screen${A.uf && !A.fertig ? ' mit-uf' : ''}">
     ${sternzeit() ? szKopf() : ''}
     <header class="topbar">
       <button class="btn-text" data-act="beenden">✕ Fertig</button>
-      <div class="serie-chip">Aufgabe ${A.serienPos} · <b>${istBild() ? String(min * BZ().faktor).replace('.', ',') : tz} Min.</b></div>
-      ${istBild() ? `<div class="zeit-chip bz-chip">${videoSymbol(18)}${BS.minText(bzKonto().stand)}</div>` : `<div class="zeit-chip">${zeitSymbol(18)}${L.formatZeit(S.guthaben)}</div>`}
+      ${zeitZeigen() ? `<div class="serie-chip">Aufgabe ${A.serienPos} · <b>${istBild() ? String(min * BZ().faktor).replace('.', ',') : tz} Min.</b></div>
+      ${istBild() ? `<div class="zeit-chip bz-chip">${videoSymbol(18)}${BS.minText(bzKonto().stand)}</div>` : `<div class="zeit-chip">${zeitSymbol(18)}${L.formatZeit(S.guthaben)}</div>`}` : `<div class="serie-chip">Aufgabe ${A.serienPos}</div>`}
     </header>
     <main class="aufgabe-inhalt">
       ${A.wartete && !A.fertig && A.teile.every(t => !t.versuche.length) ? '<p class="wartet-hinweis">Diese Aufgabe wartet noch auf dich.</p>' : ''}
@@ -2007,14 +2024,15 @@ function zeigeAufgabe() {
         <div class="teile">${teileHtml()}</div>
         ${ufAngebot() ? `<button class="btn knobel-schritte" data-act="ufAn">In Schritten umformen${sternzeit() && !A.test ? ` <small>· dann ${wpMoeglich ? wpMoeglich.schritte : 1} WP</small>` : ''}</button>`
           : A.knobeln && !A.fertig && A.phase === 'eingabe' ? `<button class="btn knobel-schritte" data-act="schritteAn">In Schritten rechnen${wpMoeglich ? ` <small>· dann ${wpMoeglich.schritte} WP</small>` : ''}</button>` : ''}`}
+        ${tippInKarte ? `<div class="meldung meldung-in-karte">${esc(A.meldung)}</div>` : ''}
         <div class="hw-leiste"><span class="gedaempft">Hinweis:</span>${icons}
           ${wpMoeglich ? `<span class="sz-punkte wp-chip">◆ ${wpMoeglich.knobeln} WP</span>` : ''}
           ${L.rechnerFrei(a) && !A.fertig ? '<button class="btn btn-klein btn-rechner" data-act="rechner">Taschenrechner</button>' : ''}
           ${hilfeKnopf()}
-          ${rechnerAngeboten(a) && !A.fertig ? `<button class="btn btn-klein btn-rechner optional" data-act="rechnerOptional">${A.rechnerHalb || R().rechner >= 1 ? 'Taschenrechner' : R().rechner > 0 ? 'Taschenrechner · ½ Zeit' : 'Taschenrechner · keine Zeit'}</button>` : ''}
+          ${rechnerAngeboten(a) && !A.fertig ? `<button class="btn btn-klein btn-rechner optional" data-act="rechnerOptional">${A.rechnerHalb || R().rechner >= 1 || !zeitZeigen() ? 'Taschenrechner' : R().rechner > 0 ? 'Taschenrechner · ½ Zeit' : 'Taschenrechner · keine Zeit'}</button>` : ''}
         </div>
       </article>
-      ${A.meldung && A.phase === 'eingabe' && !(A.uf && !A.fertig) ? `<div class="meldung">${esc(A.meldung)}</div>` : ''}
+      ${A.meldung && A.phase === 'eingabe' && !(A.uf && !A.fertig) && !tippInKarte ? `<div class="meldung">${esc(A.meldung)}</div>` : ''}
       ${A.fertig ? ergebnisHtml() : ''}
     </main>
     <footer class="eingabe-bereich">${fussHtml()}</footer>
@@ -2027,6 +2045,7 @@ function zeigeAufgabe() {
     ufSichtbar();
   }
   else if (aktiv && !A.fertig) aktiv.scrollIntoView({ block: 'nearest' });
+
 }
 
 // ---------- Textaufgaben: Satz für Satz, Vorlesen, Zahlen markieren ----------
@@ -2077,6 +2096,7 @@ function naechsterSatz() {
   if (!liestNoch()) {
     protokoll(S, 'gelesen', { id: A.aufgabe.id, ms: Date.now() - A.start });
     const t = aktuellerTeil(); if (t) t.seit = Date.now();
+    if (ufSofort()) { sichern(); return ufAn(true); }
   }
   sichern();
   zeigeAufgabe();
@@ -2300,7 +2320,7 @@ function fussHtml() {
     return `<div class="fuss-knoepfe">
       ${A.sz && A.sz.voll && BZ().an && BS.restSek(bzKonto(), BZ()) > 0 ? '<button class="btn btn-bz btn-gross" data-act="zweckBild">Weiter für Bildschirmzeit üben</button>' : '<button class="btn btn-haupt btn-gross" data-act="naechste">Nächste Aufgabe</button>'}
       ${A.bild ? (BS.kannAbschicken(bzKonto(), BZ()) ? `<button class="btn btn-bz-rand" data-act="bzSeite">${BS.minText(bzKonto().stand)} abschicken</button>` : '')
-        : `<button class="btn btn-amber-rand" data-act="zumSpiel">Zum Spiel · ${L.formatZeit(S.guthaben)}</button>`}
+        : bed('spielzeit_zeigen') ? `<button class="btn btn-amber-rand" data-act="zumSpiel">Zum Spiel · ${L.formatZeit(S.guthaben)}</button>` : ''}
 
     </div>`;
   }
@@ -2318,7 +2338,7 @@ function fussHtml() {
     return `${aufklappen}${t.bonus ? '<button class="btn-text klein ueberspringen" data-act="teilUeberspringen">Bonus überspringen</button>' : ''}
     ${zpSchalter ? `<div class="zp-schalter"><button class="${A.feld !== 'e' ? 'an' : ''}" data-act="feld" data-feld="z">Zahl</button><button class="${A.feld === 'e' ? 'an' : ''}" data-act="feld" data-feld="e">Hochzahl</button></div>` : ''}
     <div class="tastatur">
-      ${['7', '8', '9', '⌫', '4', '5', '6', '−', '1', '2', '3', ','].map(k => `<button class="taste${k === '⌫' || k === '−' || k === ',' ? ' taste-sonder' : ''}" data-act="taste" data-k="${k}" ${(t.art === 'bruch' && (k === '−' || k === ',')) || komma(k) ? 'disabled' : ''} aria-label="${k === '⌫' ? 'Löschen' : k === '−' ? 'Minus' : k}">${k}</button>`).join('')}
+      ${['7', '8', '9', '⌫', '4', '5', '6', '−', '1', '2', '3', ','].map(k => `<button class="taste${k === '⌫' || k === '−' || k === ',' ? ' taste-sonder' : ''}${k === '−' ? ' taste-vz' : ''}" data-act="taste" data-k="${k}" ${(t.art === 'bruch' && (k === '−' || k === ',')) || komma(k) ? 'disabled' : ''} aria-label="${k === '⌫' ? 'Löschen' : k === '−' ? 'Vorzeichen umschalten' : k}">${k === '−' ? '+/−' : k}</button>`).join('')}
       ${zpKnopf ? `<button class="taste" data-act="taste" data-k="0">0</button><button class="taste taste-sonder taste-zp${t.zp ? ' an' : ''}" data-act="zpUmschalten" aria-label="Zahl mal Zehnerpotenz">· 10ⁿ</button>` : '<button class="taste taste-null" data-act="taste" data-k="0">0</button>'}
       <button class="taste taste-ok" data-act="antwort">Antwort geben</button>
     </div>`;
@@ -2365,11 +2385,11 @@ function ergebnisHtml() {
     zeit += b.voll ? `<p class="wechsel-hinweis">Die Bildschirmzeit ist für heute voll. Ab jetzt kommt alle Zeit zur Spielzeit im Schrein.</p>`
       : `<div class="konto-zeile"><span>Heute noch möglich</span><b>${BS.minText(b.rest)}</b></div>`;
   }
-  if (A.sz && sek > 0) {
+  if (A.sz && sek > 0 && bed('spielzeit_zeigen')) {
     zeit += `<div class="mini-gewinn wk-schrein"><span class="mini-icons">${schreinMini()}</span><div><b>+${L.formatMinuten(sek)}</b><small>Spielzeit im Schrein${A.kopf ? ` · mit Kopf-Bonus ×${String(R().kopf).replace('.', ',')}` : ''}</small></div></div>
       <div class="konto-zeile"><span>Jetzt hast du</span><b>${L.formatZeit(S.guthaben)} Min.</b></div>`;
   }
-  if (A.sz && A.sz.voll && A.ergebnis !== 'loesung') {
+  if (A.sz && A.sz.voll && A.ergebnis !== 'loesung' && bed('spielzeit_zeigen')) {
     const bzRest = BZ().an ? BS.restSek(bzKonto(), BZ()) : 0;
     zeit += `<p class="voll-hinweis"><b>Die Spielzeit im Schrein ist für heute voll.</b><br>${bzRest > 0 ? `Du kannst noch ${BS.minText(bzRest)} Bildschirmzeit verdienen.` : 'Runensplitter gibt es weiter.'}</p>`;
   }
@@ -2431,7 +2451,7 @@ function hilfeKnopf() {
     const haupt = A.teile.filter(x => !x.merk);
     if (!L.hilfeAnzeige(A.aufgabe.loesungsweg || [], haupt.length, haupt.indexOf(t), t.hilfe).mehr) return '';
   } else if (!hilfeDaten(t)) return '';
-  const kosten = A.hilfeGenutzt || hilfeAnteil() >= 1 ? '' : hilfeAnteil() > 0 ? ' · ½ Zeit' : ' · keine Zeit';
+  const kosten = A.hilfeGenutzt || hilfeAnteil() >= 1 || !zeitZeigen() ? '' : hilfeAnteil() > 0 ? ' · ½ Zeit' : ' · keine Zeit';
   return `<button class="btn btn-klein btn-hilfe" data-act="hilfe">${t.hilfe ? 'Noch ein Schritt' : 'Hilf mir'}${kosten}</button>`;
 }
 
@@ -2484,7 +2504,7 @@ function tastatur(k) {
   if (k === '⌫') e = e.slice(0, -1);
   else if (k === '−') e = e.startsWith('-') ? e.slice(1) : '-' + e;
   else if (k === ',') { if (!e.includes(',')) e = (e === '' || e === '-' ? e + '0' : e) + ','; }
-  else if (e.replace(/[-,]/g, '').length < 9) e += k;
+  else if (e.replace(/[-,]/g, '').length < 15) e += k;
   t.eingabe = e;
   zeigeAufgabe();
 }
@@ -2593,7 +2613,8 @@ function versuchMerken(t, eingabe, richtig, fehler) {
   const maxVersuche = t.art === 'wahl' ? 1 : 2;
   if (t.versuche.length < maxVersuche) {
     t.tipp = fehler ? fehler.text : 'Schau dir den Hinweis an und rechne noch einmal.';
-    A.phase = 'tipp';
+    // Ohne „Verstanden“ (Schalter pro Kind): der Tipp bleibt stehen, bis weitergetippt wird
+    A.phase = bed('verstanden') ? 'tipp' : 'eingabe';
     A.meldung = t.tipp;
     t.eingabe = ''; t.z = ''; t.n = ''; t.e = ''; t.tokens = []; t.gelegt = [];
   } else {
@@ -2672,7 +2693,7 @@ function abschliessen() {
   S.verlauf.zaehler++;
   S.verlauf.themaZuletzt[a.thema] = { ergebnis, stufe: a.stufe };
   // Wissenspunkte (nur Gestaltung Sternzeit)
-  A.wp = sternzeit() && !A.test ? L.wissenspunkteFuer(a, { ergebnis, schritte: !!A.schritteAn }) : 0;
+  A.wp = sternzeit() && !A.test ? L.wissenspunkteFuer(a, { ergebnis, schritte: !!A.schritteAn && !A.ufSofort }) : 0;
   S.serie.letzteAktivitaet = Date.now();
   protokoll(S, 'aufgabe_ende', {
     id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: A.sekunden, serienPos: A.serienPos,
@@ -2780,7 +2801,7 @@ function zuordnungAntwort() {
     z.falsch = new Set(falsch);
     const n = falsch.length;
     t.tipp = `${n} ${n === 1 ? 'Kästchen stimmt' : 'Kästchen stimmen'} noch nicht. Sie sind markiert.`;
-    A.phase = 'tipp'; A.meldung = t.tipp;
+    A.phase = bed('verstanden') ? 'tipp' : 'eingabe'; A.meldung = t.tipp;
     sichern();
     return zeigeAufgabe();
   }
@@ -4065,6 +4086,7 @@ async function feedbackSenden() {
     const von = S.einstellungen.name ? nutzerOrdner() : 'unbekannt';
     const id = await FB.senden({ repo: S.upload.repo, token: S.upload.token }, { text: FBE.text, bild: FBE.bild, foto: FBE.foto, kontext: FBE.kontext, von });
     protokoll(S, 'feedback', { id });
+    S.feedbackOffen = [...(S.feedbackOffen || []), id];
     sichern();
     FBE = null;
     oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Danke!</h2><p>Dein Feedback ist angekommen.</p><button class="btn btn-haupt" data-act="modalZu">Schließen</button></div>`);
@@ -4072,6 +4094,46 @@ async function feedbackSenden() {
     FBE.sendet = false;
     feedbackZeigen(`Senden hat nicht geklappt: ${err.message || 'Fehler'}. Versuch es gleich noch einmal.`);
   }
+}
+
+// ---------- Rückmeldung zu eigenen Tickets: Was wurde geändert? ----------
+// Ist ein eigenes Ticket erledigt, zeigt der Startbildschirm einmal, was sich geändert hat (Feld fuer_kind, sonst ein allgemeiner Satz).
+let rueckZuletzt = 0, rueckLaeuft = false;
+async function feedbackRueckmeldungHolen() {
+  const u = S.upload;
+  if (rueckLaeuft || !u.token || !u.repo || !S.einstellungen.name || Date.now() - rueckZuletzt < 10 * 60 * 1000) return;
+  rueckLaeuft = true; rueckZuletzt = Date.now();
+  const ich = nutzerOrdner();
+  try {
+    // Beim ersten Mal: eigene Tickets im Daten-Repo suchen (auch solche von vor dieser Version)
+    if (!Array.isArray(S.feedbackOffen)) {
+      const liste = (await U.ordnerLesen(u, 'feedback')).filter(f => f.type === 'file' && /\.json$/.test(f.name));
+      const eigene = [];
+      for (const f of liste) {
+        const t = await U.dateiLesen(u, `feedback/${f.name}`).catch(() => null);
+        if (t && t.von === ich && (t.status !== 'erledigt' || t.fuer_kind)) eigene.push(t.id);
+      }
+      S.feedbackOffen = eigene;
+    }
+    for (const id of S.feedbackOffen.slice()) {
+      const t = await U.dateiLesen(u, `feedback/${id}.json`).catch(() => null);
+      if (!t) continue;
+      if (t.status === 'erledigt') {
+        S.feedbackNeu = [...(S.feedbackNeu || []), { id, text: String(t.text || '').slice(0, 300), fuerKind: String(t.fuer_kind || '').slice(0, 500) }];
+        S.feedbackOffen = S.feedbackOffen.filter(x => x !== id);
+        protokoll(S, 'feedback_erledigt_gemeldet', { id });
+      }
+    }
+    sichern();
+  } catch (e) { /* später noch einmal */ } finally { rueckLaeuft = false; }
+  if (ansicht === 'start') feedbackRueckmeldungZeigen();
+}
+function feedbackRueckmeldungZeigen() {
+  const neu = S.feedbackNeu || [];
+  if (!neu.length || $modal.classList.contains('offen')) return;
+  oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">${neu.length > 1 ? 'Deine Meldungen sind erledigt' : 'Deine Meldung ist erledigt'}</h2>
+    ${neu.map(m => `<p class="gedaempft">Du hattest geschrieben: „${esc(m.text)}“</p><p>${esc(m.fuerKind || 'Wir haben uns das angesehen und es in der App geändert.')}</p>`).join('')}
+    <p>Danke fürs Melden!</p><button class="btn btn-haupt" data-act="modalZu">Super</button></div>`, () => { S.feedbackNeu = []; sichern(); });
 }
 
 function oeffneModal(html, beimSchliessen = null) {
@@ -4099,6 +4161,8 @@ function klick(e) {
     case 'aufgaben':
       if (ansicht === 'spiel') spielBeenden();
       // Vor der ersten Aufgabe einer Runde fragen: Spielzeit oder Bildschirmzeit?
+      // Ohne Spielzeit (Schalter pro Kind): keine Frage, es zählt Bildschirmzeit, wenn sie an ist und noch etwas geht
+      if (ansicht === 'start' && !zweck && !bed('spielzeit_zeigen')) { zweck = BZ().an && BS.restSek(bzKonto(), BZ()) > 0 ? 'bild' : 'spiel'; protokoll(S, 'zweck', { zweck, grund: 'ohne_spielzeit' }); }
       if (ansicht === 'start' && BZ().an && !zweck) { zeigeWahl(); break; }
       if (!zweck) zweck = 'spiel';
       neueAufgabe(); break;
