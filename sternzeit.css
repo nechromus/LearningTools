@@ -10,52 +10,53 @@ body.sz {
   --sz-orange: #FF9F5A; --sz-pfirsich: #FFCC99; --sz-flieder: #C9A0DC; --sz-blau: #8FBFFF; --sz-gelb: #F2D27A;
   background: var(--sz-grund); color: var(--sz-text);
 }
-/* Die bestehenden Bausteine (Aufgabe, Tastatur, Ergebnis) über ihre Farbvariablen umfärben – nur in #app, nicht im Fenster */
-body.sz #app {
+/* Die bestehenden Bausteine (Aufgabe, Tastatur, Ergebnis) über ihre Farbvariablen umfärben – in #app und in Dialogen (.sz-modal).
+   Hinweiskarten und Formelübersicht bleiben im Schrein-Stil. */
+body.sz :is(#app, .sz-modal) {
   --hg: #07080F; --karte: #141726; --flaeche: #141726; --text: #F1ECE4; --gedaempft: #A9A9C2; --linie: #3A3F5C;
   --teal: #8FBFFF; --teal-dunkel: #FFCC99; --teal-hell: #262B45;
   --amber: #FF9F5A; --amber-dunkel: #FFCC99; --amber-hell: #2A2236; --fuell: #F2D27A;
   color: var(--text);
 }
-body.sz #app h1, body.sz #app h2, body.sz #app h3, body.sz #app .erfolg-titel, body.sz #app .lw-titel, body.sz #app .regel-titel {
+body.sz :is(#app, .sz-modal) h1, body.sz :is(#app, .sz-modal) h2, body.sz :is(#app, .sz-modal) h3, body.sz :is(#app, .sz-modal) .erfolg-titel, body.sz :is(#app, .sz-modal) .lw-titel, body.sz :is(#app, .sz-modal) .regel-titel {
   font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; letter-spacing: .04em;
 }
-body.sz #app .btn { border-radius: 26px; background: #262B45; border-color: #262B45; color: var(--sz-text); }
-body.sz #app .btn-haupt { background: var(--sz-orange); border-color: var(--sz-orange); color: #120D08; text-transform: uppercase; letter-spacing: .08em; }
-body.sz #app .btn-amber-rand { background: var(--sz-flieder); border-color: var(--sz-flieder); color: #160E1A; }
-body.sz #app .btn-text { color: var(--sz-blau); }
-body.sz #app .karte.aufgabe { border: 0; border-top: 8px solid var(--sz-blau); border-radius: 18px; }
-body.sz #app .geschichte-box { color: var(--sz-text); }
-body.sz #app .frage { color: var(--sz-pfirsich); }
-body.sz #app .feld { background: #0B0D18; border-color: var(--sz-blau); color: var(--sz-text); border-radius: 12px; }
-body.sz #app .taste { background: #262B45; border-color: #262B45; color: var(--sz-text); border-radius: 14px; }
-body.sz #app .taste-sonder { background: var(--sz-flieder); border-color: var(--sz-flieder); color: #160E1A; }
-body.sz #app .taste-zp, body.sz #app .formel-tastatur .taste-var { background: var(--sz-blau); border-color: var(--sz-blau); color: #08111F; }
-body.sz #app .taste-zp.an { outline: 3px solid var(--sz-gelb); }
-body.sz #app .taste-ok { background: var(--sz-orange); border-color: var(--sz-orange); color: #160C04; }
-body.sz #app .zp-schalter { background: #262B45; }
-body.sz #app .zp-schalter button.an { background: var(--sz-blau); color: #08111F; }
-body.sz #app .wahl-btn { border-color: var(--sz-blau); color: var(--sz-text); background: #0B0D18; }
-body.sz #app .wahl-richtig { background: #1F3350; }
-body.sz #app .tipp { background: #2A2236; border-left-color: var(--sz-flieder); color: var(--sz-text); }
-body.sz #app .meldung { background: #262B45; color: var(--sz-pfirsich); }
-body.sz #app .ergebnis-karte { background: var(--sz-panel); border: 0; border-left: 10px solid var(--sz-orange); border-radius: 18px; }
-body.sz #app .loesungsweg { background: #0F1220; border-left-color: var(--sz-gelb); }
-body.sz #app .merkzettel { background: #0F1220; border-color: var(--sz-gelb); }
-body.sz #app .serie-chip { background: #262B45; color: var(--sz-blau); }
-body.sz #app .zeit-chip { color: var(--sz-pfirsich); }
-body.sz #app .hw-leiste { border-top-color: #262B45; }
-body.sz #app .formel-feld { background: #0B0D18; border-color: var(--sz-blau); }
-body.sz #app .formel-karte { background: var(--sz-pfirsich); border-color: var(--sz-pfirsich); color: #1C1108; }
-body.sz #app .knobel-zeile { color: var(--sz-gelb); letter-spacing: .04em; }
-body.sz #app .knobel-schritte { background: #3A3F5C; border-color: #3A3F5C; }
-body.sz #app .uz-hinweis { background: #2A2236; border-left-color: var(--sz-flieder); color: var(--sz-text); }
-body.sz #app .uz-panel { background: var(--sz-panel); border: 0; border-left: 10px solid var(--sz-orange); }
-body.sz #app .info-karte, body.sz #app .regel-karte { border-color: #262B45; }
-body.sz #app .test-leiste { background: #262B45; color: var(--sz-text); }
-body.sz #app .eingabe-bereich { background: var(--sz-grund); }
-body.sz #app .version-zeile { color: #5B6080; }
-body.sz #app .aufgabe-screen .sz-kopf { margin-bottom: 0; }
+body.sz :is(#app, .sz-modal) .btn { border-radius: 26px; background: #262B45; border-color: #262B45; color: var(--sz-text); }
+body.sz :is(#app, .sz-modal) .btn-haupt { background: var(--sz-orange); border-color: var(--sz-orange); color: #120D08; text-transform: uppercase; letter-spacing: .08em; }
+body.sz :is(#app, .sz-modal) .btn-amber-rand { background: var(--sz-flieder); border-color: var(--sz-flieder); color: #160E1A; }
+body.sz :is(#app, .sz-modal) .btn-text { color: var(--sz-blau); }
+body.sz :is(#app, .sz-modal) .karte.aufgabe { border: 0; border-top: 8px solid var(--sz-blau); border-radius: 18px; }
+body.sz :is(#app, .sz-modal) .geschichte-box { color: var(--sz-text); }
+body.sz :is(#app, .sz-modal) .frage { color: var(--sz-pfirsich); }
+body.sz :is(#app, .sz-modal) .feld { background: #0B0D18; border-color: var(--sz-blau); color: var(--sz-text); border-radius: 12px; }
+body.sz :is(#app, .sz-modal) .taste { background: #262B45; border-color: #262B45; color: var(--sz-text); border-radius: 14px; }
+body.sz :is(#app, .sz-modal) .taste-sonder { background: var(--sz-flieder); border-color: var(--sz-flieder); color: #160E1A; }
+body.sz :is(#app, .sz-modal) .taste-zp, body.sz :is(#app, .sz-modal) .formel-tastatur .taste-var { background: var(--sz-blau); border-color: var(--sz-blau); color: #08111F; }
+body.sz :is(#app, .sz-modal) .taste-zp.an { outline: 3px solid var(--sz-gelb); }
+body.sz :is(#app, .sz-modal) .taste-ok { background: var(--sz-orange); border-color: var(--sz-orange); color: #160C04; }
+body.sz :is(#app, .sz-modal) .zp-schalter { background: #262B45; }
+body.sz :is(#app, .sz-modal) .zp-schalter button.an { background: var(--sz-blau); color: #08111F; }
+body.sz :is(#app, .sz-modal) .wahl-btn { border-color: var(--sz-blau); color: var(--sz-text); background: #0B0D18; }
+body.sz :is(#app, .sz-modal) .wahl-richtig { background: #1F3350; }
+body.sz :is(#app, .sz-modal) .tipp { background: #2A2236; border-left-color: var(--sz-flieder); color: var(--sz-text); }
+body.sz :is(#app, .sz-modal) .meldung { background: #262B45; color: var(--sz-pfirsich); }
+body.sz :is(#app, .sz-modal) .ergebnis-karte { background: var(--sz-panel); border: 0; border-left: 10px solid var(--sz-orange); border-radius: 18px; }
+body.sz :is(#app, .sz-modal) .loesungsweg { background: #0F1220; border-left-color: var(--sz-gelb); }
+body.sz :is(#app, .sz-modal) .merkzettel { background: #0F1220; border-color: var(--sz-gelb); }
+body.sz :is(#app, .sz-modal) .serie-chip { background: #262B45; color: var(--sz-blau); }
+body.sz :is(#app, .sz-modal) .zeit-chip { color: var(--sz-pfirsich); }
+body.sz :is(#app, .sz-modal) .hw-leiste { border-top-color: #262B45; }
+body.sz :is(#app, .sz-modal) .formel-feld { background: #0B0D18; border-color: var(--sz-blau); }
+body.sz :is(#app, .sz-modal) .formel-karte { background: var(--sz-pfirsich); border-color: var(--sz-pfirsich); color: #1C1108; }
+body.sz :is(#app, .sz-modal) .knobel-zeile { color: var(--sz-gelb); letter-spacing: .04em; }
+body.sz :is(#app, .sz-modal) .knobel-schritte { background: #3A3F5C; border-color: #3A3F5C; }
+body.sz :is(#app, .sz-modal) .uz-hinweis { background: #2A2236; border-left-color: var(--sz-flieder); color: var(--sz-text); }
+body.sz :is(#app, .sz-modal) .uz-panel { background: var(--sz-panel); border: 0; border-left: 10px solid var(--sz-orange); }
+body.sz :is(#app, .sz-modal) .info-karte, body.sz :is(#app, .sz-modal) .regel-karte { border-color: #262B45; }
+body.sz :is(#app, .sz-modal) .test-leiste { background: #262B45; color: var(--sz-text); }
+body.sz :is(#app, .sz-modal) .eingabe-bereich { background: var(--sz-grund); }
+body.sz :is(#app, .sz-modal) .version-zeile { color: #5B6080; }
+body.sz :is(#app, .sz-modal) .aufgabe-screen .sz-kopf { margin-bottom: 0; }
 
 /* ---------- Bausteine der Gestaltung ---------- */
 .sz-kopf { display: grid; grid-template-columns: 74px 1fr; grid-template-rows: auto 18px; gap: 0 6px; margin: -4px 0 4px; }
@@ -111,13 +112,13 @@ body.sz #app .aufgabe-screen .sz-kopf { margin-bottom: 0; }
 .sz-hinweisbox { background: #2A2236; border-radius: 16px; padding: 12px 14px; border-left: 8px solid var(--sz-flieder); line-height: 1.45; }
 body.sz .uz-screen .uz-titel { color: var(--sz-pfirsich); }
 body.sz .uz-code b { color: var(--sz-text); }
-body.sz #app .wk-schrein { background: var(--sz-panel); border-color: var(--sz-orange); color: var(--sz-text); }
-body.sz #app .wk-schrein .wk-titel { color: var(--sz-pfirsich); font-family: 'Atkinson Hyperlegible', sans-serif; letter-spacing: .06em; }
-body.sz #app .wk-bild { background: var(--sz-panel); border-color: var(--sz-blau); color: var(--sz-text); }
-body.sz #app .wk-bild .wk-titel { color: var(--sz-blau); }
-body.sz #app .mini-gewinn, body.sz #app .konto-zeile { color: var(--sz-text); }
+body.sz :is(#app, .sz-modal) .wk-schrein { background: var(--sz-panel); border-color: var(--sz-orange); color: var(--sz-text); }
+body.sz :is(#app, .sz-modal) .wk-schrein .wk-titel { color: var(--sz-pfirsich); font-family: 'Atkinson Hyperlegible', sans-serif; letter-spacing: .06em; }
+body.sz :is(#app, .sz-modal) .wk-bild { background: var(--sz-panel); border-color: var(--sz-blau); color: var(--sz-text); }
+body.sz :is(#app, .sz-modal) .wk-bild .wk-titel { color: var(--sz-blau); }
+body.sz :is(#app, .sz-modal) .mini-gewinn, body.sz :is(#app, .sz-modal) .konto-zeile { color: var(--sz-text); }
 .sz-etappe b { white-space: nowrap; }
-body.sz #app .karte.aufgabe > .sz-label { margin-bottom: 8px; }
+body.sz :is(#app, .sz-modal) .karte.aufgabe > .sz-label { margin-bottom: 8px; }
 .sz-zeile-knopf .sz-matt { white-space: nowrap; }
 
 /* „In Schritten umformen“ */
@@ -158,3 +159,11 @@ body.sz .aufgabe-screen.mit-uf .sz-titel br { display: none; }
 body.sz .aufgabe-screen.mit-uf .sz-zeit { font-size: 10px; }
 body.sz .aufgabe-screen.mit-uf .sz-zeit b { font-size: 13px; display: inline; margin-left: 4px; }
 body.sz .aufgabe-screen.mit-uf .sz-leiste i { height: 10px; }
+
+/* Fenster im Sternzeit-Stil: dunkle Konsole. Andere Fenster (Hinweiskarten) behalten ihre Schrift lesbar dunkel. */
+body.sz #modal .modal-box { color: #1E2A2B; }
+body.sz #modal .modal-box.sz-modal { color: var(--text); background: var(--sz-panel); border-top: 6px solid var(--sz-blau); }
+body.sz #modal .sz-modal .modal-titel { color: var(--sz-pfirsich); font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; letter-spacing: .04em; }
+body.sz #modal .sz-modal .modal-x { color: var(--sz-matt); }
+body.sz #modal .sz-modal .gedaempft { color: var(--sz-matt); }
+body.sz #modal .modal-hinter { background: rgba(3, 4, 10, .7); }

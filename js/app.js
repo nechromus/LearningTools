@@ -29,7 +29,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.19.0';
+export const APP_VERSION = '2.19.1';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -4029,7 +4029,9 @@ async function feedbackSenden() {
 
 function oeffneModal(html, beimSchliessen = null) {
   modalSchliessen = beimSchliessen;
-  $modal.innerHTML = `<div class="modal-hinter" data-act="modalZu"></div><div class="modal-box" role="dialog" aria-modal="true"><button class="modal-x" data-act="modalZu" aria-label="Schließen">✕</button>${html}</div>`;
+  // Sternzeit: normale Fenster (Fragen, Meldungen, Feedback) im Konsolen-Stil, Hinweiskarten bleiben wie sie sind
+  const sz = document.body.classList.contains('sz') && /^\s*<div class="hinweis-text/.test(html);
+  $modal.innerHTML = `<div class="modal-hinter" data-act="modalZu"></div><div class="modal-box${sz ? ' sz-modal' : ''}" role="dialog" aria-modal="true"><button class="modal-x" data-act="modalZu" aria-label="Schließen">✕</button>${html}</div>`;
   $modal.classList.add('offen');
 }
 
