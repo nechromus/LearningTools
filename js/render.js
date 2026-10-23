@@ -237,3 +237,36 @@ export function hinweisBlatt(h) {
     ${h.zusatz ? `<div class="hw-zusatz">${mathe(h.zusatz)}</div>` : ''}
     ${h.beispiel ? `<div class="hw-beispiel"><span class="hw-beispiel-label">Beispiel</span>${mathe(h.beispiel)}</div>` : ''}`;
 }
+
+// „Gleich viel gefärbt“ (Auftrag 17): Bild mit Linien zum Antippen.
+// Linien dünn gestrichelt grau; gewählte und feste Linien dick in Teal. Um jede Linie ein 44 px breiter Tippbereich.
+export function linienSvg(bild, { gewaehlt = [], fest = [], tippbar = false, alle = tippbar } = {}) {
+  const TEAL = '#1F6F75', GRAU = '#8A9696';
+  let s = '', w, h, seg;
+  if (bild.form === 'kreis') {
+    const n = bild.teile, size = 230, r = 100, c = size / 2;
+    w = h = size;
+    for (let i = 0; i < n; i++) s += torte(c, c, r, i * 360 / n, (i + 1) * 360 / n, i < bild.gefaerbt ? FUELL : LEER);
+    seg = bild.linien.map(l => {
+      const a = l.winkel * Math.PI / 180, dx = (r + 10) * Math.sin(a), dy = -(r + 10) * Math.cos(a);
+      return [c - dx, c - dy, c + dx, c + dy];
+    });
+  } else {
+    const streifen = bild.form === 'streifen';
+    const zeilen = streifen ? 1 : (bild.zeilen || 2), spalten = streifen ? bild.teile : (bild.spalten || 2);
+    const zx = streifen ? Math.min(32, 300 / spalten) : 60, zy = streifen ? 64 : 60, pad = 14;
+    w = spalten * zx + 2 * pad; h = zeilen * zy + 2 * pad;
+    let k = 0;
+    for (let r = 0; r < zeilen; r++) for (let c = 0; c < spalten; c++, k++) {
+      s += `<rect x="${pad + c * zx}" y="${pad + r * zy}" width="${zx}" height="${zy}" fill="${k < bild.gefaerbt ? FUELL : LEER}" stroke="${LINIE}" stroke-width="1.5"/>`;
+    }
+    seg = bild.linien.map(l => [pad + l.von[0] * zx, pad + l.von[1] * zy, pad + l.bis[0] * zx, pad + l.bis[1] * zy]);
+  }
+  seg.forEach(([x1, y1, x2, y2], i) => {
+    const an = gewaehlt.includes(i) || fest.includes(i);
+    const zeigen = alle || an;
+    if (zeigen) s += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${an ? TEAL : GRAU}" stroke-width="${an ? 6 : 2.5}"${an ? '' : ' stroke-dasharray="7 6"'} stroke-linecap="round"/>`;
+    if (tippbar) s += `<line class="linie-tipp" data-act="linie" data-i="${i}" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="transparent" stroke-width="44" role="button" aria-label="Linie ${i + 1}${an ? ', gewählt' : ''}"/>`;
+  });
+  return svg(w, h, s, `${bild.form === 'kreis' ? 'Kreis' : bild.form === 'streifen' ? 'Streifen' : 'Rechteck'} mit ${bild.gefaerbt} gefärbten Teilen${tippbar ? '. Linien zum Antippen' : ''}`);
+}

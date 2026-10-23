@@ -154,6 +154,7 @@ export function aufgabeVon(rec, pool) {
 export function kurztext(rec, a) {
   if (a) {
     if (a.typ === 'mehrfrage' && (a.generator || '').startsWith('block')) return a.fragen.map(f => f.frage.replace(/\s*=$/, '')).join(', ');
+    if (a.typ === 'detektiv') return `Detektiv: ${a.fremde_rechnung}`;
     if (a.rechnung) return a.rechnung;
     if (a.geschichte) return a.geschichte.split(/(?<=[.!?])\s/)[0];
     if (a.frage) return a.frage;
@@ -180,6 +181,7 @@ export function teilLabels(a) {
     case 'schritte': haupt = a.schritte.map(s => s.text); break;
     case 'mehrfrage': haupt = a.fragen.map(q => q.frage); break;
     case 'zuordnung': haupt = ['Zuordnung']; break;
+    case 'detektiv': haupt = [a.frage, ...(a.stimmt ? [] : ['Was ist falsch?', (a.richtig_rechnen || {}).text])]; break;
   }
   return [...merk, ...haupt];
 }
@@ -188,6 +190,7 @@ function optionenVon(a, teil) {
   if (!a) return null;
   if (a.typ === 'auswahl') return teil === teilLabels(a).length - 1 ? a.optionen : null;
   if (a.typ === 'schritte') { const s = a.schritte[teil - (a.gegeben || []).length]; return s && s.optionen; }
+  if (a.typ === 'detektiv' && teil === 0) return ['Stimmt', 'Stimmt nicht'];
   return null;
 }
 

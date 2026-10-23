@@ -290,6 +290,8 @@ export const MUSTER = ['aufwaermen', 'thema', 'thema', 'text', 'thema', 'abschlu
 const AUFWAERM_THEMEN = ['potenzen', 'reihenfolge', 'bruch-bild', 'zuordnung', 'prozent'];
 
 export function passtKategorie(a, kategorie, thema) {
+  // Fehler-Detektiv nur über den eigenen Platz (höchstens 1 pro 10 Aufgaben, siehe app.js)
+  if (a.typ === 'detektiv' || kategorie === 'detektiv') return kategorie === 'detektiv' && a.typ === 'detektiv' && !a.bonus;
   switch (kategorie) {
     case 'aufwaermen': return !a.bonus && AUFWAERM_THEMEN.includes(a.thema) && a.stufe <= 2 && a.thema !== thema;
     case 'thema': return !a.bonus && a.thema === thema;
@@ -485,7 +487,7 @@ export function hoechsteKachel(feld) {
 
 // ---------- Aufgaben aus JSON kontrollieren (Elternbereich, Tools) ----------
 
-export const TYPEN = ['zahl', 'auswahl', 'bruch', 'schritte', 'zuordnung', 'mehrfrage', 'zehnerpotenz', 'formel'];
+export const TYPEN = ['zahl', 'auswahl', 'bruch', 'schritte', 'zuordnung', 'mehrfrage', 'zehnerpotenz', 'formel', 'detektiv'];
 export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte'];
 // Fach je Thema (Auftrag 13). Fehlt das Feld fach an der Aufgabe, gilt das Fach des Themas.
 export const PHYSIK_THEMEN = ['zehnerpotenzen', 'einheiten', 'gewichtskraft', 'dichte'];
@@ -538,8 +540,22 @@ export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
             f.push(`${id}: Schritt ${i + 1}: karten braucht je Platz optionen und richtig`);
         }
         else if (s.optionen) { if (typeof s.richtig !== 'number') f.push(`${id}: Schritt ${i + 1} braucht „richtig“`); }
+        else if (s.linien_waehlen) {
+          const r = s.linien_waehlen.richtig, n = ((a.bild || {}).linien || []).length;
+          if (!Array.isArray(r) || !r.length || r.some(x => !Number.isInteger(x) || x < 0 || x >= n)) f.push(`${id}: Schritt ${i + 1}: linien_waehlen.richtig passt nicht zu bild.linien`);
+        }
+        else if (s.bruch) { if (typeof s.bruch.zaehler !== 'number' || typeof s.bruch.nenner !== 'number') f.push(`${id}: Schritt ${i + 1}: bruch braucht zaehler und nenner`); }
         else if (typeof s.wert !== 'number') f.push(`${id}: Schritt ${i + 1} braucht „wert“`);
       });
+      break;
+    case 'detektiv':
+      if (!a.geschichte || !a.fremde_rechnung) f.push(`${id}: detektiv braucht geschichte und fremde_rechnung`);
+      if (typeof a.stimmt !== 'boolean') f.push(`${id}: stimmt muss true oder false sein`);
+      else if (a.stimmt && !a.bestaetigung) f.push(`${id}: bestaetigung fehlt`);
+      else if (!a.stimmt) {
+        if (!Array.isArray(a.fehler_optionen) || a.fehler_optionen.length < 2 || !Number.isInteger(a.fehler_richtig) || !a.fehler_optionen[a.fehler_richtig]) f.push(`${id}: fehler_optionen oder fehler_richtig fehlen`);
+        if (!a.richtig_rechnen || typeof a.richtig_rechnen.wert !== 'number' || !a.richtig_rechnen.text) f.push(`${id}: richtig_rechnen braucht text und wert`);
+      }
       break;
     case 'mehrfrage':
       if (!Array.isArray(a.fragen) || !a.fragen.length) f.push(`${id}: fragen fehlen`);

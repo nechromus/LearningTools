@@ -3,7 +3,8 @@ import * as L from './logic.js';
 import * as G from './gen.js';
 import * as U from './sync.js';
 import * as FU from './formeluebersicht.js';
-import { esc, mathe, bruchHtml, bildSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
+import { esc, mathe, bruchHtml, bildSvg, linienSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
+import * as GF from './gefaerbt.js';
 import { THEMA_NAMEN, GEN_NAMEN, FEHLER_NAMEN } from './namen.js';
 import * as P from './paket.js';
 import * as B from './bloecke.js';
@@ -29,7 +30,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.21.0';
+export const APP_VERSION = '2.22.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1178,7 +1179,11 @@ function schritteTeile(a) {
   return [...merkTeile(a), ...st, ...(fertig ? [] : [ergebnisTeil(a)])];
 }
 function schritteVon(liste) {
-  return liste.map(s => s.karten
+  return liste.map(s => s.linien_waehlen
+    ? { art: 'linien', label: s.text, richtig: s.linien_waehlen.richtig.slice(), linien: [], quelle: s }
+    : s.bruch
+    ? { art: 'bruch', label: s.text, antwort: { zaehler: s.bruch.zaehler, nenner: s.bruch.nenner }, nennerFest: !!s.bruch.nenner_fest, quelle: s }
+    : s.karten
     ? { art: 'legen', label: s.text, karten: s.karten, wahl: s.karten.map(() => null), quelle: s }
     : s.optionen
     ? { art: 'wahl', label: s.text, optionen: s.optionen, richtig: s.richtig, quelle: s, formel: s.optionen.every(o => /=/.test(o)) }
@@ -1198,6 +1203,17 @@ function hauptTeile(a) {
       return teile;
     }
     case 'schritte': return schritteVon(a.schritte);
+    case 'detektiv': {
+      // Fehler-Detektiv (Auftrag 17): Stimmt / Stimmt nicht → Was ist falsch? → richtig rechnen
+      const teile = [{ art: 'wahl', detektiv: true, label: a.frage, optionen: ['Stimmt', 'Stimmt nicht'], richtig: a.stimmt ? 0 : 1 }];
+      if (!a.stimmt) {
+        const reihe = a.fehler_optionen.map((o, k) => [Math.random(), o, k]).sort((x, y) => x[0] - y[0]);
+        teile.push({ art: 'wahl', spalte: true, label: 'Was ist falsch?', optionen: reihe.map(x => x[1]), richtig: reihe.findIndex(x => x[2] === a.fehler_richtig) });
+        const rr = a.richtig_rechnen;
+        teile.push({ art: 'zahl', label: rr.text, ziel: { wert: rr.wert, runden: rr.runden }, einheit: rr.einheit || '', quelle: { text: rr.text, wert: rr.wert, runden: rr.runden, einheit: rr.einheit } });
+      }
+      return teile;
+    }
     case 'zehnerpotenz': return [{ art: 'zp', antwort: a.antwort, einheit: a.antwort.einheit || '' }];
     case 'formel': {
       const w = a.antwort;
@@ -1458,6 +1474,12 @@ function waehleIn(kategorie, g, ersatz) {
     return ausPool('thema', t) || (t === 'zylinder' ? erzeuge('zylinder', genStufe('zylinder')) : null);
   };
   let a = null;
+  // Fehler-Detektiv (Auftrag 17): höchstens 1 pro 10 Aufgaben, auf dem Platz „Schritte“ oder „Abschluss“
+  if (['struktur', 'abschluss'].includes(kategorie) && S.verlauf.zaehler - (S.verlauf.detektivZuletzt ?? -100) >= 10 && Math.random() < 0.5) {
+    const d = pool.filter(x => x.typ === 'detektiv');
+    if (d.length) a = L.waehleAufgabe(d, { kategorie: 'detektiv', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
+    if (a) return { aufgabe: a, wdh: 0 };
+  }
   switch (kategorie) {
     case 'leicht': a = kurzeAufgabe(g, fokus, { leicht: true }); break;
     case 'thema':
@@ -1602,13 +1624,16 @@ function neueAufgabe() {
   S.verlauf.letzteIds = [...S.verlauf.letzteIds, aufgabe.id].slice(-20);
   sichern();
   setzeAnsicht('aufgabe');
+  if (aufgabe.typ === 'detektiv') S.verlauf.detektivZuletzt = S.verlauf.zaehler;
   if (ufSofort()) return ufAn(true);
   zeigeAufgabe();
+  // Fehler-Detektiv: beim ersten Mal die Einführungskarte, danach nur über „?“
+  if (aufgabe.typ === 'detektiv' && !S.detektivGesehen) { S.detektivGesehen = true; protokoll(S, 'detektiv_einfuehrung', { id: aufgabe.id }); sichern(); detektivEinfuehrung(); }
 }
 
 function aktuellerTeil() { return A && A.teile[A.idx]; }
 function teileStarten(teile) {
-  teile.forEach(t => { t.versuche = []; t.status = 'offen'; t.eingabe = ''; t.z = ''; t.n = ''; t.e = ''; t.tokens = []; t.gelegt = []; t.seit = Date.now(); });
+  teile.forEach(t => { t.versuche = []; t.status = 'offen'; t.eingabe = ''; t.z = ''; t.n = t.nennerFest ? String(t.antwort.nenner) : ''; t.e = ''; t.tokens = []; t.gelegt = []; t.seit = Date.now(); if (t.art === 'linien') { t.linien = []; t.fest = null; } });
 }
 
 // ---------- „In Schritten umformen“ (Auftrag 14, Teil 4) ----------
@@ -2016,10 +2041,12 @@ function zeigeAufgabe() {
       <article class="karte aufgabe${a.bonus ? ' bonus' : ''}">
         ${a.bonus ? `<div class="bonus-kopf"><span class="bonus-label">Bonus · freiwillig</span>${!A.fertig && A.teile.every(t => !t.versuche.length) ? '<button class="btn-text klein" data-act="ueberspringen">Überspringen</button>' : ''}</div>` : ''}
         ${sternzeit() ? `<div class="sz-label">${physik(a) ? 'Physik' : 'Mathe'} · ${esc(THEMA_NAMEN[a.thema] || a.thema)}</div>` : ''}
+        ${a.typ === 'detektiv' ? '<div class="detektiv-kopf"><span class="detektiv-marke">🔍 Fehler-Detektiv</span><button class="detektiv-hilfe" data-act="detektivHilfe" aria-label="Was ist der Fehler-Detektiv?">?</button></div>' : ''}
         ${a.geschichte ? geschichteHtml(a) : ''}
         ${a.rechnung ? `<div class="rechnung${a.rechnung.length > 22 ? ' lang' : ''}">${rechnungHtml(a)}</div>` : ''}
-        ${a.bild ? `<div class="bild">${bildSvg(a.bild)}</div>` : ''}
-        ${liestNoch() ? '' : `${!(a.typ === 'auswahl' || (a.typ === 'formel' && a.eingabe === 'auswahl')) ? `<p class="frage">${mathe(a.frage)}</p>` : ''}
+        ${a.bild ? `<div class="bild">${a.bild.linien ? linienBild(a) : bildSvg(a.bild)}</div>` : ''}
+        ${a.typ === 'detektiv' && !liestNoch() ? fremdeRechnungHtml(a) : ''}
+        ${liestNoch() ? '' : `${!(a.typ === 'auswahl' || (a.typ === 'formel' && a.eingabe === 'auswahl')) ? `<p class="frage">${a.typ === 'detektiv' ? `<b>${mathe(a.frage)}</b>` : mathe(a.frage)}</p>` : ''}
         ${A.knobeln && !A.fertig ? '<div class="knobel-zeile">✦ Knobel erst selbst.</div>' : ''}
         <div class="teile">${teileHtml()}</div>
         ${ufAngebot() ? `<button class="btn knobel-schritte" data-act="ufAn">In Schritten umformen${sternzeit() && !A.test ? ` <small>· dann ${wpMoeglich ? wpMoeglich.schritte : 1} WP</small>` : ''}</button>`
@@ -2054,6 +2081,58 @@ const liestNoch = () => !!(A && !A.fertig && A.aufgabe.geschichte && A.satz != n
 function zahlenMarkieren(html) {
   // nur Text zwischen Tags, nicht in Attributen
   return html.replace(/>([^<]*)</g, (_, txt) => '>' + txt.replace(/(−?\d+(?:,\d+)?(?:\u00A0?(?:€|%|cm|m))?)/g, '<mark class="zahl-mark">$1</mark>') + '<');
+}
+
+// ---------- Gleich viel gefärbt und Fehler-Detektiv (Auftrag 17) ----------
+// „4/8 = ?/2“: links der Bruch aus der Aufgabe, rechts Zähler eintippen, Nenner fest
+function bruchGleichHtml(t, aktiv) {
+  const m = /(\d+)\s*\/\s*(\d+)/.exec(t.label || '');
+  const links = m ? `${bruchHtml(m[1], m[2], true)}<span class="gl">=</span>` : '';
+  if (!aktiv && t.status !== 'offen') return `<div class="bruch-gleich">${links}${erledigtWert(t, bruchHtml(t.antwort.zaehler, t.antwort.nenner, true), true)}</div>`;
+  return `<div class="bruch-gleich">${links}<div class="bruch-eingabe">
+    ${aktiv ? `<button class="feld bruch-feld aktiv-feld" data-act="feld" data-feld="z">${esc(t.z) || '?'}</button>` : '<div class="feld bruch-feld leer">?</div>'}
+    <div class="bruch-strich"></div><div class="feld bruch-feld fest">${t.antwort.nenner}</div></div></div>`;
+}
+function linienBild(a) {
+  const t = aktuellerTeil();
+  const dran = !A.fertig && t && t.art === 'linien' && !t.fest;
+  const fest = A.teile.filter(x => x.art === 'linien' && x.fest).flatMap(x => x.fest);
+  return linienSvg(a.bild, { gewaehlt: dran ? t.linien : [], fest, tippbar: dran && A.phase === 'eingabe', alle: dran });
+}
+function linieTippen(i) {
+  const t = aktuellerTeil();
+  if (!t || t.art !== 'linien' || A.phase !== 'eingabe') return;
+  t.linien = t.linien.includes(i) ? t.linien.filter(x => x !== i) : [...t.linien, i].sort((x, y) => x - y);
+  A.meldung = null;
+  zeigeAufgabe();
+}
+function linienPruefen() {
+  const t = aktuellerTeil();
+  if (!t || t.art !== 'linien' || A.phase !== 'eingabe') return;
+  if (!t.linien.length) { A.meldung = 'Tippe zuerst eine Linie an.'; return zeigeAufgabe(); }
+  const eingabe = t.linien.join(',');
+  if (t.versuche.some(v => v.eingabe === eingabe)) { A.meldung = 'Das hattest du schon. Schau noch einmal auf die Teile.'; return zeigeAufgabe(); }
+  const r = GF.pruefeLinien(A.aufgabe.bild, t.linien, t.richtig);
+  if (r.richtig) t.fest = t.linien.slice();
+  else if (t.versuche.length + 1 >= 2) t.fest = t.richtig.slice(); // nach dem 2. Versuch zeigt das Bild die richtigen Linien
+  versuchMerken(t, eingabe, r.richtig, r.fehler);
+}
+// Wort für die Teile in einer Gefärbt-Aufgabe (Hälften oder Viertel)
+function gefaerbtWort(a) {
+  const lt = A.teile.find(x => x.art === 'linien');
+  return lt ? GF.teileWort(GF.zielTeile(a.bild, lt.richtig)) : 'Teile';
+}
+function fremdeRechnungHtml(a) {
+  const name = String(a.geschichte || '').split(/\s+/)[0] || '';
+  const wer = name ? `${esc(name)}${/[sxzß]$/.test(name) ? '’' : 's'} Rechnung` : 'Die Rechnung';
+  return `<div class="fremde-rechnung"><div class="fr-wer">${wer}</div><div class="fr-text">${mathe(a.fremde_rechnung)}</div></div>`;
+}
+function detektivEinfuehrung(beimSchliessen = null) {
+  oeffneModal(`<div class="hinweis-text detektiv-einfuehrung"><div class="de-lupe" aria-hidden="true">🔍</div><h2 class="modal-titel">Fehler-Detektiv</h2>
+    <p>Hier hat jemand gerechnet.</p><p><b>Prüfe: Stimmt das?</b></p><p>Wenn nicht: Finde den Fehler und rechne richtig.</p>
+    <div class="de-schritte"><div><span>1</span>Stimmt oder stimmt nicht?</div><div><span>2</span>Was ist falsch?</div><div><span>3</span>Richtig rechnen</div></div>
+    <p class="gedaempft klein">Nicht jede Rechnung ist falsch. Rechne selbst nach.</p>
+    <button class="btn btn-haupt" data-act="modalZu">Los geht’s</button></div>`, beimSchliessen);
 }
 
 function geschichteHtml(a) {
@@ -2189,6 +2268,7 @@ function teileHtml() {
   const versatz = A.teile.length - haupt.length;
   const html = A.teile.map((t, i) => {
     if (i > A.idx && !A.fertig) {
+      if (a.bild && a.bild.linien && !t.merk) return `<div class="teil zukunft">${t.art === 'bruch' && t.nennerFest ? bruchGleichHtml(t, false) : `<div class="teil-label"><span class="teil-nr">${i + 1 - versatz}</span><span>${mathe(t.label)}</span></div>${t.art === 'zahl' ? '<div class="feld-zeile"><div class="feld leer">?</div></div>' : ''}`}</div>`;
       if (block && !t.merk) return `<div class="teil block-teil zukunft"><div class="teil-label"><span>${mathe(t.label)}</span></div><button class="feld leer tippbar" data-act="springe" data-i="${i}" aria-label="Zu diesem Feld springen">?</button></div>`;
       if (!t.merk) return '';
     }
@@ -2218,6 +2298,12 @@ function teileHtml() {
       inhalt = formelTeilHtml(t, aktiv);
     } else if (t.art === 'umformen') {
       inhalt = umformHtml(t, aktiv);
+    } else if (t.art === 'linien') {
+      inhalt = `<div class="teil-label">${nr}<span>${aktiv ? `<b>${mathe(t.label)}</b>` : mathe(t.label.split('.')[0] + '.')}</span></div>${aktiv
+        ? '<p class="gedaempft klein">Tippe eine Linie an. Noch mal tippen nimmt sie zurück.</p>'
+        : `<div class="feld-zeile">${erledigtWert(t, 'Linien eingezeichnet')}</div>`}`;
+    } else if (t.art === 'bruch' && t.nennerFest) {
+      inhalt = `<div class="teil-label">${nr}<span>Gleich viel gefärbt:</span></div>${bruchGleichHtml(t, aktiv)}${aktiv ? `<p class="gedaempft klein mitte">Wie viele ${esc(gefaerbtWort(a))} sind gefärbt? Tippe die Zahl oben ein.</p>` : ''}`;
     } else if (t.art === 'bruch') {
       if (aktiv) {
         inhalt = `<div class="bruch-eingabe">
@@ -2228,6 +2314,9 @@ function teileHtml() {
       } else {
         inhalt = `<div class="feld-zeile">${erledigtWert(t, bruchHtml(t.antwort.zaehler, t.antwort.nenner), true)}</div>`;
       }
+    } else if (t.art === 'wahl' && t.detektiv) {
+      if (aktiv) inhalt = `<div class="detektiv-knoepfe"><button class="detektiv-btn ja" data-act="wahl" data-k="0" ${A.phase === 'eingabe' ? '' : 'disabled'}><span class="dk-zeichen" aria-hidden="true">✓</span>Stimmt</button><button class="detektiv-btn nein" data-act="wahl" data-k="1" ${A.phase === 'eingabe' ? '' : 'disabled'}><span class="dk-zeichen" aria-hidden="true">✗</span>Stimmt nicht</button></div>`;
+      else inhalt = `<div class="feld-zeile">${erledigtWert(t, t.optionen[t.richtig])}</div>`;
     } else if (t.art === 'wahl') {
       const knoepfe = t.optionen.map((o, k) => {
         let kl = 'wahl-btn';
@@ -2236,7 +2325,7 @@ function teileHtml() {
         if (!aktiv) { if (k === t.richtig) kl += ' wahl-richtig'; else if (t.gewaehlt === k) kl += ' wahl-falsch'; }
         return `<button class="${kl}${t.formel ? ' formel-wahl' : ''}" data-act="wahl" data-k="${k}" ${aktiv && A.phase === 'eingabe' ? '' : 'disabled'}>${t.formel ? formelText(o) : mathe(o)}</button>`;
       }).join('');
-      inhalt = `<div class="teil-label">${nr}<span><b>${mathe(t.label)}</b></span></div><div class="wahl-reihe${/wahl-text lang/.test(knoepfe) ? ' wahl-spalte' : ''}">${knoepfe}</div>`;
+      inhalt = `<div class="teil-label">${nr}<span><b>${mathe(t.label)}</b></span></div><div class="wahl-reihe${t.spalte || /wahl-text lang/.test(knoepfe) ? ' wahl-spalte' : ''}">${knoepfe}</div>`;
     } else if (t.art === 'zuordnung') {
       inhalt = zuordnungHtml(aktiv);
     } else if (t.art === 'legen') {
@@ -2300,6 +2389,7 @@ function loesungText(t) {
   if (t.art === 'zahl' && t.ziel.gueltige) return esc(PH.potenzText(PH.zerlege(t.ziel.wert).m, PH.zerlege(t.ziel.wert).e, t.ziel.gueltige) + (t.einheit ? ' ' + t.einheit : '')) + ` <span class="klein">(≈ ${esc(formatWert(PH.aufZiffern(t.ziel.wert, t.ziel.gueltige), t.einheit))})</span>`;
   if (t.art === 'zahl') return esc(formatWert(t.ziel.wert, t.einheit));
   if (t.art === 'bruch') return bruchHtml(t.antwort.zaehler, t.antwort.nenner);
+  if (t.art === 'linien') return 'Die Linien siehst du jetzt im Bild.';
   if (t.art === 'wahl') return t.formel ? formelText(t.optionen[t.richtig]) : mathe(t.optionen[t.richtig]);
   if (t.art === 'legen') return mathe(t.karten.map(k => k.optionen[k.richtig]).join(' '));
   return 'siehe unten';
@@ -2328,6 +2418,8 @@ function fussHtml() {
   if (liestNoch()) return `<button class="btn btn-haupt btn-gross" data-act="naechsterSatz">Nächster Satz</button>`;
   if (A.phase === 'tipp') return `<button class="btn btn-haupt btn-gross" data-act="verstanden">Verstanden</button>`;
   if (A.phase === 'aufgeloest') return `<button class="btn btn-haupt btn-gross" data-act="weiter">Weiter</button>`;
+  if (t.art === 'linien') return `<button class="btn btn-haupt btn-gross" data-act="linienPruefen" ${t.linien.length ? '' : 'disabled'}>Linien prüfen</button>`;
+  if (t.art === 'wahl' && t.detektiv) return '';
   if (A.rechnerOffen && A.rechner && t.art !== 'zuordnung') return rechnerPanelHtml(t);
   const aufklappen = A.rechner && !A.rechnerOffen ? '<button class="r-aufklappen" data-act="rAufklappen">Taschenrechner ▲</button>' : '';
   if (t.art === 'zahl' || t.art === 'bruch' || t.art === 'zp') {
@@ -2411,6 +2503,8 @@ function ergebnisHtml() {
   const weg = `<div class="loesungsweg"><div class="lw-titel">So geht's</div>${(a.loesungsweg || []).map(z => `<div class="lw-zeile">${mathe(z)}</div>`).join('')}<p class="lw-erkl">${mathe(a.erklaerung || '')}</p></div>`;
   const offen = A.ergebnis === 'loesung';
   if (b) strafe = strafe.replace(/Spielzeit/g, 'Bildschirmzeit');
+  // Fehler-Detektiv: Rechnung stimmt → kurzer Satz dazu
+  if (a.typ === 'detektiv' && a.stimmt && a.bestaetigung && !offen) kopf += `<p class="detektiv-ok">${mathe(a.bestaetigung)}</p>`;
   return `<section class="ergebnis-karte${b ? ' bz-ergebnis' : ''}">${kopf}${zeit}${strafe}
     ${offen ? weg : `<details class="weg-details"><summary>Lösungsweg ansehen</summary>${weg}</details>`}
   </section>`;
@@ -2541,6 +2635,7 @@ function antwortGeben() {
     if (!richtig && L.zuSchnell(a, t, Date.now() - t.seit)) return zuSchnellMelden(t, eingabe);
     if (!richtig && !fehler) {
       if (t.merk) fehler = { typ: 'merk', text: 'Lies noch einmal im Text nach. Welche Zahl gehört dazu?' };
+      else if (a.bild && a.bild.linien && /Hälfte|Viertel/.test(t.label || '')) fehler = { typ: 'gefaerbt-zaehler', text: `Zähl die gefärbten ${gefaerbtWort(a)} im Bild.` };
       else if (t.knobel) fehler = { typ: 'knobel', text: 'Probier es noch einmal. Oder tippe auf „In Schritten rechnen“.' };
       else {
         const pseudo = t.rechnung ? { ...a, rechnung: t.rechnung } : a;
@@ -2554,6 +2649,7 @@ function antwortGeben() {
     if (!richtig && t.z === String(t.antwort.nenner) && t.n === String(t.antwort.zaehler)) {
       fehler = { typ: 'bruch-vertauscht', text: 'Oben stehen die gefärbten Teile, unten alle Teile.' };
     }
+    if (!richtig && t.nennerFest) fehler = { typ: 'gefaerbt-zaehler', text: `Zähl die gefärbten ${gefaerbtWort(a)} im Bild.` };
   }
   if (!richtig && !fehler && t.knobel) fehler = { typ: 'knobel', text: 'Probier es noch einmal. Oder tippe auf „In Schritten rechnen“.' };
   if (!richtig && t.versuche.some(v => v.eingabe === eingabe)) {
@@ -2616,7 +2712,7 @@ function versuchMerken(t, eingabe, richtig, fehler) {
     // Ohne „Verstanden“ (Schalter pro Kind): der Tipp bleibt stehen, bis weitergetippt wird
     A.phase = bed('verstanden') ? 'tipp' : 'eingabe';
     A.meldung = t.tipp;
-    t.eingabe = ''; t.z = ''; t.n = ''; t.e = ''; t.tokens = []; t.gelegt = [];
+    t.eingabe = ''; t.z = ''; t.n = t.nennerFest ? String(t.antwort.nenner) : ''; t.e = ''; t.tokens = []; t.gelegt = [];
   } else {
     t.status = 'loesung';
     t.loesungTipp = fehler ? fehler.text : null;
@@ -4280,9 +4376,13 @@ function klick(e) {
       if (!t || A.phase !== 'eingabe') break;
       const k = Number(el.dataset.k);
       t.gewaehlt = k;
-      versuchMerken(t, String(k), k === t.richtig, k === t.richtig ? null : L.erkenneWahlFehler(A.aufgabe, t.quelle, k));
+      const dFehler = t.detektiv ? { typ: 'detektiv', text: A.aufgabe.stimmt ? 'Rechne selbst nach. Kommt dasselbe heraus?' : 'Schau genau hin. Rechne selbst nach.' } : null;
+      versuchMerken(t, t.spalte ? t.optionen[k] : String(k), k === t.richtig, k === t.richtig ? null : dFehler || L.erkenneWahlFehler(A.aufgabe, t.quelle, k));
       break;
     }
+    case 'linie': linieTippen(Number(el.dataset.i)); break;
+    case 'linienPruefen': linienPruefen(); break;
+    case 'detektivHilfe': protokoll(S, 'detektiv_hilfe', { id: A && A.aufgabe.id }); detektivEinfuehrung(); break;
     case 'verstanden':
       protokoll(S, 'tipp_bestaetigt', { id: A.aufgabe.id, teil: A.idx });
       A.phase = 'eingabe'; A.meldung = null; zeigeAufgabe(); break;
