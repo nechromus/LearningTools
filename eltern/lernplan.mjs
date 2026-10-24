@@ -1,10 +1,10 @@
-/* Gebaut aus lernplan/lernplan.js (Version 1.4.0). Nicht hier ändern. */
+/* Gebaut aus lernplan/lernplan.js (Version 1.5.0). Nicht hier ändern. */
 /* Lernplan-Darstellung: gemeinsame Quelle für die Lernplan-Seite in claude.ai und die Eltern-App.
    Quelle: LearningToolsCode/lernplan/lernplan.js (+ lernplan.css). Daraus baut `npm run lernplan`
    die Vorlage (wissensbasis/15-lernplan-seite-vorlage.html, alles eingebettet) und app/eltern/lernplan.mjs.
    Nur hier ändern. Datenformat und Regeln: wissensbasis/15-lernplan-seite.md. */
 var Lernplan = (function(){
-var VERSION = '1.4.0';
+var VERSION = '1.5.0';
 function esc0(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 // Export (Format lernplan-1, daten/<name>/lernplan.json) in die Form der Seite: Sammlungen als Listen mit _id
 // Nummern einer Erkenntnis-Gruppe als Text (auch für Tests): lückenlos „3–7“, bis 4 Einträge „3, 5, 7“, sonst „3–5, 8, 11–14“
@@ -49,13 +49,15 @@ root.insertAdjacentHTML('beforeend', '<div class="wrap">\n' +
   '      <div class="seg" role="group" aria-label="Ansicht">\n' +
   '        <button type="button" id="lp-v-zeit" aria-pressed="true">Zeitleiste</button>\n' +
   '        <button type="button" id="lp-v-bahnen" aria-pressed="false">Bahnen</button>\n' +
+  '        <button type="button" id="lp-v-menge" aria-pressed="false" hidden>Übungsmenge</button>\n' +
   '      </div>\n' +
   '      <div class="seg farbe" role="group" aria-label="Farbe der Balken" id="lp-farbe" hidden><span class="seg-lab">Farbe</span><button type="button" data-farbe="art" aria-pressed="true">Art</button><button type="button" data-farbe="stand" aria-pressed="false">Stand</button></div>\n' +
+  '      <button type="button" class="btn warnz" id="lp-warnz" hidden></button>\n' +
   '      <button type="button" class="btn" id="lp-edit" aria-pressed="false" hidden>Bearbeiten</button>\n' +
   '    </div>\n' +
   '  </header>\n' +
   '\n' +
-  '  <div class="legend" aria-label="Legende">\n' +
+  '  <div class="legend" id="lp-legende" aria-label="Legende">\n' +
   '    <span id="lp-lg-bogen"><i class="sw b"></i>Bogen</span>\n' +
   '    <span><i class="sw a"></i>App</span>\n' +
   '    <span id="lp-lg-plan"><i class="sw p"></i>geplant</span>\n' +
@@ -354,7 +356,7 @@ function renderZeit(){
   // Zeilen
   var body = '';
   var selIns = S.ins.filter(function(e){ return e._id === S.sel; })[0];
-  var rows = sortedRows(), stand = standModus();
+  var rows = sortedRows(), stand = standModus(), r7 = rotLetzte7();
   rows.forEach(function(r){
     if (r.parent && !isOpen(r.parent)) return;
     var kids = rows.filter(function(c){ return c.parent === r._id; });
@@ -364,6 +366,7 @@ function renderZeit(){
     else body += '<button type="button" class="name" data-row="' + esc(r._id) + '"' + (S.edit ? '' : ' tabindex="-1"') + '><span>' + esc(r.label) + '</span></button>';
     if (r.beispiel) body += '<button type="button" class="bsp-btn" data-bsp="' + esc(r._id) + '" aria-label="Beispielaufgabe: ' + esc(r.label) + '" title="Beispielaufgabe ansehen"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2" fill="none" stroke="var(--teal)" stroke-width="2"></rect><path d="M8.5 8h7M8.5 12h7M8.5 16h4" stroke="var(--teal)" stroke-width="2" stroke-linecap="round"></path></svg></button>';
     if (r.group && S.edit) body += '<button type="button" class="btn ghost" style="min-height:28px;padding:2px 8px;font-size:12px" data-row="' + esc(r._id) + '">Ändern</button>';
+    if (r7[r._id]) body += '<span class="wpunkt" title="Rote Abweichung in den letzten 7 Tagen: ' + esc(r7[r._id].b.wort) + ' (siehe Übungsmenge)" aria-label="Warnung: ' + esc(r7[r._id].b.wort) + '"></span>';
     if (r.etappe && !r.etappe.ab) body += '<span class="lock" title="' + esc(r.etappe.bedingung || 'noch nicht freigeschaltet') + '">gesperrt</span>';
     if (r.quote && r.quote.n) body += '<span class="q ' + qClass(r.quote) + '" title="' + esc(qTitle(r.quote)) + '">' + esc(r.quote.r) + '/' + esc(r.quote.n) + (r.quote.kn != null ? ' · K' + esc(r.quote.kn) : '') + '</span>';
     body += '</div>';
@@ -404,6 +407,236 @@ function renderZeit(){
     h += '<p class="hint">Tippe oben auf eine Erkenntnis, um sie einzublenden. Ein zweiter Tipp blendet sie wieder aus. Die Themen, die sie verändert hat, leuchten dann auf.</p>';
   }
   return h;
+}
+
+/* ---------- Übungsmenge (ab 1.5.0): rows.bogen, rows.verlauf (4. Wert Minuten), meta.app_plan, meta.bogen_min, meta.abweichung, rows.ziel ---------- */
+function liste0(r, feld){ return Array.isArray(r && r[feld]) ? r[feld] : []; }
+function hatMenge(){
+  if (!S.meta) return false;
+  if (Array.isArray(S.meta.app_plan) && S.meta.app_plan.length) return true;
+  return S.rows.some(function(r){ return liste0(r, 'bogen').length || liste0(r, 'verlauf').some(function(v){ return v && v.length > 3; }); });
+}
+// Tageswerte je Zeile (nur eigene Daten): b[n] = [Teilaufgaben, Minuten], a[n] = [Aufgaben, Minuten]
+function mIndex(){
+  if (S._mi && S._mi.rows === S.rows && S._mi.meta === S.meta) return S._mi.x;
+  var x = {};
+  S.rows.forEach(function(r){
+    var o = { b: {}, a: {} };
+    liste0(r, 'bogen').forEach(function(v){ var n = dn(v && v[0]); if (isNaN(n)) return; var c = o.b[n] || (o.b[n] = [0, 0]); c[0] += +v[1] || 0; c[1] += +v[2] || 0; });
+    liste0(r, 'verlauf').forEach(function(v){ var n = dn(v && v[0]); if (isNaN(n)) return; var c = o.a[n] || (o.a[n] = [0, 0]); c[0] += +v[2] || 0; c[1] += +v[3] || 0; });
+    x[r._id] = o;
+  });
+  S._mi = { rows: S.rows, meta: S.meta, x: x };
+  return x;
+}
+function appPlaene(){ return (Array.isArray(S.meta && S.meta.app_plan) ? S.meta.app_plan : []).filter(function(p){ return p && !isNaN(dn(p.ab)) && p.anteile; }).slice().sort(function(a, b){ return dn(a.ab) - dn(b.ab); }); }
+function planAm(n){ var l = appPlaene().filter(function(p){ return dn(p.ab) <= n; }); return l.length ? l[l.length - 1] : null; }
+function inPlan(id){ return appPlaene().some(function(p){ return p.anteile[id] != null; }); }
+function kinderVon(id){ return sortedRows().filter(function(c){ return c.parent === id; }); }
+function hatEigen(r, art){ return art === 'b' ? liste0(r, 'bogen').length > 0 : liste0(r, 'verlauf').length > 0; }
+// Summe einer Zeile an Tag n; Pakete (zugeklappt oder ohne eigene Daten) zählen ihre Themen mit.
+// Hat ein Paket eigene Daten, zählen nur Kinder mit eigenem Plananteil dazu (z. B. Kugel bei Kegel und Pyramide), keine Etappen.
+function mSumme(r, n, art){
+  var o = (mIndex()[r._id] || {})[art] || {}, e = o[n] || [0, 0], s = [e[0], e[1]], eigen = hatEigen(r, art);
+  kinderVon(r._id).forEach(function(c){ if (!eigen || inPlan(c._id)) { var k = mSumme(c, n, art); s[0] += k[0]; s[1] += k[1]; } });
+  return s;
+}
+function mHatDaten(r){ return hatEigen(r, 'b') || hatEigen(r, 'a') || inPlan(r._id) || kinderVon(r._id).some(mHatDaten); }
+function mDran(r, n){
+  var eigen = (r.bars || []).some(function(b){ return b.kind !== 'pause' && dn(b.from) <= n && n <= dn(b.to); });
+  return eigen || (r.group && !isOpen(r._id) && kinderVon(r._id).some(function(c){ return mDran(c, n); }));
+}
+function topVon(r){ var g = r, i = 0; while (g && g.parent && i++ < 9) { var p = rowById(g.parent); if (!p) break; g = p; } return g; }
+function kurzName(r){ var t = String(r.label || r._id).split(' · '); return t.length > 1 && t[0].length <= 3 ? t[0] + ' · ' + t[1] : t[0]; }
+function abwGrenzen(){ var a = (S.meta && S.meta.abweichung) || {}; return { gelb: a.gelb || [1.5, 3], rot: a.rot || [2, 5] }; }
+// Bewertung nach Übungszeit: gelb/rot nach Faktor und Prozentpunkten; geplant und nie gekommen = rot
+function bewerten(plan, ist, gekommen){
+  if (!(plan > 0)) return null;
+  var g = abwGrenzen(), pp = Math.abs(ist - plan), f = ist / plan;
+  if (!gekommen) return { st: 'rot', wort: 'nie gekommen' };
+  var wort = ist < plan ? 'zu wenig' : 'zu viel';
+  if ((f >= g.rot[0] || f <= 1 / g.rot[0]) && pp >= g.rot[1]) return { st: 'rot', wort: wort };
+  if ((f >= g.gelb[0] || f <= 1 / g.gelb[0] + 1e-9) && pp >= g.gelb[1]) return { st: 'gelb', wort: wort };
+  return null;
+}
+// App: Plan gegen Ist von Tag von bis bis (höchstens heute). Plan zeitgewichtet nach dem Anteil, der am Tag galt.
+function planIst(von, bis){
+  bis = Math.min(bis, dn(todayIso()));
+  var th = {}, tm = 0, tn = 0, tage = 0;
+  for (var n = von; n <= bis; n++) {
+    var p = planAm(n); if (!p) continue;
+    var ids = Object.keys(p.anteile).filter(function(id){ return rowById(id); });
+    var summe = ids.reduce(function(s, id){ return s + (+p.anteile[id] || 0); }, 0); if (!summe) continue;
+    var dm = 0, dnn = 0, per = {};
+    ids.forEach(function(id){ var a = (mIndex()[id] || {}).a || {}, v = a[n] || [0, 0]; per[id] = v; dm += v[1]; dnn += v[0]; });
+    if (dnn) tage++;
+    ids.forEach(function(id){
+      var u = th[id] || (th[id] = { id: id, pm: 0, pn: 0, m: 0, n: 0, plan0: 0 });
+      var ant = (+p.anteile[id] || 0) / summe;
+      u.pm += ant * dm; u.pn += ant * dnn; u.m += per[id][1]; u.n += per[id][0]; u.plan0 = ant * 100;
+    });
+    tm += dm; tn += dnn;
+  }
+  function fertig(u, label, paket){
+    var plan = tm ? u.pm / tm * 100 : u.plan0, ist = tm ? u.m / tm * 100 : 0, istN = tn ? u.n / tn * 100 : 0;
+    return { id: u.id, label: label, paket: paket, plan: plan, ist: ist, istN: istN, m: u.m, n: u.n, b: tn ? bewerten(plan, ist, u.n > 0) : null };
+  }
+  var themen = Object.keys(th).map(function(id){ var r = rowById(id); return fertig(th[id], r.label, false); });
+  var pk = {};
+  Object.keys(th).forEach(function(id){ var t = topVon(rowById(id)), u = th[id], q = pk[t._id] || (pk[t._id] = { id: t._id, pm: 0, pn: 0, m: 0, n: 0, plan0: 0 }); q.pm += u.pm; q.pn += u.pn; q.m += u.m; q.n += u.n; q.plan0 += u.plan0; });
+  var pakete = Object.keys(pk).map(function(id){ return fertig(pk[id], rowById(id).label, true); });
+  return { themen: themen, pakete: pakete, tm: tm, tn: tn, tage: tage };
+}
+function abwSort(a, b){ var o = { rot: 0, gelb: 1 }; return ((a.b ? o[a.b.st] : 2) - (b.b ? o[b.b.st] : 2)) || (Math.abs(b.ist - b.plan) - Math.abs(a.ist - a.plan)); }
+// Warnpunkt in der Zeitleiste: rote Abweichung in den letzten 7 Tagen
+function rotLetzte7(){
+  if (S._r7 && S._r7.rows === S.rows && S._r7.meta === S.meta && S._r7.tag === todayIso()) return S._r7.x;
+  var x = {};
+  if (hatMenge()) { var h = dn(todayIso()), pi = planIst(h - 6, h); pi.themen.concat(pi.pakete).forEach(function(t){ if (t.b && t.b.st === 'rot') x[t.id] = t; }); }
+  S._r7 = { rows: S.rows, meta: S.meta, tag: todayIso(), x: x };
+  return x;
+}
+function pz(v){ return (Math.round(v * 10) / 10).toLocaleString('de-DE', { maximumFractionDigits: v < 10 ? 1 : 0 }) + ' %'; }
+function mz(v){ return Math.round(v).toLocaleString('de-DE'); }
+function minuten(r, von, bis, art){ var s = 0; for (var n = von; n <= bis; n++) s += mSumme(r, n, art)[1]; return s; }
+function anzahl(r, von, bis, art){ var s = 0; for (var n = von; n <= bis; n++) s += mSumme(r, n, art)[0]; return s; }
+function letzteTendenz(id){ var le = letzteEinschaetzung(id); return le ? le.t.tendenz : null; }
+// Ziel-Check: Warnungen aus Lernplan, Kenntnisstand und Übungsmenge (bezogen auf heute)
+function zielCheck(){
+  if (S._zc && S._zc.rows === S.rows && S._zc.meta === S.meta && S._zc.ins === S.ins && S._zc.tag === todayIso()) return S._zc.x;
+  var w = [], h = dn(todayIso()), zmps = +(S.meta.ziel_minuten_pro_stufe) || 30;
+  var etappeVon = function(r){ var p = r.parent && rowById(r.parent); return !!(p && (hatEigen(p, 'a') || inPlan(p._id)) && !inPlan(r._id)); };
+  var themen = sortedRows().filter(function(r){ return !r.group || hatEigen(r, 'b') || hatEigen(r, 'a'); }).filter(function(r){ return (hatEigen(r, 'b') || hatEigen(r, 'a') || inPlan(r._id)) && !etappeVon(r); });
+  var pi14 = planIst(h - 13, h), u14 = {}; pi14.themen.forEach(function(t){ u14[t.id] = t; });
+  themen.forEach(function(r){
+    var name = kurzName(r), niv = niveauAm(r, h), tend = letzteTendenz(r._id);
+    var m14 = minuten(r, h - 13, h, 'b') + minuten(r, h - 13, h, 'a');
+    // 1. Ziel in Gefahr
+    var ziel = liste0(r, 'ziel').filter(function(z){ return dn(z[0]) >= h; }).sort(function(a, b){ return dn(a[0]) - dn(b[0]); })[0];
+    if (ziel && niv != null) { var fehlt = (+ziel[1]) - niv; if (fehlt > 0 && m14 < fehlt * zmps) w.push({ st: 'rot', art: 'Ziel in Gefahr', row: r._id, name: name, text: 'Ziel Stufe ' + ziel[1] + ' bis ' + de(ziel[0]) + ', heute Stufe ' + niv + '. In 14 Tagen ' + mz(m14) + ' Min. geübt, nötig etwa ' + mz(fehlt * zmps) + '.' }); }
+    else if (ziel && niv == null && m14 < (+ziel[1]) * zmps) w.push({ st: 'rot', art: 'Ziel in Gefahr', row: r._id, name: name, text: 'Ziel Stufe ' + ziel[1] + ' bis ' + de(ziel[0]) + ', noch keine Einschätzung. In 14 Tagen ' + mz(m14) + ' Min. geübt.' });
+    // 2. Geplant, aber nicht geübt
+    var dran = false; for (var n = h - 6; n <= h; n++) if ((r.bars || []).some(function(b){ return b.kind !== 'pause' && dn(b.from) <= n && n <= dn(b.to); })) dran = true;
+    if (dran && anzahl(r, h - 6, h, 'b') + anzahl(r, h - 6, h, 'a') === 0) w.push({ st: 'rot', art: 'Geplant, aber nicht geübt', row: r._id, name: name, text: 'Laut Lernplan dran, aber seit 7 Tagen weder auf dem Bogen noch in der App.' });
+    var u = u14[r._id];
+    // 3. Viel Zeit für Sicheres
+    if (u && pi14.tn && niv != null && niv >= 4 && u.ist > 1.5 * u.plan) w.push({ st: 'gelb', art: 'Viel Zeit für Sicheres', row: r._id, name: name, text: 'Stufe ' + niv + ' (' + NIVEAU[niv] + '), bekommt aber ' + pz(u.ist) + ' der App-Zeit statt ' + pz(u.plan) + '.' });
+    // 4. Wenig Zeit für Schwaches
+    if (u && pi14.tn && ((niv != null && niv <= 2) || tend === 'ab') && u.plan - u.ist >= 1) w.push({ st: 'gelb', art: 'Wenig Zeit für Schwaches', row: r._id, name: name, text: (tend === 'ab' ? 'Tendenz fällt' : 'Stufe ' + niv + ' (' + NIVEAU[niv] + ')') + ', bekommt nur ' + pz(u.ist) + ' der App-Zeit statt ' + pz(u.plan) + '.' });
+    // 5. Nur Papier oder nur App
+    var nb = anzahl(r, h - 13, h, 'b'), na = anzahl(r, h - 13, h, 'a');
+    if (!noBoegen() && (nb > 0) !== (na > 0)) w.push({ st: 'info', art: nb ? 'Nur auf Bögen' : 'Nur in der App', row: r._id, name: name, text: nb ? 'Seit 14 Tagen nur auf Bögen, nicht in der App.' : 'Seit 14 Tagen nur in der App, nicht auf Bögen.' });
+  });
+  // 6. Block oder Thema beginnt bald, noch ohne App-Inhalte
+  sortedRows().forEach(function(r){
+    var bars = (r.bars || []).filter(function(b){ return b.kind !== 'pause' && !isNaN(dn(b.from)); });
+    if (!bars.length || hatEigen(r, 'a') || inPlan(r._id) || etappeVon(r)) return;
+    var s = Math.min.apply(null, bars.map(function(b){ return dn(b.from); }));
+    if (s > h && s <= h + 7 && !r.group) w.push({ st: 'info', art: 'Beginnt bald', row: r._id, name: kurzName(r), text: 'Beginnt am ' + de(iso(s)) + ' Es gibt noch keine App-Inhalte dafür.' });
+  });
+  var o = { rot: 0, gelb: 1, info: 2 };
+  w.sort(function(a, b){ return o[a.st] - o[b.st]; });
+  S._zc = { rows: S.rows, meta: S.meta, ins: S.ins, tag: todayIso(), x: w };
+  return w;
+}
+function warnZahl(){ return hatMenge() ? zielCheck().filter(function(w){ return w.st !== 'info'; }).length : 0; }
+function abwHtml(t){ return t.b ? '<span class="abw ' + t.b.st + '">' + esc(t.b.wort) + '</span>' : ''; }
+function planZeile(t, skala){
+  var sk = function(v){ return Math.min(100, v / skala * 100); };
+  return '<div class="pz' + (t.b ? ' ' + t.b.st : '') + '"><div class="pz-n">' + esc(t.paket ? t.label : kurzName({ label: t.label })) + '</div>' +
+    '<button type="button" class="pz-t" data-mpi="' + esc(t.id) + '" title="Plan ' + esc(pz(t.plan)) + ', Ist ' + esc(pz(t.ist)) + ' der Übungszeit, ' + esc(pz(t.istN)) + ' der Aufgaben" aria-label="' + esc(t.label) + ': Plan ' + esc(pz(t.plan)) + ', Ist ' + esc(pz(t.ist)) + ' der Übungszeit"><span class="pz-n2" style="width:' + sk(t.istN) + '%"></span><span class="pz-z" style="width:' + sk(t.ist) + '%"></span><span class="pz-s" style="left:calc(' + sk(t.plan) + '% - 1.5px)"></span></button>' +
+    '<div class="pz-w">Plan <b>' + esc(pz(t.plan)) + '</b> · Ist <b class="iz">' + esc(pz(t.ist)) + '</b> ' + abwHtml(t) + '</div></div>';
+}
+function renderMenge(){
+  var m = S.meta, start = dn(m.start), end = dn(m.end), h = dn(todayIso());
+  var sichtbar = zTage(); zStart(start, sichtbar);
+  var von = Math.max(start, Math.round(S.z.tag)), bis = Math.min(end, von + Math.round(sichtbar) - 1);
+  if (bis - von < 6) von = Math.max(start, bis - 6);
+  var wochen = bis - von + 1 > 63;
+  var spalten = [];
+  if (wochen) { for (var n = von; n <= bis; ) { var mo = n - ((new Date(n * 864e5).getUTCDay() + 6) % 7), e = Math.min(bis, mo + 6); spalten.push({ von: n, bis: e }); n = e + 1; } }
+  else for (var d = von; d <= bis; d++) spalten.push({ von: d, bis: d });
+  var bisH = Math.min(bis, h), mass = S.mMass === 'n' ? 'n' : 'zeit', k = mass === 'n' ? 0 : 1;
+  var rows = sortedRows().filter(function(r){ return !(r.parent && !isOpen(r.parent)) && mHatDaten(r); });
+  function wert(r, s, art){ var v = 0, pl = false; for (var n = s.von; n <= s.bis; n++) { var x = mSumme(r, n, art); v += x[k]; if (art === 'b' && x[0] && n > h) pl = true; } return { v: v, pl: pl }; }
+  var max = 0, zellen = rows.map(function(r){ return spalten.map(function(s){ var b = wert(r, s, 'b'), a = wert(r, s, 'a'); max = Math.max(max, b.v, a.v); return { b: b, a: a }; }); });
+  var hoehe = function(v){ return v > 0 ? Math.max(10, Math.round(100 * Math.sqrt(v / max))) : 0; };
+  var pi = planIst(von, bis), r7 = rotLetzte7();
+  var o = '';
+  // Kopf: Zeitraum und Maß
+  o += zoomLeiste();
+  o += '<div class="m-zeitraum"><button type="button" class="btn ghost" data-mschieb="-1" aria-label="Früher">‹</button><span><b>' + esc(de(iso(von))) + ' bis ' + esc(de(iso(bis))) + '</b>' + (wochen ? ' · je Woche' : '') + '</span><button type="button" class="btn ghost" data-mschieb="1" aria-label="Später">›</button>' +
+    '<div class="seg klein" role="group" aria-label="Maß"><button type="button" data-mmass="zeit" aria-pressed="' + (mass === 'zeit') + '">Übungszeit</button><button type="button" data-mmass="n" aria-pressed="' + (mass === 'n') + '">Aufgaben</button></div></div>';
+  // 1. Befunde
+  var gleich = function(a, b){ return Math.abs(a.plan - b.plan) < 0.05 && Math.abs(a.ist - b.ist) < 0.05; };
+  var bef = pi.pakete.filter(function(t){ return t.b; });
+  bef = bef.concat(pi.themen.filter(function(t){ return t.b && !bef.some(function(p){ return gleich(p, t); }); })).sort(abwSort).slice(0, 4);
+  if (bef.length) o += '<div class="m-bef">' + bef.map(function(t){
+    return '<button type="button" class="m-bk ' + t.b.st + '" data-mpi="' + esc(t.id) + '"><span class="m-bk-k">App · ' + esc(t.paket ? 'Paket ' : '') + esc(kurzName({ label: t.label })) + '</span><b class="m-bk-z">' + esc(pz(t.ist)) + ' statt ' + esc(pz(t.plan)) + '</b><span>der Übungszeit · ' + esc(pz(t.istN)) + ' der Aufgaben</span>' + abwHtml(t) + '</button>';
+  }).join('') + '</div>';
+  else if (pi.tn) o += '<p class="hint">Im gewählten Zeitraum keine auffällige Abweichung vom App-Plan.</p>';
+  // 2. Ziel-Check
+  var zc = zielCheck();
+  o += '<section class="card m-sec" id="lp-zielcheck"><h2>Ziel-Check</h2><p class="hint">Bezogen auf heute: Lernplan, Kenntnisstand und Übungszeit der letzten 7 bzw. 14 Tage.</p>' +
+    (zc.length ? '<ul class="m-zc">' + zc.map(function(x){ return '<li class="' + x.st + '"><span class="m-zc-st">' + ({ rot: 'Dringend', gelb: 'Warnung', info: 'Info' })[x.st] + '</span><b>' + esc(x.name) + '</b> · ' + esc(x.art) + '<div>' + esc(x.text) + '</div></li>'; }).join('') + '</ul>' : '<p>Keine Warnungen.</p>') + '</section>';
+  // 3. Thema × Tag
+  var heute = function(s){ return s.von <= h && h <= s.bis; };
+  var kopf = spalten.map(function(s){
+    var bt = !wochen && S.tage.filter(function(t){ return dn(t.date) === s.von; })[0];
+    var oben = wochen ? (wochenName(s.von) || de(iso(s.von))) : (bt ? (/^W/.test(String(bt.wk)) ? bt.wk : 'W' + bt.wk) + ' ' + (/^T/.test(String(bt.day)) ? bt.day : 'T' + bt.day) : ['So','Mo','Di','Mi','Do','Fr','Sa'][new Date(s.von * 864e5).getUTCDay()]);
+    return '<th class="' + (bt ? 'bt' : '') + (heute(s) ? ' heute' : '') + '" title="' + esc(de(iso(s.von)) + (wochen ? ' bis ' + de(iso(s.bis)) : '')) + '">' + esc(oben) + '<br>' + esc(de(iso(s.von))) + '</th>';
+  }).join('');
+  var body = rows.map(function(r, i){
+    var sb = 0, sa = 0;
+    var tds = spalten.map(function(s, j){
+      var z = zellen[i][j], dran = false; for (var n = s.von; n <= s.bis; n++) if (mDran(r, n)) dran = true;
+      if (s.von <= bisH) { sb += wertBis(r, s, 'b'); sa += wertBis(r, s, 'a'); }
+      var leer = !z.b.v && !z.a.v;
+      return '<td class="mc' + (dran ? ' dran' : '') + (heute(s) ? ' heute' : '') + '">' + (leer ? '' : '<button type="button" class="mcell" data-mz="' + esc(r._id) + '|' + s.von + '|' + s.bis + '" title="' + esc(zellTitel(r, s)) + '"><i class="b' + (z.b.pl ? ' pl' : '') + '" style="height:' + hoehe(z.b.v) + '%"></i><i class="a" style="height:' + hoehe(z.a.v) + '%"></i></button>') + '</td>';
+    }).join('');
+    var rot = r7[r._id];
+    return '<tr class="' + (r.group ? 'grp' : '') + '"><th class="mrl" scope="row">' + (rot ? '<span class="wpunkt" title="Rote Abweichung in den letzten 7 Tagen: ' + esc(rot.b.wort) + '" aria-label="Warnung: ' + esc(rot.b.wort) + '"></span>' : '') + '<span>' + esc(r.label) + '</span></th>' + tds +
+      '<td class="msum"><b class="tb">' + mz(sb) + '</b> · <b class="ta">' + mz(sa) + '</b></td></tr>';
+  }).join('');
+  function wertBis(r, s, art){ var v = 0; for (var n = s.von; n <= Math.min(s.bis, bisH); n++) v += mSumme(r, n, art)[k]; return v; }
+  o += '<section class="m-sec"><h2>Thema × Tag</h2><div class="legend"><span><i class="sw b"></i>Bogen</span><span><i class="sw a"></i>App</span><span><i class="sw mdran"></i>laut Lernplan dran</span>' + (noBoegen() ? '' : '<span><i class="sw p"></i>Bogen geplant</span>') + '<span>Höhe nach Wurzel der Menge</span></div>' +
+    '<div class="card m-scroll"><table class="mx' + (wochen ? ' wo' : '') + '"><thead><tr><th class="mrl"></th>' + kopf + '<th class="msum">' + (mass === 'n' ? 'Aufgaben' : 'Minuten') + '<br>Bogen · App</th></tr></thead><tbody>' + body + '</tbody></table></div>' +
+    '<p class="hint">Summen bis heute. ' + (mass === 'n' ? 'Bogen: Teilaufgaben, App: Aufgaben.' : 'Bogen: Minuten geschätzt, App: Minuten gemessen.') + ' Tippe auf eine Zelle für die Zahlen.</p></section>';
+  // 4. App: Plan gegen Ist
+  if (pi.pakete.length) {
+    var skT = Math.max(10, Math.ceil(Math.max.apply(null, pi.themen.map(function(t){ return Math.max(t.plan, t.ist, t.istN); })) / 10) * 10);
+    o += '<section class="m-sec"><h2>App: Plan gegen Ist</h2><p class="hint">' + esc(de(iso(von))) + ' bis ' + esc(de(iso(bisH))) + (pi.tn ? ', ' + pi.tn + ' Aufgaben, ' + mz(pi.tm) + ' Min.' : ', keine App-Aufgaben.') + ' Strich = Plan, kräftiger Balken = Anteil an den Aufgaben, heller Balken = Anteil an der Übungszeit. Bewertet wird die Übungszeit.</p>' +
+      '<h3>Pakete</h3><div class="pzl">' + pi.pakete.slice().sort(abwSort).map(function(t){ return planZeile(t, 100); }).join('') + '</div>' +
+      '<h3>Themen</h3><div class="pzl">' + pi.themen.slice().sort(abwSort).map(function(t){ return planZeile(t, skT); }).join('') + '</div><p class="hint">Skala Themen: 0 bis ' + skT + ' %.</p></section>';
+  }
+  // 5. Bogen oder App
+  var st = rows.filter(function(r){ return !(r.group && isOpen(r._id) && !hatEigen(r, 'b') && !hatEigen(r, 'a')); }).map(function(r){ return { r: r, b: minuten(r, von, bisH, 'b'), a: minuten(r, von, bisH, 'a') }; }).filter(function(x){ return x.b + x.a > 0; }).sort(function(x, y){ return (y.b + y.a) - (x.b + x.a); });
+  var smax = Math.max.apply(null, [1].concat(st.map(function(x){ return x.b + x.a; })));
+  if (st.length) o += '<section class="m-sec"><h2>Bogen oder App</h2><p class="hint">Minuten je Thema bis heute, Bogen geschätzt, App gemessen.</p><div class="pzl">' + st.map(function(x){
+    return '<div class="pz"><div class="pz-n">' + esc(kurzName(x.r)) + '</div><div class="stk" title="Bogen ' + mz(x.b) + ' Min., App ' + mz(x.a) + ' Min."><span class="tb" style="width:' + (100 * x.b / smax) + '%"></span><span class="ta" style="width:' + (100 * x.a / smax) + '%"></span></div><div class="pz-w"><b class="tb">' + mz(x.b) + '</b> + <b class="ta">' + mz(x.a) + '</b> Min.</div></div>';
+  }).join('') + '</div></section>';
+  // 6. Wie gerechnet wurde
+  var bm = m.bogen_min || {}, ap = appPlaene();
+  o += '<div class="m-note"><b>Wie gerechnet wurde</b><span>App: Aufgaben und Minuten je Tag aus der Auswertung der App (Feld <code>verlauf</code>). Plan = Anteil an der Übungszeit aus den App-Einstellungen' + (ap.length ? ' (' + esc(ap.map(function(p){ return 'ab ' + de(p.ab) + (p.quelle ? ': ' + p.quelle : ''); }).join('; ')) + ')' : '') + ', gewichtet nach der App-Zeit an jedem Tag.</span>' +
+    (noBoegen() ? '' : '<span>Bogen: Teilaufgaben je Bogentag mal geschätzte Minuten pro Teilaufgabe' + (Object.keys(bm).length ? ': ' + esc(Object.keys(bm).map(function(id){ var r = rowById(id); return (r ? kurzName(r) : id) + ' ' + String(bm[id]).replace('.', ','); }).join(', ')) : '') + '.</span>') +
+    '<span>Abweichung nach Übungszeit: gelb ab Faktor ' + String(abwGrenzen().gelb[0]).replace('.', ',') + ' und ' + abwGrenzen().gelb[1] + ' Prozentpunkten, rot ab Faktor ' + abwGrenzen().rot[0] + ' und ' + abwGrenzen().rot[1] + ' Prozentpunkten oder wenn ein geplantes Thema nie kam.</span></div>';
+  return o;
+}
+function zellTitel(r, s){
+  var b = [0, 0], a = [0, 0], pl = false, h = dn(todayIso());
+  for (var n = s.von; n <= s.bis; n++) { var x = mSumme(r, n, 'b'), y = mSumme(r, n, 'a'); b[0] += x[0]; b[1] += x[1]; a[0] += y[0]; a[1] += y[1]; if (x[0] && n > h) pl = true; }
+  return kurzName(r) + ', ' + de(iso(s.von)) + (s.bis > s.von ? '–' + de(iso(s.bis)) : '') + ': ' + (noBoegen() ? '' : 'Bogen ' + b[0] + ' Teilaufgaben, ' + mz(b[1]) + ' Min.' + (pl ? ' (geplant)' : '') + ' · ') + 'App ' + a[0] + ' Aufgaben' + (a[1] ? ', ' + String(Math.round(a[1] * 10) / 10).replace('.', ',') + ' Min.' : '');
+}
+function openMZelle(key, opener){
+  var p = key.split('|'), r = rowById(p[0]); if (!r) return;
+  var s = { von: +p[1], bis: +p[2] }, rot = rotLetzte7()[r._id];
+  infoSheet(esc(r.label), 'Übungsmenge · ' + esc(de(iso(s.von)) + (s.bis > s.von ? ' bis ' + de(iso(s.bis)) : '')), '<p>' + esc(zellTitel(r, s).split(': ').slice(1).join(': ')) + '</p>' + (mDran(r, s.von) ? '<p class="hint">Laut Lernplan dran.</p>' : ''), opener);
+}
+function openMPlan(id, opener){
+  var m = S.meta, sichtbar = zTage(), von = Math.max(dn(m.start), Math.round(S.z.tag)), bis = Math.min(dn(m.end), von + Math.round(sichtbar) - 1);
+  var pi = planIst(von, bis), t = pi.themen.concat(pi.pakete).filter(function(x){ return x.id === id; })[0]; if (!t) return;
+  infoSheet(esc(t.label), 'App: Plan gegen Ist · ' + esc(de(iso(von))) + ' bis ' + esc(de(iso(Math.min(bis, dn(todayIso()))))),
+    kv('Plan', esc(pz(t.plan)) + ' der Übungszeit') + kv('Ist Zeit', esc(pz(t.ist)) + ' (' + mz(t.m) + ' Min.)') + kv('Ist Aufgaben', esc(pz(t.istN)) + ' (' + t.n + ' Aufgaben)') + kv('Bewertung', t.b ? abwHtml(t) + ' <span class="hint">' + (t.b.st === 'rot' ? 'deutliche' : 'auffällige') + ' Abweichung</span>' : 'im Rahmen'), opener);
 }
 
 /* ---------- Bahnen ---------- */
@@ -531,6 +764,16 @@ function render(){
   $('add-tag').hidden = nb;
   $('v-zeit').setAttribute('aria-pressed', S.view === 'zeit');
   $('v-bahnen').setAttribute('aria-pressed', S.view === 'bahnen');
+  // Übungsmenge (ab 1.5.0): nur mit Daten dazu
+  var mg = !!(S.bereit && hatMenge());
+  if (S.view === 'menge' && !mg && S.bereit && S.meta) S.view = 'zeit';
+  $('v-menge').hidden = !mg;
+  $('v-menge').setAttribute('aria-pressed', S.view === 'menge');
+  var wz = mg ? warnZahl() : 0;
+  $('warnz').hidden = !wz;
+  $('warnz').classList.toggle('gelb', !!wz && !zielCheck().some(function(w){ return w.st === 'rot'; }));
+  if (wz) { $('warnz').textContent = wz + (wz === 1 ? ' Warnung' : ' Warnungen'); $('warnz').title = 'Ziel-Check in der Übungsmenge'; }
+  $('legende').hidden = S.view === 'menge';
   $('edit').hidden = !S.canEdit;
   $('edit').setAttribute('aria-pressed', S.edit);
   // Farbe der Balken: Art (wie bisher) oder Kenntnisstand, nur wenn es Daten dazu gibt
@@ -545,7 +788,7 @@ function render(){
   $('stand').textContent = S.meta.stand ? 'Stand ' + de(S.meta.stand) : '';
   if (S.meta.eyebrow) $('eyebrow').textContent = S.meta.eyebrow;
   if (S.meta.titel) $('title').textContent = S.meta.titel;
-  v.innerHTML = S.view === 'zeit' ? renderZeit() : renderBahnen();
+  v.innerHTML = S.view === 'zeit' ? renderZeit() : S.view === 'menge' ? renderMenge() : renderBahnen();
   S.breite = v.clientWidth;
   scrollerSetzen();
   var hasCard = S.view === 'zeit' && S.ins.some(function(e){ return e._id === S.sel; });
@@ -599,6 +842,8 @@ function editRow(id){
       if (r.beispiel) out.beispiel = r.beispiel;
       if (r.niveau) out.niveau = r.niveau;
       if (r.verlauf) out.verlauf = r.verlauf;
+      if (r.bogen) out.bogen = r.bogen;
+      if (r.ziel) out.ziel = r.ziel;
       return S.db.doc('rows/' + (id || slug(out.label))).set(out);
     }, id ? function(){ return S.db.doc('rows/' + id).delete(); } : null);
     wire();
@@ -810,6 +1055,8 @@ function openTest(opener){
 /* ---------- Ereignisse ---------- */
 $('v-zeit').onclick = function(){ S.view = 'zeit'; render(); };
 $('v-bahnen').onclick = function(){ S.view = 'bahnen'; render(); };
+$('v-menge').onclick = function(){ S.view = 'menge'; render(); };
+$('warnz').onclick = function(){ S.view = 'menge'; render(); var z = $('zielcheck'); if (z && z.scrollIntoView) z.scrollIntoView({ block: 'start', behavior: 'smooth' }); };
 $('edit').onclick = function(){ S.edit = !S.edit; render(); };
 $('add-row').onclick = function(){ editRow(null); };
 $('add-ins').onclick = function(){ editIns(null); };
@@ -843,6 +1090,10 @@ $('view').addEventListener('click', function(e){
   if (t.dataset.feed) { openInsInfo(t.dataset.feed, t); return; }
 
   if (t.dataset.test) { openTest(t); return; }
+  if (t.dataset.mmass) { S.mMass = t.dataset.mmass; render(); return; }
+  if (t.dataset.mschieb) { S.z.tag = (S.z.tag || 0) + (+t.dataset.mschieb) * Math.max(7, Math.round(zTage() / 2)); render(); return; }
+  if (t.dataset.mz) { openMZelle(t.dataset.mz, t); return; }
+  if (t.dataset.mpi) { openMPlan(t.dataset.mpi, t); return; }
 });
 /* Zoom mit Strg/⌘ + Mausrad und zwei Fingern, Verschieben durch Ziehen mit der Maus (ab 1.3.0) */
 function ankerBei(sc, clientX){
