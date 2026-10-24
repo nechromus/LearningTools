@@ -644,6 +644,8 @@ export function dichte(stufe, rng, opts = {}) {
   const ohne = opts.ohne || [];
   let moeglich = Object.entries(DICHTE_VARIANTEN).filter(([v, s]) => s <= st && !ohne.includes(v));
   if (!moeglich.length) moeglich = [['rho', 1]];
+  // Ähnliche Aufgabe (Auftrag 18): dieselbe Variante mit neuen Zahlen
+  if (opts.variante && moeglich.some(([n]) => n === opts.variante)) moeglich = moeglich.filter(([n]) => n === opts.variante);
   // Varianten der aktuellen Stufe kommen doppelt so oft
   const v = wahl(rng, moeglich.flatMap(([n, s]) => (s === st ? [n, n] : [n])));
   let a;

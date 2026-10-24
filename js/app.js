@@ -30,7 +30,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.22.0';
+export const APP_VERSION = '2.23.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1434,8 +1434,11 @@ function waehleAufgabe(kategorie) {
   const faellig = S.wiederholen.find(w => w.ab <= S.verlauf.zaehler && (gAlle[w.aufgabe.thema] || 0) > 0 && erlaubt(w.aufgabe));
   if (faellig && kategorie !== 'abschluss') {
     S.wiederholen = S.wiederholen.filter(w => w !== faellig);
-    return { aufgabe: faellig.aufgabe, wdh: faellig.wdh, paket: paketFuerThema(faellig.aufgabe.thema) };
+    // Nach dem Hinweis gegen Durchklicken: dieselbe oder eine ähnliche Aufgabe, mit Bonuszeit (Auftrag 18)
+    const auf = faellig.bonus ? aehnlicheAufgabe(faellig.aufgabe) : faellig.aufgabe;
+    return { aufgabe: auf, wdh: faellig.wdh, paket: paketFuerThema(auf.thema), bonus: !!faellig.bonus };
   }
+  if (kategorie !== 'leicht') { const m = etappeMindestAufgabe(); if (m) return m; }
   const pk = pakete();
   if (!pk) return { ...waehleIn(kategorie, gAlle, true), paket: null };
   // Mehrere Pakete: pro Platz erst das Paket nach Anteil, dann das Thema nach Gewicht.
@@ -1451,6 +1454,54 @@ function waehleAufgabe(kategorie) {
     offen = offen.filter(x => x !== p);
   }
   return { ...waehleIn(kategorie, LP.gewichteVon(grund, S.abweichungen), true), paket: grund.id };
+}
+
+// „Ähnliche Aufgabe“ (Auftrag 18): gleicher Baukasten mit neuen Zahlen, im Pool dasselbe Thema und dieselbe Stufe
+function aehnlicheAufgabe(a) {
+  if (a.generator && G.GENERATOREN[a.generator]) return erzeuge(a.generator, a.stufe || 1, a.variante ? { variante: a.variante } : {}) || a;
+  if (a.generator) return a;
+  const letzte = S.verlauf.letzteIds.slice(-10);
+  const andere = alleAufgaben().filter(x => x.id !== a.id && x.thema === a.thema && (x.stufe || 1) === (a.stufe || 1) && (x.typ === 'detektiv') === (a.typ === 'detektiv')
+    && !x.bonus && erlaubt(x) && !letzte.includes(x.id) && (x.typ !== 'detektiv' || detektivHeute(x.id) < 2));
+  return andere.length ? wahl(andere) : a;
+}
+
+// Fehler-Detektiv: dieselbe Aufgabe höchstens 2 Mal am Tag (Auftrag 18)
+const detektivHeute = (id) => (S.detektivTag && S.detektivTag.tag === S.tag.key ? S.detektivTag.n[id] || 0 : 0);
+function detektivZaehlen(id) {
+  if (!S.detektivTag || S.detektivTag.tag !== S.tag.key) S.detektivTag = { tag: S.tag.key, n: {} };
+  S.detektivTag.n[id] = (S.detektivTag.n[id] || 0) + 1;
+}
+
+// Mindestanteil der aktuellen Etappe jeder Lerneinheit (Auftrag 18): kam zu lange keine Aufgabe daraus, kommt jetzt eine.
+// Zählt: Baukasten in der Stufe der Etappe und Pool-Aufgaben der Etappe, ohne Detektiv. Darf jeden Platz außer dem Einstieg nehmen.
+const etappeSchluessel = (ne) => ne.paket + ':' + ne.etappe;
+function etappeMindestAufgabe() {
+  const pk = pakete();
+  if (!pk) return null;
+  const z = S.verlauf.zaehler;
+  const zul = S.verlauf.etappeZuletzt || (S.verlauf.etappeZuletzt = {});
+  for (const p of pk) {
+    const ne = LP.neueEtappe(p);
+    if (!ne) continue;
+    const k = etappeSchluessel(ne);
+    if (zul[k] == null) zul[k] = z;
+    if (z - zul[k] < ne.abstand) continue;
+    const g = LP.gewichteVon(p, S.abweichungen);
+    const pool = alleAufgaben().filter(a => ne.ids.includes(a.id) && a.typ !== 'detektiv' && !a.bonus && (g[a.thema] || 0) > 0 && erlaubt(a));
+    const gens = ne.gens.filter(x => G.GENERATOREN[x.generator] && !LP.baukastenGrenze(x.generator, grenzen()).gesperrt);
+    const ausPool = () => (pool.length ? L.waehleAufgabe(pool, { kategorie: 'alle', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key }) : null);
+    const ausGen = () => { if (!gens.length) return null; const x = wahl(gens); const b = erzeuge(x.generator, x.stufe); if (b) b.etappeMindest = true; return b; };
+    const a = Math.random() < 0.5 ? ausPool() || ausGen() : ausGen() || ausPool();
+    if (a && erlaubt(a)) { protokoll(S, 'etappe_mindest', { paket: p.id, etappe: ne.etappe, id: a.id, seit: z - zul[k] }); return { aufgabe: a, wdh: 0, paket: p.id }; }
+  }
+  return null;
+}
+function etappeMerken(a) {
+  const pk = pakete();
+  if (!pk) return;
+  const zul = S.verlauf.etappeZuletzt || (S.verlauf.etappeZuletzt = {});
+  for (const p of pk) { const ne = LP.neueEtappe(p); if (ne && LP.zaehltFuerEtappe(a, ne)) zul[etappeSchluessel(ne)] = S.verlauf.zaehler; }
 }
 
 // Aufgabe für einen Platz aus Themen mit diesen Gewichten. ersatz = am Ende irgendeine Aufgabe nehmen.
@@ -1476,7 +1527,7 @@ function waehleIn(kategorie, g, ersatz) {
   let a = null;
   // Fehler-Detektiv (Auftrag 17): höchstens 1 pro 10 Aufgaben, auf dem Platz „Schritte“ oder „Abschluss“
   if (['struktur', 'abschluss'].includes(kategorie) && S.verlauf.zaehler - (S.verlauf.detektivZuletzt ?? -100) >= 10 && Math.random() < 0.5) {
-    const d = pool.filter(x => x.typ === 'detektiv');
+    const d = pool.filter(x => x.typ === 'detektiv' && detektivHeute(x.id) < 2);
     if (d.length) a = L.waehleAufgabe(d, { kategorie: 'detektiv', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
     if (a) return { aufgabe: a, wdh: 0 };
   }
@@ -1574,7 +1625,7 @@ function wartendeAufgabe() {
   if (!((gewichte()[w.aufgabe.thema] || 0) > 0) || !erlaubt(w.aufgabe)) return null;
   const neu = { ...w, start: Date.now(), phase: w.phase === 'tipp' ? 'tipp' : w.phase, meldung: null, fertig: false, rechnerOffen: false };
   if (neu.zuo) neu.zuo = { ...neu.zuo, falsch: new Set(neu.zuo.falsch || []) };
-  neu.teile.forEach(t => { t.seit = Date.now(); });
+  neu.teile.forEach(t => { t.seit = Date.now(); t.hilfeStart = Date.now(); });
   return neu;
 }
 
@@ -1598,7 +1649,7 @@ function neueAufgabe() {
     return;
   }
   const fokus = testFokus();
-  let kategorie, aufgabe, wdh = 0;
+  let kategorie, aufgabe, wdh = 0, bonusWdh = false;
   if (fokus) {
     kategorie = 'test';
     aufgabe = testAufgabe(fokus.thema, fokus.stufe);
@@ -1607,21 +1658,23 @@ function neueAufgabe() {
   if (!aufgabe) {
     etappenAktualisieren();
     kategorie = MUSTER[S.verlauf.musterIndex % MUSTER.length];
-    ({ aufgabe, wdh, paket: paketId } = waehleAufgabe(kategorie));
+    ({ aufgabe, wdh, paket: paketId, bonus: bonusWdh = false } = waehleAufgabe(kategorie));
     S.verlauf.musterIndex++;
   }
   A = {
     aufgabe, kategorie, serienPos: serieWeiter(), start: Date.now(),
     teile: teileVon(aufgabe), idx: 0, phase: 'eingabe', hinweise: [], verlassen: 0, strafe: 'keine',
-    fertig: false, meldung: null, feld: 'z', wdh, test: !!fokus, ...paketInfo(paketId)
+    fertig: false, meldung: null, feld: 'z', wdh, test: !!fokus, ...paketInfo(paketId), ...(bonusWdh ? { bonusWdh: true } : {})
   };
   // Geschichten Satz für Satz zeigen (weniger Text auf einmal)
   if (aufgabe.geschichte && L.saetzeVon(aufgabe.geschichte).length > 1 && bed('satzweise')) A.satz = 1;
   teileStarten(A.teile);
   if (aufgabe.modus === 'knobeln') A.knobeln = true;
   if (aufgabe.typ === 'zuordnung') zuordnungVorbereiten();
-  protokoll(S, 'aufgabe_start', startInfoVon(A));
+  protokoll(S, 'aufgabe_start', startInfoVon(A, bonusWdh ? { bonusWiederholung: true } : {}));
   S.verlauf.letzteIds = [...S.verlauf.letzteIds, aufgabe.id].slice(-20);
+  if (!A.test) etappeMerken(aufgabe);
+  if (aufgabe.typ === 'detektiv') detektivZaehlen(aufgabe.id);
   sichern();
   setzeAnsicht('aufgabe');
   if (aufgabe.typ === 'detektiv') S.verlauf.detektivZuletzt = S.verlauf.zaehler;
@@ -1633,7 +1686,7 @@ function neueAufgabe() {
 
 function aktuellerTeil() { return A && A.teile[A.idx]; }
 function teileStarten(teile) {
-  teile.forEach(t => { t.versuche = []; t.status = 'offen'; t.eingabe = ''; t.z = ''; t.n = t.nennerFest ? String(t.antwort.nenner) : ''; t.e = ''; t.tokens = []; t.gelegt = []; t.seit = Date.now(); if (t.art === 'linien') { t.linien = []; t.fest = null; } });
+  teile.forEach(t => { t.versuche = []; t.status = 'offen'; t.eingabe = ''; t.z = ''; t.n = t.nennerFest ? String(t.antwort.nenner) : ''; t.e = ''; t.tokens = []; t.gelegt = []; t.seit = Date.now(); t.hilfeStart = Date.now(); if (t.art === 'linien') { t.linien = []; t.fest = null; } });
 }
 
 // ---------- „In Schritten umformen“ (Auftrag 14, Teil 4) ----------
@@ -2019,7 +2072,7 @@ function zeigeAufgabe() {
   const a = A.aufgabe;
   const altBox = document.querySelector('.aufgabe-screen.mit-uf > .aufgabe-inhalt');
   const altScroll = altBox ? altBox.scrollTop : null;
-  const min = L.minutenFuerPosition(A.serienPos, R());
+  const min = Math.round(L.minutenFuerPosition(A.serienPos, R()) * L.muehFaktor(a, R(), { umformen: !!A.uf }) * 100) / 100;
   const tz = String(min).replace('.', ',');
   const icons = (a.hinweise || []).filter(id => HMAP[id]).map(id =>
     `<button class="hw-btn${A.meldung && A.phase === 'tipp' ? ' pulsieren' : ''}" data-act="hinweis" data-id="${id}" aria-label="Hinweis ${esc(HMAP[id].titel)}">${hinweisIcon(HMAP[id], 42)}</button>`).join('');
@@ -2032,7 +2085,7 @@ function zeigeAufgabe() {
     ${sternzeit() ? szKopf() : ''}
     <header class="topbar">
       <button class="btn-text" data-act="beenden">✕ Fertig</button>
-      ${zeitZeigen() ? `<div class="serie-chip">Aufgabe ${A.serienPos} · <b>${istBild() ? String(min * BZ().faktor).replace('.', ',') : tz} Min.</b></div>
+      ${zeitZeigen() ? `<div class="serie-chip">Aufgabe ${A.serienPos} · <b>${istBild() ? String(Math.round(min * BZ().faktor * 100) / 100).replace('.', ',') : tz} Min.</b></div>
       ${istBild() ? `<div class="zeit-chip bz-chip">${videoSymbol(18)}${BS.minText(bzKonto().stand)}</div>` : `<div class="zeit-chip">${zeitSymbol(18)}${L.formatZeit(S.guthaben)}</div>`}` : `<div class="serie-chip">Aufgabe ${A.serienPos}</div>`}
     </header>
     <main class="aufgabe-inhalt">
@@ -2051,7 +2104,7 @@ function zeigeAufgabe() {
         <div class="teile">${teileHtml()}</div>
         ${ufAngebot() ? `<button class="btn knobel-schritte" data-act="ufAn">In Schritten umformen${sternzeit() && !A.test ? ` <small>· dann ${wpMoeglich ? wpMoeglich.schritte : 1} WP</small>` : ''}</button>`
           : A.knobeln && !A.fertig && A.phase === 'eingabe' ? `<button class="btn knobel-schritte" data-act="schritteAn">In Schritten rechnen${wpMoeglich ? ` <small>· dann ${wpMoeglich.schritte} WP</small>` : ''}</button>` : ''}`}
-        ${tippInKarte ? `<div class="meldung meldung-in-karte">${esc(A.meldung)}</div>` : ''}
+        ${tippInKarte ? `<div class="meldung meldung-in-karte${A.meldung === SCHNELL_TIPP ? ' schnell' : ''}">${meldungHtml()}</div>` : ''}
         <div class="hw-leiste"><span class="gedaempft">Hinweis:</span>${icons}
           ${wpMoeglich ? `<span class="sz-punkte wp-chip">◆ ${wpMoeglich.knobeln} WP</span>` : ''}
           ${L.rechnerFrei(a) && !A.fertig ? '<button class="btn btn-klein btn-rechner" data-act="rechner">Taschenrechner</button>' : ''}
@@ -2059,7 +2112,7 @@ function zeigeAufgabe() {
           ${rechnerAngeboten(a) && !A.fertig ? `<button class="btn btn-klein btn-rechner optional" data-act="rechnerOptional">${A.rechnerHalb || R().rechner >= 1 || !zeitZeigen() ? 'Taschenrechner' : R().rechner > 0 ? 'Taschenrechner · ½ Zeit' : 'Taschenrechner · keine Zeit'}</button>` : ''}
         </div>
       </article>
-      ${A.meldung && A.phase === 'eingabe' && !(A.uf && !A.fertig) && !tippInKarte ? `<div class="meldung">${esc(A.meldung)}</div>` : ''}
+      ${A.meldung && A.phase === 'eingabe' && !(A.uf && !A.fertig) && !tippInKarte ? `<div class="meldung${A.meldung === SCHNELL_TIPP ? ' schnell' : ''}">${meldungHtml()}</div>` : ''}
       ${A.fertig ? ergebnisHtml() : ''}
     </main>
     <footer class="eingabe-bereich">${fussHtml()}</footer>
@@ -2072,8 +2125,10 @@ function zeigeAufgabe() {
     ufSichtbar();
   }
   else if (aktiv && !A.fertig) aktiv.scrollIntoView({ block: 'nearest' });
-
+  hilfeTicken();
 }
+
+const meldungHtml = () => (A.meldung === SCHNELL_TIPP ? `<b>Zu schnell.</b> ${esc(SCHNELL_TIPP)} <span class="gedaempft">Das zählt nicht als Versuch.</span>` : esc(A.meldung));
 
 // ---------- Textaufgaben: Satz für Satz, Vorlesen, Zahlen markieren ----------
 const liestNoch = () => !!(A && !A.fertig && A.aufgabe.geschichte && A.satz != null && A.satz < L.saetzeVon(A.aufgabe.geschichte).length);
@@ -2113,6 +2168,8 @@ function linienPruefen() {
   const eingabe = t.linien.join(',');
   if (t.versuche.some(v => v.eingabe === eingabe)) { A.meldung = 'Das hattest du schon. Schau noch einmal auf die Teile.'; return zeigeAufgabe(); }
   const r = GF.pruefeLinien(A.aufgabe.bild, t.linien, t.richtig);
+  const schnell = !r.richtig && L.zuSchnell(A.aufgabe, t, Date.now() - t.seit);
+  if (schnell) { t.linien = []; return zuSchnellMelden(t, eingabe, schnell); }
   if (r.richtig) t.fest = t.linien.slice();
   else if (t.versuche.length + 1 >= 2) t.fest = t.richtig.slice(); // nach dem 2. Versuch zeigt das Bild die richtigen Linien
   versuchMerken(t, eingabe, r.richtig, r.fehler);
@@ -2123,8 +2180,8 @@ function gefaerbtWort(a) {
   return lt ? GF.teileWort(GF.zielTeile(a.bild, lt.richtig)) : 'Teile';
 }
 function fremdeRechnungHtml(a) {
-  const name = String(a.geschichte || '').split(/\s+/)[0] || '';
-  const wer = name ? `${esc(name)}${/[sxzß]$/.test(name) ? '’' : 's'} Rechnung` : 'Die Rechnung';
+  const g = L.fremderGenitiv(a);
+  const wer = g ? `${esc(g)} Rechnung` : 'Die Rechnung';
   return `<div class="fremde-rechnung"><div class="fr-wer">${wer}</div><div class="fr-text">${mathe(a.fremde_rechnung)}</div></div>`;
 }
 function detektivEinfuehrung(beimSchliessen = null) {
@@ -2227,7 +2284,8 @@ function kartenPruefen() {
   const a = A.aufgabe;
   const eingabe = t.karten.map((k, i) => k.optionen[t.wahl[i]]).join(' ');
   const { richtig, falsch } = L.pruefeKarten(t.karten, t.wahl);
-  if (!richtig && L.zuSchnell(a, t, Date.now() - t.seit)) return zuSchnellMelden(t, eingabe);
+  const schnell = !richtig && L.zuSchnell(a, t, Date.now() - t.seit);
+  if (schnell) return zuSchnellMelden(t, eingabe, schnell);
   if (!richtig && t.versuche.some(v => v.eingabe === eingabe)) {
     A.meldung = 'Das hattest du schon. Schau noch einmal auf jeden Teil.';
     protokoll(S, 'versuch_wiederholt', { id: a.id, teil: A.idx, eingabe });
@@ -2241,12 +2299,39 @@ function kartenPruefen() {
   versuchMerken(t, eingabe, richtig, fehler);
 }
 
-function zuSchnellMelden(t, eingabe) {
-  A.meldung = 'Lies noch einmal. Welche Zahlen brauchst du?';
-  protokoll(S, 'zu_schnell', { id: A.aufgabe.id, teil: A.idx, eingabe, ms: Date.now() - t.seit });
-  t.eingabe = '';
+// Zu schnelle Eingabe: zählt nicht als Versuch. art 'text' (1. Versuch einer Textaufgabe) oder 'tipp' (nach einem Fehler, Auftrag 18)
+const SCHNELL_TIPP = 'Lies den Tipp und rechne in Ruhe.';
+function eingabeLeeren(t) { t.eingabe = ''; t.z = ''; t.n = t.nennerFest ? String(t.antwort.nenner) : ''; t.e = ''; t.tokens = []; t.gelegt = []; }
+function zuSchnellMelden(t, eingabe, art = 'text') {
+  const ms = Date.now() - t.seit;
+  A.meldung = art === 'tipp' ? SCHNELL_TIPP : 'Lies noch einmal. Welche Zahlen brauchst du?';
+  t.schnell = (t.schnell || 0) + 1;
+  A.schnellFolge = (A.schnellFolge || 0) + 1;
+  protokoll(S, 'zu_schnell', { id: A.aufgabe.id, teil: A.idx, eingabe, ms, art, folge: A.schnellFolge });
+  if (t.art !== 'legen') eingabeLeeren(t);
+  if (art === 'tipp') t.seit = Date.now();
+  // Hinweis gegen Durchklicken: nach zwei zu schnellen Eingaben hintereinander, einmal pro Aufgabe (je Kind schaltbar)
+  const hinweis = A.schnellFolge >= 2 && R().durchklick && !A.durchklick;
+  if (hinweis) { A.durchklick = true; protokoll(S, 'durchklick_hinweis', { id: A.aufgabe.id, teil: A.idx }); }
   sichern();
-  return zeigeAufgabe();
+  zeigeAufgabe();
+  if (hinweis) durchklickHinweis();
+}
+function durchklickHinweis() {
+  oeffneModal(`<div class="hinweis-text durchklick"><div class="dk-symbol" aria-hidden="true">⏸</div><h2 class="modal-titel">Kurz anhalten</h2>
+    <p><b>Durchklicken bringt dir keine Zeit.</b></p><p>Diese oder eine ähnliche Aufgabe kommt wieder.</p>
+    <p>Wenn du sie dann richtig machst, bekommst du <b>Bonuszeit</b>.</p>
+    <button class="btn btn-haupt" data-act="modalZu">Verstanden, ich rechne</button></div>`);
+}
+// Fehler-Detektiv: die Zahl aus der fremden Rechnung abgetippt. Zählt nicht als Versuch.
+function fremdeZahlMelden(t, eingabe) {
+  const wer = L.fremderGenitiv(A.aufgabe);
+  A.meldung = `${wer ? `Das ist ${wer} Ergebnis.` : 'Das ist das Ergebnis aus der Rechnung.'} Rechne selbst neu.`;
+  protokoll(S, 'fremde_zahl', { id: A.aufgabe.id, teil: A.idx, eingabe, fehler: 'fremde_zahl', ms: Date.now() - t.seit });
+  eingabeLeeren(t);
+  t.seit = Date.now();
+  sichern();
+  zeigeAufgabe();
 }
 
 function legenHtml(t, aktiv, nr) {
@@ -2315,7 +2400,8 @@ function teileHtml() {
         inhalt = `<div class="feld-zeile">${erledigtWert(t, bruchHtml(t.antwort.zaehler, t.antwort.nenner), true)}</div>`;
       }
     } else if (t.art === 'wahl' && t.detektiv) {
-      if (aktiv) inhalt = `<div class="detektiv-knoepfe"><button class="detektiv-btn ja" data-act="wahl" data-k="0" ${A.phase === 'eingabe' ? '' : 'disabled'}><span class="dk-zeichen" aria-hidden="true">✓</span>Stimmt</button><button class="detektiv-btn nein" data-act="wahl" data-k="1" ${A.phase === 'eingabe' ? '' : 'disabled'}><span class="dk-zeichen" aria-hidden="true">✗</span>Stimmt nicht</button></div>`;
+      const dAus = (k) => (A.phase === 'eingabe' && !t.versuche.some(v => v.eingabe === k) ? '' : 'disabled');
+      if (aktiv) inhalt = `<div class="detektiv-knoepfe"><button class="detektiv-btn ja" data-act="wahl" data-k="0" ${dAus('0')}><span class="dk-zeichen" aria-hidden="true">✓</span>Stimmt</button><button class="detektiv-btn nein" data-act="wahl" data-k="1" ${dAus('1')}><span class="dk-zeichen" aria-hidden="true">✗</span>Stimmt nicht</button></div>`;
       else inhalt = `<div class="feld-zeile">${erledigtWert(t, t.optionen[t.richtig])}</div>`;
     } else if (t.art === 'wahl') {
       const knoepfe = t.optionen.map((o, k) => {
@@ -2459,6 +2545,9 @@ function fussHtml() {
   return aufklappen;
 }
 
+const MUEHE_NAMEN = { kurz: 'Kurze Aufgabe', normal: 'Aufgabe', lang: 'Lange Aufgabe', schwer: 'Schwere Aufgabe' };
+const EXTRA_TEXT = { 0.5: '½', 0.75: '¾', 1: 'voll' };
+const faktorText = (x) => ({ 0.5: '½', 0.75: '¾', 1.25: '1¼', 1.5: '1½' })[x] || String(x).replace('.', ',');
 function ergebnisHtml() {
   const a = A.aufgabe;
   const sek = A.sekunden;
@@ -2467,18 +2556,21 @@ function ergebnisHtml() {
   if (A.ergebnis === 'erst') kopf = `<div class="erfolg-titel">${A.serienPos % 3 === 0 ? `Stark${nm}!` : `Richtig${nm}!`}</div>`;
   else if (A.ergebnis === 'zweit') kopf = `<div class="erfolg-titel">Geschafft – im 2. Versuch!</div>`;
   else kopf = `<div class="erfolg-titel neutral">Jetzt weißt du, wie es geht.</div><p>Die Aufgabe kommt später noch einmal.</p>`;
+  if (A.bonusZeit && zeitZeigen()) kopf += `<div class="bonus-zeit">✦ <b>Bonuszeit:</b> Diesmal hast du es geschafft! <span>×${faktorText(A.bonusZeit)}</span></div>`;
+  // Chips unter der verdienten Zeit: Mühe-Faktor (wenn nicht ×1) und Extra-Zeit
+  const chips = `${A.muehe && A.muehe !== 1 && A.ergebnis !== 'loesung' ? ` · <span class="muehe-chip">${MUEHE_NAMEN[A.muehGruppe] || 'Aufgabe'} ×${faktorText(A.muehe)}</span>` : ''}${A.extra != null ? ` · <span class="extra-chip">Extra-Zeit (zählt ${EXTRA_TEXT[A.extra] || faktorText(A.extra)})</span>` : ''}`;
   // Verdiente Zeit im Stil des Auswahl-Bildschirms
   let zeit = '';
   const b = A.bild;
   if (b) {
-    if (b.plus > 0) zeit = `<div class="mini-gewinn wk-bild"><span class="mini-icons">${bildIcons(0.62)}</span><div><b>+${BS.minText(b.plus)}</b><small>Bildschirmzeit</small></div></div>`;
+    if (b.plus > 0) zeit = `<div class="mini-gewinn wk-bild"><span class="mini-icons">${bildIcons(0.62)}</span><div><b>+${BS.minText(b.plus)}</b><small>Bildschirmzeit${chips}</small></div></div>`;
     zeit += `<div class="konto-zeile"><span>Gesammelt</span><b>${BS.minText(b.stand)}</b></div>`;
     if (b.stand > 0 && b.stand < BS.abSek(BZ())) zeit += `<p class="bz-ab gedaempft">${abText({ stand: b.stand })}</p>`;
     zeit += b.voll ? `<p class="wechsel-hinweis">Die Bildschirmzeit ist für heute voll. Ab jetzt kommt alle Zeit zur Spielzeit im Schrein.</p>`
       : `<div class="konto-zeile"><span>Heute noch möglich</span><b>${BS.minText(b.rest)}</b></div>`;
   }
   if (A.sz && sek > 0 && bed('spielzeit_zeigen')) {
-    zeit += `<div class="mini-gewinn wk-schrein"><span class="mini-icons">${schreinMini()}</span><div><b>+${L.formatMinuten(sek)}</b><small>Spielzeit im Schrein${A.kopf ? ` · mit Kopf-Bonus ×${String(R().kopf).replace('.', ',')}` : ''}</small></div></div>
+    zeit += `<div class="mini-gewinn wk-schrein"><span class="mini-icons">${schreinMini()}</span><div><b>+${L.formatMinuten(sek)}</b><small>Spielzeit im Schrein${A.kopf ? ` · mit Kopf-Bonus ×${String(R().kopf).replace('.', ',')}` : ''}${A.bild ? '' : chips}</small></div></div>
       <div class="konto-zeile"><span>Jetzt hast du</span><b>${L.formatZeit(S.guthaben)} Min.</b></div>`;
   }
   if (A.sz && A.sz.voll && A.ergebnis !== 'loesung' && bed('spielzeit_zeigen')) {
@@ -2545,8 +2637,40 @@ function hilfeKnopf() {
     const haupt = A.teile.filter(x => !x.merk);
     if (!L.hilfeAnzeige(A.aufgabe.loesungsweg || [], haupt.length, haupt.indexOf(t), t.hilfe).mehr) return '';
   } else if (!hilfeDaten(t)) return '';
+  const rest = hilfeRest(t);
+  if (rest > 0) return `<button class="btn btn-klein btn-hilfe gesperrt" data-act="hilfeGesperrt" aria-disabled="true">${hilfeGesperrtInhalt(rest)}</button>`;
   const kosten = A.hilfeGenutzt || hilfeAnteil() >= 1 || !zeitZeigen() ? '' : hilfeAnteil() > 0 ? ' · ½ Zeit' : ' · keine Zeit';
   return `<button class="btn btn-klein btn-hilfe" data-act="hilfe">${t.hilfe ? 'Noch ein Schritt' : 'Hilf mir'}${kosten}</button>`;
+}
+
+// „Hilf mir“ mit Timer (Auftrag 18): am Anfang jedes Schritts gesperrt, nach einem falschen Versuch sofort frei
+function hilfeRest(t) {
+  const ab = R().hilfeAb || 0;
+  if (!ab || !t || !t.hilfeStart || t.hilfe || t.versuche.some(v => !v.richtig)) return 0;
+  return Math.max(0, Math.ceil((ab * 1000 - (Date.now() - t.hilfeStart)) / 1000));
+}
+const hilfeGesperrtInhalt = (rest) => `<span class="hm-ring" style="--p:${(rest / (R().hilfeAb || 1)).toFixed(2)}" aria-hidden="true"></span>Hilf mir in ${rest} s`;
+let hilfeTimer = null;
+function hilfeTicken() {
+  if (hilfeTimer) { clearInterval(hilfeTimer); hilfeTimer = null; }
+  if (!document.querySelector('.btn-hilfe.gesperrt')) return;
+  hilfeTimer = setInterval(() => {
+    const b = document.querySelector('.btn-hilfe.gesperrt');
+    const rest = A && ansicht === 'aufgabe' ? hilfeRest(aktuellerTeil()) : 0;
+    if (!b || rest <= 0) {
+      clearInterval(hilfeTimer); hilfeTimer = null;
+      if (b) { const neu = hilfeKnopf(); if (neu) b.outerHTML = neu; else b.remove(); }
+      return;
+    }
+    b.innerHTML = hilfeGesperrtInhalt(rest);
+  }, 1000);
+}
+function hilfeGesperrtGetippt() {
+  const t = aktuellerTeil();
+  if (!t) return;
+  protokoll(S, 'hilf_mir_gesperrt', { id: A.aufgabe.id, teil: A.idx, rest: hilfeRest(t) });
+  sichern();
+  aufblinken();
 }
 
 function hilfeBox(t) {
@@ -2559,7 +2683,7 @@ function hilfeBox(t) {
 
 function hilfeZeigen() {
   const t = aktuellerTeil();
-  if (!t || A.phase !== 'eingabe' || !hilfeKnopf()) return;
+  if (!t || A.phase !== 'eingabe' || !hilfeKnopf() || hilfeRest(t) > 0) return;
   t.hilfe = (t.hilfe || 0) + 1;
   A.hilfeGenutzt = true;
   const haupt = A.teile.filter(x => !x.merk);
@@ -2632,7 +2756,7 @@ function antwortGeben() {
     if (!richtig && t.ziel.gueltige > 1 && PH.pruefeGueltig(p.wert, t.ziel.wert, t.ziel.gueltige - 1)) {
       fehler = { typ: 'gueltige', text: `Fast. Gib das Ergebnis mit ${t.ziel.gueltige} gültigen Ziffern an.` };
     }
-    if (!richtig && L.zuSchnell(a, t, Date.now() - t.seit)) return zuSchnellMelden(t, eingabe);
+    if (!richtig && L.fremdeZahl(a, p.wert)) return fremdeZahlMelden(t, eingabe);
     if (!richtig && !fehler) {
       if (t.merk) fehler = { typ: 'merk', text: 'Lies noch einmal im Text nach. Welche Zahl gehört dazu?' };
       else if (a.bild && a.bild.linien && /Hälfte|Viertel/.test(t.label || '')) fehler = { typ: 'gefaerbt-zaehler', text: `Zähl die gefärbten ${gefaerbtWort(a)} im Bild.` };
@@ -2652,6 +2776,11 @@ function antwortGeben() {
     if (!richtig && t.nennerFest) fehler = { typ: 'gefaerbt-zaehler', text: `Zähl die gefärbten ${gefaerbtWort(a)} im Bild.` };
   }
   if (!richtig && !fehler && t.knobel) fehler = { typ: 'knobel', text: 'Probier es noch einmal. Oder tippe auf „In Schritten rechnen“.' };
+  // Zu schnell (Textaufgabe im 1. Versuch oder nach einem Fehler): zählt nicht als Versuch
+  const schnell = !richtig && L.zuSchnell(a, t, Date.now() - t.seit);
+  if (schnell) return zuSchnellMelden(t, eingabe, schnell);
+  // Fehler-Detektiv: Fehlertypen getrennt auswertbar
+  if (fehler && a.typ === 'detektiv') fehler = { ...fehler, typ: 'detektiv_' + fehler.typ };
   if (!richtig && t.versuche.some(v => v.eingabe === eingabe)) {
     A.meldung = 'Das hattest du schon. Rechne noch einmal nach.';
     protokoll(S, 'versuch_wiederholt', { id: a.id, teil: A.idx, eingabe });
@@ -2697,16 +2826,17 @@ function versuchMerken(t, eingabe, richtig, fehler) {
   protokoll(S, 'versuch', {
     id: a.id, thema: a.thema, teil: A.idx, label: t.label || null, merk: !!t.merk, versuch: t.versuche.length, eingabe, richtig,
     fehler: fehler ? fehler.typ : null, ms, schnell: !!a.geschichte && ms < 4000,
-    hinweiseOffen: A.hinweise.slice()
+    hinweiseOffen: A.hinweise.slice(), ...(a.typ === 'detektiv' ? { detektiv_schritt: A.idx + 1 } : {})
   });
   t.seit = Date.now();
+  A.schnellFolge = 0;
   if (richtig) {
     t.status = t.versuche.length === 1 ? 'erst' : 'zweit';
     return naechsterTeil();
   }
   // Knobeln: nach dem zweiten Fehlversuch geht es in Schritten weiter (keine Lösung, kein Abbruch)
   if (t.knobel && t.versuche.length >= 2) return schritteAn(true);
-  const maxVersuche = t.art === 'wahl' ? 1 : 2;
+  const maxVersuche = t.art === 'wahl' && !t.detektiv ? 1 : 2; // Detektiv Schritt 1: 2 Versuche (Auftrag 18)
   if (t.versuche.length < maxVersuche) {
     t.tipp = fehler ? fehler.text : 'Schau dir den Hinweis an und rechne noch einmal.';
     // Ohne „Verstanden“ (Schalter pro Kind): der Tipp bleibt stehen, bis weitergetippt wird
@@ -2730,6 +2860,7 @@ function naechsterTeil() {
   A.idx++;
   if (A.idx >= A.teile.length) return abschliessen();
   A.teile[A.idx].seit = Date.now();
+  A.teile[A.idx].hilfeStart = Date.now();
   sichern();
   zeigeAufgabe();
 }
@@ -2744,26 +2875,37 @@ function abschliessen() {
   if (ergebnis === 'erst' && A.knobelFalsch) ergebnis = 'zweit';
   // Kopf-Bonus: Rechner wäre erlaubt, wurde aber nicht geöffnet, App nicht verlassen
   A.kopf = R().kopf > 1 && L.kopfBonus({ aufgabe: a, rechnerGenutzt: !!A.rechner || !!A.rechnerHalb, verlassen: (A.weg || 0) + (A.verlassen || 0), ergebnis });
-  const sek = L.sekundenFuerAufgabe({ ergebnis, serienPos: A.serienPos, strafe: A.strafe, rechnerHalb: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, langHalb: !!A.langHalb, kopf: A.kopf, regeln: R() });
+  // Lohn nach Mühe (Auftrag 18): Faktor je Aufgabenart; überlegter 2. Versuch (ohne zu schnelle Eingaben) gibt die volle Zeit;
+  // Wiederholung nach dem Durchklick-Hinweis im 1. Versuch ohne zu schnelle Eingaben: Bonuszeit
+  const schnell = pflicht.some(t => t.schnell);
+  A.muehe = L.muehFaktor(a, R(), { umformen: !!A.uf });
+  A.muehGruppe = L.muehGruppe(a, { umformen: !!A.uf });
+  A.bonusZeit = !!A.bonusWdh && ergebnis === 'erst' && !schnell && R().bonus > 1 ? R().bonus : 0;
+  const sek = L.sekundenFuerAufgabe({ ergebnis, serienPos: A.serienPos, strafe: A.strafe, rechnerHalb: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, langHalb: !!A.langHalb, kopf: A.kopf, regeln: R(),
+    muehe: A.muehe, zweitVoll: ergebnis === 'zweit' && !schnell, bonus: A.bonusZeit || 1 });
   S.laufend = null;
   let stufeHoch = null;
   A.ergebnis = ergebnis; A.fertig = true; A.idx = A.teile.length - 1; A.phase = 'eingabe';
   tagAktualisieren(S);
   // Bildschirmzeit: gleiche Regeln, mal Faktor, eigenes Konto (höchstens bis zur Tagesgrenze)
-  A.bild = null; A.sz = null; A.wechsel = false;
+  A.bild = null; A.sz = null; A.wechsel = false; A.extra = null;
   let spielSek = sek;
   if (istBild()) {
     const k = bzKonto();
     const g = BS.gutschreiben(k, sek, BZ());
     A.bild = { plus: g.plus, voll: g.voll, stand: k.stand, rest: BS.restSek(k, BZ()) };
+    if (g.extra != null && g.plus > 0) A.extra = g.extra;
     // Bildschirmzeit voll: Rest dieser Aufgabe und alle weiteren Aufgaben gehen zur Spielzeit im Schrein
-    spielSek = g.voll ? Math.max(0, sek - Math.round(g.plus / BZ().faktor)) : 0;
+    spielSek = g.voll ? Math.max(0, sek - Math.round(g.verbraucht / BZ().faktor)) : 0;
     if (g.voll) { zweck = 'spiel'; A.wechsel = true; protokoll(S, 'zweck', { zweck, grund: 'voll' }); }
   }
   A.sekunden = 0;
   if (!A.bild || A.wechsel) {
     // Spielzeit im Schrein: höchstens bis zur Tagesgrenze (nur verdiente Zeit zählt)
-    const plus = Math.min(spielSek, BS.szRestSek(S.szRegeln, S.tag.key, S.tag.verdient));
+    // „Nur heute mehr“: über der normalen Grenze zählt der Lohn mal Extra-Faktor (Auftrag 18)
+    const gs = BS.szGutschrift(S.szRegeln, S.tag.key, S.tag.verdient, spielSek);
+    const plus = Math.min(gs.plus, BS.szRestSek(S.szRegeln, S.tag.key, S.tag.verdient));
+    if (gs.extra != null && plus > 0 && !A.bild) A.extra = gs.extra;
     A.sekunden = plus;
     S.guthaben += plus;
     S.tag.verdient += plus;
@@ -2777,15 +2919,17 @@ function abschliessen() {
   } else {
     // Einmaleins-Dreierblöcke (außer auf dem Einstiegsplatz) zählen für die Stufe des Einmaleins
     const g = a.generator === 'block-einmaleins' && a.stufeZaehlt ? 'einmaleins' : a.generator;
-    if (!a.bonus && !A.test && !g.startsWith('block') && G.GENERATOREN[g]) {
+    if (!a.bonus && !A.test && !a.etappeMindest && !g.startsWith('block') && G.GENERATOREN[g]) {
       const st = S.genStufen[g] || (S.genStufen[g] = { stufe: 1, folge: 0 });
       if (ergebnis === 'erst' && A.hilfeGenutzt) st.folge = 0; // mit „Hilf mir“: Stufe bleibt
       else if (ergebnis === 'erst') { st.folge++; if (st.folge >= 3 && st.stufe < stufeGrenze(g)) { st.stufe++; st.folge = 0; stufeHoch = { generator: g, stufe: st.stufe }; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } }
       else if (ergebnis === 'zweit') st.folge = 0;
       else { if (st.stufe > 1) { st.stufe--; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } st.folge = 0; }
     }
-    if (ergebnis === 'loesung' && !A.test && (A.wdh || 0) < 2) S.wiederholen = [...S.wiederholen, { ab: S.verlauf.zaehler + 3, aufgabe: a, wdh: (A.wdh || 0) + 1 }].slice(-10);
+    if (ergebnis === 'loesung' && !A.test && !A.durchklick && (A.wdh || 0) < 2) S.wiederholen = [...S.wiederholen, { ab: S.verlauf.zaehler + 3, aufgabe: a, wdh: (A.wdh || 0) + 1 }].slice(-10);
   }
+  // Nach dem Hinweis gegen Durchklicken kommt diese oder eine ähnliche Aufgabe wieder, mit Bonuszeit
+  if (A.durchklick && !A.test) S.wiederholen = [...S.wiederholen, { ab: S.verlauf.zaehler + 3, aufgabe: a, wdh: (A.wdh || 0) + 1, bonus: true }].slice(-10);
   S.verlauf.zaehler++;
   S.verlauf.themaZuletzt[a.thema] = { ergebnis, stufe: a.stufe };
   // Wissenspunkte (nur Gestaltung Sternzeit)
@@ -2799,6 +2943,8 @@ function abschliessen() {
     strafe: A.strafe, rechnerOptional: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, verlassen: A.verlassen, ms: Date.now() - A.start, hinweise: A.hinweise.slice(), hinweiseLang: (A.hinweiseLang || []).slice(), langHalb: !!A.langHalb,
     bonusTeile: A.teile.filter(t => t.bonus).map(t => t.status), merkTeile: A.teile.filter(t => t.merk).map(t => t.status),
     generator: a.generator || null,
+    muehe: A.muehe, muehGruppe: A.muehGruppe, bonus_wiederholung: !!A.bonusZeit, ...(A.extra != null ? { extra: A.extra } : {}),
+    ...(schnell ? { zuSchnell: pflicht.reduce((n, t) => n + (t.schnell || 0), 0) } : {}), ...(A.durchklick ? { durchklick: true } : {}),
     ...(a.modus === 'knobeln' ? { knobeln: true, schritte: !!A.schritteAn } : {}), ...(a.fach ? { fach: a.fach } : {}), ...(A.wp ? { wp: A.wp } : {})
   });
   if (A.wp > 0) {
@@ -4376,8 +4522,10 @@ function klick(e) {
       if (!t || A.phase !== 'eingabe') break;
       const k = Number(el.dataset.k);
       t.gewaehlt = k;
-      const dFehler = t.detektiv ? { typ: 'detektiv', text: A.aufgabe.stimmt ? 'Rechne selbst nach. Kommt dasselbe heraus?' : 'Schau genau hin. Rechne selbst nach.' } : null;
-      versuchMerken(t, t.spalte ? t.optionen[k] : String(k), k === t.richtig, k === t.richtig ? null : dFehler || L.erkenneWahlFehler(A.aufgabe, t.quelle, k));
+      const dFehler = t.detektiv ? { typ: 'detektiv_urteil', text: A.aufgabe.stimmt ? 'Rechne selbst nach. Kommt dasselbe heraus?' : 'Schau genau hin. Rechne selbst nach.' } : null;
+      let wf = k === t.richtig ? null : dFehler || L.erkenneWahlFehler(A.aufgabe, t.quelle, k);
+      if (wf && !t.detektiv && A.aufgabe.typ === 'detektiv') wf = { ...wf, typ: 'detektiv_fehlerwahl' };
+      versuchMerken(t, t.spalte ? t.optionen[k] : String(k), k === t.richtig, wf);
       break;
     }
     case 'linie': linieTippen(Number(el.dataset.i)); break;
@@ -4401,6 +4549,7 @@ function klick(e) {
       protokoll(S, 'rechner_angeboten', { id: A.aufgabe.id });
       break;
     case 'hilfe': hilfeZeigen(); break;
+    case 'hilfeGesperrt': hilfeGesperrtGetippt(); break;
     case 'ufAn': ufAn(); break;
     case 'ufOp': if (A && A.uf) { A.uf.op = el.dataset.o; A.meldung = null; zeigeAufgabe(); } break;
     case 'ufTerm': if (A && A.uf) { const ed = A.uf.term; for (const z of UF.setzen(el.dataset.t).t) UF.tippen(ed, z); A.meldung = null; zeigeAufgabe(); } break;

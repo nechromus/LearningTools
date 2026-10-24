@@ -14,7 +14,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.28.0';
+export const ELTERN_VERSION = '1.29.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -852,6 +852,14 @@ function wissenKarte() {
   </section>`;
 }
 
+const extraText = (x) => ({ 0.5: '½', 0.75: '¾', 1: 'voll' })[x];
+const extraBlock = (act, w, heuteMin, nm) => {
+  const seg = (a, werte, akt, text) => `<div class="segmente" role="group">${werte.map(x => `<button class="segment${x === akt ? ' an' : ''}" data-act="${a}" data-w="${x}" aria-pressed="${x === akt}">${text(x)}</button>`).join('')}</div>`;
+  const f = w.extraFaktor ?? 0.5;
+  return `<div class="einstell-block"><span>Nur heute mehr zulassen</span>${seg(act, BS.EXTRAS, w.extraMin, x => '+' + x)}
+    ${w.extraMin > 0 ? `<span class="einstell-unter">Extra-Zeit zählt ${seg(act + 'Faktor', BS.EXTRA_FAKTOREN, f, extraText)}</span>` : ''}
+    <span class="klein gedaempft">Heute: ${w.max + w.extraMin} Min. erlaubt, ${heuteMin} verdient.${w.extraMin > 0 && f < 1 ? ` Ab Minute ${w.max} bekommt ${nm} für jede Aufgabe ${f === 0.5 ? 'die Hälfte' : 'drei Viertel'}.` : ''} Morgen gilt wieder der normale Wert.</span></div>`;
+};
 // Spielzeit im Schrein pro Tag: Höchstwert und „nur heute mehr“ (zählt nur mit Aufgaben verdiente Zeit)
 function szEinstellungen(w) {
   const z = w.spielzeitTag;
@@ -860,7 +868,7 @@ function szEinstellungen(w) {
   return `<h2 class="abschnitt">Spielzeit im Schrein pro Tag</h2>
     <section class="karte liste-karte">
       <div class="einstell-block"><span>Höchstens pro Tag</span>${seg('szMax', BS.SZ_HOECHSTWERTE, z.max)}<span class="klein gedaempft">Minuten, die ${esc(name())} pro Tag mit Aufgaben verdienen kann. Geschenkte Minuten zählen nicht mit.</span></div>
-      <div class="einstell-block"><span>Nur heute mehr zulassen</span>${seg('szExtra', BS.EXTRAS, z.extraMin, x => '+' + x)}<span class="klein gedaempft">Heute: ${z.max + z.extraMin} Min. erlaubt, ${A.minutenText(heute)} verdient. Morgen gilt wieder der normale Wert.</span></div>
+      ${extraBlock('szExtra', z, A.minutenText(heute), esc(name()))}
     </section>`;
 }
 
@@ -876,7 +884,7 @@ function bzEinstellungen(w) {
       ${b.an ? `<div class="einstell-block"><span>Faktor zur Spielzeit</span>${seg('bzFaktor', BS.FAKTOREN, b.faktor, bruch)}<span class="klein gedaempft">1 = gleich viel wie Spielzeit. Gleiche Regeln (Serie, 2. Versuch, Hilfen).</span></div>
       <div class="einstell-block"><span>Höchstens pro Tag</span>${seg('bzMax', BS.HOECHSTWERTE, b.max)}<span class="klein gedaempft">Minuten. Gilt jeden Tag.</span></div>
       <div class="einstell-block"><span>Abschicken ab</span>${seg('bzAb', BS.MINDESTWERTE, b.ab)}<span class="klein gedaempft">Minuten. Vorher kann ${esc(name())} noch nichts abschicken.</span></div>
-      <div class="einstell-block"><span>Nur heute mehr zulassen</span>${seg('bzExtra', BS.EXTRAS, b.extraMin, x => '+' + x)}<span class="klein gedaempft">Heute: ${b.max + b.extraMin} Min. erlaubt, ${A.minutenText(heute)} verdient. Morgen gilt wieder der normale Wert.</span></div>` : ''}
+      ${extraBlock('bzExtra', b, A.minutenText(heute), esc(name()))}` : ''}
     </section>`;
 }
 
@@ -1033,6 +1041,7 @@ function einheitDetail(w, p) {
     ${LP.wartetAufStart(p) ? startKarte(w, p) : ''}
     ${et ? `<p class="klein gedaempft pad">Weiter: ${{ hand: 'von Hand', vorschlag: 'Vorschlag', automatisch: 'automatisch' }[p.paket.weiter]}${p.naechste ? ` · Etappe ${p.naechste.etappe} ab ${p.naechste.ab === morgen() ? 'morgen' : ''} (${tagKurz(p.naechste.ab)})`.replace('ab  (', 'ab (') : ''}</p>
     ${et.map(e => `<div class="et${e.nr < p.etappe ? ' fertig' : ''}${e.nr === p.etappe ? ' aktuell' : ''}"><span class="nr">${e.nr}</span><div class="txt"><b>${mathe(e.name)}</b><span class="klein gedaempft">${esc(e.bogen || '')}${qText(e.nr)}</span>${e.nr === p.etappe ? '<span class="marke">aktuell</span>' : ''}${!LP.etappeOffen(p.paket, e.nr, D.logbuch || []) ? '<span class="marke bald">kommt bald</span>' : ''}${p.naechste && p.naechste.etappe === e.nr ? `<span class="marke">${p.naechste.ab === morgen() ? 'ab morgen' : 'ab ' + tagKurz(p.naechste.ab)}</span>` : ''}</div></div>`).join('')}
+    ${p.rolle === 'einheit' ? `<div class="einstell-block mind"><span>Neue Etappe mindestens<span class="klein gedaempft block">So viele von 10 Aufgaben kommen aus der aktuellen Etappe${p.etappe > 0 && et[p.etappe - 1] ? ` (Etappe ${p.etappe}: ${mathe(et[p.etappe - 1].name)})` : ''}, auch auf anderen Plätzen. Detektive zählen nicht.</span></span><div class="segmente" role="group">${LP.ETAPPE_MINDEST.map(v => `<button class="segment${(p.etappe_mindest ?? 2) === v ? ' an' : ''}" data-act="etMindest" data-pk="${esc(p.id)}" data-v="${v}" aria-pressed="${(p.etappe_mindest ?? 2) === v}">${v || 'aus'}</button>`).join('')}</div><span class="klein gedaempft">von 10 Aufgaben</span></div>` : ''}
     ${sitzt && sitzt.anzahl ? `<p class="${sitzt.sitzt ? 'sitzt' : 'sitzt-noch'}">Etappe ${p.etappe}${sitzt.sitzt ? ' sitzt' : ''}: ${sitzt.gut} von ${sitzt.anzahl} im 1. Versuch${sitzt.anzahl < 10 ? ' (letzte Aufgaben der Etappe)' : ''}</p>` : ''}
     ${LP.wartetAufStart(p) ? '' : `<div class="knopf-spalte">
       <button class="knopf haupt" data-act="etBogen" data-pk="${esc(p.id)}"${(p.naechste ? p.naechste.etappe : p.etappe) >= n ? ' disabled' : ''}>Bogen erledigt – nächste Etappe ab morgen</button>
@@ -1224,12 +1233,40 @@ async function paketSpeichern() {
   } catch (err) { meldung = { art: 'fehler', text: err.message || 'Speichern hat nicht geklappt.' }; zeichne(); }
 }
 
+// Lohn nach Mühe (Auftrag 18): Faktor je Aufgabenart, gilt für Spielzeit und Bildschirmzeit
+const MUEHE_TEXTE = {
+  schrein: { kurz: 'Einmaleins, Mal 10, Runden, Reihenfolge, Bruch aus Bild, Dreierblöcke', normal: 'Potenz mit Zwischenschritt, Prozent, kurze Geldgeschichte, Auswahl', lang: 'Textaufgaben, Prozent-Baukasten, Rabatt, mehrere Fragen, Zuordnung, Gleich viel gefärbt', schwer: 'Kugel, Zylinder, Kegel, Pyramide, Fehler-Detektiv' },
+  sternzeit: { kurz: 'Zehnerpotenzen schreiben, Einheiten umrechnen, Gleichungen Stufe 1', normal: 'Zehnerpotenzen rechnen, Formeln umstellen, Dichte ρ und Umrechnen, Auswahl', lang: 'Geschichten, In Schritten umformen, Dichte mit mehreren Schritten', schwer: 'Knobeln, Physik-Geschichten, Dichte und Gewichtskraft' }
+};
+const MUEHE_TITEL = { kurz: 'Kurze Kopfaufgaben', normal: 'Normale Aufgaben', lang: 'Text und Schritte', schwer: 'Körper und Knobeln' };
+const faktorKurz = (x) => ({ 0.5: '½', 1.25: '1¼', 1.5: '1½' })[x] || String(x).replace('.', ',');
+function muehAbschnitt(w, r) {
+  const texte = MUEHE_TEXTE[w.gestaltung === 'sternzeit' ? 'sternzeit' : 'schrein'];
+  const std = L.SPIELZEIT_STANDARD.muehe;
+  return `<h2 class="abschnitt">Mühe je Aufgabenart</h2>
+    <section class="karte liste-karte">
+      <p class="klein gedaempft pad" style="padding-top:12px">Lohn = Spielzeit nach Serienplatz × Faktor. Gilt auch für Bildschirmzeit.</p>
+      ${L.MUEHE_GRUPPEN.map(g => `<div class="einstell-block"><span>${MUEHE_TITEL[g]}<span class="klein gedaempft block">${esc(texte[g])}</span></span><div class="segmente" role="group">${L.MUEHE_FAKTOREN.map(v =>
+        `<button class="segment${r.muehe[g] === v ? ' an' : ''}" data-act="muehe" data-g="${g}" data-v="${v}" aria-pressed="${r.muehe[g] === v}">×${faktorKurz(v)}</button>`).join('')}</div></div>`).join('')}
+      <div class="knopf-spalte"><button class="knopf" data-act="muehStandard">Standard: ${L.MUEHE_GRUPPEN.map(g => faktorKurz(std[g])).join(' / ')}</button></div>
+    </section>`;
+}
+function durchklickAbschnitt(r) {
+  const seg = (act, werte, akt, text) => `<div class="segmente" role="group">${werte.map(v => `<button class="segment${v === akt ? ' an' : ''}" data-act="${act}" data-v="${v}" aria-pressed="${v === akt}">${text(v)}</button>`).join('')}</div>`;
+  return `<h2 class="abschnitt">Gegen Raten und Durchklicken</h2>
+    <section class="karte liste-karte">
+      <div class="einstell-block"><span>Hinweis gegen Durchklicken<span class="klein gedaempft block">Nach zwei zu schnellen Eingaben in einer Aufgabe: „Durchklicken bringt dir keine Zeit …“. Die Aufgabe oder eine ähnliche kommt wieder.</span></span>${seg('durchklick', [1, 0], r.durchklick ? 1 : 0, v => (v ? 'An' : 'Aus'))}</div>
+      <div class="einstell-block"><span>Bonuszeit, wenn sie dann im 1. Versuch klappt</span>${seg('bonusF', L.BONUS_FAKTOREN, r.bonus, v => '×' + faktorKurz(v))}</div>
+      <div class="einstell-block"><span>„Hilf mir“ ab<span class="klein gedaempft block">Der Knopf zählt am Anfang jedes Schritts herunter. Nach einem falschen Versuch ist er sofort frei.</span></span>${seg('hilfeAb', L.HILFE_AB, r.hilfeAb, v => (v ? v + ' s' : 'sofort'))}</div>
+    </section>`;
+}
+
 function spielzeitSeite() {
   const w = entwurfHolen();
   const r = w.spielzeit;
   const staffelNamen = ['Aufgabe 1 bis 3', 'Aufgabe 4 bis 6', 'Aufgabe 7 bis 9', 'Ab Aufgabe 10'];
   const minFeld = (id, wert, label) => `<span class="stepper"><button class="knopf-klein" data-act="minuten" data-feld="${id}" data-d="-1" aria-label="${label} weniger">−</button><label><span class="unsichtbar">${label} in Minuten</span><input class="min-feld" id="${id}" inputmode="decimal" value="${zahlText(wert)}" autocomplete="off"></label><span class="einheit">Min.</span><button class="knopf-klein" data-act="minuten" data-feld="${id}" data-d="1" aria-label="${label} mehr">+</button></span>`;
-  const anteil = (k, titel) => `<div class="einstell-block"><span>${titel}</span><div class="segmente">${[[1, 'Alles'], [0.5, 'Hälfte'], [0, 'Nichts']].map(([v, t]) =>
+  const anteil = (k, titel, unter = '') => `<div class="einstell-block"><span>${titel}${unter ? `<span class="klein gedaempft block">${unter}</span>` : ''}</span><div class="segmente">${[[1, 'Alles'], [0.5, 'Hälfte'], [0, 'Nichts']].map(([v, t]) =>
     `<button class="segment${r[k] === v ? ' an' : ''}" data-act="anteil" data-k="${k}" data-v="${v}" aria-pressed="${r[k] === v}">${t}</button>`).join('')}</div></div>`;
   return `<div class="seite schmal-inhalt">
     <a class="zurueck" href="#einstellungen">${svg('zurueck', 20)}Einstellungen</a>
@@ -1237,13 +1274,15 @@ function spielzeitSeite() {
     <h2 class="abschnitt">Richtig im 1. Versuch</h2>
     <section class="karte liste-karte">${staffelNamen.map((n, i) => `<div class="einstell-zeile"><span>${n}</span>${minFeld('s' + i, r.staffel[i], n)}</div>`).join('')}</section>
     <p class="klein gedaempft">Eine Nachkommastelle möglich, z. B. 1,2 Min. Höchstens 10 Min.</p>
+    ${muehAbschnitt(w, r)}
     <h2 class="abschnitt">Anteile</h2>
     <section class="karte liste-karte">
-      ${anteil('zweit', 'Richtig im 2. Versuch')}
+      ${anteil('zweit', 'Richtig im 2. Versuch nach zu schnellen Eingaben', 'Ein überlegter 2. Versuch gibt immer die volle Zeit.')}
       ${anteil('rechner', 'Mit freiwilligem Taschenrechner')}
       ${anteil('hilfe', 'Mit „Hilf mir“ (nächster Schritt)')}
       <div class="einstell-zeile"><span>Geschenkt pro Stunde</span>${minFeld('basis', r.basisMin, 'Geschenkte Zeit')}</div>
     </section>
+    ${durchklickAbschnitt(r)}
     <section class="hinweis-box"><p><b>So wirkt es:</b> 10 Aufgaben am Stück, alle im 1. Versuch richtig, bringen bis zu <b>${zahlText(A.serieMinuten(r))} Min.</b> Spielzeit.</p><p class="klein">App verlassen bei Aufgaben ohne Rechner halbiert die Zeit weiterhin (ab dem 3. Mal am Tag: keine Zeit).</p></section>
     <button class="knopf" data-act="standardZeit">Standardwerte einsetzen</button>
     ${speicherLeiste()}
@@ -1553,6 +1592,12 @@ document.addEventListener('click', (ev) => {
       meldung = null; zeichne(); break;
     }
     case 'anteil': entwurf.spielzeit[el.dataset.k] = Number(el.dataset.v); meldung = null; zeichne(); break;
+    case 'muehe': entwurf.spielzeit = { ...entwurf.spielzeit, muehe: { ...entwurf.spielzeit.muehe, [el.dataset.g]: Number(el.dataset.v) } }; meldung = null; zeichne(); break;
+    case 'muehStandard': entwurf.spielzeit = { ...entwurf.spielzeit, muehe: { ...L.SPIELZEIT_STANDARD.muehe } }; meldung = null; zeichne(); break;
+    case 'durchklick': entwurf.spielzeit = { ...entwurf.spielzeit, durchklick: el.dataset.v === '1' }; meldung = null; zeichne(); break;
+    case 'bonusF': entwurf.spielzeit = { ...entwurf.spielzeit, bonus: Number(el.dataset.v) }; meldung = null; zeichne(); break;
+    case 'hilfeAb': entwurf.spielzeit = { ...entwurf.spielzeit, hilfeAb: Number(el.dataset.v) }; meldung = null; zeichne(); break;
+    case 'etMindest': { const p = entwurf.pakete.find(x => x.id === el.dataset.pk); if (p) { p.etappe_mindest = Number(el.dataset.v); meldung = null; zeichne(); } break; }
     case 'gewicht': {
       const t = el.dataset.t, v = Number(el.dataset.w), pk = paketVon(entwurf.paket.id);
       const ab = { ...entwurf.abweichungen };
@@ -1587,6 +1632,8 @@ document.addEventListener('click', (ev) => {
     case 'uzExtra': entwurf.uebungszeit = { ...entwurf.uebungszeit, extraMin: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'szMax': entwurf.spielzeitTag = { ...entwurf.spielzeitTag, max: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'szExtra': entwurf.spielzeitTag = { ...entwurf.spielzeitTag, extraMin: Number(el.dataset.w) }; meldung = null; zeichne(); break;
+    case 'szExtraFaktor': entwurf.spielzeitTag = { ...entwurf.spielzeitTag, extraFaktor: Number(el.dataset.w) }; meldung = null; zeichne(); break;
+    case 'bzExtraFaktor': entwurf.bildschirm = { ...entwurf.bildschirm, extraFaktor: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'kopf': entwurf.spielzeit = { ...entwurf.spielzeit, kopf: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'pkVorschlag': LP.vorschlag(entwurf.pakete); paketeGeaendert(); break;
     case 'etBogen': etappeAendern(el.dataset.pk, 'bogen'); break;
@@ -1689,7 +1736,7 @@ document.addEventListener('click', (ev) => {
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(qr.link).then(() => alert('Link kopiert. Auf dem Kinder-Handy im Scan-Fenster unter „Link einfügen“ einfügen.'), () => prompt('Link kopieren:', qr.link));
       else prompt('Link kopieren:', qr.link);
       break;
-    case 'standardZeit': entwurf.spielzeit = L.spielzeitRegeln(null); meldung = null; zeichne(); break;
+    case 'standardZeit': { const alt = entwurf.spielzeit || {}; entwurf.spielzeit = { ...L.spielzeitRegeln(null), durchklick: !!alt.durchklick, hilfeAb: alt.hilfeAb ?? 0, bonus: alt.bonus ?? L.SPIELZEIT_STANDARD.bonus }; meldung = null; zeichne(); break; }
     case 'verwerfen': entwurf = null; geaenderteStufen = new Set(); meldung = null; zeichne(); break;
     case 'speichern': if (geaendert()) speichern(); break;
     case 'abmelden':

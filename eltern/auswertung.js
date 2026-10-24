@@ -475,21 +475,21 @@ export function paketQuoten(aufgaben, vonTag) {
 // Bildschirmzeit-Einstellungen für die Seite. extraMin gilt nur heute (danach 0).
 export function bzWerte(r, heute = tagKey()) {
   const g = BS.bzRegeln(r);
-  return { an: g.an, faktor: g.faktor, max: g.max, ab: g.ab, extraMin: g.extra && g.extra.tag === heute ? g.extra.min : 0 };
+  return { an: g.an, faktor: g.faktor, max: g.max, ab: g.ab, extraMin: g.extra && g.extra.tag === heute ? g.extra.min : 0, extraFaktor: g.extra ? g.extra.faktor : 0.5 };
 }
 // Zurück in die Form der Einstellungsdatei
 export function bzDatei(werte, heute = tagKey()) {
   const w = werte || bzWerte(null, heute);
-  return BS.bzRegeln({ an: w.an, faktor: w.faktor, max: w.max, ab: w.ab, extra: w.extraMin > 0 ? { tag: heute, min: w.extraMin } : null });
+  return BS.bzRegeln({ an: w.an, faktor: w.faktor, max: w.max, ab: w.ab, extra: w.extraMin > 0 ? { tag: heute, min: w.extraMin, faktor: w.extraFaktor ?? 0.5 } : null });
 }
 // Spielzeit im Schrein pro Tag (wie Bildschirmzeit)
 export function szWerte(r, heute = tagKey()) {
   const g = BS.szRegeln(r);
-  return { max: g.max, extraMin: g.extra && g.extra.tag === heute ? g.extra.min : 0 };
+  return { max: g.max, extraMin: g.extra && g.extra.tag === heute ? g.extra.min : 0, extraFaktor: g.extra ? g.extra.faktor : 0.5 };
 }
 export function szDatei(werte, heute = tagKey()) {
   const w = werte || szWerte(null, heute);
-  return BS.szRegeln({ max: w.max, extra: w.extraMin > 0 ? { tag: heute, min: w.extraMin } : null });
+  return BS.szRegeln({ max: w.max, extra: w.extraMin > 0 ? { tag: heute, min: w.extraMin, faktor: w.extraFaktor ?? 0.5 } : null });
 }
 // Heute mit Aufgaben verdiente Spielzeit (Sekunden)
 export function szHeute(eintraege, heute = tagKey()) {
@@ -544,7 +544,7 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
 // Ein Paket beim Kind für die Datei: Rolle, Anteil, Etappe, nächste Etappe und eine Kopie des Inhalts (die Übungs-App liest keine Paket-Dateien)
 export function paketEintragDatei(p) {
   const e = LP.eintragNorm(p);
-  return { id: e.id, rolle: e.rolle, anteil: e.anteil, ...(e.etappe != null ? { etappe: e.etappe } : {}), ...(e.naechste ? { naechste: e.naechste } : {}), ...(e.start ? { start: e.start } : {}), paket: e.paket };
+  return { id: e.id, rolle: e.rolle, anteil: e.anteil, ...(e.etappe != null ? { etappe: e.etappe } : {}), ...(e.naechste ? { naechste: e.naechste } : {}), ...(e.etappe_mindest != null ? { etappe_mindest: e.etappe_mindest } : {}), ...(e.start ? { start: e.start } : {}), paket: e.paket };
 }
 
 // Paket wurde geändert: neue Gewichte für ein Kind, das dieses Paket nutzt (Abweichungen bleiben). null = nichts zu tun.

@@ -7,14 +7,31 @@ export const FAKTOREN = [0.5, 1, 1.5, 2];
 export const HOECHSTWERTE = [15, 30, 45, 60];   // Minuten pro Tag
 export const EXTRAS = [0, 15, 30, 60];           // „Nur heute mehr zulassen“ (Minuten)
 export const MINDESTWERTE = [5, 10, 15, 30];     // Abschicken erst ab so vielen Minuten
+export const EXTRA_FAKTOREN = [0.5, 0.75, 1];    // „Nur heute mehr“: so viel zählt der Lohn in der Extra-Zeit (Auftrag 18)
+const extraVon = (e) => (e && /^\d{4}-\d{2}-\d{2}$/.test(e.tag) && EXTRAS.includes(e.min) && e.min > 0
+  ? { tag: e.tag, min: e.min, faktor: EXTRA_FAKTOREN.includes(e.faktor) ? e.faktor : 0.5 } : null);
+// Lohn gutschreiben: bis zur normalen Grenze voll, danach (Extra-Zeit) mal Extra-Faktor, höchstens bis zur Tagesgrenze.
+// heute = heute schon verdiente Sekunden. Gibt { plus, extra (Faktor oder null) } zurück.
+export function mitExtra(roh, heute, normalSek, grenzeSek, faktor) {
+  const platz = Math.max(0, grenzeSek - heute);
+  let rest = Math.max(0, roh);
+  const voll = Math.min(rest, Math.max(0, normalSek - heute), platz);
+  rest -= voll;
+  let plus = voll, verbraucht = voll, extra = null;
+  if (rest > 0 && faktor != null && platz > voll) {
+    const nutz = Math.min(rest, (platz - voll) / faktor);
+    plus += nutz * faktor; verbraucht += nutz; extra = faktor;
+  }
+  // verbraucht: wie viel vom Lohn dafür nötig war (der Rest geht weiter, z. B. zur Spielzeit)
+  return { plus: Math.round(plus), extra, verbraucht: Math.round(verbraucht) };
+}
 export const BZ_STANDARD = Object.freeze({ an: true, faktor: 1, max: 45, ab: 15, extra: null });
 
 // Einstellungen aus der Eltern-App prüfen. extra = { tag: 'JJJJ-MM-TT', min } gilt nur an diesem Tag.
 export function bzRegeln(r) {
   const S0 = BZ_STANDARD;
   if (!r || typeof r !== 'object') return { an: S0.an, faktor: S0.faktor, max: S0.max, ab: S0.ab, extra: null };
-  const extra = r.extra && /^\d{4}-\d{2}-\d{2}$/.test(r.extra.tag) && EXTRAS.includes(r.extra.min) && r.extra.min > 0
-    ? { tag: r.extra.tag, min: r.extra.min } : null;
+  const extra = extraVon(r.extra);
   return {
     an: typeof r.an === 'boolean' ? r.an : S0.an,
     faktor: FAKTOREN.includes(r.faktor) ? r.faktor : S0.faktor,
@@ -55,11 +72,13 @@ export const restSek = (konto, regeln) => Math.max(0, grenzeSek(regeln, konto.ta
 export function gutschreiben(konto, spielSek, regeln) {
   const r = bzRegeln(regeln);
   const roh = Math.round(Math.max(0, spielSek) * r.faktor);
-  const plus = Math.min(roh, restSek(konto, r));
+  const ex = r.extra && r.extra.tag === konto.tag ? r.extra : null;
+  const g = mitExtra(roh, konto.heute, r.max * 60, grenzeSek(r, konto.tag), ex ? ex.faktor : null);
+  const plus = g.plus;
   konto.stand += plus;
   konto.heute += plus;
   konto.aufgaben += 1;
-  return { plus, voll: restSek(konto, r) <= 0 };
+  return { plus, voll: restSek(konto, r) <= 0, extra: g.extra, verbraucht: g.verbraucht };
 }
 
 // Kurzer Code ohne leicht verwechselbare Zeichen (kein 0/O, 1/I/L, 5/S, 8/B, 2/Z)
@@ -103,8 +122,7 @@ export const SZ_HOECHSTWERTE = [15, 30, 45, 60, 90];
 export const SZ_STANDARD = Object.freeze({ max: 45, extra: null });
 export function szRegeln(r) {
   if (!r || typeof r !== 'object') return { max: SZ_STANDARD.max, extra: null };
-  const extra = r.extra && /^\d{4}-\d{2}-\d{2}$/.test(r.extra.tag) && EXTRAS.includes(r.extra.min) && r.extra.min > 0
-    ? { tag: r.extra.tag, min: r.extra.min } : null;
+  const extra = extraVon(r.extra);
   return { max: SZ_HOECHSTWERTE.includes(r.max) ? r.max : SZ_STANDARD.max, extra };
 }
 export function szGrenzeSek(regeln, tag) {
@@ -113,6 +131,12 @@ export function szGrenzeSek(regeln, tag) {
 }
 // Noch verdienbare Spielzeit heute (verdient = heute schon mit Aufgaben verdiente Sekunden)
 export const szRestSek = (regeln, tag, verdient) => Math.max(0, szGrenzeSek(regeln, tag) - Math.max(0, verdient || 0));
+// Spielzeit einer Aufgabe gutschreiben: normale Grenze voll, Extra-Zeit mal Extra-Faktor
+export function szGutschrift(regeln, tag, verdient, sek) {
+  const r = szRegeln(regeln);
+  const ex = r.extra && r.extra.tag === tag ? r.extra : null;
+  return mitExtra(sek, Math.max(0, verdient || 0), r.max * 60, szGrenzeSek(r, tag), ex ? ex.faktor : null);
+}
 
 // ---------- Übungszeit pro Tag (Auftrag 13) ----------
 // Gezählt wird die Zeit in Aufgaben. Bei max: freundlicher Hinweis, die laufende Aufgabe darf fertig werden.

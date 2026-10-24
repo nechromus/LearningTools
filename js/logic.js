@@ -194,7 +194,14 @@ export const BASIS_SEKUNDEN = 180;
 
 // Spielzeit-Regeln. Werte in Minuten (eine Nachkommastelle), Anteile 1 = alles, 0,5 = Hälfte, 0 = nichts.
 // Werden in der Eltern-App eingestellt; ohne Einstellung gelten diese Standardwerte.
-export const SPIELZEIT_STANDARD = Object.freeze({ staffel: Object.freeze([1, 1.5, 2, 2.5]), zweit: 0.5, rechner: 0.5, hilfe: 0.5, basisMin: 3, kopf: 1.5 });
+export const SPIELZEIT_STANDARD = Object.freeze({ staffel: Object.freeze([1, 1.5, 2, 2.5]), zweit: 0.5, rechner: 0.5, hilfe: 0.5, basisMin: 3, kopf: 1.5,
+  muehe: Object.freeze({ kurz: 0.5, normal: 1, lang: 1.5, schwer: 2 }), bonus: 1.5, durchklick: false, hilfeAb: 0 });
+// Lohn nach Mühe (Auftrag 18): Faktor je Aufgabenart, Bonus bei der Wiederholung nach dem Durchklick-Hinweis,
+// Sperre für „Hilf mir“ am Anfang jedes Schritts (Sekunden)
+export const MUEHE_GRUPPEN = ['kurz', 'normal', 'lang', 'schwer'];
+export const MUEHE_FAKTOREN = [0.5, 1, 1.5, 2, 3];
+export const BONUS_FAKTOREN = [1, 1.25, 1.5, 2];
+export const HILFE_AB = [0, 10, 20, 30];
 const ANTEILE = [0, 0.5, 1];
 // Kopf-Bonus: Rechner wäre erlaubt, wurde aber nicht benutzt (1 = aus)
 export const KOPF_FAKTOREN = [1, 1.25, 1.5, 2];
@@ -207,10 +214,15 @@ function minutenWert(x, standard, max) {
 
 export function spielzeitRegeln(r) {
   const S0 = SPIELZEIT_STANDARD;
-  if (!r || typeof r !== 'object') return { staffel: [...S0.staffel], zweit: S0.zweit, rechner: S0.rechner, hilfe: S0.hilfe, basisMin: S0.basisMin, kopf: S0.kopf };
+  if (!r || typeof r !== 'object') r = {};
   const staffel = S0.staffel.map((w, i) => minutenWert(Array.isArray(r.staffel) ? r.staffel[i] : undefined, w, 10));
+  const m = r.muehe && typeof r.muehe === 'object' ? r.muehe : {};
   return {
     staffel,
+    muehe: Object.fromEntries(MUEHE_GRUPPEN.map(g => [g, MUEHE_FAKTOREN.includes(m[g]) ? m[g] : S0.muehe[g]])),
+    bonus: BONUS_FAKTOREN.includes(r.bonus) ? r.bonus : S0.bonus,
+    durchklick: typeof r.durchklick === 'boolean' ? r.durchklick : S0.durchklick,
+    hilfeAb: HILFE_AB.includes(r.hilfeAb) ? r.hilfeAb : S0.hilfeAb,
     zweit: ANTEILE.includes(r.zweit) ? r.zweit : S0.zweit,
     rechner: ANTEILE.includes(r.rechner) ? r.rechner : S0.rechner,
     hilfe: ANTEILE.includes(r.hilfe) ? r.hilfe : S0.hilfe,
@@ -232,14 +244,39 @@ export function anteilText(a) {
   return a >= 1 ? 'die volle Spielzeit' : a > 0 ? 'die halbe Spielzeit' : 'keine Spielzeit';
 }
 
+// Mühe-Gruppe einer Aufgabe (Auftrag 18). umformen: in Schritten umgeformt.
+const DICHTE_GRUPPE = { rho: 'normal', umrechnen: 'normal', quader: 'lang', 'masse-volumen': 'lang', vergleich: 'lang', verhaeltnis: 'lang', gewichtskraft: 'schwer' };
+export function muehGruppe(a, { umformen = false } = {}) {
+  if (!a) return 'normal';
+  const g = String(a.generator || '');
+  if (a.thema === 'dichte' && DICHTE_GRUPPE[a.variante]) return DICHTE_GRUPPE[a.variante];
+  if (KOERPER.includes(a.thema) || a.typ === 'detektiv' || a.modus === 'knobeln') return 'schwer';
+  if (a.typ === 'auswahl') return 'normal';
+  if (a.fach === 'physik' && a.geschichte) return 'schwer';                 // Physik-Geschichten
+  if (umformen) return 'lang';                                              // „In Schritten umformen“
+  if (a.bild && a.bild.linien) return 'lang';                               // „Gleich viel gefärbt“
+  if (g.startsWith('block') || a.typ === 'bruch') return 'kurz';
+  if (g === 'zehnerpotenz') return a.stufe === 1 ? 'kurz' : 'normal';       // schreiben / rechnen
+  if (g === 'einheiten') return 'kurz';
+  if (g === 'gleichung') return a.stufe === 1 ? 'kurz' : 'normal';
+  if (g === 'formel-umstellen' || a.typ === 'formel') return 'normal';
+  if (['mehrfrage', 'zuordnung'].includes(a.typ)) return 'lang';
+  if (a.typ === 'schritte' && a.thema !== 'potenzen') return 'lang';
+  if (a.geschichte && a.geschichte.length > 120) return 'lang';
+  if (a.typ === 'zahl' && !a.geschichte && a.thema !== 'prozent' && !a.fach) return 'kurz';
+  return 'normal';
+}
+export const muehFaktor = (a, regeln = SPIELZEIT_STANDARD, opts) => ((regeln.muehe || SPIELZEIT_STANDARD.muehe)[muehGruppe(a, opts)] ?? 1);
+
 // ergebnis: 'erst' | 'zweit' | 'loesung'; strafe: 'keine' | 'halb' | 'null'
-export function sekundenFuerAufgabe({ ergebnis, serienPos, strafe = 'keine', rechnerHalb = false, hilfe = false, langHalb = false, kopf = false, regeln = SPIELZEIT_STANDARD }) {
-  let min = minutenFuerPosition(serienPos, regeln);
+// muehe: Faktor je Aufgabenart; zweitVoll: 2. Versuch ohne zu schnelle Eingaben (volle Zeit); bonus: Faktor bei der Wiederholung
+export function sekundenFuerAufgabe({ ergebnis, serienPos, strafe = 'keine', rechnerHalb = false, hilfe = false, langHalb = false, kopf = false, regeln = SPIELZEIT_STANDARD, muehe = 1, zweitVoll = false, bonus = 1 }) {
+  let min = minutenFuerPosition(serienPos, regeln) * muehe * bonus;
   if (kopf) min *= regeln.kopf ?? SPIELZEIT_STANDARD.kopf; // im Kopf gerechnet, obwohl der Rechner erlaubt war
   if (rechnerHalb) min *= regeln.rechner;
   if (langHalb) min *= 0.5; // „Mehr Hilfe“ (langer Hinweis) in Stufe 2
   if (hilfe) min *= regeln.hilfe ?? SPIELZEIT_STANDARD.hilfe;
-  if (ergebnis === 'zweit') min *= regeln.zweit;
+  if (ergebnis === 'zweit') { if (!zweitVoll) min *= regeln.zweit; }
   else if (ergebnis !== 'erst') min = 0;
   if (strafe === 'halb') min /= 2;
   if (strafe === 'null') min = 0;
@@ -825,11 +862,32 @@ export function hilfeAnzeige(weg, anzahlTeile, teilNr, stufe) {
 export function saetzeVon(text) {
   return String(text || '').split(/(?<=[.!?])\s+(?=[A-ZÄÖÜ„"0-9−])/).map(s => s.trim()).filter(Boolean);
 }
-// Zu schnelle Antwort bei einer Textaufgabe: zählt nicht als Versuch (Raten bringt nichts, kein Abzug)
+// Zu schnelle Antwort: zählt nicht als Versuch (Raten bringt nichts, kein Abzug).
+// 'text': erster Versuch einer Textaufgabe; 'tipp': nach einem Fehler, bei allen Aufgaben (Auftrag 18). Sonst false.
 export const TEXT_MINDEST_MS = 4000;
 export function zuSchnell(aufgabe, teil, ms) {
-  return !!(aufgabe && aufgabe.geschichte) && !(teil && teil.merk) && ms < TEXT_MINDEST_MS;
+  if ((teil && teil.merk) || !(ms < TEXT_MINDEST_MS)) return false;
+  if (teil && (teil.versuche || []).some(v => !v.richtig)) return 'tipp';
+  return aufgabe && aufgabe.geschichte ? 'text' : false;
 }
+// Fehler-Detektiv (Auftrag 18): Ist die Eingabe ein Ergebnis aus der fremden Rechnung? (bis auf die letzte Stelle)
+export function fremdeZahl(a, wert) {
+  if (!a || a.typ !== 'detektiv' || !Number.isFinite(wert)) return false;
+  const zahlen = [...String(a.fremde_rechnung || '').matchAll(/[=≈]\s*([−-]?\d[\d.]*(?:,\d+)?)/g)]
+    .map(m => Number(m[1].replace(/\./g, '').replace(',', '.').replace('−', '-')));
+  const r = a.richtig_rechnen && Number.isInteger(a.richtig_rechnen.runden) ? a.richtig_rechnen.runden : 2;
+  const tol = Math.pow(10, -r) + 1e-9;
+  const richtig = a.richtig_rechnen ? Number(a.richtig_rechnen.wert) : NaN;
+  // Liegt die fremde Zahl selbst nah an der richtigen (Rundungsfehler), zählt nur genau dieselbe Zahl
+  return zahlen.some(z => Number.isFinite(z) && (Math.abs(z - richtig) <= tol ? Math.abs(z - wert) < 1e-9 : Math.abs(z - wert) <= tol));
+}
+// Name aus der Detektiv-Geschichte im Genitiv: „Pauls“, „Max’“ (null ohne Namen)
+export function fremderGenitiv(a) {
+  const name = String((a && a.geschichte) || '').split(/\s+/)[0] || '';
+  if (!/^[A-ZÄÖÜ][a-zäöüß]+$/.test(name)) return null;
+  return name + (/[sxzß]$/.test(name) ? '’' : 's');
+}
+
 // Rechnung legen: gewählte Kärtchen prüfen. wahl = [Index je Platz]. Gibt { richtig, falsch: [Plätze] } zurück.
 export function pruefeKarten(karten, wahl) {
   const falsch = karten.map((k, i) => (wahl[i] === k.richtig ? -1 : i)).filter(i => i >= 0);

@@ -170,3 +170,7 @@ body.sz #modal .modal-hinter { background: rgba(3, 4, 10, .7); }
 
 /* Zurück oben in Logbuch und Archiv (Wunsch Aliatra, 2.21.0) */
 body.sz #app .sz-zurueck { align-self: flex-start; background: none; border: 0; color: var(--sz-blau); font: inherit; font-weight: 700; font-size: 17px; letter-spacing: .04em; padding: 6px 2px; min-height: 44px; cursor: pointer; }
+/* Auftrag 18 */
+body.sz #app .meldung.schnell { background: #3A3320; color: #F3D9A4; }
+body.sz .bonus-zeit { background: #3A3320; color: #F3D9A4; }
+body.sz .muehe-chip { background: #262B45; color: var(--sz-pfirsich); }

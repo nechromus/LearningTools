@@ -1022,3 +1022,15 @@ button.uf-seite { font: inherit; font-size: 22px; font-weight: 700; color: inher
 .de-schritte span { width: 26px; height: 26px; border-radius: 13px; background: var(--teal); color: #fff; display: grid; place-items: center; font-size: 14px; flex-shrink: 0; }
 .linie-tipp { cursor: pointer; }
 .detektiv-ok { margin: 6px 0 0; font-weight: 700; color: var(--teal-dunkel); }
+
+/* Auftrag 18: „Hilf mir“ mit Timer, zu schnell nach einem Fehler, Durchklick-Hinweis, Bonuszeit, Mühe- und Extra-Chips */
+.btn-hilfe.gesperrt { opacity: .75; display: inline-flex; align-items: center; gap: 8px; border-style: dashed; }
+.hm-ring { width: 18px; height: 18px; border-radius: 50%; background: conic-gradient(var(--teal) calc(var(--p) * 360deg), var(--teal-hell) 0); display: inline-block; flex: none; }
+.meldung.schnell { background: #FFF4DE; color: #633806; font-weight: 400; }
+.meldung.schnell .gedaempft { font-size: 14px; }
+.durchklick { text-align: center; }
+.durchklick .dk-symbol { font-size: 40px; color: var(--teal); }
+.bonus-zeit { margin: 8px 0; padding: 8px 12px; border-radius: 10px; background: #FFF1C9; color: #633806; font-size: 17px; }
+.bonus-zeit span { float: right; font-weight: 700; }
+.muehe-chip, .extra-chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--teal-hell); color: var(--teal-dunkel); font-weight: 700; }
+.extra-chip { background: #EEE8F5; color: #5B3F7A; }

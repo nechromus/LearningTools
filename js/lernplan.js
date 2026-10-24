@@ -17,6 +17,7 @@ export const FAECHER = ['mathe', 'physik'];
 // Varianten der Baukästen, die eine Etappe abschalten kann
 export const VARIANTEN = { zylinder: ['auswahl'], dichte: ['rho', 'quader', 'umrechnen', 'masse-volumen', 'vergleich', 'verhaeltnis', 'gewichtskraft'] };
 export const STUFE_MAX = 3;
+export const ETAPPE_MINDEST = [0, 1, 2, 3];
 // Baukasten → Thema (für die Stufen-Grenzen)
 export const GEN_THEMA = {
   'minus-plus': 'minus-zahlen', 'geld-geschichte': 'minus-zahlen', 'reihenfolge': 'reihenfolge', 'potenz': 'potenzen', 'bruch-bild': 'bruch-bild',
@@ -85,6 +86,8 @@ export function eintragNorm(e) {
   if (n) {
     out.etappe = ganz(e.etappe, 0, n, 0);
     if (e.naechste && datumOk(e.naechste.ab)) out.naechste = { etappe: ganz(e.naechste.etappe, 0, n, out.etappe), ab: e.naechste.ab };
+    // Mindestanteil der aktuellen Etappe: so viele von 10 Aufgaben (Auftrag 18; 0 = aus)
+    out.etappe_mindest = ETAPPE_MINDEST.includes(e.etappe_mindest) ? e.etappe_mindest : 2;
   }
   const st = startNorm(e && e.start);
   if (st) out.start = st;
@@ -280,6 +283,22 @@ export function aufgabeErlaubt(a, gr) {
   if (bg.ohne.includes('auswahl') && (a.schritte || []).some(s => s.optionen)) return false;
   if (a.variante && bg.ohne.includes(a.variante)) return false;
   return true;
+}
+
+// Mindestanteil der aktuellen Etappe einer Lerneinheit (Auftrag 18). Zählt: Baukasten ab der Stufe stufe_max
+// dieser Etappe und Pool-Aufgaben dieser Etappe. Detektiv-Aufgaben zählen nicht. abstand: spätestens so viele Aufgaben bis zur nächsten.
+export function neueEtappe(p) {
+  if (!p || p.rolle !== 'einheit' || !hatEtappen(p) || !(p.etappe > 0) || !(p.anteil > 0) || !(p.etappe_mindest > 0)) return null;
+  const e = p.paket.etappen[p.etappe - 1];
+  if (!e) return null;
+  const gens = [];
+  for (const [k, g] of Object.entries(e.grenzen || {})) if (g && g.stufe_max) for (const b of baukaestenVon(k)) gens.push({ generator: b, stufe: g.stufe_max });
+  return { paket: p.id, etappe: p.etappe, mindest: p.etappe_mindest, abstand: Math.floor(10 / p.etappe_mindest), gens, ids: e.aufgaben || [] };
+}
+export function zaehltFuerEtappe(a, ne) {
+  if (!a || !ne || a.typ === 'detektiv') return false;
+  if (a.generator) return ne.gens.some(x => x.generator === a.generator && (a.stufe || 1) >= x.stufe);
+  return ne.ids.includes(a.id);
 }
 
 // Etappe offen? Hat sie einen Logbuch-Eintrag, muss er geschrieben sein (sonst „kommt bald“).
