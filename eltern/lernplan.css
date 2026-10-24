@@ -1,4 +1,4 @@
-/* Gebaut aus lernplan/lernplan.css (Version 1.5.0). Nicht hier ändern. */
+/* Gebaut aus lernplan/lernplan.css (Version 1.6.0). Nicht hier ändern. */
 
 /* Layout: Kopfzeile mit Ansichts-Umschalter, darunter eine waagerecht scrollbare Zeitleiste mit fester Namensspalte, darunter die Erkenntnis-Karte. */
 .lp{
@@ -335,3 +335,17 @@ html.lp-voll-offen, html.lp-voll-offen body{overflow:hidden}
 .lp .stk span{display:block;height:100%} .lp .stk .tb{background:var(--teal)} .lp .stk .ta{background:var(--m-app)}
 .lp .m-note{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:4px}
 @media (max-width:640px){.lp .pz{grid-template-columns:minmax(0,1fr)}.lp .mx .mrl{max-width:130px;font-size:12px;padding:4px 6px}}
+/* Ziel-Check: Eintrag antippen → Beispielaufgaben (1.6.0) */
+.lp .m-zc li{padding:0}
+.lp .m-zc-b{display:block;width:100%;text-align:left;font:inherit;color:inherit;background:none;border:0;padding:6px 10px;cursor:pointer;border-radius:6px}
+.lp .m-zc-b:hover{background:var(--surface-2)}
+.lp .m-zc-bsp{display:inline-block;margin-top:3px;font-size:13px;font-weight:700;color:var(--teal)}
+.lp .zc-warn{border:1.5px solid var(--line);border-left-width:6px;border-radius:8px;padding:8px 10px;background:var(--surface)}
+.lp .zc-warn.rot{border-left-color:var(--m-rot)} .lp .zc-warn.gelb{border-left-color:var(--m-gelb-line)} .lp .zc-warn.info{border-left-color:var(--m-dran-line)}
+.lp .zc-warn.rot .m-zc-st{color:var(--m-rot)} .lp .zc-warn.gelb .m-zc-st{color:var(--m-gelb)} .lp .zc-warn.info .m-zc-st{color:var(--muted)}
+.lp .zc-bsp-liste{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.lp .zc-karte{border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;background:var(--surface);min-width:0}
+.lp .zc-karte svg{max-width:min(100%,210px);height:auto}
+.lp .zc-k-kopf{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.lp .zc-k-knoepfe{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.lp .zc-k-knoepfe .btn{width:auto;flex:0 0 auto;min-height:38px;padding:6px 12px;font-size:14.5px}

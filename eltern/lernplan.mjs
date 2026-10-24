@@ -1,10 +1,10 @@
-/* Gebaut aus lernplan/lernplan.js (Version 1.5.0). Nicht hier ändern. */
+/* Gebaut aus lernplan/lernplan.js (Version 1.6.0). Nicht hier ändern. */
 /* Lernplan-Darstellung: gemeinsame Quelle für die Lernplan-Seite in claude.ai und die Eltern-App.
    Quelle: LearningToolsCode/lernplan/lernplan.js (+ lernplan.css). Daraus baut `npm run lernplan`
    die Vorlage (wissensbasis/15-lernplan-seite-vorlage.html, alles eingebettet) und app/eltern/lernplan.mjs.
    Nur hier ändern. Datenformat und Regeln: wissensbasis/15-lernplan-seite.md. */
 var Lernplan = (function(){
-var VERSION = '1.5.0';
+var VERSION = '1.6.0';
 function esc0(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 // Export (Format lernplan-1, daten/<name>/lernplan.json) in die Form der Seite: Sammlungen als Listen mit _id
 // Nummern einer Erkenntnis-Gruppe als Text (auch für Tests): lückenlos „3–7“, bis 4 Einträge „3, 5, 7“, sonst „3–5, 8, 11–14“
@@ -539,6 +539,33 @@ function zielCheck(){
   S._zc = { rows: S.rows, meta: S.meta, ins: S.ins, tag: todayIso(), x: w };
   return w;
 }
+var ZC_ST = { rot: 'Dringend', gelb: 'Warnung', info: 'Info' };
+// Beispielaufgaben zu einem Eintrag im Ziel-Check: das Thema selbst und seine Unterthemen (Etappen), höchstens 6
+function zcBeispiele(id){
+  var out = [], r = rowById(id);
+  (function sammeln(x){ if (!x || out.length >= 6) return; if (x.beispiel) out.push(x); kinderVon(x._id).forEach(sammeln); })(r);
+  return out;
+}
+function bspKurz(r, i){
+  var b = r.beispiel, h = '<div class="zc-karte"><div class="zc-k-kopf"><b>' + esc(r.label) + '</b>' + (b.quelle ? '<span class="hint">' + esc(b.quelle) + '</span>' : '') + (b.entwurf ? '<span class="draft">Entwurf</span>' : '') + '</div>';
+  if (b.geschichte) h += '<div class="story">' + mth(b.geschichte) + '</div>';
+  if (b.bild) h += '<div>' + bildSvg(b.bild) + '</div>';
+  if (b.rechnung) h += '<div class="rech">' + mth(b.rechnung) + '</div>';
+  if (b.rechnungen) h += '<div style="display:flex;flex-wrap:wrap;gap:6px 22px">' + b.rechnungen.map(function(x){ return '<span class="rech" style="font-size:19px">' + mth(x) + '</span>'; }).join('') + '</div>';
+  if (b.frage) h += '<div><b>' + mth(b.frage) + '</b></div>';
+  if (b.fragen) h += '<ol style="margin:0;padding-left:22px">' + b.fragen.map(function(f){ return '<li>' + mth(f) + '</li>'; }).join('') + '</ol>';
+  if ((b.loesung && b.loesung.length) || b.erklaerung) h += '<div id="lp-zcsol-' + i + '" class="sol" hidden>' + (b.loesung || []).map(function(l, j, arr){ return '<div' + (j === arr.length - 1 ? ' class="res"' : '') + '>' + mth(l) + '</div>'; }).join('') + (b.erklaerung ? '<div style="color:var(--muted);font-style:italic">' + mth(b.erklaerung) + '</div>' : '') + '</div>';
+  h += '<div class="zc-k-knoepfe">' + ((b.loesung && b.loesung.length) || b.erklaerung ? '<button type="button" class="btn" data-zc-sol="' + i + '" aria-expanded="false">Lösung zeigen</button>' : '') + '<button type="button" class="btn ghost" data-bsp-from="' + esc(r._id) + '">Groß ansehen</button></div></div>';
+  return h;
+}
+function openZiel(i, opener){
+  var x = zielCheck()[i]; if (!x) return;
+  var l = zcBeispiele(x.row);
+  var body = '<div class="zc-warn ' + x.st + '"><span class="m-zc-st">' + ZC_ST[x.st] + '</span>' + esc(x.text) + '</div>' +
+    '<h3 style="margin:4px 0 0">' + (l.length === 1 ? 'Beispielaufgabe' : 'Beispielaufgaben') + '</h3>' +
+    (l.length ? '<div class="zc-bsp-liste">' + l.map(bspKurz).join('') + '</div>' : '<p class="hint">Zu diesem Thema gibt es im Lernplan noch kein Beispiel.</p>');
+  infoSheet(esc(x.name) + ' · ' + esc(x.art), 'Ziel-Check', body, opener);
+}
 function warnZahl(){ return hatMenge() ? zielCheck().filter(function(w){ return w.st !== 'info'; }).length : 0; }
 function abwHtml(t){ return t.b ? '<span class="abw ' + t.b.st + '">' + esc(t.b.wort) + '</span>' : ''; }
 function planZeile(t, skala){
@@ -578,7 +605,7 @@ function renderMenge(){
   // 2. Ziel-Check
   var zc = zielCheck();
   o += '<section class="card m-sec" id="lp-zielcheck"><h2>Ziel-Check</h2><p class="hint">Bezogen auf heute: Lernplan, Kenntnisstand und Übungszeit der letzten 7 bzw. 14 Tage.</p>' +
-    (zc.length ? '<ul class="m-zc">' + zc.map(function(x){ return '<li class="' + x.st + '"><span class="m-zc-st">' + ({ rot: 'Dringend', gelb: 'Warnung', info: 'Info' })[x.st] + '</span><b>' + esc(x.name) + '</b> · ' + esc(x.art) + '<div>' + esc(x.text) + '</div></li>'; }).join('') + '</ul>' : '<p>Keine Warnungen.</p>') + '</section>';
+    (zc.length ? '<ul class="m-zc">' + zc.map(function(x, i){ return '<li class="' + x.st + '"><button type="button" class="m-zc-b" data-zc="' + i + '" title="Beispielaufgaben ansehen"><span class="m-zc-st">' + ZC_ST[x.st] + '</span><b>' + esc(x.name) + '</b> · ' + esc(x.art) + '<div>' + esc(x.text) + '</div>' + (zcBeispiele(x.row).length ? '<span class="m-zc-bsp">' + zcBeispiele(x.row).length + (zcBeispiele(x.row).length === 1 ? ' Beispielaufgabe' : ' Beispielaufgaben') + ' ›</span>' : '') + '</button></li>'; }).join('') + '</ul>' : '<p>Keine Warnungen.</p>') + '</section>';
   // 3. Thema × Tag
   var heute = function(s){ return s.von <= h && h <= s.bis; };
   var kopf = spalten.map(function(s){
@@ -992,6 +1019,7 @@ function infoSheet(title, sub, body, opener, actions){
     var b = e.target.closest('button'); if (!b) return;
     if (b.dataset.infoIns) { S.sel = b.dataset.infoIns; S.view = 'zeit'; d.innerHTML = ''; render(); }
     if (b.dataset.bspFrom) { openBeispiel(b.dataset.bspFrom, opener); }
+    if (b.dataset.zcSol != null) { var so = $('zcsol-' + b.dataset.zcSol); if (so) { so.hidden = !so.hidden; b.textContent = so.hidden ? 'Lösung zeigen' : 'Lösung verbergen'; b.setAttribute('aria-expanded', !so.hidden); } }
     if (b.dataset.editTag) { editTag(b.dataset.editTag); }
     if (b.dataset.editRow) { editRow(b.dataset.editRow); }
     if (b.dataset.editMeta) { editMeta(); }
@@ -1094,6 +1122,7 @@ $('view').addEventListener('click', function(e){
   if (t.dataset.mschieb) { S.z.tag = (S.z.tag || 0) + (+t.dataset.mschieb) * Math.max(7, Math.round(zTage() / 2)); render(); return; }
   if (t.dataset.mz) { openMZelle(t.dataset.mz, t); return; }
   if (t.dataset.mpi) { openMPlan(t.dataset.mpi, t); return; }
+  if (t.dataset.zc != null) { openZiel(+t.dataset.zc, t); return; }
 });
 /* Zoom mit Strg/⌘ + Mausrad und zwei Fingern, Verschieben durch Ziehen mit der Maus (ab 1.3.0) */
 function ankerBei(sc, clientX){
