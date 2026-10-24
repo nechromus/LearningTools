@@ -808,6 +808,15 @@ export function fernAnwenden(z, datei) {
     if (JSON.stringify(neu) !== JSON.stringify(z.freigaben || {})) geaendert.push('freigaben');
     z.freigaben = neu;
   }
+  // Wochenplan und Eingriffe der Eltern (Auftrag 24): unverändert übernehmen, geprüft wird in js/wochenplan.js.
+  // Fehlt der Abschnitt, ist kein Plan da (die App arbeitet wie bisher).
+  {
+    const wp = w.wochenplan && typeof w.wochenplan === 'object' ? JSON.parse(JSON.stringify(w.wochenplan)) : null;
+    const ein = Array.isArray(w.eingriffe) ? JSON.parse(JSON.stringify(w.eingriffe)) : [];
+    if (JSON.stringify(wp) !== JSON.stringify(z.wochenplan ?? null)) geaendert.push('wochenplan');
+    if (JSON.stringify(ein) !== JSON.stringify(z.eingriffe || [])) geaendert.push('eingriffe');
+    z.wochenplan = wp; z.eingriffe = ein;
+  }
   // Feedback-Knopf pro Kind (Testgeräte haben ihn immer)
   if (typeof w.feedback === 'boolean' && w.feedback !== !!z.feedbackAn) { z.feedbackAn = w.feedback; geaendert.push('feedback'); }
   if (typeof w.etappe_anzeigen === 'boolean' && w.etappe_anzeigen !== !!z.etappeAnzeigen) { z.etappeAnzeigen = w.etappe_anzeigen; geaendert.push('etappeAnzeigen'); }

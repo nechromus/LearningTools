@@ -5,10 +5,11 @@ import * as P from '../js/paket.js';
 import * as SP from '../js/splitter.js';
 import * as BS from '../js/bildschirm.js';
 import * as LP from '../js/lernplan.js';
+import * as W from '../js/wochenplan.js';
 
 const ZU_AUFGABE = new Set(['versuch', 'versuch_wiederholt', 'tipp_bestaetigt', 'hinweis', 'rechner', 'rechner_offen',
   'rechner_angeboten', 'rechner_optional', 'verlassen', 'sprung', 'loesung_gezeigt', 'bonus_teil_uebersprungen', 'hilfe',
-  'zu_schnell', 'vorlesen', 'gelesen', 'text_hilfe', 'hinweis_kurz', 'hinweis_lang', 'formeluebersicht', 'schritte_an', 'umformen_an', 'umform_versuch', 'umform_schritt', 'umform_hilfe', 'umform_umweg', 'umform_zurueck', 'umform_aufstellen', 'umform_fertig']);
+  'zu_schnell', 'vorlesen', 'gelesen', 'text_hilfe', 'hinweis_kurz', 'hinweis_lang', 'formeluebersicht', 'schritte_an', 'umformen_an', 'umform_versuch', 'umform_schritt', 'umform_hilfe', 'umform_umweg', 'umform_zurueck', 'umform_aufstellen', 'umform_fertig', 'erinnerung']);
 
 export const zahl = (w) => w == null ? '' : String(w).replace('.', ',').replace(/^-/, '−');
 
@@ -276,6 +277,7 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
       case 'formeluebersicht': p.titel = 'Ganze Formelübersicht geöffnet'; p.text = `Seite ${e.seite}`; break;
       case 'zu_schnell': p.titel = `Zu schnell geantwortet: ${e.eingabe}`; p.text = `nach ${sek(e.ms)} s · zählt nicht, „Lies noch einmal“`; p.art = 'fehler'; break;
       case 'vorlesen': p.titel = 'Geschichte vorlesen lassen'; break;
+      case 'erinnerung': p.titel = 'Erinnerung aus dem Wochenplan'; p.text = e.tage > 90 ? `kam in der App noch nie, Frist ${e.frist} Tage` : `zuletzt vor ${e.tage} Tagen geübt, Frist ${e.frist} Tage`; p.art = 'info'; break;
       case 'gelesen': p.titel = 'Geschichte Satz für Satz gelesen'; p.text = `${sek(e.ms)} s`; break;
       case 'text_hilfe': p.titel = e.angenommen ? 'Hilfe beim Text angenommen' : 'Hilfe beim Text abgelehnt'; p.text = e.angenommen ? 'vorgelesen, Zahlen markiert' : 'Aufgabe verlassen'; p.art = e.angenommen ? 'info' : 'fehler'; break;
       default: continue;
@@ -418,6 +420,8 @@ export function startWerte(einst, stand, paketVon = () => null) {
     bildschirm: bzWerte(w.bildschirm || (stand && stand.bzRegeln)),
     spielzeitTag: szWerte(w.spielzeitTag || (stand && stand.szRegeln)),
     etappe_anzeigen: w.etappe_anzeigen === true,
+    wochenplan: w.wochenplan && typeof w.wochenplan === 'object' ? w.wochenplan : null,
+    eingriffe: W.eingriffeNorm(w.eingriffe),
     freigaben: Object.fromEntries(Object.entries((w.freigaben && typeof w.freigaben === 'object') ? w.freigaben : {}).filter(([k, v]) => FREIGABEN.includes(k) && /^\d{4}-\d{2}-\d{2}$/.test(v || ''))),
     gestaltung: ['schrein', 'sternzeit'].includes(w.gestaltung) ? w.gestaltung : 'schrein',
     umform_stufe: [1, 2, 3].includes(w.umform_stufe) ? w.umform_stufe : 3,
@@ -539,6 +543,9 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
       gestaltung: werte.gestaltung === 'sternzeit' ? 'sternzeit' : 'schrein', umform_stufe: [1, 2, 3].includes(werte.umform_stufe) ? werte.umform_stufe : 3, feedback: werte.feedback === true, ...Object.fromEntries(BEDIENUNG.map(b => [b.k, typeof werte[b.k] === 'boolean' ? werte[b.k] : b.std])), ...(werte.ansicht_name ? { ansicht_name: werte.ansicht_name } : {}),
       uebungszeit: uzDatei(werte.uebungszeit, tagKey(jetzt)),
       ...(werte.freigaben && Object.keys(werte.freigaben).length ? { freigaben: { ...werte.freigaben } } : {}),
+      // Wochenplan (Auftrag 24): schreibt nur der Kinder-Chat, darum immer aus der frisch gelesenen Datei übernehmen
+      ...(alt && alt.werte && alt.werte.wochenplan ? { wochenplan: alt.werte.wochenplan } : {}),
+      ...(eingriffeDatei(werte.eingriffe, jetzt).length ? { eingriffe: eingriffeDatei(werte.eingriffe, jetzt) } : {}),
       ...(werte.splitter ? { splitter: { preise: werte.splitter.preise, boni: werte.splitter.boni.slice(-50), frei: werte.splitter.frei } } : {}) }
   };
 }
@@ -577,4 +584,46 @@ function hauptThema(werte) {
 export function serieMinuten(regeln) {
   const s = regeln.staffel;
   return Math.round((3 * s[0] + 3 * s[1] + 3 * s[2] + s[3]) * 10) / 10;
+}
+
+// ---------- Wochenplan (Auftrag 24) ----------
+// Eingriffe der Eltern: nur mit Ablaufdatum; abgelaufene bleiben 14 Tage stehen (für den Kinder-Chat), dann fallen sie weg
+export function eingriffeDatei(liste, jetzt = new Date()) {
+  const grenze = tagKey(new Date(jetzt.getTime() - 14 * 864e5));
+  return W.eingriffeNorm(liste).filter(e => e.bis >= grenze);
+}
+// Plan gegen Ist aus den Lerndaten: Übungszeit (ms aus aufgabe_ende) je Art seit ab, zuletzt geübt je Thema, fällige Erinnerungen
+export function wochenplanStand(werte, eintraege, heute = tagKey()) {
+  const wp = W.wpNorm(werte && werte.wochenplan);
+  if (!wp) return null;
+  const pakete = (werte.pakete || []).filter(p => p && p.paket);
+  const status = heute < wp.ab ? 'kommt' : heute > wp.bis ? 'abgelaufen' : 'laeuft';
+  const ms = {}, n = {}, zuletzt = {};
+  for (const e of eintraege || []) {
+    if (e.typ !== 'aufgabe_ende' || !e.thema || !e.t) continue;
+    const tag = tagKey(new Date(e.t));
+    if (!zuletzt[e.thema] || zuletzt[e.thema] < tag) zuletzt[e.thema] = tag;
+    if (tag >= wp.ab && tag <= wp.bis && e.ms > 0) { ms[e.thema] = (ms[e.thema] || 0) + Math.min(e.ms, 10 * 60000); n[e.thema] = (n[e.thema] || 0) + 1; }
+  }
+  const stichtag = status === 'abgelaufen' ? wp.bis : heute;
+  const arten = W.wpArten(wp, pakete, werte.eingriffe, stichtag);
+  const nGesamt = Object.values(n).reduce((s, v) => s + v, 0);
+  const ist = W.wpIst(arten, ms).map(a => ({ ...a, n: a.themen.reduce((s, t) => s + (n[t] || 0), 0), istN: nGesamt ? a.themen.reduce((s, t) => s + (n[t] || 0), 0) / nGesamt * 100 : 0 }));
+  const imPlan = new Set(arten.flatMap(a => a.themen));
+  const sonstMs = Object.keys(ms).filter(t => !imPlan.has(t)).reduce((s, t) => s + ms[t], 0);
+  const gesperrt = W.gesperrteThemen(wp, pakete, werte.eingriffe, stichtag);
+  const motiv = (arten.find(a => a.motiv) || { themen: [] }).themen;
+  const kand = new Set([...imPlan]);
+  for (const p of pakete) for (const [t, g] of Object.entries(p.paket.gewichte || {})) if (g > 0) kand.add(t);
+  const faellig = W.faellige(wp, zuletzt, heute, [...kand].filter(t => !motiv.includes(t)), pakete, gesperrt);
+  // Erinnerungen mit eigener Frist und „zuletzt geübt“
+  const erinnerung = Object.entries(wp.erinnerung).filter(([k]) => k !== 'standard').map(([k, tage]) => {
+    const th = W.themenVon(k, pakete);
+    const z = th.map(t => zuletzt[t]).filter(Boolean).sort().pop() || null;
+    return { art: k, name: W.artName(k, pakete), themen: th, tage, zuletzt: z, faellig: th.some(t => faellig.some(f => f.thema === t)) };
+  });
+  return { wp, status, arten: ist, minuten: Object.values(ms).reduce((s, v) => s + v, 0) / 60000, sonstMin: sonstMs / 60000, aufgaben: nGesamt,
+    zuletzt, faellig, erinnerung, standard: wp.erinnerung.standard || 0, gesperrt, wpGesperrt: wp.gesperrt,
+    eingriffe: W.eingriffeNorm(werte.eingriffe), eingriffeAktiv: W.eingriffeAktiv(werte.eingriffe, heute),
+    erinnerungen: (eintraege || []).filter(e => e.typ === 'erinnerung' && e.t && tagKey(new Date(e.t)) >= wp.ab) };
 }

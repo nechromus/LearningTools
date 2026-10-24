@@ -345,3 +345,41 @@ textarea { width: 100%; border-radius: 10px; border: 1.5px solid #8A9696; backgr
 @media (min-width: 900px) { .inhalt-breit .lp-seite { max-width: none; } }
 .einstell-unter { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 14px; }
 .einstell-block.mind { border-top: 1px solid var(--linie-hell, #E6E2DA); margin-top: 8px; }
+
+/* Wochenplan (Auftrag 24) */
+.wochenplan-karte { display: flex; flex-direction: column; gap: 8px; }
+.wochenplan-karte p { margin: 0; }
+.wp-status { font-size: 13px; font-weight: 700; border-radius: 12px; padding: 2px 10px; background: var(--teal-hell); color: var(--teal-dunkel); }
+.wp-status.abgelaufen, .wp-status.kommt { background: var(--amber-hell); color: var(--amber-dunkel); }
+.wp-grund { background: #F7F6F0; border-left: 4px solid var(--teal); padding: 6px 10px; border-radius: 6px; }
+.wp-h { font-size: 16px; margin: 8px 0 0; }
+.wp-liste { display: flex; flex-direction: column; gap: 6px; }
+.wp-zeile { display: grid; grid-template-columns: minmax(110px, 190px) minmax(0, 1fr) minmax(170px, 250px); gap: 4px 12px; align-items: center; border-left: 5px solid transparent; padding-left: 8px; border-radius: 4px; }
+.wp-zeile.rot { border-left-color: #B4361E; } .wp-zeile.gelb { border-left-color: #D9A21B; }
+.wp-zeile.rot .iz { color: #B4361E; } .wp-zeile.gelb .iz { color: #8A5A00; }
+.wp-name { font-weight: 700; min-width: 0; }
+.wp-name .block { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wp-balken { position: relative; height: 24px; background: #F2F3EF; border: 1px solid #E3E6E0; border-radius: 4px; }
+.wp-n { position: absolute; left: 0; top: 3px; height: 8px; border-radius: 2px; background: #B26B00; }
+.wp-z { position: absolute; left: 0; top: 13px; height: 8px; border-radius: 2px; background: #B26B00; opacity: .42; }
+.wp-s { position: absolute; top: -3px; width: 3px; height: 28px; background: #1E2A2B; border-radius: 1px; }
+.wp-werte { font-size: 13px; color: #4F5E5E; font-variant-numeric: tabular-nums; }
+.wp-werte b { color: #1E2A2B; }
+.abw { display: inline-block; font-size: 12.5px; font-weight: 700; border-radius: 999px; padding: 1px 9px; border: 1.5px solid; }
+.abw.rot { color: #B4361E; border-color: #B4361E; background: #F9E0D8; }
+.abw.gelb { color: #8A5A00; border-color: #D9A21B; background: #FBF0CF; }
+.wp-erin { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
+.wp-e { display: flex; flex-direction: column; border: 1.5px solid #E3E6E0; border-radius: 8px; padding: 6px 10px; }
+.wp-e.faellig { border-color: #D9A21B; background: #FBF0CF; }
+.wp-ein { display: flex; flex-direction: column; gap: 6px; }
+.wp-ei { display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1.5px solid #E3E6E0; border-radius: 8px; padding: 6px 10px; }
+.wp-ei.alt { opacity: .6; }
+.wp-form { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; }
+.wp-form label { display: flex; flex-direction: column; gap: 2px; }
+.wp-form select, .wp-form input { min-height: 40px; border-radius: 8px; border: 1.5px solid #8A9696; padding: 0 8px; background: #fff; font: inherit; }
+.klein-knopf { min-height: 34px; padding: 0 12px; }
+details.experte { border: 1.5px dashed #8A9696; border-radius: 12px; padding: 4px 12px 12px; margin: 4px 0 12px; }
+details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; list-style-position: inside; }
+@media (max-width: 640px) { .wp-zeile { grid-template-columns: minmax(0, 1fr); } }
+.wochenplan-karte { container-type: inline-size; }
+@container (max-width: 560px) { .wp-zeile { grid-template-columns: minmax(0, 1fr); } .wp-balken { height: 20px; } }

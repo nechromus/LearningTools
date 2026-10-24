@@ -35,6 +35,10 @@ function standard() {
     ansichtName: '',        // Name der App bei Gestaltung Sternzeit (Standard „Logbuch Sternzeit“)
     gestaltung: 'schrein',  // schrein (Standard) oder sternzeit („Logbuch Sternzeit“), aus der Eltern-App
     uzRegeln: null,         // Übungszeit pro Tag (js/bildschirm.js uzRegeln, null = aus)
+    wochenplan: null,       // Wochenplan aus einstellungen.json (Auftrag 24, Format wochenplan-1), null = keiner
+    eingriffe: [],          // Eingriffe der Eltern mit Ablaufdatum (Auftrag 24)
+    wp: null,               // Stand zum Wochenplan: Übungszeit je Thema seit ab, Takt, Erinnerungen
+    zuletzt: null,          // je Thema der Tag, an dem es zuletzt geübt wurde (nur mit Wochenplan gepflegt)
     freigaben: {},          // Freigaben mit Datum aus der Eltern-App, z. B. { minusminus: '2026-10-26' } (Auftrag 21)
     uebung: null,           // Übungszeit heute: { tag, sek, hinweis, code, gefragt }
     wissen: null,           // Wissenspunkte: { stand, verlauf: [{ t, n, grund, id }] } (nur Sternzeit)

@@ -19,6 +19,7 @@ import { jadeschlangeStarten } from './jadeschlange-ui.js';
 import * as SP from './splitter.js';
 import * as BS from './bildschirm.js';
 import * as LP from './lernplan.js';
+import * as W from './wochenplan.js';
 import { bildschirmBild } from './bildschirm-bild.js';
 import { uebungszeitBild } from './uebungszeit-bild.js';
 import * as PH from './physik.js';
@@ -30,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.25.1';
+export const APP_VERSION = '2.26.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -390,7 +391,7 @@ async function testAlsSetzen(ordner) {
   await fernHolen(true);
 }
 function personaZuruecksetzen(z) {
-  for (const f of ['gestaltung', 'ansichtName', 'uzRegeln', 'bzRegeln', 'szRegeln', 'etappeAnzeigen', 'fernEtappen', 'feedbackAn', 'freigaben']) delete z[f];
+  for (const f of ['gestaltung', 'ansichtName', 'uzRegeln', 'bzRegeln', 'szRegeln', 'etappeAnzeigen', 'fernEtappen', 'feedbackAn', 'freigaben', 'wochenplan', 'eingriffe', 'wp', 'zuletzt']) delete z[f];
   delete z.einstellungen.umformStufe;
   for (const b of L.BEDIENUNG) delete z.einstellungen[b.f];
 }
@@ -509,6 +510,7 @@ async function syncen(erzwingen = false) {
   // Neue Einstellungen übernommen? Dann gleich den Stand melden, damit die Eltern-App es sieht.
   if (await fernHolen(erzwingen)) erzwingen = true;
   if (!S.einstellungen.name || u.testgeraet || u.testAls || !u.repo || !u.token) return null;
+  try { wpEingriffeMelden(); wpPlanIst('sync'); } catch (e) { /* egal */ }
   try { await standAbgleich(erzwingen); } catch (e) { /* später nochmal */ }
   standHochladen(erzwingen);
   if (syncLaeuft) return null;
@@ -953,7 +955,7 @@ function uebungTick() {
     // Laufende Aufgabe wartet bis morgen (zählt nicht als Abbruch für die Serie)
     if (!A.fertig) {
       protokoll(S, 'aufgabe_abgebrochen', { id: A.aufgabe.id, teil: A.idx, ms: Date.now() - A.start, ohneEingabe: A.teile.every(t => !t.versuche.length), thema: A.aufgabe.thema, wartet: !A.aufgabe.bonus, grund: 'uebungszeit' });
-      if (!A.test) paketZeitBuchen(A.paket, Date.now() - A.start);
+      if (!A.test) { paketZeitBuchen(A.paket, Date.now() - A.start); wpBuchen(A.aufgabe, Date.now() - A.start); }
       if (!A.aufgabe.bonus) S.wartet = aufgabeSchnappschuss();
       S.laufend = null; A = null;
     }
@@ -1272,7 +1274,7 @@ function grenzen() {
   grenzenCache = { k: schluessel, g };
   return g;
 }
-const erlaubt = (a) => LP.aufgabeErlaubt(a, grenzen());
+const erlaubt = (a) => LP.aufgabeErlaubt(a, grenzen()) && !(a && wpGesperrt().includes(a.thema));
 // Nächste Etappe wird ab ihrem Datum wirksam (Gerätezeit)
 function etappenAktualisieren() {
   if (!pakete()) return;
@@ -1442,7 +1444,12 @@ function waehleAufgabe(kategorie) {
     const auf = faellig.bonus ? aehnlicheAufgabe(faellig.aufgabe) : faellig.aufgabe;
     return { aufgabe: auf, wdh: faellig.wdh, paket: paketFuerThema(auf.thema), bonus: !!faellig.bonus };
   }
+  // Wochenplan (Auftrag 24): Art nach Übungszeit, Takt und Erinnerungen; ohne laufenden Plan wie bisher.
+  // Einstieg und Takt (motivierende Aufgabe) gehen dem Mindestanteil der Etappe vor.
+  const wpl = wpJetzt();
+  if (wpl && wpMotivationDran(wpl)) { const r = wpAufgabe(wpl, kategorie); if (r) return r; }
   if (kategorie !== 'leicht') { const m = etappeMindestAufgabe(); if (m) return m; }
+  if (wpl) { const r = wpAufgabe(wpl, kategorie); if (r) return r; }
   const pk = pakete();
   // Anteile nach Übungszeit (Auftrag 23): Paket mit deutlichem Rückstand bekommt den Platz, auch wenn es sonst nicht hineinpasst
   if (pk && kategorie !== 'leicht') {
@@ -1495,6 +1502,133 @@ function waehleBegrenzt(kategorie) {
   return r;
 }
 
+// ---------- Wochenplan (Auftrag 24) ----------
+// Nur mit gültigem, laufendem Plan in einstellungen.json. Sonst: alles wie bisher (Pakete, Gewichte, Muster).
+let wpCache = null;
+function wpJetzt() {
+  if (!S.wochenplan) return null;
+  const tag = L.tagKey();
+  if (!wpCache || wpCache.roh !== S.wochenplan || wpCache.tag !== tag) { const wp = W.wpNorm(S.wochenplan); wpCache = { roh: S.wochenplan, tag, wp: W.wpLaeuft(wp, tag) ? wp : null }; }
+  return wpCache.wp;
+}
+let wpGespCache = null;
+function wpGesperrt() {
+  const wp = wpJetzt(); if (!wp) return [];
+  const k = JSON.stringify([S.wochenplan, S.eingriffe, L.tagKey(), (S.pakete || []).map(p => p.id)]);
+  if (!wpGespCache || wpGespCache.k !== k) wpGespCache = { k, t: W.gesperrteThemen(wp, S.pakete || [], S.eingriffe, L.tagKey()) };
+  return wpGespCache.t;
+}
+// Wann wurde ein Thema zuletzt geübt? Beim Start eines Plans aus dem Protokoll, danach laufend gepflegt.
+function zuletztAusLog(z = {}) {
+  for (const e of S.log) if (e.typ === 'aufgabe_ende' && e.thema && e.t) { const d = L.tagKey(new Date(e.t)); if (!z[e.thema] || z[e.thema] < d) z[e.thema] = d; }
+  return z;
+}
+// Stand zum laufenden Plan: Übungszeit je Thema seit ab (beim ersten Mal aus dem Protokoll), Takt, Erinnerungen
+function wpZustand(wp) {
+  if (!S.wp || S.wp.ab !== wp.ab) {
+    const ms = {}, n = {};
+    for (const e of S.log) if (e.typ === 'aufgabe_ende' && e.thema && e.t && L.tagKey(new Date(e.t)) >= wp.ab && e.ms > 0) { ms[e.thema] = (ms[e.thema] || 0) + Math.min(e.ms, 10 * 60000); n[e.thema] = (n[e.thema] || 0) + 1; }
+    S.wp = { ab: wp.ab, ms, n, seitMotivation: 0, letzteErinnerung: -9, erinnert: [], planIstTag: null, planIstHash: null };
+    S.zuletzt = zuletztAusLog(S.zuletzt || {});
+  }
+  if (!S.zuletzt) S.zuletzt = zuletztAusLog({});
+  return S.wp;
+}
+const wpArtenJetzt = (wp) => W.wpArten(wp, S.pakete || [], S.eingriffe, L.tagKey());
+// Mittlere Dauer einer Aufgabe je Thema: seit Beginn des Plans, sonst aus dem Protokoll, sonst 30 s
+let dauerCache = null;
+function dauerJe(st) {
+  if (!dauerCache || dauerCache.n !== S.log.length) {
+    const ms = {}, n = {};
+    for (const e of S.log) if (e.typ === 'aufgabe_ende' && e.thema && e.ms > 0) { ms[e.thema] = (ms[e.thema] || 0) + Math.min(e.ms, 10 * 60000); n[e.thema] = (n[e.thema] || 0) + 1; }
+    dauerCache = { n: S.log.length, d: Object.fromEntries(Object.keys(ms).map(t => [t, ms[t] / n[t]])) };
+  }
+  const d = { ...dauerCache.d };
+  for (const t of Object.keys(st.ms)) if ((st.n[t] || 0) >= 2) d[t] = st.ms[t] / st.n[t];
+  for (const t of L.THEMEN) if (!d[t]) d[t] = 30000;
+  return d;
+}
+// Gewicht eines Themas aus den Paketen (für die Wahl innerhalb einer Art mit mehreren Themen), sonst normal
+function themaGewicht(t) { let g = 0; for (const p of (S.pakete || [])) g = Math.max(g, LP.gewichteVon(p, S.abweichungen)[t] || 0); return g || 2; }
+// Eine Aufgabe aus diesen Themen. Der Einstieg kommt als leichte Aufgabe, sonst Plätze in zufälliger Folge.
+function aufgabeAusThemen(themen, kategorie, motiv = false) {
+  const g = Object.fromEntries(themen.map(t => [t, themaGewicht(t)]));
+  // Motivation: kurze Aufgaben (keine Detektive, keine Geschichten); sonst alle Plätze in zufälliger Folge
+  const plaetze = motiv ? ['thema'] : L.mischen(['thema', 'text', 'struktur', 'koerper', 'abschluss']);
+  for (const k of (kategorie === 'leicht' ? ['leicht', ...plaetze] : plaetze)) {
+    for (let i = 0; i < (motiv ? 4 : 1); i++) {
+      const r = waehleIn(k, g, false, motiv);
+      if (r.aufgabe && themen.includes(r.aufgabe.thema) && heuteOk(r.aufgabe) && erlaubt(r.aufgabe) && !(motiv && (r.aufgabe.typ === 'detektiv' || r.aufgabe.geschichte))) return r;
+    }
+  }
+  return null;
+}
+// Themen, die die App gerade anbieten kann (für Erinnerungen): mit Gewicht in einem Paket oder im Plan
+function wpKandidaten(arten) {
+  const s = new Set(arten.flatMap(a => a.themen));
+  for (const [t, w] of Object.entries(gewichte())) if (w > 0) s.add(t);
+  return [...s].filter(t => !wpGesperrt().includes(t));
+}
+function wpAufgabe(wp, kategorie) {
+  const arten = wpArtenJetzt(wp);
+  if (!arten.length) return null;
+  const st = wpZustand(wp), heute = L.tagKey();
+  const ist = W.wpIst(arten, st.ms, dauerJe(st));
+  const motivThemen = (arten.find(a => a.motiv) || { themen: [] }).themen;
+  const faellig = W.faellige(wp, S.zuletzt, heute, wpKandidaten(arten).filter(t => !motivThemen.includes(t)), S.pakete || [], wpGesperrt())
+    .filter(f => !st.erinnert.some(e => e.thema === f.thema && e.tag === heute));
+  const sitzungsStart = wpSitzungsStart();
+  let ent = W.naechsteArt(arten, ist, { sitzungsStart, takt: wp.motivation.takt, seitMotivation: st.seitMotivation, faellig, letzteErinnerung: st.letzteErinnerung === S.verlauf.zaehler - 1 });
+  let r = null;
+  // Art mit laufender Etappe (z. B. Zylinder): etwa jede zweite Aufgabe aus der Etappe, damit der Mindestanteil im Plan steckt
+  if (ent && ent.art && !ent.art.motiv && Math.random() < 0.5) r = etappeMindestAufgabe({ themen: ent.art.themen });
+  if (!r) r = ent && aufgabeAusThemen(ent.grund === 'erinnerung' ? [ent.thema] : ent.art.themen, ent.grund === 'einstieg' ? 'leicht' : kategorie, !!(ent.art && ent.art.motiv));
+  if (!r && ent && ent.grund === 'erinnerung') { st.erinnert.push({ thema: ent.thema, tag: heute, ohne: true }); } // keine Aufgabe möglich: heute nicht mehr versuchen
+  if (!r) { ent = W.naechsteArt(arten, ist, {}); r = ent && aufgabeAusThemen(ent.art.themen, kategorie, ent.art.motiv); }
+  if (!r) return null;
+  return { ...r, paket: paketFuerThema(r.aufgabe.thema), wp: { grund: ent.grund, art: ent.art ? ent.art.art : null, ...(ent.info ? { erinnerung: ent.info } : {}) } };
+}
+const wpSitzungsStart = () => !S.serie.pos || Date.now() - (S.serie.letzteAktivitaet || 0) > 20 * 60 * 1000;
+function wpMotivationDran(wp) { const st = wpZustand(wp); return wpSitzungsStart() || (wp.motivation.takt > 0 && st.seitMotivation >= wp.motivation.takt); }
+// Aufgabe aus dem Plan wurde gestartet: Takt und Erinnerung festhalten
+function wpGestartet(info, a) {
+  const wp = wpJetzt(); if (!wp) return;
+  const st = wpZustand(wp), arten = wpArtenJetzt(wp);
+  const motiv = !!(arten.find(x => x.motiv) || { themen: [] }).themen.includes(a.thema) && a.typ !== 'detektiv' && !a.geschichte;
+  st.seitMotivation = motiv ? 0 : st.seitMotivation + 1;
+  if (info && info.grund === 'erinnerung') {
+    st.letzteErinnerung = S.verlauf.zaehler;
+    st.erinnert = [...st.erinnert.filter(e => e.tag >= L.tagKey(new Date(Date.now() - 14 * 864e5))), { thema: a.thema, tag: L.tagKey(), tage: info.erinnerung.tage, frist: info.erinnerung.frist }];
+    protokoll(S, 'erinnerung', { thema: a.thema, id: a.id, tage: info.erinnerung.tage, frist: info.erinnerung.frist });
+  }
+}
+// Übungszeit buchen (fertig oder verlassen)
+function wpBuchen(a, ms) {
+  const wp = wpJetzt(); if (!wp || !a || !a.thema || !(ms > 0)) return;
+  const st = wpZustand(wp);
+  st.ms[a.thema] = (st.ms[a.thema] || 0) + Math.min(ms, 10 * 60000);
+  S.zuletzt[a.thema] = L.tagKey();
+}
+function wpZaehlen(a) { const wp = wpJetzt(); if (!wp || !a) return; const st = wpZustand(wp); st.n[a.thema] = (st.n[a.thema] || 0) + 1; }
+// Protokoll plan_ist: einmal am Tag (erste Aufgabe) und beim Hochladen, wenn sich etwas geändert hat
+function wpPlanIst(grund) {
+  const wp = wpJetzt(); if (!wp) return;
+  const st = wpZustand(wp), heute = L.tagKey(), arten = wpArtenJetzt(wp);
+  const e = W.planIstEintrag(wp, W.wpIst(arten, st.ms), st.ms, st.erinnert.filter(x => x.tag === heute && !x.ohne).map(x => ({ thema: x.thema, tage: x.tage, frist: x.frist })));
+  const hash = JSON.stringify(e);
+  if (grund === 'tag' && st.planIstTag === heute) return;
+  if (grund === 'sync' && st.planIstHash === hash) return;
+  protokoll(S, 'plan_ist', { ...e, tag: heute, grund });
+  st.planIstTag = heute; st.planIstHash = hash;
+}
+// Eingriffe der Eltern einmal melden (Protokoll eingriff)
+function wpEingriffeMelden() {
+  const ein = W.eingriffeNorm(S.eingriffe); if (!ein.length) return;
+  const st = S.wpGemeldet || (S.wpGemeldet = []);
+  for (const e of ein) { const k = JSON.stringify(e); if (!st.includes(k)) { st.push(k); protokoll(S, 'eingriff', e); } }
+  S.wpGemeldet = st.slice(-30);
+}
+
 // „Ähnliche Aufgabe“ (Auftrag 18): gleicher Baukasten mit neuen Zahlen, im Pool dasselbe Thema und dieselbe Stufe
 function aehnlicheAufgabe(a) {
   if (a.generator && G.GENERATOREN[a.generator]) return erzeuge(a.generator, a.stufe || 1, a.variante ? { variante: a.variante } : {}) || a;
@@ -1515,24 +1649,28 @@ function detektivZaehlen(id) {
 // Mindestanteil der aktuellen Etappe jeder Lerneinheit (Auftrag 18): kam zu lange keine Aufgabe daraus, kommt jetzt eine.
 // Zählt: Baukasten in der Stufe der Etappe und Pool-Aufgaben der Etappe, ohne Detektiv. Darf jeden Platz außer dem Einstieg nehmen.
 const etappeSchluessel = (ne) => ne.paket + ':' + ne.etappe;
-function etappeMindestAufgabe() {
+function etappeMindestAufgabe(nur = null) {
   const pk = pakete();
   if (!pk) return null;
   const z = S.verlauf.zaehler;
   const zul = S.verlauf.etappeZuletzt || (S.verlauf.etappeZuletzt = {});
+  const wp = !nur && wpJetzt();
   for (const p of pk) {
     const ne = LP.neueEtappe(p);
     if (!ne) continue;
     const k = etappeSchluessel(ne);
     if (zul[k] == null) zul[k] = z;
-    if (z - zul[k] < ne.abstand) continue;
     const g = LP.gewichteVon(p, S.abweichungen);
+    if (nur) { if (!Object.keys(g).some(t => g[t] > 0 && nur.themen.includes(t))) continue; }
+    else if (z - zul[k] < ne.abstand) continue;
+    // Mit Wochenplan: Mindestanteil nur, solange die Art des Pakets nicht schon über ihrem Plan liegt
+    if (wp) { const arten = wpArtenJetzt(wp), ist = W.wpIst(arten, wpZustand(wp).ms); const a = ist.find(x => x.themen.some(t => g[t] > 0)); if (a && a.ms > 0 && a.ist > a.soll) continue; }
     const pool = alleAufgaben().filter(a => ne.ids.includes(a.id) && a.typ !== 'detektiv' && !a.bonus && (g[a.thema] || 0) > 0 && erlaubt(a));
     const gens = ne.gens.filter(x => G.GENERATOREN[x.generator] && !LP.baukastenGrenze(x.generator, grenzen()).gesperrt);
     const ausPool = () => (pool.length ? L.waehleAufgabe(pool, { kategorie: 'alle', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key }) : null);
     const ausGen = () => { if (!gens.length) return null; const x = wahl(gens); const b = erzeuge(x.generator, x.stufe); if (b) b.etappeMindest = true; return b; };
     const a = Math.random() < 0.5 ? ausPool() || ausGen() : ausGen() || ausPool();
-    if (a && erlaubt(a) && heuteOk(a)) { protokoll(S, 'etappe_mindest', { paket: p.id, etappe: ne.etappe, id: a.id, seit: z - zul[k] }); return { aufgabe: a, wdh: 0, paket: p.id }; }
+    if (a && erlaubt(a) && heuteOk(a) && (!nur || nur.themen.includes(a.thema))) { if (!nur) protokoll(S, 'etappe_mindest', { paket: p.id, etappe: ne.etappe, id: a.id, seit: z - zul[k] }); return { aufgabe: a, wdh: 0, paket: p.id }; }
   }
   return null;
 }
@@ -1544,7 +1682,7 @@ function etappeMerken(a) {
 }
 
 // Aufgabe für einen Platz aus Themen mit diesen Gewichten. ersatz = am Ende irgendeine Aufgabe nehmen.
-function waehleIn(kategorie, g, ersatz) {
+function waehleIn(kategorie, g, ersatz, ohneDetektiv = false) {
   // Nur Aufgaben aus Themen, die im Paket an sind und deren Etappe erlaubt ist
   const pool = alleAufgaben().filter(a => (g[a.thema] || 0) > 0 && erlaubt(a) && heuteOk(a));
   const ausPool = (k, thema) => {
@@ -1565,7 +1703,7 @@ function waehleIn(kategorie, g, ersatz) {
   };
   let a = null;
   // Fehler-Detektiv (Auftrag 17): höchstens 1 pro 10 Aufgaben, auf dem Platz „Schritte“ oder „Abschluss“
-  if (['struktur', 'abschluss'].includes(kategorie) && S.verlauf.zaehler - (S.verlauf.detektivZuletzt ?? -100) >= 10 && Math.random() < 0.5) {
+  if (!ohneDetektiv && ['struktur', 'abschluss'].includes(kategorie) && S.verlauf.zaehler - (S.verlauf.detektivZuletzt ?? -100) >= 10 && Math.random() < 0.5) {
     const d = pool.filter(x => x.typ === 'detektiv' && detektivHeute(x.id) < 2);
     if (d.length) a = L.waehleAufgabe(d, { kategorie: 'detektiv', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
     if (a) return { aufgabe: a, wdh: 0 };
@@ -1641,7 +1779,7 @@ function serieWeiter() {
 function startInfoVon(A, extra = {}) {
   const aufgabe = A.aufgabe;
   const startInfo = { id: aufgabe.id, thema: aufgabe.thema, stufe: aufgabe.stufe, aufgabenTyp: aufgabe.typ, kategorie: A.kategorie, serienPos: A.serienPos, bonus: !!aufgabe.bonus, wiederholung: A.wdh || 0,
-    ...(A.paket ? { paket: A.paket } : {}), ...(A.etappe != null ? { etappe: A.etappe } : {}), ...(A.ausgleich ? { ausgleich: true } : {}), ...extra };
+    ...(A.paket ? { paket: A.paket } : {}), ...(A.etappe != null ? { etappe: A.etappe } : {}), ...(A.ausgleich ? { ausgleich: true } : {}), ...(A.wp ? { wochenplan: A.wp.grund, ...(A.wp.art ? { wp_art: A.wp.art } : {}) } : {}), ...extra };
   if (aufgabe.generator) Object.assign(startInfo, {
     generator: aufgabe.generator, parameter: aufgabe.parameter, rechnung: aufgabe.rechnung, geschichte: aufgabe.geschichte,
     teile: A.teile.map(t => t.art === 'zahl' ? [t.label || null, t.ziel.wert] : t.art === 'bruch' ? [t.antwort.zaehler, t.antwort.nenner] : t.art === 'wahl' ? [t.label, t.richtig] : null)
@@ -1690,7 +1828,8 @@ function neueAufgabe() {
     return;
   }
   const fokus = testFokus();
-  let kategorie, aufgabe, wdh = 0, bonusWdh = false, ausgleich = false;
+  let kategorie, aufgabe, wdh = 0, bonusWdh = false, ausgleich = false, wpInfo = null;
+  if (!fokus) { wpEingriffeMelden(); wpPlanIst('tag'); }
   if (fokus) {
     kategorie = 'test';
     aufgabe = testAufgabe(fokus.thema, fokus.stufe);
@@ -1699,13 +1838,13 @@ function neueAufgabe() {
   if (!aufgabe) {
     etappenAktualisieren();
     kategorie = MUSTER[S.verlauf.musterIndex % MUSTER.length];
-    ({ aufgabe, wdh, paket: paketId, bonus: bonusWdh = false, ausgleich = false } = waehleBegrenzt(kategorie));
+    ({ aufgabe, wdh, paket: paketId, bonus: bonusWdh = false, ausgleich = false, wp: wpInfo = null } = waehleBegrenzt(kategorie));
     S.verlauf.musterIndex++;
   }
   A = {
     aufgabe, kategorie, serienPos: serieWeiter(), start: Date.now(),
     teile: teileVon(aufgabe), idx: 0, phase: 'eingabe', hinweise: [], verlassen: 0, strafe: 'keine',
-    fertig: false, meldung: null, feld: 'z', wdh, test: !!fokus, ...paketInfo(paketId), ...(bonusWdh ? { bonusWdh: true } : {}), ...(ausgleich ? { ausgleich: true } : {})
+    fertig: false, meldung: null, feld: 'z', wdh, test: !!fokus, ...paketInfo(paketId), ...(bonusWdh ? { bonusWdh: true } : {}), ...(ausgleich ? { ausgleich: true } : {}), ...(wpInfo ? { wp: wpInfo } : {})
   };
   // Geschichten Satz für Satz zeigen (weniger Text auf einmal)
   if (aufgabe.geschichte && L.saetzeVon(aufgabe.geschichte).length > 1 && bed('satzweise')) A.satz = 1;
@@ -1714,7 +1853,7 @@ function neueAufgabe() {
   if (aufgabe.typ === 'zuordnung') zuordnungVorbereiten();
   protokoll(S, 'aufgabe_start', startInfoVon(A, bonusWdh ? { bonusWiederholung: true } : {}));
   S.verlauf.letzteIds = [...S.verlauf.letzteIds, aufgabe.id].slice(-20);
-  if (!A.test) { etappeMerken(aufgabe); heuteZaehlen(aufgabe); }
+  if (!A.test) { etappeMerken(aufgabe); heuteZaehlen(aufgabe); wpZaehlen(aufgabe); if (wpJetzt()) wpGestartet(wpInfo, aufgabe); }
   if (aufgabe.typ === 'detektiv') detektivZaehlen(aufgabe.id);
   sichern();
   setzeAnsicht('aufgabe');
@@ -1727,9 +1866,9 @@ function neueAufgabe() {
 
 // Nur lokal (Entwicklung): Mischung simulieren, ohne Aufgaben zu lösen. msVon: Thema → Arbeitszeit in ms.
 // Setzt den Zustand danach zurück. Auf der veröffentlichten Seite nicht aktiv.
-if (typeof location !== 'undefined' && location.hostname === 'localhost') window.__sim = (n, msVon = {}) => {
+if (typeof location !== 'undefined' && location.hostname === 'localhost') window.__sim = (n, msVon = {}, behalten = false) => {
   const sicher = JSON.stringify({ ...S, log: [] }), logLaenge = S.log.length;
-  const out = [];
+  const out = [], ev2 = [];
   for (let i = 0; i < n; i++) {
     tagAktualisieren(S); etappenAktualisieren();
     const kategorie = MUSTER[S.verlauf.musterIndex % MUSTER.length];
@@ -1741,10 +1880,13 @@ if (typeof location !== 'undefined' && location.hostname === 'localhost') window
     etappeMerken(a);
     if (a.typ === 'detektiv') { detektivZaehlen(a.id); S.verlauf.detektivZuletzt = S.verlauf.zaehler; }
     if (typeof simBuchen === 'function') simBuchen(a, r.paket, ms);
+    if (wpJetzt()) { wpZaehlen(a); wpGestartet(r.wp, a); wpBuchen(a, ms); S.serie.pos++; S.serie.letzteAktivitaet = Date.now(); }
     S.verlauf.zaehler++;
-    out.push({ id: a.id, thema: a.thema, stufe: a.stufe, typ: a.typ, generator: a.generator || null, paket: r.paket, kategorie, ms, mindest: !!a.etappeMindest || S.log.slice(-1)[0]?.typ === 'etappe_mindest' && S.log.slice(-1)[0]?.id === a.id, ausgleich: !!r.ausgleich });
+    if (r.wp && r.wp.grund === 'erinnerung') ev2.push({ i, thema: a.thema });
+    out.push({ wp: r.wp ? r.wp.grund : null, id: a.id, thema: a.thema, stufe: a.stufe, typ: a.typ, generator: a.generator || null, paket: r.paket, kategorie, ms, mindest: !!a.etappeMindest || S.log.slice(-1)[0]?.typ === 'etappe_mindest' && S.log.slice(-1)[0]?.id === a.id, ausgleich: !!r.ausgleich });
   }
   const ev = S.log.slice(logLaenge).map(e => e.typ);
+  if (behalten) return { aufgaben: out, ereignisse: ev, wp: S.wp };
   const logRef = S.log;
   Object.assign(S, JSON.parse(sicher)); S.log = logRef; S.log.length = logLaenge;
   return { aufgaben: out, ereignisse: ev };
@@ -2326,7 +2468,7 @@ function beendenJetzt() {
   if (A && !A.fertig) {
     const ohneEingabe = A.teile.every(t => !t.versuche.length);
     protokoll(S, 'aufgabe_abgebrochen', { id: A.aufgabe.id, teil: A.idx, ms: Date.now() - A.start, ohneEingabe, thema: A.aufgabe.thema, wartet: !A.aufgabe.bonus });
-    if (!A.test) paketZeitBuchen(A.paket, Date.now() - A.start);
+    if (!A.test) { paketZeitBuchen(A.paket, Date.now() - A.start); wpBuchen(A.aufgabe, Date.now() - A.start); }
     // Freiwillige Bonus-Aufgaben dürfen weg. Alle anderen warten, bis sie gelöst sind.
     if (!A.aufgabe.bonus && !A.test) S.wartet = aufgabeSchnappschuss();
     // Die verlassene Aufgabe zählt nicht für die Serie
@@ -2997,7 +3139,7 @@ function abschliessen() {
   }
   // Nach dem Hinweis gegen Durchklicken kommt diese oder eine ähnliche Aufgabe wieder, mit Bonuszeit
   if (A.durchklick && !A.test) S.wiederholen = [...S.wiederholen, { ab: S.verlauf.zaehler + 3, aufgabe: a, wdh: (A.wdh || 0) + 1, bonus: true }].slice(-10);
-  if (!A.test) paketZeitBuchen(A.paket, Date.now() - A.start);
+  if (!A.test) { paketZeitBuchen(A.paket, Date.now() - A.start); wpBuchen(a, Date.now() - A.start); }
   S.verlauf.zaehler++;
   if (a.form && !A.test) { const fz = S.verlauf.formZaehler || (S.verlauf.formZaehler = {}); fz[a.form] = (fz[a.form] || 0) + 1; }
   S.verlauf.themaZuletzt[a.thema] = { ergebnis, stufe: a.stufe };

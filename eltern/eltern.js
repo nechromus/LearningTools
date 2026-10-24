@@ -10,11 +10,12 @@ import { LANG_STUFEN, langStufeInfo } from '../js/formeluebersicht.js';
 import * as SP from '../js/splitter.js';
 import * as BS from '../js/bildschirm.js';
 import * as LP from '../js/lernplan.js';
+import * as W from '../js/wochenplan.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.32.0';
+export const ELTERN_VERSION = '1.33.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -488,7 +489,7 @@ function uebersichtSeite() {
     ${leer}
     <div class="zwei-spalten">
       <div class="spalte">${balken}${!breit.matches ? auff : ''}</div>
-      <div class="spalte">${paketQuotenKarte(tage[0])}${uzKarte()}${wissenKarte()}${bzKarte()}${themen}${breit.matches ? auff : ''}</div>
+      <div class="spalte">${wochenplanKarte(false)}${paketQuotenKarte(tage[0])}${uzKarte()}${wissenKarte()}${bzKarte()}${themen}${breit.matches ? auff : ''}</div>
     </div>
   </div>`;
 }
@@ -770,9 +771,10 @@ function einstellungenSeite() {
   return `<div class="seite schmal-inhalt">
     ${breit.matches ? `<header class="kopf-breit"><h1>Einstellungen für ${esc(name())}</h1>${nutzerWahl('nutzer-chip nur-hoch')}</header>` : kopfSchmal('Einstellungen')}
     ${lieferStatus()}
-    ${paketeKarte(w)}
+    ${w.wochenplan ? wochenplanKarte(true) : ''}
+    ${w.wochenplan ? `<details class="experte"${experteOffen ? ' open' : ''}><summary data-act="experte">Experte: Pakete, Gewichte und Baukästen<span class="klein gedaempft block">Gilt nur ohne laufenden Wochenplan oder für Etappen. Den Wochenplan legt Claude mit dir fest.</span></summary>${paketeKarte(w)}<section class="karte liste-karte">${gewichteZeile(w)}</section>${baukastenTeil(w, liveStufe)}</details>` : paketeKarte(w)}
     <section class="karte liste-karte">
-      <a class="einstell-zeile" href="#gewichte"><span>Themen und Gewichte<span class="klein gedaempft block">Anpassungen für ${esc(name())}, gelten in jedem Paket</span></span><span class="wert">${gewichteKurz(w.gewichte)}</span>${svg('weiter', 16)}</a>
+      ${w.wochenplan ? '' : gewichteZeile(w)}
       <div class="einstell-zeile"><span>Geschenkte Spielzeit</span><span class="zwei-felder"><label><span class="unsichtbar">ab</span><select id="e-von">${stunden(w.basisVon)}</select></label><span>bis</span><label><span class="unsichtbar">bis</span><select id="e-bis">${stunden(w.basisBis)}</select></label></span></div>
       <a class="einstell-zeile" href="#splitter"><span>Runensplitter und neue Spiele</span><span class="wert">${splitterKurzText()}</span>${svg('weiter', 16)}</a>
       <a class="einstell-zeile" href="#spielzeit"><span>Spielzeit pro Aufgabe</span><span class="wert">${w.spielzeit.staffel.map(zahlText).join(' / ')} Min.</span>${svg('weiter', 16)}</a>
@@ -786,18 +788,75 @@ function einstellungenSeite() {
     ${gestaltungEinstellungen(w)}
     ${szEinstellungen(w)}
     ${bzEinstellungen(w)}
-    <h2 class="abschnitt">Baukästen: Schwierigkeit und Häufigkeit</h2>
-    <section class="karte liste-karte">
-      ${Object.keys(GEN_NAMEN).map(g => baukastenZeile(g, w, liveStufe)).join('')}
-    </section>
-    <p class="klein gedaempft">Die App passt die Stufen weiter selbst an. Was du hier änderst, ist der neue Startpunkt.</p>
-    ${freigabeKarte(w)}
-    <p class="klein gedaempft">Die Häufigkeit kommt aus dem Paket. Änderst du sie hier, gilt das nur für ${esc(name())}. Das Paket bleibt, wie es ist.</p>
+    ${w.wochenplan ? '' : baukastenTeil(w, liveStufe)}
     ${speicherLeiste()}
     <section class="karte liste-karte"><a class="einstell-zeile" href="#pakete"><span>Aufgabenpakete verwalten<span class="klein gedaempft block">anlegen, ändern, mit Claude erstellen</span></span>${svg('weiter', 16)}</a>
       <a class="einstell-zeile" href="#qr"><span>Handy mit QR-Code einrichten<span class="klein gedaempft block">nach dem Löschen der App oder für ein neues Handy</span></span>${svg('weiter', 16)}</a></section>
     ${schluesselKarte()}
   </div>`;
+}
+
+function gewichteZeile(w) {
+  return `<a class="einstell-zeile" href="#gewichte"><span>Themen und Gewichte<span class="klein gedaempft block">Anpassungen für ${esc(name())}, gelten in jedem Paket</span></span><span class="wert">${gewichteKurz(w.gewichte)}</span>${svg('weiter', 16)}</a>`;
+}
+function baukastenTeil(w, liveStufe) {
+  return `<h2 class="abschnitt">Baukästen: Schwierigkeit und Häufigkeit</h2>
+    <section class="karte liste-karte">
+      ${Object.keys(GEN_NAMEN).map(g => baukastenZeile(g, w, liveStufe)).join('')}
+    </section>
+    <p class="klein gedaempft">Die App passt die Stufen weiter selbst an. Was du hier änderst, ist der neue Startpunkt.</p>
+    ${freigabeKarte(w)}
+    <p class="klein gedaempft">Die Häufigkeit kommt aus dem Paket. Änderst du sie hier, gilt das nur für ${esc(name())}. Das Paket bleibt, wie es ist.</p>`;
+}
+
+// ---------- Wochenplan (Auftrag 24) ----------
+// Plan gegen Ist wie im Reiter „Übungsmenge“ des Lernplans (Strich = Plan, kräftig = Aufgaben, hell = Übungszeit)
+let experteOffen = false;
+const pzt = (v) => (Math.round(v * 10) / 10).toLocaleString('de-DE', { maximumFractionDigits: v < 10 ? 1 : 0 }) + ' %';
+const themaName = (t) => THEMA_NAMEN[t] || t;
+const datumKurz = (d) => { const a = String(d || '').split('-'); return a.length === 3 ? `${+a[2]}.${+a[1]}.` : ''; };
+function wochenplanKarte(bearbeiten) {
+  const werte = bearbeiten ? entwurfHolen() : ((D.daten.einst && D.daten.einst.werte) || {});
+  const st = A.wochenplanStand({ ...werte, pakete: werte.pakete || (D.daten.einst && D.daten.einst.werte && D.daten.einst.werte.pakete) || [] }, D.daten.eintraege || []);
+  if (!st) return '';
+  const wp = st.wp, heute = L.tagKey();
+  const statusText = st.status === 'laeuft' ? 'läuft' : st.status === 'kommt' ? `beginnt am ${datumKurz(wp.ab)}` : 'abgelaufen';
+  const skala = Math.max(40, Math.ceil(Math.max(...st.arten.map(a => Math.max(a.soll, a.ist, a.istN)), 1) / 10) * 10);
+  const sk = (v) => Math.min(100, v / skala * 100);
+  const zeilen = st.arten.slice().sort((a, b) => ((a.b ? { rot: 0, gelb: 1 }[a.b.st] : 2) - (b.b ? { rot: 0, gelb: 1 }[b.b.st] : 2)) || (b.soll - a.soll)).map(a => `
+    <div class="wp-zeile${a.b ? ' ' + a.b.st : ''}">
+      <span class="wp-name">${esc(a.motiv ? 'Motivation' : a.name === a.art ? themaName(a.art) : a.name)}${a.themen.length > 1 || a.motiv ? `<span class="klein gedaempft block">${esc(a.themen.map(themaName).join(', '))}</span>` : ''}${st.eingriffeAktiv.filter(e => e.art === a.art && e.typ === 'plus').map(e => `<span class="klein amber block">Eingriff ${e.wert > 0 ? '+' : '−'}${Math.abs(e.wert)} % bis ${datumKurz(e.bis)}</span>`).join('')}</span>
+      <span class="wp-balken" title="Plan ${pzt(a.soll)}, Ist ${pzt(a.ist)} der Übungszeit, ${pzt(a.istN)} der Aufgaben"><span class="wp-n" style="width:${sk(a.istN)}%"></span><span class="wp-z" style="width:${sk(a.ist)}%"></span><span class="wp-s" style="left:calc(${sk(a.soll)}% - 1.5px)"></span></span>
+      <span class="wp-werte">Plan <b>${pzt(a.soll)}</b> · Ist <b class="iz">${pzt(a.ist)}</b> <span class="klein gedaempft">${A.minutenText(a.ms / 1000)}</span>${a.b ? ` <span class="abw ${a.b.st}">${esc(a.b.wort)}</span>` : ''}</span>
+    </div>`).join('');
+  const mo = wp.motivation;
+  const ein = st.eingriffe;
+  const artOptionen = [...new Set([...st.arten.filter(a => !a.motiv).map(a => a.art), ...Object.keys(wp.erinnerung).filter(k => k !== 'standard'), ...L.THEMEN.filter(t => (werte.gewichte || {})[t] > 0)])];
+  const bisStd = wp.bis < heute ? heute : (L.tagKey(new Date(Date.now() + 7 * 864e5)) < wp.bis ? L.tagKey(new Date(Date.now() + 7 * 864e5)) : wp.bis);
+  return `<section class="karte wochenplan-karte">
+    <div class="karte-kopf"><h2>Wochenplan</h2><span class="wp-status ${st.status}">${esc(statusText)}</span><span class="klein gedaempft">${datumKurz(wp.ab)} bis ${datumKurz(wp.bis)}</span></div>
+    ${st.status === 'abgelaufen' ? `<p class="meldung fehler">Wochenplan abgelaufen am ${datumKurz(wp.bis)}. Die App arbeitet wie ohne Plan, bis Claude einen neuen einträgt.</p>` : ''}
+    ${wp.begruendung ? `<p class="wp-grund">${esc(wp.begruendung)}</p>` : ''}
+    <h3 class="wp-h">Plan gegen Ist <span class="klein gedaempft">seit ${datumKurz(wp.ab)}: ${st.aufgaben} Aufgaben, ${A.minutenText(st.minuten * 60)}${st.sonstMin > 0.5 ? `, davon ${A.minutenText(st.sonstMin * 60)} Erinnerungen und Themen ohne Plan` : ''}</span></h3>
+    ${st.aufgaben ? '' : '<p class="klein gedaempft">Noch keine Aufgaben in diesem Zeitraum.</p>'}
+    <div class="wp-liste">${zeilen}</div>
+    <p class="klein gedaempft">Strich = Plan, kräftiger Balken = Anteil an den Aufgaben, heller Balken = Anteil an der Übungszeit. Bewertet wird die Übungszeit: gelb ab Faktor 1,5 und 3 Prozentpunkten, rot ab Faktor 2 und 5 Prozentpunkten.</p>
+    <h3 class="wp-h">Mischung</h3>
+    <p>${mo.themen.length ? `Motivierend: ${esc(mo.themen.map(themaName).join(', '))}. Anteil ${mo.anteil} %, spätestens nach ${mo.takt} anderen Aufgaben kommt eine. Eine Sitzung beginnt motivierend.` : 'Keine motivierenden Aufgaben festgelegt.'}</p>
+    <h3 class="wp-h">Erinnerungen</h3>
+    <div class="wp-erin">${st.erinnerung.map(e => `<div class="wp-e${e.faellig ? ' faellig' : ''}"><b>${esc(e.name === e.art ? themaName(e.art) : e.name)}</b><span>alle ${e.tage} Tage</span><span class="klein gedaempft">${e.zuletzt ? `zuletzt ${datumKurz(e.zuletzt)}` : 'in der App noch nie'}${e.faellig ? ' · fällig' : ''}</span></div>`).join('')}
+      ${st.standard ? `<div class="wp-e"><b>Alle anderen</b><span>alle ${st.standard} Tage</span><span class="klein gedaempft">wenn schon einmal geübt</span></div>` : ''}</div>
+    ${st.erinnerungen.length ? `<p class="klein gedaempft">Seit ${datumKurz(wp.ab)}: ${st.erinnerungen.length} ${st.erinnerungen.length === 1 ? 'Erinnerung' : 'Erinnerungen'} (${esc([...new Set(st.erinnerungen.map(e => themaName(e.thema)))].join(', '))}).</p>` : ''}
+    ${st.gesperrt.length || wp.gesperrt.length ? `<h3 class="wp-h">Gesperrt</h3><p>${esc([...new Set([...st.gesperrt.map(themaName), ...wp.gesperrt.filter(g => !L.THEMEN.includes(g))])].join(', '))} <span class="klein gedaempft">kommt nicht in die App</span></p>` : ''}
+    <h3 class="wp-h">Eingriffe</h3>
+    ${ein.length ? `<div class="wp-ein">${ein.map((e, i) => `<div class="wp-ei${e.bis < heute ? ' alt' : ''}"><span><b>${esc(W.artName(e.art, werte.pakete || []) === e.art ? themaName(e.art) : W.artName(e.art, werte.pakete || []))}</b> ${e.typ === 'aus' ? 'aus' : (e.wert > 0 ? '+' : '−') + Math.abs(e.wert) + ' %'} bis ${datumKurz(e.bis)}${e.bis < heute ? ' (abgelaufen)' : ''}</span>${bearbeiten ? `<button class="knopf klein-knopf" data-act="wpEingriffWeg" data-i="${i}">Entfernen</button>` : ''}</div>`).join('')}</div>` : '<p class="klein gedaempft">Keine. Ein Eingriff gilt nur bis zu seinem Datum, danach wieder der Wochenplan.</p>'}
+    ${bearbeiten ? `<div class="wp-form">
+      <label><span class="klein">Was</span><select id="wp-art">${artOptionen.map(a => `<option value="${esc(a)}">${esc(W.artName(a, werte.pakete || []) === a ? themaName(a) : W.artName(a, werte.pakete || []))}</option>`).join('')}</select></label>
+      <label><span class="klein">Wie</span><select id="wp-typ"><option value="plus:10">+10 %</option><option value="plus:20">+20 %</option><option value="plus:-10">−10 %</option><option value="aus">aus</option></select></label>
+      <label><span class="klein">bis</span><input type="date" id="wp-bis" value="${bisStd}" min="${heute}"></label>
+      <button class="knopf" data-act="wpEingriff">Eingriff vormerken</button>
+    </div><p class="klein gedaempft">Wird mit „Speichern und an ${esc(name())} senden“ gesendet. Claude sieht den Eingriff bei der nächsten Auswertung.</p>` : `<p class="klein gedaempft">Eingriffe unter <a href="#einstellungen">Einstellungen</a>.</p>`}
+  </section>`;
 }
 
 // ---------- Runensplitter und neue Spiele ----------
@@ -1604,6 +1663,15 @@ document.addEventListener('click', (ev) => {
     }
     case 'anteil': entwurf.spielzeit[el.dataset.k] = Number(el.dataset.v); meldung = null; zeichne(); break;
     case 'muehe': entwurf.spielzeit = { ...entwurf.spielzeit, muehe: { ...entwurf.spielzeit.muehe, [el.dataset.g]: Number(el.dataset.v) } }; meldung = null; zeichne(); break;
+    case 'wpEingriff': {
+      const art = document.getElementById('wp-art').value, typ = document.getElementById('wp-typ').value, bis = document.getElementById('wp-bis').value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(bis) || bis < L.tagKey()) { meldung = { art: 'fehler', text: 'Bitte ein Ablaufdatum ab heute wählen.' }; zeichne(); break; }
+      const e = typ === 'aus' ? { art, typ: 'aus', bis } : { art, typ: 'plus', wert: Number(typ.split(':')[1]), bis };
+      entwurf.eingriffe = [...(entwurf.eingriffe || []).filter(x => x.art !== art || x.bis < L.tagKey()), { ...e, gesetzt: new Date().toISOString() }];
+      meldung = null; zeichne(); break;
+    }
+    case 'wpEingriffWeg': { entwurf.eingriffe = (entwurf.eingriffe || []).filter((_, i) => i !== Number(el.dataset.i)); meldung = null; zeichne(); break; }
+    case 'experte': { ev.preventDefault(); experteOffen = !experteOffen; zeichne(); break; }
     case 'freigabe': { const f = { ...(entwurf.freigaben || {}) }; if (el.dataset.v === '1') f[el.dataset.k] = f[el.dataset.k] || L.tagKey(); else delete f[el.dataset.k]; entwurf.freigaben = f; meldung = null; zeichne(); break; }
     case 'muehStandard': entwurf.spielzeit = { ...entwurf.spielzeit, muehe: { ...L.SPIELZEIT_STANDARD.muehe } }; meldung = null; zeichne(); break;
     case 'durchklick': entwurf.spielzeit = { ...entwurf.spielzeit, durchklick: el.dataset.v === '1' }; meldung = null; zeichne(); break;
