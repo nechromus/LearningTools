@@ -286,19 +286,37 @@ export function aufgabeErlaubt(a, gr) {
 }
 
 // Mindestanteil der aktuellen Etappe einer Lerneinheit (Auftrag 18). Zählt: Baukasten ab der Stufe stufe_max
-// dieser Etappe und Pool-Aufgaben dieser Etappe. Detektiv-Aufgaben zählen nicht. abstand: spätestens so viele Aufgaben bis zur nächsten.
+// dieser Etappe und Pool-Aufgaben dieser Etappe. Detektiv-Aufgaben zählen nicht. abstand: spätestens so viele Aufgaben bis zur nächsten
+// (Auftrag 23: so gewählt, dass in je 10 Aufgaben hintereinander mindestens etappe_mindest davon kommen).
 export function neueEtappe(p) {
   if (!p || p.rolle !== 'einheit' || !hatEtappen(p) || !(p.etappe > 0) || !(p.anteil > 0) || !(p.etappe_mindest > 0)) return null;
   const e = p.paket.etappen[p.etappe - 1];
   if (!e) return null;
   const gens = [];
   for (const [k, g] of Object.entries(e.grenzen || {})) if (g && g.stufe_max) for (const b of baukaestenVon(k)) gens.push({ generator: b, stufe: g.stufe_max });
-  return { paket: p.id, etappe: p.etappe, mindest: p.etappe_mindest, abstand: Math.floor(10 / p.etappe_mindest), gens, ids: e.aufgaben || [] };
+  return { paket: p.id, etappe: p.etappe, mindest: p.etappe_mindest, abstand: Math.max(1, Math.floor(9 / p.etappe_mindest)), gens, ids: e.aufgaben || [] };
 }
 export function zaehltFuerEtappe(a, ne) {
   if (!a || !ne || a.typ === 'detektiv') return false;
   if (a.generator) return ne.gens.some(x => x.generator === a.generator && (a.stufe || 1) >= x.stufe);
   return ne.ids.includes(a.id);
+}
+
+// Anteile nach Übungszeit (Auftrag 23): Liegt der Zeitanteil eines Pakets heute deutlich unter seinem Anteil,
+// kommt die nächste Aufgabe aus diesem Paket. msJe: { paketId: Arbeitszeit heute in ms }, n: Aufgaben heute.
+// Gibt das Paket mit dem größten Rückstand zurück (mindestens schwelle Prozentpunkte), sonst null.
+export function paketAusgleich(liste, msJe, n, { abAufgaben = 5, schwelle = 10 } = {}) {
+  const ps = (liste || []).filter(p => p.anteil > 0);
+  if (ps.length < 2 || n < abAufgaben) return null;
+  const plan = ps.reduce((s, p) => s + p.anteil, 0);
+  const ist = ps.reduce((s, p) => s + ((msJe || {})[p.id] || 0), 0);
+  if (!plan || !ist) return null;
+  let best = null;
+  for (const p of ps) {
+    const rueck = p.anteil / plan * 100 - ((msJe || {})[p.id] || 0) / ist * 100;
+    if (rueck >= schwelle && (!best || rueck > best.rueck)) best = { paket: p, rueck, plan: Math.round(p.anteil / plan * 100), ist: Math.round(((msJe || {})[p.id] || 0) / ist * 100) };
+  }
+  return best;
 }
 
 // Etappe offen? Hat sie einen Logbuch-Eintrag, muss er geschrieben sein (sonst „kommt bald“).

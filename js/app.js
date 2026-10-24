@@ -30,7 +30,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.24.0';
+export const APP_VERSION = '2.25.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -953,6 +953,7 @@ function uebungTick() {
     // Laufende Aufgabe wartet bis morgen (zählt nicht als Abbruch für die Serie)
     if (!A.fertig) {
       protokoll(S, 'aufgabe_abgebrochen', { id: A.aufgabe.id, teil: A.idx, ms: Date.now() - A.start, ohneEingabe: A.teile.every(t => !t.versuche.length), thema: A.aufgabe.thema, wartet: !A.aufgabe.bonus, grund: 'uebungszeit' });
+      if (!A.test) paketZeitBuchen(A.paket, Date.now() - A.start);
       if (!A.aufgabe.bonus) S.wartet = aufgabeSchnappschuss();
       S.laufend = null; A = null;
     }
@@ -1250,7 +1251,7 @@ function erzeuge(g, stufe, opts = {}) {
   let a;
   for (let i = 0; i < 8; i++) {
     a = G.GENERATOREN[g](stufe, Math.random, opts);
-    if (a && !letzte.includes(a.id)) break;
+    if (a && !letzte.includes(a.id) && heuteOk(a)) break;
   }
   return a;
 }
@@ -1434,7 +1435,7 @@ function halbPoolAufgabe(thema, fokus) {
 
 function waehleAufgabe(kategorie) {
   const gAlle = gewichte();
-  const faellig = S.wiederholen.find(w => w.ab <= S.verlauf.zaehler && (gAlle[w.aufgabe.thema] || 0) > 0 && erlaubt(w.aufgabe));
+  const faellig = S.wiederholen.find(w => w.ab <= S.verlauf.zaehler && (gAlle[w.aufgabe.thema] || 0) > 0 && erlaubt(w.aufgabe) && heuteOk(w.aufgabe));
   if (faellig && kategorie !== 'abschluss') {
     S.wiederholen = S.wiederholen.filter(w => w !== faellig);
     // Nach dem Hinweis gegen Durchklicken: dieselbe oder eine ähnliche Aufgabe, mit Bonuszeit (Auftrag 18)
@@ -1443,6 +1444,12 @@ function waehleAufgabe(kategorie) {
   }
   if (kategorie !== 'leicht') { const m = etappeMindestAufgabe(); if (m) return m; }
   const pk = pakete();
+  // Anteile nach Übungszeit (Auftrag 23): Paket mit deutlichem Rückstand bekommt den Platz, auch wenn es sonst nicht hineinpasst
+  if (pk && kategorie !== 'leicht') {
+    const au = LP.paketAusgleich(LP.aktive(pk), heuteTag().paketMs, heuteTag().gestartet);
+    const r = au && paketAufgabe(au.paket, kategorie);
+    if (r) { protokoll(S, 'paket_ausgleich', { paket: au.paket.id, plan: au.plan, ist: au.ist, platz: kategorie, id: r.aufgabe.id }); return { ...r, paket: au.paket.id, ausgleich: true }; }
+  }
   if (!pk) return { ...waehleIn(kategorie, gAlle, true), paket: null };
   // Mehrere Pakete: pro Platz erst das Paket nach Anteil, dann das Thema nach Gewicht.
   // Pakete ohne passendes Thema für diesen Platz fallen heraus, ihre Anteile werden neu verteilt.
@@ -1457,6 +1464,35 @@ function waehleAufgabe(kategorie) {
     offen = offen.filter(x => x !== p);
   }
   return { ...waehleIn(kategorie, LP.gewichteVon(grund, S.abweichungen), true), paket: grund.id };
+}
+
+// Eine Aufgabe aus genau diesem Paket, zuerst für den Platz, sonst auf einem Platz, den das Paket füllen kann
+function paketAufgabe(p, kategorie) {
+  const g = LP.gewichteVon(p, S.abweichungen);
+  for (const k of [kategorie, 'koerper', 'struktur', 'thema', 'text']) {
+    const r = waehleIn(k, g, false);
+    if (r.aufgabe && heuteOk(r.aufgabe)) return r;
+  }
+  return null;
+}
+
+// Heute (Auftrag 23): gestartete Aufgaben je id und Arbeitszeit je Paket. S.tag beginnt jeden Tag neu.
+function heuteTag() {
+  if (!S.tag.ids) S.tag.ids = {};
+  if (!S.tag.paketMs) S.tag.paketMs = {};
+  if (S.tag.gestartet == null) S.tag.gestartet = 0;
+  return S.tag;
+}
+// Dieselbe Aufgabe (gleiche id, bei Baukästen also gleiche Zahlen) höchstens 2-mal am Tag
+const heuteOk = (a) => !a || ((S.tag.ids || {})[a.id] || 0) < 2;
+function heuteZaehlen(a) { const t = heuteTag(); t.ids[a.id] = (t.ids[a.id] || 0) + 1; t.gestartet++; }
+function paketZeitBuchen(paket, ms) { if (!paket || !(ms > 0)) return; const t = heuteTag(); t.paketMs[paket] = (t.paketMs[paket] || 0) + Math.min(ms, 10 * 60000); }
+function simBuchen(a, paket, ms) { heuteZaehlen(a); paketZeitBuchen(paket, ms); }
+// Auswahl mit Grenze „höchstens 2-mal am Tag“ (falls eine Auswahl doch eine schon zweimal gezeigte Aufgabe liefert)
+function waehleBegrenzt(kategorie) {
+  let r;
+  for (let i = 0; i < 8; i++) { r = waehleAufgabe(kategorie); if (heuteOk(r.aufgabe)) return r; }
+  return r;
 }
 
 // „Ähnliche Aufgabe“ (Auftrag 18): gleicher Baukasten mit neuen Zahlen, im Pool dasselbe Thema und dieselbe Stufe
@@ -1496,7 +1532,7 @@ function etappeMindestAufgabe() {
     const ausPool = () => (pool.length ? L.waehleAufgabe(pool, { kategorie: 'alle', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key }) : null);
     const ausGen = () => { if (!gens.length) return null; const x = wahl(gens); const b = erzeuge(x.generator, x.stufe); if (b) b.etappeMindest = true; return b; };
     const a = Math.random() < 0.5 ? ausPool() || ausGen() : ausGen() || ausPool();
-    if (a && erlaubt(a)) { protokoll(S, 'etappe_mindest', { paket: p.id, etappe: ne.etappe, id: a.id, seit: z - zul[k] }); return { aufgabe: a, wdh: 0, paket: p.id }; }
+    if (a && erlaubt(a) && heuteOk(a)) { protokoll(S, 'etappe_mindest', { paket: p.id, etappe: ne.etappe, id: a.id, seit: z - zul[k] }); return { aufgabe: a, wdh: 0, paket: p.id }; }
   }
   return null;
 }
@@ -1510,7 +1546,7 @@ function etappeMerken(a) {
 // Aufgabe für einen Platz aus Themen mit diesen Gewichten. ersatz = am Ende irgendeine Aufgabe nehmen.
 function waehleIn(kategorie, g, ersatz) {
   // Nur Aufgaben aus Themen, die im Paket an sind und deren Etappe erlaubt ist
-  const pool = alleAufgaben().filter(a => (g[a.thema] || 0) > 0 && erlaubt(a));
+  const pool = alleAufgaben().filter(a => (g[a.thema] || 0) > 0 && erlaubt(a) && heuteOk(a));
   const ausPool = (k, thema) => {
     const a = L.waehleAufgabe(pool, { kategorie: k, thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
     return a && L.passtKategorie(a, k, thema) && (g[a.thema] || 0) > 0 ? a : null;
@@ -1535,6 +1571,8 @@ function waehleIn(kategorie, g, ersatz) {
     if (a) return { aufgabe: a, wdh: 0 };
   }
   switch (kategorie) {
+    // Nur Körper (Auftrag 23: Ausgleich der Paketanteile auf jedem Platz)
+    case 'koerper': { const o = P.ziehe(koerperOptionen(g)); if (o) a = koerperAufgabe(o.koerper); break; }
     case 'leicht': a = kurzeAufgabe(g, fokus, { leicht: true }); break;
     case 'thema':
     case 'mix': a = kurzeAufgabe(g, fokus); break;
@@ -1603,7 +1641,7 @@ function serieWeiter() {
 function startInfoVon(A, extra = {}) {
   const aufgabe = A.aufgabe;
   const startInfo = { id: aufgabe.id, thema: aufgabe.thema, stufe: aufgabe.stufe, aufgabenTyp: aufgabe.typ, kategorie: A.kategorie, serienPos: A.serienPos, bonus: !!aufgabe.bonus, wiederholung: A.wdh || 0,
-    ...(A.paket ? { paket: A.paket } : {}), ...(A.etappe != null ? { etappe: A.etappe } : {}), ...extra };
+    ...(A.paket ? { paket: A.paket } : {}), ...(A.etappe != null ? { etappe: A.etappe } : {}), ...(A.ausgleich ? { ausgleich: true } : {}), ...extra };
   if (aufgabe.generator) Object.assign(startInfo, {
     generator: aufgabe.generator, parameter: aufgabe.parameter, rechnung: aufgabe.rechnung, geschichte: aufgabe.geschichte,
     teile: A.teile.map(t => t.art === 'zahl' ? [t.label || null, t.ziel.wert] : t.art === 'bruch' ? [t.antwort.zaehler, t.antwort.nenner] : t.art === 'wahl' ? [t.label, t.richtig] : null)
@@ -1652,7 +1690,7 @@ function neueAufgabe() {
     return;
   }
   const fokus = testFokus();
-  let kategorie, aufgabe, wdh = 0, bonusWdh = false;
+  let kategorie, aufgabe, wdh = 0, bonusWdh = false, ausgleich = false;
   if (fokus) {
     kategorie = 'test';
     aufgabe = testAufgabe(fokus.thema, fokus.stufe);
@@ -1661,13 +1699,13 @@ function neueAufgabe() {
   if (!aufgabe) {
     etappenAktualisieren();
     kategorie = MUSTER[S.verlauf.musterIndex % MUSTER.length];
-    ({ aufgabe, wdh, paket: paketId, bonus: bonusWdh = false } = waehleAufgabe(kategorie));
+    ({ aufgabe, wdh, paket: paketId, bonus: bonusWdh = false, ausgleich = false } = waehleBegrenzt(kategorie));
     S.verlauf.musterIndex++;
   }
   A = {
     aufgabe, kategorie, serienPos: serieWeiter(), start: Date.now(),
     teile: teileVon(aufgabe), idx: 0, phase: 'eingabe', hinweise: [], verlassen: 0, strafe: 'keine',
-    fertig: false, meldung: null, feld: 'z', wdh, test: !!fokus, ...paketInfo(paketId), ...(bonusWdh ? { bonusWdh: true } : {})
+    fertig: false, meldung: null, feld: 'z', wdh, test: !!fokus, ...paketInfo(paketId), ...(bonusWdh ? { bonusWdh: true } : {}), ...(ausgleich ? { ausgleich: true } : {})
   };
   // Geschichten Satz für Satz zeigen (weniger Text auf einmal)
   if (aufgabe.geschichte && L.saetzeVon(aufgabe.geschichte).length > 1 && bed('satzweise')) A.satz = 1;
@@ -1676,7 +1714,7 @@ function neueAufgabe() {
   if (aufgabe.typ === 'zuordnung') zuordnungVorbereiten();
   protokoll(S, 'aufgabe_start', startInfoVon(A, bonusWdh ? { bonusWiederholung: true } : {}));
   S.verlauf.letzteIds = [...S.verlauf.letzteIds, aufgabe.id].slice(-20);
-  if (!A.test) etappeMerken(aufgabe);
+  if (!A.test) { etappeMerken(aufgabe); heuteZaehlen(aufgabe); }
   if (aufgabe.typ === 'detektiv') detektivZaehlen(aufgabe.id);
   sichern();
   setzeAnsicht('aufgabe');
@@ -1686,6 +1724,31 @@ function neueAufgabe() {
   // Fehler-Detektiv: beim ersten Mal die Einführungskarte, danach nur über „?“
   if (aufgabe.typ === 'detektiv' && !S.detektivGesehen) { S.detektivGesehen = true; protokoll(S, 'detektiv_einfuehrung', { id: aufgabe.id }); sichern(); detektivEinfuehrung(); }
 }
+
+// Nur lokal (Entwicklung): Mischung simulieren, ohne Aufgaben zu lösen. msVon: Thema → Arbeitszeit in ms.
+// Setzt den Zustand danach zurück. Auf der veröffentlichten Seite nicht aktiv.
+if (typeof location !== 'undefined' && location.hostname === 'localhost') window.__sim = (n, msVon = {}) => {
+  const sicher = JSON.stringify({ ...S, log: [] }), logLaenge = S.log.length;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    tagAktualisieren(S); etappenAktualisieren();
+    const kategorie = MUSTER[S.verlauf.musterIndex % MUSTER.length];
+    const r = waehleBegrenzt(kategorie);
+    S.verlauf.musterIndex++;
+    const a = r.aufgabe;
+    const ms = msVon[a.thema] || 30000;
+    S.verlauf.letzteIds = [...S.verlauf.letzteIds, a.id].slice(-20);
+    etappeMerken(a);
+    if (a.typ === 'detektiv') { detektivZaehlen(a.id); S.verlauf.detektivZuletzt = S.verlauf.zaehler; }
+    if (typeof simBuchen === 'function') simBuchen(a, r.paket, ms);
+    S.verlauf.zaehler++;
+    out.push({ id: a.id, thema: a.thema, stufe: a.stufe, typ: a.typ, generator: a.generator || null, paket: r.paket, kategorie, ms, mindest: !!a.etappeMindest || S.log.slice(-1)[0]?.typ === 'etappe_mindest' && S.log.slice(-1)[0]?.id === a.id, ausgleich: !!r.ausgleich });
+  }
+  const ev = S.log.slice(logLaenge).map(e => e.typ);
+  const logRef = S.log;
+  Object.assign(S, JSON.parse(sicher)); S.log = logRef; S.log.length = logLaenge;
+  return { aufgaben: out, ereignisse: ev };
+};
 
 function aktuellerTeil() { return A && A.teile[A.idx]; }
 function teileStarten(teile) {
@@ -2263,6 +2326,7 @@ function beendenJetzt() {
   if (A && !A.fertig) {
     const ohneEingabe = A.teile.every(t => !t.versuche.length);
     protokoll(S, 'aufgabe_abgebrochen', { id: A.aufgabe.id, teil: A.idx, ms: Date.now() - A.start, ohneEingabe, thema: A.aufgabe.thema, wartet: !A.aufgabe.bonus });
+    if (!A.test) paketZeitBuchen(A.paket, Date.now() - A.start);
     // Freiwillige Bonus-Aufgaben dürfen weg. Alle anderen warten, bis sie gelöst sind.
     if (!A.aufgabe.bonus && !A.test) S.wartet = aufgabeSchnappschuss();
     // Die verlassene Aufgabe zählt nicht für die Serie
@@ -2933,6 +2997,7 @@ function abschliessen() {
   }
   // Nach dem Hinweis gegen Durchklicken kommt diese oder eine ähnliche Aufgabe wieder, mit Bonuszeit
   if (A.durchklick && !A.test) S.wiederholen = [...S.wiederholen, { ab: S.verlauf.zaehler + 3, aufgabe: a, wdh: (A.wdh || 0) + 1, bonus: true }].slice(-10);
+  if (!A.test) paketZeitBuchen(A.paket, Date.now() - A.start);
   S.verlauf.zaehler++;
   if (a.form && !A.test) { const fz = S.verlauf.formZaehler || (S.verlauf.formZaehler = {}); fz[a.form] = (fz[a.form] || 0) + 1; }
   S.verlauf.themaZuletzt[a.thema] = { ergebnis, stufe: a.stufe };
