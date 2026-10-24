@@ -426,6 +426,7 @@ export function startWerte(einst, stand, paketVon = () => null) {
     gestaltung: ['schrein', 'sternzeit'].includes(w.gestaltung) ? w.gestaltung : 'schrein',
     umform_stufe: [1, 2, 3].includes(w.umform_stufe) ? w.umform_stufe : 3,
     feedback: w.feedback === true,
+    boegen_feedback: w.boegen_feedback === true,
     ...Object.fromEntries(BEDIENUNG.map(b => [b.k, typeof w[b.k] === 'boolean' ? w[b.k] : b.std])),
     ...(typeof w.ansicht_name === 'string' ? { ansicht_name: w.ansicht_name } : {}),
     uebungszeit: uzWerte(w.uebungszeit),
@@ -540,7 +541,7 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
     app: 'lernapp-2048-eltern', version, geaendert: jetzt.toISOString(),
     werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, langeHinweise: [0, 1, 2, 3].includes(werte.langeHinweise) ? werte.langeHinweise : 1, spielzeit: spielzeitRegeln(werte.spielzeit), bildschirm: bzDatei(werte.bildschirm, tagKey(jetzt)), spielzeitTag: szDatei(werte.spielzeitTag, tagKey(jetzt)), genStufen,
       ...(Array.isArray(werte.pakete) ? { pakete: werte.pakete.map(paketEintragDatei), etappe_anzeigen: !!werte.etappe_anzeigen } : {}),
-      gestaltung: werte.gestaltung === 'sternzeit' ? 'sternzeit' : 'schrein', umform_stufe: [1, 2, 3].includes(werte.umform_stufe) ? werte.umform_stufe : 3, feedback: werte.feedback === true, ...Object.fromEntries(BEDIENUNG.map(b => [b.k, typeof werte[b.k] === 'boolean' ? werte[b.k] : b.std])), ...(werte.ansicht_name ? { ansicht_name: werte.ansicht_name } : {}),
+      gestaltung: werte.gestaltung === 'sternzeit' ? 'sternzeit' : 'schrein', umform_stufe: [1, 2, 3].includes(werte.umform_stufe) ? werte.umform_stufe : 3, feedback: werte.feedback === true, ...(werte.boegen_feedback ? { boegen_feedback: true } : {}), ...Object.fromEntries(BEDIENUNG.map(b => [b.k, typeof werte[b.k] === 'boolean' ? werte[b.k] : b.std])), ...(werte.ansicht_name ? { ansicht_name: werte.ansicht_name } : {}),
       uebungszeit: uzDatei(werte.uebungszeit, tagKey(jetzt)),
       ...(werte.freigaben && Object.keys(werte.freigaben).length ? { freigaben: { ...werte.freigaben } } : {}),
       // Wochenplan (Auftrag 24): schreibt nur der Kinder-Chat, darum immer aus der frisch gelesenen Datei übernehmen
@@ -626,4 +627,46 @@ export function wochenplanStand(werte, eintraege, heute = tagKey()) {
     zuletzt, faellig, erinnerung, standard: wp.erinnerung.standard || 0, gesperrt, wpGesperrt: wp.gesperrt,
     eingriffe: W.eingriffeNorm(werte.eingriffe), eingriffeAktiv: W.eingriffeAktiv(werte.eingriffe, heute),
     erinnerungen: (eintraege || []).filter(e => e.typ === 'erinnerung' && e.t && tagKey(new Date(e.t)) >= wp.ab) };
+}
+
+// ---------- Bögen und Bogen-Feedback (Auftrag 25, nur Kinder mit Schalter „boegen_feedback“) ----------
+export const BOGEN_ERGEBNISSE = ['klappt', 'mit Hilfe', 'nicht verstanden', 'ausgelassen'];
+export const BOGEN_CHIPS = ['Flüchtigkeitsfehler', 'Hinweisblatt benutzt', 'Taschenrechner', 'Rechenweg unklar', 'Text nicht verstanden', 'Brauchte Rückversicherung', 'motiviert', 'unmotiviert'];
+export const BOGEN_ALLGEMEIN = [
+  { k: 'von', titel: 'Wer trägt ein?', werte: ['Vater', 'Mutter'] },
+  { k: 'anfang', titel: 'Anfang', werte: ['direkt los', 'kurz überredet', 'stark überredet'] },
+  { k: 'stimmung', titel: 'Stimmung', werte: ['gut', 'geht', 'schwierig'] },
+  { k: 'hinweisblatt', titel: 'Hinweisblatt benutzt?', werte: ['ja', 'nein', 'weiß nicht'] },
+  { k: 'dauer', titel: 'Dauer ungefähr', werte: [15, 30, 45, 60], text: (v) => v === 60 ? '60+' : String(v), frei: true }
+];
+export function bogenNorm(b) {
+  if (!b || b.format !== 'bogen-1' || !b.id || !Array.isArray(b.uebungen)) return null;
+  return { ...b, uebungen: b.uebungen.filter(u => u && u.nr != null).map(u => ({ ...u, nr: String(u.nr) })) };
+}
+// Entwurf → Datei bogen-feedback-1. Übungen ohne Eintrag (klappt, keine Beobachtung, keine Notiz, kein Foto) fallen weg.
+export function bogenFeedbackDatei(kind, id, e, jetzt = new Date()) {
+  const uebungen = {};
+  for (const [nr, x] of Object.entries(e.uebungen || {})) {
+    const ergebnis = BOGEN_ERGEBNISSE.includes(x.ergebnis) ? x.ergebnis : 'klappt';
+    const chips = (x.chips || []).filter(c => BOGEN_CHIPS.includes(c));
+    const notiz = String(x.notiz || '').trim();
+    const fotos = (x.fotos || []).map(f => typeof f === 'string' ? f : f.name).filter(Boolean);
+    if (ergebnis === 'klappt' && !chips.length && !notiz && !fotos.length) continue;
+    uebungen[nr] = { ergebnis, ...(chips.length ? { chips } : {}), ...(notiz ? { notiz } : {}), ...(fotos.length ? { fotos } : {}) };
+  }
+  const off = -jetzt.getTimezoneOffset(), p = (n) => String(Math.floor(Math.abs(n))).padStart(2, '0');
+  const lokal = new Date(jetzt.getTime() + off * 60000).toISOString().slice(0, 19) + (off >= 0 ? '+' : '-') + p(off / 60) + ':' + p(off % 60);
+  return {
+    format: 'bogen-feedback-1', kind, bogen: id,
+    ...(e.von ? { von: e.von } : {}), gemacht: e.gemacht || tagKey(jetzt), gespeichert: lokal,
+    ...(e.anfang ? { anfang: e.anfang } : {}), ...(e.stimmung ? { stimmung: e.stimmung } : {}), ...(e.hinweisblatt ? { hinweisblatt: e.hinweisblatt } : {}), ...(e.dauer ? { dauer: e.dauer } : {}),
+    uebungen, ...(String(e.sonst || '').trim() ? { sonst: String(e.sonst).trim() } : {}), ...(e.frei ? { ohne_bogen: true } : {})
+  };
+}
+// Gespeicherte Datei → Entwurf (zum Weiterbearbeiten)
+export function bogenFeedbackEntwurf(f) {
+  if (!f || f.format !== 'bogen-feedback-1') return null;
+  const uebungen = {};
+  for (const [nr, x] of Object.entries(f.uebungen || {})) uebungen[nr] = { ergebnis: x.ergebnis || 'klappt', chips: x.chips || [], notiz: x.notiz || '', fotos: (x.fotos || []).map(name => ({ name })) };
+  return { von: f.von || '', gemacht: f.gemacht, anfang: f.anfang || '', stimmung: f.stimmung || '', hinweisblatt: f.hinweisblatt || '', dauer: f.dauer || null, uebungen, sonst: f.sonst || '', gesehen: Object.keys(uebungen), frei: !!f.ohne_bogen };
 }

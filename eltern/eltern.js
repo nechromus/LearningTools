@@ -15,7 +15,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.33.0';
+export const ELTERN_VERSION = '1.34.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -47,6 +47,7 @@ const icon = {
   uebersicht: '<path d="M4 19V10M10 19V5M16 19v-7M21 19H3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
   verlauf: '<path d="M5 6h14M5 12h14M5 18h9" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
   lernplan: '<rect x="3" y="5" width="18" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4M7 14h5M7 17h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  boegen: '<path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M15 3v4h4M9 12h7M9 16h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   tickets: '<path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   einstellungen: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="16" cy="7" r="2" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="10" cy="17" r="2" stroke="currentColor" stroke-width="2" fill="none"/>',
   zurueck: '<path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
@@ -233,7 +234,7 @@ function nutzerWahl(klasse) {
 
 function navLinks(art) {
   const aktiv = route.seite === 'aufgabe' || route.seite === 'spiel' ? 'verlauf' : route.seite === 'ticket' ? 'tickets' : ['spielzeit', 'gewichte', 'pakete', 'paket', 'qr', 'einheit', 'splitter'].includes(route.seite) ? 'einstellungen' : route.seite;
-  return [['uebersicht', 'Übersicht'], ['verlauf', 'Verlauf'], ['lernplan', 'Lernplan'], ['tickets', 'Tickets'], ['einstellungen', 'Einstellungen']].map(([k, t]) =>
+  return [['uebersicht', 'Übersicht'], ['verlauf', 'Verlauf'], ['lernplan', 'Lernplan'], ...(boegenAn() ? [['boegen', 'Bögen']] : []), ['tickets', 'Tickets'], ['einstellungen', 'Einstellungen']].map(([k, t]) =>
     `<a href="#${k}" class="${art}${aktiv === k ? ' aktiv' : ''}"${aktiv === k ? ' aria-current="page"' : ''}>${svg(k, 24)}<span>${t}</span></a>`).join('');
 }
 
@@ -256,12 +257,12 @@ function zeichne() {
         <nav class="seiten-nav">${navLinks('nav-link')}</nav>
         <div class="seitenleiste-fuss"><span class="klein gedaempft">${standZeile()}</span>${neuKnopf}</div>
       </aside>
-      <main class="inhalt-breit${route.seite === 'verlauf' || route.seite === 'aufgabe' ? ' ohne-rand' : ''}">${inhalt}</main>
+      <main class="inhalt-breit${route.seite === 'verlauf' || route.seite === 'aufgabe' || route.seite === 'boegen' ? ' ohne-rand' : ''}">${inhalt}</main>
     </div>`;
   } else {
     app.innerHTML = `<div class="rahmen-schmal">
       <main class="inhalt-schmal">${inhalt}</main>
-      <nav class="tabs">${navLinks('tab')}</nav>
+      <nav class="tabs${boegenAn() ? ' sechs' : ''}">${navLinks('tab')}</nav>
     </div>`;
   }
   if (route.seite === 'lernplan') lernplanEinhaengen();
@@ -285,9 +286,282 @@ function seiteHtml() {
     case 'qr': return qrSeite();
     case 'lernplan': return lernplanSeite();
     case 'tickets': return ticketsSeite();
+    case 'boegen': return boegenSeite();
     case 'ticket': return ticketSeite(route.arg);
     default: return uebersichtSeite();
   }
+}
+
+// ---------- Bögen und Bogen-Feedback (Auftrag 25) ----------
+// daten/<name>/boegen/<id>/ (bogen.json, aufgaben.pdf, loesungen.pdf, bilder/) legt der Kinder-Chat an.
+// Das Feedback schreibt die Eltern-App nach daten/<name>/bogen-feedback/<id>.json (Fotos unter fotos/). Zwischenstand auf dem Gerät.
+const BG = { kind: null, liste: null, laedt: false, fehler: null, boegen: {}, fb: {}, bilder: {}, pdf: {}, zeig: {}, meldung: null, speichert: false };
+function boegenAn() { const w = D.daten && D.daten.einst && D.daten.einst.werte; return !!(w && w.boegen_feedback === true); }
+const bgKey = (id) => `bogen-fb:${C.nutzer}:${id}`;
+function bgEntwurf(id) {
+  BG.entwuerfe = BG.entwuerfe || {};
+  const k = bgKey(id);
+  if (BG.entwuerfe[k]) return BG.entwuerfe[k];
+  let e = null;
+  try { e = JSON.parse(localStorage.getItem(k) || 'null'); } catch (x) {}
+  if (!e && BG.fb[id]) e = A.bogenFeedbackEntwurf(BG.fb[id]);
+  if (!e) { let von = ''; try { von = localStorage.getItem('bogen-von') || ''; } catch (x) {} e = { von, gemacht: L.tagKey(), anfang: '', stimmung: '', hinweisblatt: '', dauer: null, uebungen: {}, sonst: '', gesehen: [] }; }
+  e.uebungen = e.uebungen || {}; e.gesehen = e.gesehen || [];
+  return (BG.entwuerfe[k] = e);
+}
+function bgSichern(id, e) { e.geaendert = true; try { localStorage.setItem(bgKey(id), JSON.stringify(e)); } catch (x) { BG.meldung = { art: 'fehler', text: 'Der Zwischenstand passt nicht mehr in den Speicher dieses Geräts (zu viele Fotos?). Bitte speichern.' }; } }
+function bgHatEntwurf(id) { try { return !!localStorage.getItem(bgKey(id)); } catch (x) { return false; } }
+function bgUe(e, nr) { return e.uebungen[nr] || (e.uebungen[nr] = { ergebnis: 'klappt', chips: [], notiz: '', fotos: [] }); }
+function bgGesehen(id, nr) { const e = bgEntwurf(id); if (!e.gesehen.includes(nr)) { e.gesehen.push(nr); try { localStorage.setItem(bgKey(id), JSON.stringify(e)); } catch (x) {} } }
+async function bgLaden(neu = false) {
+  const o = C.nutzer;
+  if (BG.laedt || (BG.kind === o && BG.liste && !neu)) return;
+  if (BG.kind !== o) Object.assign(BG, { kind: o, liste: null, boegen: {}, fb: {}, bilder: {}, pdf: {}, zeig: {}, entwuerfe: {} });
+  BG.laedt = true; BG.fehler = null; zeichne();
+  try {
+    const [ordner, fbs] = await Promise.all([U.ordnerLesen(C, `daten/${o}/boegen`), U.ordnerLesen(C, `daten/${o}/bogen-feedback`)]);
+    const ids = ordner.filter(x => x.type === 'dir').map(x => x.name);
+    const fbIds = fbs.filter(x => x.type === 'file' && x.name.endsWith('.json')).map(x => x.name.slice(0, -5));
+    await Promise.all([
+      ...ids.filter(id => neu || !BG.boegen[id]).map(id => U.dateiLesen(C, `daten/${o}/boegen/${id}/bogen.json`).then(b => { BG.boegen[id] = A.bogenNorm(b); }).catch(() => { BG.boegen[id] = null; })),
+      ...fbIds.map(id => U.dateiLesen(C, `daten/${o}/bogen-feedback/${id}.json`).then(x => { BG.fb[id] = x; }).catch(() => {}))
+    ]);
+    const lokal = [];
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(`bogen-fb:${o}:`)) lokal.push(k.split(':').slice(2).join(':')); } } catch (x) {}
+    BG.liste = [...new Set([...ids, ...fbIds, ...lokal])].map(id => ({ id, ordner: ids.includes(id), fertig: fbIds.includes(id) }));
+  } catch (e) { BG.fehler = e.message || 'Laden hat nicht geklappt.'; }
+  BG.laedt = false; zeichne();
+}
+function bgTitel(id) { const b = BG.boegen[id]; return b ? (b.woche && b.tag ? `W${b.woche} · Tag ${b.tag}` : b.titel || id) : id.toUpperCase(); }
+function bgUntertitel(id) {
+  const b = BG.boegen[id], f = BG.fb[id];
+  const teile = [];
+  if (b && b.titel) { const t = String(b.titel).split(' · ').slice(2).join(' · '); if (t) teile.push(t); }
+  if (b && b.datum) teile.push(wochentag(b.datum) + ' ' + datumKurz(b.datum));
+  if (f && f.von) teile.push(f.von);
+  else if (b) teile.push(`${b.uebungen.length} Übungen`);
+  if (!b) teile.push(BG.liste && BG.liste.find(x => x.id === id && x.ordner) ? 'Bogen-Datei fehlt' : 'ohne Bogen-Ordner');
+  return teile.join(' · ');
+}
+function bgNummern(id) { const b = BG.boegen[id]; return b ? b.uebungen.map(u => u.nr) : Object.keys(bgEntwurf(id).uebungen); }
+function bgZeile(x, gewaehlt) {
+  const b = BG.boegen[x.id], n = b ? b.uebungen.length : 0;
+  const entwurf = bgHatEntwurf(x.id);
+  const g = entwurf ? bgEntwurf(x.id).gesehen.filter(nr => !b || b.uebungen.some(u => u.nr === nr)).length : 0;
+  const pill = x.fertig && !entwurf ? '<span class="bg-pill fertig">fertig</span>' : entwurf && n ? `<span class="bg-pill halb">${g} von ${n}</span>` : entwurf ? '<span class="bg-pill halb">angefangen</span>' : '';
+  return `<a class="zeile bg-zeile${gewaehlt ? ' gewaehlt' : ''}${!x.fertig && !entwurf && x.ordner ? ' neu' : ''}" href="#boegen/${encodeURIComponent(x.id)}">
+    <span class="zeile-haupt"><b>${esc(bgTitel(x.id))}</b><span class="klein gedaempft block">${esc(bgUntertitel(x.id))}</span></span>
+    ${b && b.pdf ? '<span class="bg-pdfi" title="PDF zum Ausdrucken">PDF</span>' : ''}${pill}</a>`;
+}
+function bgListe(gewaehlt) {
+  const l = (BG.liste || []).slice().sort((a, b) => String((BG.boegen[b.id] || {}).datum || b.id).localeCompare(String((BG.boegen[a.id] || {}).datum || a.id)));
+  const offen = l.filter(x => !x.fertig || bgHatEntwurf(x.id)), fertig = l.filter(x => x.fertig && !bgHatEntwurf(x.id));
+  return `${BG.fehler ? `<p class="hinweis-box">${esc(BG.fehler)}</p>` : ''}
+    ${BG.laedt && !BG.liste ? '<p class="gedaempft pad">Bögen werden geladen …</p>' : ''}
+    ${BG.liste && !l.length ? '<p class="gedaempft pad">Noch keine Bögen. Sie erscheinen, sobald Claude sie im Kinder-Chat anlegt.</p>' : ''}
+    ${offen.length ? `<h2 class="abschnitt">Offen</h2><section class="karte liste-karte">${offen.map(x => bgZeile(x, x.id === gewaehlt)).join('')}</section>` : ''}
+    ${fertig.length ? `<h2 class="abschnitt">Erledigt</h2><section class="karte liste-karte">${fertig.map(x => bgZeile(x, x.id === gewaehlt)).join('')}</section>` : ''}
+    <details class="bg-frei"><summary>Feedback ohne Bogen-Ordner</summary><p class="klein gedaempft">Für einen Bogen, den Claude nicht angelegt hat: Allgemein und je Übungsnummer Ergebnis und Notiz.</p>
+      <div class="bg-frei-form"><input id="bg-frei-id" placeholder="Kürzel, z. B. w6t1" autocomplete="off"><button class="knopf" data-act="bgFrei">Anlegen</button></div></details>
+    <button class="knopf bg-neu-laden" data-act="bgNeuLaden">${BG.laedt ? 'Lädt …' : 'Neu laden'}</button>`;
+}
+function boegenSeite() {
+  if (!boegenAn()) return `<div class="seite">${breit.matches ? '<h1>Bögen</h1>' : kopfSchmal('Bögen')}<section class="karte"><p class="pad">Der Bereich „Bögen“ ist für ${esc(name())} aus. Einschalten unter Einstellungen → Gestaltung, Bedienung und Übungszeit.</p></section></div>`;
+  if (BG.kind !== C.nutzer || (!BG.liste && !BG.laedt && !BG.fehler)) setTimeout(() => bgLaden(), 0);
+  const [id, schritt] = route.arg ? route.arg.split('/') : ['', ''];
+  if (breit.matches) {
+    return `<div class="bg-breit"><aside class="bg-seite-liste"><h1>Bögen</h1>${bgListe(id)}</aside>
+      <section class="bg-haupt">${id ? bogenVoll(id) : '<p class="gedaempft pad">Wähle links einen Bogen.</p>'}</section></div>`;
+  }
+  if (!id) return `<div class="seite schmal-inhalt">${kopfSchmal('Bögen')}<p class="klein gedaempft">${esc(name())} · Bögen ausdrucken und Feedback eintragen</p>${bgListe('')}</div>`;
+  if (!schritt) return bogenAllgemein(id);
+  if (schritt === 'ende') return bogenEnde(id);
+  return bogenKarte(id, schritt);
+}
+function bgPdfLeiste(id) {
+  const b = BG.boegen[id];
+  if (!b || !b.pdf) return '';
+  bgPdfLaden(id);
+  const k = (w) => BG.pdf[id + ':' + w];
+  const knopf = (w, t) => b.pdf[w] ? `<button class="bg-pdf-knopf" data-act="bgPdf" data-id="${esc(id)}" data-w="${w}"${k(w) === 'fehlt' ? ' disabled' : ''}>${t} · PDF${!k(w) ? ' <span class="klein">(lädt …)</span>' : k(w) === 'fehlt' ? ' <span class="klein">(fehlt)</span>' : ''}</button>` : '';
+  return `<div class="bg-pdf"><span class="bg-pdf-titel">Zum Ausdrucken</span>${knopf('aufgaben', 'Aufgaben')}${knopf('loesungen', 'Lösungen')}</div>`;
+}
+function bgPdfLaden(id) {
+  const b = BG.boegen[id]; if (!b || !b.pdf) return;
+  for (const w of ['aufgaben', 'loesungen']) {
+    const k = id + ':' + w;
+    if (!b.pdf[w] || BG.pdf[k] !== undefined) continue;
+    BG.pdf[k] = null;
+    U.dateiBlob(C, `daten/${C.nutzer}/boegen/${id}/${b.pdf[w]}`).then(x => { BG.pdf[k] = x || 'fehlt'; zeichne(); }).catch(() => { BG.pdf[k] = 'fehlt'; zeichne(); });
+  }
+}
+// PDF teilen (iOS: Teilen-Menü mit Drucken, AirPrint), sonst in einem neuen Fenster öffnen
+function bgPdfTeilen(id, w) {
+  const blob = BG.pdf[id + ':' + w];
+  if (!blob || blob === 'fehlt') return;
+  const name = `${bgTitel(id).replace(' · ', ' ')} ${w === 'aufgaben' ? 'Aufgaben' : 'Lösungen'}.pdf`;
+  const file = new File([blob], name, { type: 'application/pdf' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: name }).catch(() => {}); return; }
+  const url = URL.createObjectURL(file);
+  const fenster = window.open(url, '_blank');
+  if (!fenster) { const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+}
+function bgBild(id, pfad) {
+  const k = id + ':' + pfad;
+  if (BG.bilder[k] === undefined) {
+    BG.bilder[k] = null;
+    U.dateiBlob(C, `daten/${C.nutzer}/boegen/${id}/${pfad}`).then(x => { BG.bilder[k] = x ? URL.createObjectURL(x) : 'fehlt'; zeichne(); }).catch(() => { BG.bilder[k] = 'fehlt'; zeichne(); });
+  }
+  return BG.bilder[k];
+}
+function bgSeg(id, k, werte, aktuell, text = (v) => v, spalten = werte.length) {
+  return `<div class="bg-seg" style="grid-template-columns:repeat(${spalten},minmax(0,1fr))" role="group">${werte.map(v => `<button data-act="bgWert" data-id="${esc(id)}" data-k="${k}" data-v="${esc(v)}" aria-pressed="${aktuell === v}">${esc(text(v))}</button>`).join('')}</div>`;
+}
+function bgAllgemeinFelder(id, e) {
+  return A.BOGEN_ALLGEMEIN.map(f => `<div class="bg-gruppe"><span class="bg-lbl">${esc(f.titel)}${f.frei ? ' <span class="klein gedaempft">(optional)</span>' : ''}</span>${bgSeg(id, f.k, f.werte, e[f.k], f.text)}</div>`).join('') +
+    `<div class="bg-gruppe"><span class="bg-lbl">Gemacht am</span><input type="date" id="bg-gemacht" data-id="${esc(id)}" value="${esc(e.gemacht || L.tagKey())}" max="${L.tagKey()}"></div>`;
+}
+function bgUeInfo(id, nr) { const b = BG.boegen[id]; return b ? b.uebungen.find(u => u.nr === nr) : { nr, titel: '' }; }
+function ueKarte(id, nr, kompakt) {
+  const e = bgEntwurf(id), u = bgUe(e, nr), x = bgUeInfo(id, nr) || { nr };
+  const zeig = BG.zeig[id + '|' + nr];
+  const pfad = zeig && x.bilder && x.bilder[zeig];
+  const src = pfad ? bgBild(id, pfad) : null;
+  return `${x.neu ? '<div class="bg-neu">Neu auf diesem Bogen. Wie kam es an?</div>' : ''}
+    <div class="bg-gruppe"><span class="bg-lbl">Ergebnis</span><div class="bg-seg bg-erg" style="grid-template-columns:repeat(2,minmax(0,1fr))" role="group">${A.BOGEN_ERGEBNISSE.map(v => `<button data-act="bgErg" data-id="${esc(id)}" data-nr="${esc(nr)}" data-v="${esc(v)}" data-erg="${esc(v)}" aria-pressed="${u.ergebnis === v}">${esc(v)}</button>`).join('')}</div></div>
+    ${x.bilder ? `<div class="bg-seg" style="grid-template-columns:1fr 1fr" role="group"><button data-act="bgZeig" data-id="${esc(id)}" data-nr="${esc(nr)}" data-w="auf" aria-pressed="${zeig === 'auf'}">Aufgabe zeigen</button><button data-act="bgZeig" data-id="${esc(id)}" data-nr="${esc(nr)}" data-w="loes" aria-pressed="${zeig === 'loes'}">Lösung zeigen</button></div>
+      ${zeig ? (src && src !== 'fehlt' ? `<img class="bg-crop" data-act="bgGross" src="${src}" alt="${zeig === 'auf' ? 'Aufgabe' : 'Lösung'} Übung ${esc(nr)}" title="Antippen: groß anzeigen">` : `<p class="klein gedaempft">${src === 'fehlt' ? 'Kein Bild vorhanden.' : 'Bild wird geladen …'}</p>`) : ''}` : ''}
+    <div class="bg-gruppe"><span class="bg-lbl">Beobachtungen</span><div class="bg-chips">${A.BOGEN_CHIPS.map(c => `<button class="bg-chip" data-act="bgChip" data-id="${esc(id)}" data-nr="${esc(nr)}" data-v="${esc(c)}" aria-pressed="${u.chips.includes(c)}">${esc(c)}</button>`).join('')}</div></div>
+    <label class="bg-gruppe"><span class="bg-lbl">Notiz</span><textarea class="bg-text" data-id="${esc(id)}" data-nr="${esc(nr)}" rows="${kompakt ? 2 : 3}" placeholder="Was ist dir aufgefallen? Diktieren: Mikrofon auf der Tastatur">${esc(u.notiz || '')}</textarea></label>
+    <div class="bg-fotos">${u.fotos.map((p, i) => `<span class="bg-foto-mini">${p.data ? `<img src="${p.data}" alt="Foto ${i + 1}">` : `<span class="klein">Foto ${i + 1} gespeichert</span>`}<button class="bg-foto-weg" data-act="bgFotoWeg" data-id="${esc(id)}" data-nr="${esc(nr)}" data-i="${i}" aria-label="Foto entfernen">✕</button></span>`).join('')}
+      <label class="bg-foto-neu">＋ Foto<input type="file" accept="image/*" class="bg-foto" data-id="${esc(id)}" data-nr="${esc(nr)}" hidden></label></div>`;
+}
+function bgSpeichernKnopf(id) {
+  return `${BG.meldung ? `<p class="meldung ${BG.meldung.art}">${esc(BG.meldung.text)}</p>` : ''}<button class="knopf haupt breit" data-act="bgSpeichern" data-id="${esc(id)}"${BG.speichert ? ' disabled' : ''}>${BG.speichert ? 'Wird gespeichert …' : 'Speichern und an den Chat geben'}</button>`;
+}
+function bgFreiNeu(id) { return `<div class="bg-frei-form"><input id="bg-ue-nr" placeholder="Übung, z. B. 3b" autocomplete="off"><button class="knopf" data-act="bgUeNeu" data-id="${esc(id)}">Übung hinzufügen</button></div>`; }
+// iPad: ganzer Bogen auf einen Blick
+function bogenVoll(id) {
+  const e = bgEntwurf(id), b = BG.boegen[id];
+  return `<div class="bg-kopf"><div><h1>${esc(b ? b.titel || bgTitel(id) : bgTitel(id))}</h1><span class="klein gedaempft">${esc(bgUntertitel(id))}${BG.fb[id] ? ` · gespeichert ${esc(datumKurz(String(BG.fb[id].gespeichert || '').slice(0, 10)))}` : ''}</span></div></div>
+    ${bgPdfLeiste(id)}
+    <section class="karte bg-allg">${bgAllgemeinFelder(id, e)}</section>
+    <div class="bg-karten">${bgNummern(id).map(nr => { const x = bgUeInfo(id, nr) || {}; return `<section class="karte bg-karte${x.neu ? ' neu' : ''}"><h3>Übung ${esc(nr)}${x.titel ? ' · ' + esc(x.titel) : ''}${x.neu ? '<span class="bg-pill halb">neu</span>' : ''}</h3>${ueKarte(id, nr, true)}</section>`; }).join('')}</div>
+    ${b ? '' : bgFreiNeu(id)}
+    <section class="karte bg-allg"><label class="bg-gruppe"><span class="bg-lbl">Sonst noch etwas?</span><textarea class="bg-text" data-id="${esc(id)}" rows="3" placeholder="z. B. Ideen für die App. Diktieren: Mikrofon auf der Tastatur">${esc(e.sonst || '')}</textarea></label>${bgSpeichernKnopf(id)}</section>`;
+}
+// iPhone: Allgemein → je Übung eine Karte → Überblick
+function bogenAllgemein(id) {
+  const e = bgEntwurf(id), nrn = bgNummern(id);
+  return `<div class="seite schmal-inhalt bg-schritt"><a class="zurueck" href="#boegen">‹ Bögen</a><h1>${esc(bgTitel(id))}</h1><span class="klein gedaempft">${esc(bgUntertitel(id))}</span>
+    ${bgPdfLeiste(id)}
+    <p class="klein gedaempft">Schritt 1 von 3 · Allgemein</p>
+    <section class="karte bg-allg">${bgAllgemeinFelder(id, e)}</section>
+    ${BG.boegen[id] ? '' : bgFreiNeu(id)}
+    <a class="knopf haupt breit" href="#boegen/${encodeURIComponent(id)}/${nrn.length ? encodeURIComponent(nrn[0]) : 'ende'}">${nrn.length ? 'Weiter zu den Übungen' : 'Weiter zum Überblick'}</a></div>`;
+}
+function bogenKarte(id, nr) {
+  bgGesehen(id, nr);
+  const nrn = bgNummern(id), i = nrn.indexOf(nr), x = bgUeInfo(id, nr) || {};
+  const vor = i > 0 ? `#boegen/${encodeURIComponent(id)}/${encodeURIComponent(nrn[i - 1])}` : `#boegen/${encodeURIComponent(id)}`;
+  const nach = i < nrn.length - 1 ? `#boegen/${encodeURIComponent(id)}/${encodeURIComponent(nrn[i + 1])}` : `#boegen/${encodeURIComponent(id)}/ende`;
+  return `<div class="seite schmal-inhalt bg-schritt"><div class="bg-nav"><a class="zurueck" href="${vor}">‹ ${i > 0 ? 'Übung ' + esc(nrn[i - 1]) : 'Allgemein'}</a><span class="klein gedaempft">${i + 1} von ${nrn.length}</span></div>
+    <h1 class="bg-h">Übung ${esc(nr)}${x.titel ? ' · ' + esc(x.titel) : ''}</h1>
+    <div class="bg-punkte">${nrn.map((n, j) => `<a href="#boegen/${encodeURIComponent(id)}/${encodeURIComponent(n)}" class="${j === i ? 'an' : bgEntwurf(id).gesehen.includes(n) ? 'ok' : ''}" aria-label="Übung ${esc(n)}"></a>`).join('')}</div>
+    <section class="karte bg-karte${x.neu ? ' neu' : ''}">${ueKarte(id, nr, false)}</section>
+    <div class="bg-weiter"><a class="knopf" href="${vor}">‹ ${i > 0 ? 'Übung ' + esc(nrn[i - 1]) : 'Allgemein'}</a><a class="knopf haupt" href="${nach}">${i < nrn.length - 1 ? 'Übung ' + esc(nrn[i + 1]) + ' ›' : 'Überblick ›'}</a></div></div>`;
+}
+function bogenEnde(id) {
+  const e = bgEntwurf(id), nrn = bgNummern(id);
+  return `<div class="seite schmal-inhalt bg-schritt"><a class="zurueck" href="#boegen/${encodeURIComponent(id)}/${nrn.length ? encodeURIComponent(nrn[nrn.length - 1]) : ''}">‹ ${nrn.length ? 'Übung ' + esc(nrn[nrn.length - 1]) : 'Allgemein'}</a><h1>Fertig?</h1><p class="klein gedaempft">Schritt 3 von 3 · Überblick</p>
+    <section class="karte liste-karte">${nrn.map(nr => { const u = e.uebungen[nr] || { ergebnis: 'klappt', chips: [], notiz: '' }, x = bgUeInfo(id, nr) || {}; return `<a class="zeile bg-ueb" href="#boegen/${encodeURIComponent(id)}/${encodeURIComponent(nr)}"><span class="zeile-haupt">${esc(nr)}${x.titel ? ' · ' + esc(x.titel) : ''}<span class="klein gedaempft block">${[u.chips.length ? u.chips.join(', ') : '', u.notiz ? 'Notiz' : '', u.fotos && u.fotos.length ? u.fotos.length + ' Foto' + (u.fotos.length > 1 ? 's' : '') : ''].filter(Boolean).join(' · ')}</span></span><span class="bg-pill" data-erg="${esc(u.ergebnis)}">${esc(u.ergebnis)}</span></a>`; }).join('')}</section>
+    <section class="karte bg-allg"><label class="bg-gruppe"><span class="bg-lbl">Sonst noch etwas?</span><textarea class="bg-text" data-id="${esc(id)}" rows="3" placeholder="z. B. Ideen für die App. Diktieren: Mikrofon auf der Tastatur">${esc(e.sonst || '')}</textarea></label></section>
+    ${bgSpeichernKnopf(id)}<p class="klein gedaempft mitte">Danach im Chat: „Bogen ${esc(bgTitel(id).replace(' · ', ' '))} erledigt“</p></div>`;
+}
+// Fotos: verkleinert auf 1600 px an der langen Seite, bis zum Speichern im Zwischenstand
+function bildVerkleinern(file, max = 1600) {
+  return new Promise((ok, fehler) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => { const f = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight)); const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * f); c.height = Math.round(img.naturalHeight * f); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); ok(c.toDataURL('image/jpeg', 0.82)); };
+    img.onerror = () => { URL.revokeObjectURL(url); fehler(new Error('Das Bild konnte nicht gelesen werden.')); };
+    img.src = url;
+  });
+}
+async function bgFotoNeu(id, nr, files) {
+  try {
+    const e = bgEntwurf(id), u = bgUe(e, nr);
+    for (const f of files) u.fotos.push({ data: await bildVerkleinern(f) });
+    bgSichern(id, e);
+  } catch (x) { BG.meldung = { art: 'fehler', text: x.message }; }
+  zeichne();
+}
+async function bgSpeichern(id) {
+  const o = C.nutzer, e = bgEntwurf(id);
+  if (!e.von) { BG.meldung = { art: 'fehler', text: 'Bitte oben antippen, wer einträgt.' }; return zeichne(); }
+  BG.speichert = true; BG.meldung = { art: 'info', text: 'Wird gespeichert …' }; zeichne();
+  try {
+    let n = 0;
+    for (const [nr, u] of Object.entries(e.uebungen)) {
+      for (const p of u.fotos || []) {
+        if (!p.data) continue;
+        const name = `${id}-${String(nr).replace(/[^a-z0-9]+/gi, '')}-${Date.now()}-${++n}.jpg`;
+        await U.dateiNeuBase64(C, `daten/${o}/bogen-feedback/fotos/${name}`, p.data.split(',')[1], `${ordnerName(o)}: Foto zu Bogen ${id}`);
+        delete p.data; p.name = name;
+        bgSichern(id, e);
+      }
+    }
+    const datei = A.bogenFeedbackDatei(o, id, e);
+    await U.dateiSchreiben(C, `daten/${o}/bogen-feedback/${id}.json`, JSON.stringify(datei, null, 1), `${ordnerName(o)}: Bogen-Feedback ${id}`);
+    BG.fb[id] = datei;
+    try { localStorage.removeItem(bgKey(id)); } catch (x) {}
+    delete BG.entwuerfe[bgKey(id)];
+    if (BG.liste && !BG.liste.some(x => x.id === id)) BG.liste.push({ id, ordner: !!BG.boegen[id], fertig: true });
+    for (const x of BG.liste || []) if (x.id === id) x.fertig = true;
+    BG.meldung = { art: 'ok', text: `Gespeichert. Sag im Chat für ${esc(name())}: „Bogen ${bgTitel(id).replace(' · ', ' ')} erledigt“.` };
+  } catch (x) { BG.meldung = { art: 'fehler', text: x.message || 'Speichern hat nicht geklappt. Der Zwischenstand bleibt auf diesem Gerät.' }; }
+  BG.speichert = false; zeichne();
+}
+const ordnerName = (o) => o.charAt(0).toUpperCase() + o.slice(1);
+// Bild groß: Antippen schließt, zwei Finger zoomen, Doppeltipp vergrößert, ziehen verschiebt
+function lupeAuf(src, alt) {
+  let el = document.getElementById('bg-lupe');
+  if (!el) { el = document.createElement('div'); el.id = 'bg-lupe'; el.innerHTML = '<button class="bg-lupe-zu" aria-label="Schließen">✕</button><img alt="">'; document.body.appendChild(el); lupeSteuerung(el); }
+  const img = el.querySelector('img'); img.src = src; img.alt = alt || '';
+  el.zoom = { s: 1, x: 0, y: 0 }; img.style.transform = '';
+  el.hidden = false;
+}
+function lupeSteuerung(el) {
+  const img = el.querySelector('img'), p = new Map();
+  let start = null, letzterTipp = 0, bewegt = false;
+  const setzen = () => { const z = el.zoom; img.style.transform = `translate(${z.x}px, ${z.y}px) scale(${z.s})`; };
+  el.querySelector('.bg-lupe-zu').onclick = () => { el.hidden = true; };
+  el.addEventListener('pointerdown', (e) => { if (e.target.closest('.bg-lupe-zu')) return; el.setPointerCapture(e.pointerId); p.set(e.pointerId, { x: e.clientX, y: e.clientY }); bewegt = false; start = { z: { ...el.zoom }, pts: [...p.values()].map(q => ({ ...q })) }; });
+  el.addEventListener('pointermove', (e) => {
+    if (!p.has(e.pointerId) || !start) return;
+    p.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const pts = [...p.values()];
+    if (pts.length >= 2 && start.pts.length >= 2) {
+      const d0 = Math.hypot(start.pts[0].x - start.pts[1].x, start.pts[0].y - start.pts[1].y), d1 = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      el.zoom.s = Math.max(1, Math.min(6, start.z.s * d1 / Math.max(10, d0))); bewegt = true;
+    } else if (pts.length === 1 && start.pts.length === 1) {
+      const dx = pts[0].x - start.pts[0].x, dy = pts[0].y - start.pts[0].y;
+      if (Math.abs(dx) + Math.abs(dy) > 6) bewegt = true;
+      if (el.zoom.s > 1) { el.zoom.x = start.z.x + dx; el.zoom.y = start.z.y + dy; }
+    }
+    setzen();
+  });
+  const ende = (e) => {
+    p.delete(e.pointerId);
+    if (p.size) { start = { z: { ...el.zoom }, pts: [...p.values()].map(q => ({ ...q })) }; return; }
+    if (!bewegt) {
+      const jetzt = Date.now();
+      if (jetzt - letzterTipp < 320) { el.zoom = el.zoom.s > 1 ? { s: 1, x: 0, y: 0 } : { s: 2.5, x: 0, y: 0 }; setzen(); letzterTipp = 0; }
+      else { letzterTipp = jetzt; setTimeout(() => { if (letzterTipp === jetzt && el.zoom.s === 1) el.hidden = true; }, 330); }
+    }
+    start = null;
+  };
+  el.addEventListener('pointerup', ende); el.addEventListener('pointercancel', ende);
+  el.addEventListener('wheel', (e) => { e.preventDefault(); el.zoom.s = Math.max(1, Math.min(6, el.zoom.s * Math.exp(-e.deltaY * 0.002))); if (el.zoom.s === 1) { el.zoom.x = 0; el.zoom.y = 0; } setzen(); }, { passive: false });
 }
 
 // ---------- Lernplan (daten/<name>/lernplan.json, Export der Lernplan-Seite in claude.ai) ----------
@@ -870,6 +1144,7 @@ function gestaltungEinstellungen(w) {
   return `<h2 class="abschnitt">Gestaltung, Bedienung und Übungszeit</h2>
     <section class="karte liste-karte">
       <div class="einstell-block"><span>Gestaltung der App<span class="klein gedaempft block">Logbuch Sternzeit: dunkle Konsole, Logbuch, Wissensarchiv und Wissenspunkte. Hinweiskarten bleiben gleich.</span></span>${seg('gestaltung', ['schrein', 'sternzeit'], w.gestaltung, x => x === 'schrein' ? 'Schrein' : 'Logbuch Sternzeit')}</div>
+      <div class="einstell-block"><span>Bögen und Feedback<span class="klein gedaempft block">Bereich „Bögen“: Bögen ausdrucken und Feedback eintragen. Die Bögen legt Claude im Kinder-Chat an.</span></span>${seg('boegenAn', [true, false], w.boegen_feedback === true, x => x ? 'An' : 'Aus')}</div>
       <div class="einstell-block"><span>Feedback-Knopf<span class="klein gedaempft block">Kleiner Knopf am rechten Rand. ${esc(name())} kann damit ein Bild der App und einen Text schicken. Er landet unter „Tickets“. Auf Testgeräten ist er immer da.</span></span>${seg('feedbackAn', [true, false], w.feedback === true, x => x ? 'An' : 'Aus')}</div>
       <div class="einstell-block"><span>„In Schritten umformen“: Start-Stufe<span class="klein gedaempft block">3: beide Seiten selbst vereinfachen. 2: die App schreibt eine Seite. 1: die App vereinfacht. Die anderen Stufen gibt es als Hilfe.</span></span>${seg('umformStufe', [3, 2, 1], w.umform_stufe, x => 'Stufe ' + x)}</div>
       ${L.BEDIENUNG.map(b => `<div class="einstell-block"><span>${esc(b.titel)}<span class="klein gedaempft block">${esc(b.text)}</span></span>${seg('bedienung" data-k="' + b.k, [true, false], w[b.k] ?? b.std, x => x ? 'An' : 'Aus')}</div>`).join('')}
@@ -1700,6 +1975,18 @@ document.addEventListener('click', (ev) => {
     case 'gestaltung': entwurf.gestaltung = el.dataset.w; if (entwurf.gestaltung === 'sternzeit' && !entwurf.ansicht_name) entwurf.ansicht_name = 'Logbuch Sternzeit'; meldung = null; zeichne(); break;
     case 'umformStufe': entwurf.umform_stufe = Number(el.dataset.w); meldung = null; zeichne(); break;
     case 'feedbackAn': entwurf.feedback = el.dataset.w === 'true'; meldung = null; zeichne(); break;
+    case 'boegenAn': entwurf.boegen_feedback = el.dataset.w === 'true'; meldung = null; zeichne(); break;
+    case 'bgNeuLaden': bgLaden(true); break;
+    case 'bgWert': { const e = bgEntwurf(el.dataset.id); const k = el.dataset.k; let v = el.dataset.v; if (k === 'dauer') v = Number(v); e[k] = e[k] === v && k === 'dauer' ? null : v; if (k === 'von') { try { localStorage.setItem('bogen-von', v); } catch (x) {} } bgSichern(el.dataset.id, e); zeichne(); break; }
+    case 'bgErg': { const e = bgEntwurf(el.dataset.id), u = bgUe(e, el.dataset.nr); u.ergebnis = el.dataset.v; bgSichern(el.dataset.id, e); zeichne(); break; }
+    case 'bgChip': { const e = bgEntwurf(el.dataset.id), u = bgUe(e, el.dataset.nr), c = el.dataset.v; u.chips = u.chips.includes(c) ? u.chips.filter(x => x !== c) : [...u.chips, c]; bgSichern(el.dataset.id, e); zeichne(); break; }
+    case 'bgZeig': { const k = el.dataset.id + '|' + el.dataset.nr; BG.zeig[k] = BG.zeig[k] === el.dataset.w ? null : el.dataset.w; zeichne(); break; }
+    case 'bgGross': lupeAuf(el.getAttribute('src'), el.getAttribute('alt')); break;
+    case 'bgFotoWeg': { const e = bgEntwurf(el.dataset.id), u = bgUe(e, el.dataset.nr); u.fotos = u.fotos.filter((_, i) => i !== Number(el.dataset.i)); bgSichern(el.dataset.id, e); zeichne(); break; }
+    case 'bgPdf': bgPdfTeilen(el.dataset.id, el.dataset.w); break;
+    case 'bgSpeichern': bgSpeichern(el.dataset.id); break;
+    case 'bgFrei': { const id = (document.getElementById('bg-frei-id').value || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, ''); if (!id) { BG.meldung = { art: 'fehler', text: 'Bitte ein Kürzel eingeben, z. B. w6t1.' }; zeichne(); break; } const e = bgEntwurf(id); e.frei = true; bgSichern(id, e); location.hash = '#boegen/' + encodeURIComponent(id); break; }
+    case 'bgUeNeu': { const nr = (document.getElementById('bg-ue-nr').value || '').trim(); if (!nr) break; const e = bgEntwurf(el.dataset.id); bgUe(e, nr); bgSichern(el.dataset.id, e); zeichne(); break; }
     case 'bedienung': entwurf[el.dataset.k] = el.dataset.w === 'true'; meldung = null; zeichne(); break;
     case 'ticketsLaden': ticketsLaden(); break;
     case 'lernplanNeu': lernplanLaden(C.nutzer, true); break;
@@ -1829,6 +2116,7 @@ document.addEventListener('click', (ev) => {
 
 document.addEventListener('change', (ev) => {
   const el = ev.target;
+  if (el.classList && el.classList.contains('bg-foto') && el.files && el.files.length) { bgFotoNeu(el.dataset.id, el.dataset.nr, el.files); return; }
   if (el.name === 'nutzer-wahl' || el.name === 'tag-wahl') {
     if (el.name === 'tag-wahl') { location.hash = '#verlauf/' + el.value; return; }
     C.nutzer = el.value; konfigSichern();
@@ -1874,6 +2162,8 @@ document.addEventListener('input', (ev) => {
   if (paketEntwurf && el.id === 'p-name') paketEntwurf.name = el.value;
   if (paketEntwurf && el.id === 'p-beschr') paketEntwurf.beschreibung = el.value;
   if (el.id === 'p-text') paketText.text = el.value;
+  if (el.classList && el.classList.contains('bg-text')) { const e = bgEntwurf(el.dataset.id); if (el.dataset.nr) bgUe(e, el.dataset.nr).notiz = el.value; else e.sonst = el.value; bgSichern(el.dataset.id, e); }
+  if (el.id === 'bg-gemacht') { const e = bgEntwurf(el.dataset.id); e.gemacht = el.value; bgSichern(el.dataset.id, e); }
 });
 
 document.addEventListener('keydown', (ev) => {
