@@ -453,3 +453,25 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .bg-neu-laden { width: auto; align-self: flex-start; margin-top: 8px; white-space: nowrap; }
 .bg-karten .bg-chip { font-size: 13px; min-height: 32px; padding: 3px 10px; }
 .bg-karten .bg-seg button { min-height: 38px; font-size: 13.5px; }
+/* Hinweisblatt zum Ausdrucken (Auftrag 26) */
+.bg-pill.warn { background: var(--amber-hell); color: var(--amber-dunkel); }
+.hb-warn { display: flex; flex-direction: column; gap: 6px; border: 2px solid var(--amber); background: var(--amber-hell); border-radius: 14px; padding: 10px 12px; margin-bottom: 10px; color: #3F2604; }
+.hb-warn b { color: var(--amber-dunkel); }
+.hb-grund { font-size: 13.5px; line-height: 1.4; border-left: 3px solid var(--amber); padding-left: 8px; }
+.knopf.hb-warn-knopf { background: var(--amber); color: #fff; border: 0; font-weight: 700; min-height: 44px; }
+.bg-pdf-knopf.warn { background: var(--amber); }
+.bg-pdf-knopf.zweit { background: #fff; color: var(--teal-dunkel); border: 1.5px solid var(--teal); }
+.bg-pdf-knopf.zweit.warn-rand { color: var(--amber-dunkel); border-color: var(--amber); }
+.hb-seiten { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+.bg-breit .hb-seiten { gap: 18px; }
+.hb-seite { margin: 0; display: flex; flex-direction: column; gap: 4px; min-width: 0; text-align: center; }
+.hb-seite img, .hb-platz { width: 100%; aspect-ratio: 794 / 1123; border: 2px solid var(--linie); border-radius: 6px; background: #fff; cursor: zoom-in; display: flex; align-items: center; justify-content: center; }
+.hb-seite.neu img { border-color: var(--amber); }
+.hb-seite figcaption { display: flex; flex-direction: column; gap: 3px; align-items: center; font-size: 13px; }
+.hb-haken-liste { display: grid; gap: 8px; margin-bottom: 8px; }
+.bg-breit .hb-haken-liste { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.hb-haken { display: flex; align-items: center; gap: 10px; text-align: left; font: inherit; font-size: 14px; padding: 10px 12px; min-height: 46px; border: 1.5px solid var(--linie); border-radius: 12px; background: #fff; color: var(--text); cursor: pointer; }
+.hb-haken:disabled { opacity: .6; }
+.hb-box { width: 22px; height: 22px; flex-shrink: 0; border-radius: 6px; border: 2px solid var(--linie); display: flex; align-items: center; justify-content: center; font-weight: 700; }
+.hb-haken[aria-pressed="true"] { border-color: var(--teal); }
+.hb-haken[aria-pressed="true"] .hb-box { background: var(--teal); border-color: var(--teal); color: #fff; }

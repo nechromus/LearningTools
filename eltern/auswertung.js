@@ -670,3 +670,50 @@ export function bogenFeedbackEntwurf(f) {
   for (const [nr, x] of Object.entries(f.uebungen || {})) uebungen[nr] = { ergebnis: x.ergebnis || 'klappt', chips: x.chips || [], notiz: x.notiz || '', fotos: (x.fotos || []).map(name => ({ name })) };
   return { von: f.von || '', gemacht: f.gemacht, anfang: f.anfang || '', stimmung: f.stimmung || '', hinweisblatt: f.hinweisblatt || '', dauer: f.dauer || null, uebungen, sonst: f.sonst || '', gesehen: Object.keys(uebungen), frei: !!f.ohne_bogen };
 }
+
+// ---------- Hinweisblatt zum Ausdrucken (Auftrag 26) ----------
+// daten/<name>/hinweisblatt/hinweisblatt.json (hinweisblatt-1) schreibt der Kinder-Chat.
+// gedruckt.json (hinweisblatt-gedruckt-1) schreibt die Eltern-App: je Seite der Stand, der zuletzt gedruckt wurde.
+const TAG = /^\d{4}-\d{2}-\d{2}$/;
+export const HINWEIS_START = '2026-10-23'; // Stand, der beim ersten Start als gedruckt gilt
+export function hinweisNorm(h) {
+  if (!h || h.format !== 'hinweisblatt-1' || !Array.isArray(h.seiten)) return null;
+  const verlauf = (Array.isArray(h.verlauf) ? h.verlauf : []).filter(v => v && TAG.test(v.datum || '') && Array.isArray(v.seiten)).map(v => ({ ...v, seiten: v.seiten.map(Number) }));
+  const seiten = h.seiten.filter(s => s && Number.isInteger(+s.nr) && +s.nr > 0).map(s => ({ ...s, nr: +s.nr, geaendert: TAG.test(s.geaendert || '') ? s.geaendert : '' })).sort((a, b) => a.nr - b.nr);
+  if (!seiten.length) return null;
+  return { ...h, seiten, verlauf };
+}
+export function gedrucktStart(h, von = 'Eltern-App', am = '') {
+  return { format: 'hinweisblatt-gedruckt-1', seiten: Object.fromEntries((h ? h.seiten : [1, 2, 3].map(nr => ({ nr }))).map(s => [String(s.nr), HINWEIS_START])), zuletzt: { von, am } };
+}
+export function gedrucktNorm(g) {
+  if (!g || g.format !== 'hinweisblatt-gedruckt-1' || !g.seiten || typeof g.seiten !== 'object') return null;
+  const seiten = {};
+  for (const [k, v] of Object.entries(g.seiten)) if (TAG.test(v || '')) seiten[String(+k)] = v;
+  return { format: g.format, seiten, zuletzt: g.zuletzt && typeof g.zuletzt === 'object' ? g.zuletzt : {} };
+}
+// Seiten, deren aktueller Stand nicht gedruckt ist
+export function hinweisNeu(h, g) {
+  if (!h) return [];
+  const gs = (g && g.seiten) || {};
+  return h.seiten.filter(s => s.geaendert && (gs[s.nr] || '') < s.geaendert);
+}
+// Ein Bogen braucht den Stand bis (bogen.hinweisblatt): Seiten mit einer Änderung nach dem gedruckten Stand und bis zu diesem Tag
+export function hinweisFuerBogen(h, g, bis) {
+  if (!h || !TAG.test(bis || '')) return [];
+  const gs = (g && g.seiten) || {};
+  return h.seiten.filter(s => {
+    const tage = new Set([s.geaendert, ...h.verlauf.filter(v => v.seiten.includes(s.nr)).map(v => v.datum)].filter(Boolean));
+    return [...tage].some(d => d > (gs[s.nr] || '') && d <= bis);
+  });
+}
+// Haken: Seite nr ist mit ihrem aktuellen Stand gedruckt (an = false: zurück auf den alten Stand)
+export function gedrucktSetzen(g, h, nr, an, von, am, alt) {
+  const s = h && h.seiten.find(x => x.nr === +nr);
+  const neu = gedrucktNorm(g) || gedrucktStart(h);
+  if (!s) return neu;
+  if (an) neu.seiten[String(s.nr)] = s.geaendert || neu.seiten[String(s.nr)];
+  else if (alt && alt < (s.geaendert || '')) neu.seiten[String(s.nr)] = alt;
+  neu.zuletzt = { von, am };
+  return neu;
+}
