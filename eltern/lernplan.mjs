@@ -1,12 +1,28 @@
-/* Gebaut aus lernplan/lernplan.js (Version 1.2.0). Nicht hier ändern. */
+/* Gebaut aus lernplan/lernplan.js (Version 1.3.0). Nicht hier ändern. */
 /* Lernplan-Darstellung: gemeinsame Quelle für die Lernplan-Seite in claude.ai und die Eltern-App.
    Quelle: LearningToolsCode/lernplan/lernplan.js (+ lernplan.css). Daraus baut `npm run lernplan`
    die Vorlage (wissensbasis/15-lernplan-seite-vorlage.html, alles eingebettet) und app/eltern/lernplan.mjs.
    Nur hier ändern. Datenformat und Regeln: wissensbasis/15-lernplan-seite.md. */
 var Lernplan = (function(){
-var VERSION = '1.2.0';
+var VERSION = '1.3.0';
 function esc0(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 // Export (Format lernplan-1, daten/<name>/lernplan.json) in die Form der Seite: Sammlungen als Listen mit _id
+// Nummern einer Erkenntnis-Gruppe als Text (auch für Tests): lückenlos „3–7“, bis 4 Einträge „3, 5, 7“, sonst „3–5, 8, 11–14“
+function nummernTextAussen(ns){ return nummernText0(ns); }
+function nummernText0(ns){
+  ns = ns.slice().sort(function(a, b){ return a - b; });
+  if (ns.length === 1) return String(ns[0]);
+  var luecken = ns.some(function(v, i){ return i && v !== ns[i - 1] + 1; });
+  if (!luecken) return ns[0] + '–' + ns[ns.length - 1];
+  if (ns.length <= 4) return ns.join(', ');
+  var teile = [], a = ns[0], b = ns[0];
+  for (var i = 1; i <= ns.length; i++) {
+    if (i < ns.length && ns[i] === b + 1) { b = ns[i]; continue; }
+    teile.push(a === b ? String(a) : a + '–' + b);
+    if (i < ns.length) { a = b = ns[i]; }
+  }
+  return teile.join(', ');
+}
 function ausExport(x){
   function liste(o){ return Object.keys(o || {}).map(function(k){ return Object.assign({ _id: k }, o[k]); }); }
   return { meta: (x && x.meta) || null, rows: liste(x && x.rows), ins: liste(x && x.insights), tage: liste(x && x.bogentage) };
@@ -61,7 +77,7 @@ root.insertAdjacentHTML('beforeend', '<div class="wrap">\n' +
   '</div>\n' +
   '<div id="lp-dlg"></div>\n' +
   '<div id="lp-toast" class="toast" role="status" hidden></div>');
-var S = { meta:null, rows:[], ins:[], tage:[], view:'zeit', open:{}, sel:null, edit:false, canEdit:false, db:null, loaded:{meta:false,rows:false,ins:false,tage:false}, shift:0 };
+var S = { meta:null, rows:[], ins:[], tage:[], view:'zeit', open:{}, sel:null, edit:false, canEdit:false, db:null, loaded:{meta:false,rows:false,ins:false,tage:false}, grp:null, z:null };
 try { S.open = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e) {}
 if (opt.hash && location.hash === '#bahnen') S.view = 'bahnen';
 
@@ -80,22 +96,119 @@ function sortedRows(){ return S.rows.slice().sort(function(a,b){ return (a.order
 function groups(){ return sortedRows().filter(function(r){ return r.group; }); }
 function isOpen(id){ return S.open[id] !== undefined ? S.open[id] : !!(S.meta && S.meta.offen && S.meta.offen.indexOf(id) >= 0); }
 
+/* ---------- Zoom (ab 1.3.0) ---------- */
+// Stufen: so viele Tage passen in die Breite. „Alles“ = ganzer Zeitraum. +/− ändern um Faktor 1,5.
+var STUFEN = [['2w', 14, '2 Wochen'], ['6w', 42, '6 Wochen'], ['3m', 91, '3 Monate'], ['alles', 0, 'Alles']];
+var ZKEY = KEY + '-zoom';
+function gesamtTage(){ return dn(S.meta.end) - dn(S.meta.start) + 1; }
+function labwPx(){ var v = parseFloat(getComputedStyle(root).getPropertyValue('--labw')); return isNaN(v) ? 260 : v; }
+// sichtbare Breite der Zeitachse (ohne Namensspalte)
+function achsenBreite(lw){ var v = $('view'), w = v ? v.clientWidth : 0; if (!w) w = (root.clientWidth || 1000) - 32; return Math.max(120, w - (lw == null ? labwPx() : lw) - 4); }
+// Startansicht: 6 Wochen (schmaler Bildschirm: 2 Wochen), gemerkte Stufe pro Betrachter
+if (!S.z) { var gem = null; try { gem = JSON.parse(localStorage.getItem(ZKEY) || 'null'); } catch(e) {} S.z = { tage: gem && gem.tage > 0 ? gem.tage : null, stufe: gem && gem.stufe || null, tag: null }; }
+function zTage(){
+  var g = gesamtTage();
+  if (!S.z.stufe && !S.z.tage) S.z.stufe = (root.clientWidth || window.innerWidth || 1000) < 721 ? '2w' : '6w';
+  var st = STUFEN.filter(function(s){ return s[0] === S.z.stufe; })[0];
+  var t = st ? (st[1] || g) : S.z.tage;
+  return Math.max(7, Math.min(g, t || 42));
+}
+function zPx(lw){ return S.z.px || Math.round(achsenBreite(lw) / zTage() * 1000) / 1000; } // S.z.px nur für den Bildvergleich mit der alten Fassung
+function zMerken(){ try { localStorage.setItem(ZKEY, JSON.stringify({ stufe: S.z.stufe, tage: S.z.stufe ? null : S.z.tage })); } catch(e) {} }
+function zStart(von, sichtbar){
+  // linker Rand: gemerkter Tag, sonst „heute“ bei einem Drittel der Breite
+  if (S.z.tag == null) S.z.tag = dn(todayIso()) - sichtbar / 3;
+  return S.z.tag;
+}
+function zoomLeiste(){
+  var g = gesamtTage(), t = zTage();
+  return '<div class="zoom" role="group" aria-label="Zeitachse zoomen"><div class="seg">' + STUFEN.map(function(s){
+    var an = S.z.stufe === s[0] || (!S.z.stufe && Math.round(t) === (s[1] || g));
+    return '<button type="button" data-zoom="' + s[0] + '" aria-pressed="' + an + '">' + s[2] + '</button>';
+  }).join('') + '</div><div class="seg zpm"><button type="button" data-zoomrel="-1" aria-label="Weiter weg" title="Weiter weg"' + (t >= g ? ' disabled' : '') + '>−</button><button type="button" data-zoomrel="1" aria-label="Näher heran" title="Näher heran"' + (t <= 7 ? ' disabled' : '') + '>+</button></div>' +
+    '<button type="button" class="btn" data-heute="1">Heute</button></div>';
+}
+// Zoom um einen Tag (Anker bleibt an derselben Stelle im Fenster)
+function zoomen(neuTage, ankerTag, ankerAnteil){
+  var g = gesamtTage(), alt = zTage();
+  neuTage = Math.max(7, Math.min(g, neuTage));
+  if (ankerTag == null) { ankerAnteil = 0.5; ankerTag = (S.z.tag == null ? dn(todayIso()) - alt / 3 : S.z.tag) + alt / 2; }
+  var st = STUFEN.filter(function(s){ return Math.abs((s[1] || g) - neuTage) < 0.5; })[0];
+  S.z.stufe = st ? st[0] : null; S.z.tage = neuTage;
+  S.z.tag = ankerTag - ankerAnteil * neuTage;
+  zMerken(); render();
+}
+function scrollerSetzen(){
+  var sc = $('view').querySelector('.scroller[data-px]'); if (!sc) return;
+  var links = $('view').querySelector('.bahn-links');
+  if (links) Array.prototype.forEach.call(sc.querySelectorAll('.lane-lab'), function(el){ links.appendChild(el); });
+  var px = +sc.dataset.px, von = +sc.dataset.von;
+  var max = sc.scrollWidth - sc.clientWidth;
+  sc.scrollLeft = Math.max(0, Math.min(max, (S.z.tag - von) * px));
+  sc.onscroll = function(){ S.z.tag = von + sc.scrollLeft / px; };
+}
+
+// Achse: Tage (nah), Wochen (mittel) oder Monate (weit). Gibt HTML für die Kopfzeile zurück.
+var MONATE = ['Jan', 'Feb', 'März', 'Apr', 'Mai', 'Juni', 'Juli', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+function wochenName(n){ var w = (S.meta.wochen || []).filter(function(w){ var s = dn(w.start); return s >= n && s < n + 7; })[0]; return w ? w.name : ''; }
+function achse(von, bis, px, x){
+  var h = '', n, d;
+  if (px >= 14) {
+    // Wochennamen oben (wie bisher), darunter jeder Tag
+    (S.meta.wochen || []).forEach(function(w){ var s = dn(w.start); if (s < von || s > bis) return; h += '<div class="wk" style="left:' + x(s, 5) + '"><b>' + esc(w.name) + '</b> <span>' + de(w.start) + '</span></div>'; });
+    // Tageszahlen: ab 18 px jeder Tag, sonst nur Mo, Mi und Fr
+    for (n = von; n <= bis; n++) { d = new Date(n * 864e5); if (px < 18 && d.getUTCDay() % 2 === 0) continue; h += '<div class="tg' + (d.getUTCDay() === 0 || d.getUTCDay() === 6 ? ' we' : '') + '" style="left:' + x(n, 0) + ';width:' + px + 'px">' + d.getUTCDate() + '</div>'; }
+  } else if (px >= 5) {
+    // jede Woche (Montag): Name aus meta.wochen, sonst Datum
+    for (n = von; n <= bis; n++) { d = new Date(n * 864e5); if (d.getUTCDay() !== 1) continue; var nm = wochenName(n); h += '<div class="wk" style="left:' + x(n, 3) + '">' + (nm ? '<b>' + esc(nm) + '</b> ' : '') + '<span>' + d.getUTCDate() + '.' + (d.getUTCMonth() + 1) + '.</span></div>'; }
+  } else {
+    for (n = von; n <= bis; n++) { d = new Date(n * 864e5); if (d.getUTCDate() !== 1 && n !== von) continue; if (n === von && d.getUTCDate() > 20) continue; h += '<div class="wk" style="left:' + x(n, 3) + '"><b>' + MONATE[d.getUTCMonth()] + '</b>' + (d.getUTCMonth() === 0 ? ' <span>' + d.getUTCFullYear() + '</span>' : '') + '</div>'; }
+  }
+  return h;
+}
+function achseLinien(von, bis, px, x){
+  var h = '', n, d;
+  if (px >= 5) (S.meta.wochen || []).forEach(function(w){ var s = dn(w.start); if (s >= von && s <= bis) h += '<div class="vline" style="left:' + x(s, 0) + '"></div>'; });
+  else for (n = von; n <= bis; n++) { d = new Date(n * 864e5); if (d.getUTCDate() === 1) h += '<div class="vline" style="left:' + x(n, 0) + '"></div>'; }
+  return h;
+}
+
+/* ---------- Erkenntnisse gruppieren (ab 1.3.0) ---------- */
+// Nummern als kurzer Text: lückenlos „3–7“, bis 4 Einträge „3, 5, 7“, sonst „3–5, 8, 11–14“
+var nummernText = nummernText0;
+function markerBreite(text){ return Math.max(26, Math.round(String(text).length * 7.2 + 14)); }
+// liste: [{ e, pos }] nach pos sortiert; Marker, die sich überdecken würden, werden eine Gruppe am frühesten Datum
+function gruppieren(liste, abstand){
+  var gruppen = [];
+  liste.forEach(function(it){
+    var g = gruppen[gruppen.length - 1];
+    if (g && it.pos < g.pos + markerBreite(nummernText(g.ns)) + (abstand == null ? 4 : abstand) - 2) { g.items.push(it.e); g.ns.push(it.e.n); return; }
+    gruppen.push({ pos: it.pos, items: [it.e], ns: [it.e.n] });
+  });
+  gruppen.forEach(function(g){ g.text = nummernText(g.ns); g.breite = markerBreite(g.text); g.ids = g.items.map(function(e){ return e._id; }); });
+  return gruppen;
+}
+function insSortiert(){ return S.ins.slice().sort(function(a, b){ return (dn(a.date) - dn(b.date)) || (a.n - b.n); }); }
+function gruppeAn(ids){ return S.grp && S.grp.length === ids.length && ids.every(function(id){ return S.grp.indexOf(id) >= 0; }); }
+
 /* ---------- Zeitleiste ---------- */
 function renderZeit(){
-  var m = S.meta, PX = 16, start = dn(m.start), end = dn(m.end), days = end - start + 1, L = 'var(--labw)';
-  function x(s){ return (dn(s) - start) * PX; }
-  var W = days * PX;
-  var h = '<div class="card scroller"><div class="tl" style="min-width:calc(' + L + ' + ' + W + 'px)">';
+  var m = S.meta, start = dn(m.start), end = dn(m.end), days = end - start + 1, L = 'var(--labw)';
+  var PX = zPx(), sichtbar = zTage();
+  zStart(start, sichtbar);
+  function xs(s){ return (dn(s) - start) * PX; }
+  function xn(n, plus){ return 'calc(' + L + ' + ' + ((n - start) * PX + (plus || 0)) + 'px)'; }
+  var W = days * PX, tagModus = PX >= 14;
+  var h = zoomLeiste();
+  h += '<div class="card scroller" data-px="' + PX + '" data-von="' + start + '"><div class="tl" style="min-width:calc(' + L + ' + ' + W + 'px)">';
   // Kopf
-  h += '<div class="hdr"><div class="stickyl" style="background:var(--surface-2);color:var(--muted)">Paket / Thema</div>';
-  (m.wochen||[]).forEach(function(w){ h += '<div class="wk" style="left:calc(' + L + ' + ' + (x(w.start) + 5) + 'px)"><b>' + esc(w.name) + '</b> <span>' + de(w.start) + '</span></div>'; });
-  h += '</div>';
-  // Erkenntnisse
+  h += '<div class="hdr' + (tagModus ? ' tage' : '') + '"><div class="stickyl" style="background:var(--surface-2);color:var(--muted)">Paket / Thema</div>' + achse(start, end, PX, xn) + '</div>';
+  // Erkenntnisse: jeder Marker genau an seinem Datum, überdeckende Marker als Gruppe
   h += '<div class="mrow"><div class="stickyl" style="background:var(--amber-soft);color:var(--amber-ink)">Erkenntnisse</div>';
-  var lastX = -1e9;
-  S.ins.slice().sort(function(a,b){ return (dn(a.date) - dn(b.date)) || (a.n - b.n); }).forEach(function(e){
-    var px = Math.max(x(e.date) - 5, lastX + 30); lastX = px;
-    h += '<button type="button" class="mark" data-ins="' + esc(e._id) + '" aria-pressed="' + (S.sel === e._id) + '" aria-label="Erkenntnis ' + esc(e.n) + ' vom ' + esc(de(e.date)) + '" style="left:calc(' + L + ' + ' + px + 'px)">' + esc(e.n) + '</button>';
+  gruppieren(insSortiert().map(function(e){ return { e: e, pos: xs(e.date) + PX / 2 - 13 }; })).forEach(function(g){
+    var an = g.items.length > 1 ? gruppeAn(g.ids) : (S.sel === g.ids[0] && !(S.grp && S.grp.length > 1));
+    var e0 = g.items[0];
+    h += '<button type="button" class="mark' + (g.items.length > 1 ? ' grp' : '') + '" data-' + (g.items.length > 1 ? 'grp="' + esc(g.ids.join(',')) : 'ins="' + esc(e0._id)) + '" aria-pressed="' + an + '" aria-label="' + (g.items.length > 1 ? 'Erkenntnisse ' + esc(g.text) + ' ab ' + esc(de(e0.date)) : 'Erkenntnis ' + esc(e0.n) + ' vom ' + esc(de(e0.date))) + '" style="left:calc(' + L + ' + ' + g.pos + 'px)' + (g.items.length > 1 ? ';width:' + g.breite + 'px' : '') + '">' + esc(g.text) + '</button>';
   });
   h += '</div>';
   // Zeilen
@@ -117,26 +230,29 @@ function renderZeit(){
     (r.bars||[]).forEach(function(b){
       var f = Math.max(dn(b.from), start), t = Math.min(dn(b.to), end);
       if (isNaN(f) || isNaN(t) || t < f) return;
-      var l = (f - start) * PX, w = Math.max((t - f + 1) * PX, 14);
+      var l = (f - start) * PX, w = Math.max((t - f + 1) * PX, Math.min(14, PX));
       var thin = b.kind === 'app' || b.kind === 'planapp';
       var lab = thin ? '' : (b.lab || '');
       var fits = lab && (lab.length * 6.6 + 10) <= w;
-      body += '<div class="bar ' + esc(b.kind) + '" style="left:calc(' + L + ' + ' + l + 'px);width:' + w + 'px" title="' + esc(b.lab || '') + ' ' + de(b.from) + '–' + de(b.to) + '">' + (fits ? esc(lab) : '') + '</div>';
-      if (lab && !fits) body += '<div class="blab" style="left:calc(' + L + ' + ' + (l + w + 4) + 'px)">' + esc(lab) + '</div>';
+      var tipp = lab && !fits && w < 10; // sehr schmal: Text nur beim Antippen oder Überfahren
+      body += '<div class="bar ' + esc(b.kind) + '"' + (tipp ? ' data-tipp="' + esc(lab + ' · ' + de(b.from) + '–' + de(b.to)) + '"' : '') + ' style="left:calc(' + L + ' + ' + l + 'px);width:' + w + 'px" title="' + esc(b.lab || '') + ' ' + de(b.from) + '–' + de(b.to) + '">' + (fits ? esc(lab) : '') + '</div>';
+      if (lab && !fits && !tipp) body += '<div class="blab" style="left:calc(' + L + ' + ' + (l + w + 4) + 'px)">' + esc(lab) + '</div>';
     });
     body += '</div>';
   });
   if (!rows.length) body = '<div class="empty">Noch keine Zeilen. Claude trägt die Pakete und Themen ein; im Bearbeiten-Modus kannst du selbst Zeilen anlegen.</div>';
   // Linien
-  var lines = '';
-  (m.wochen||[]).forEach(function(w){ lines += '<div class="vline" style="left:calc(' + L + ' + ' + x(w.start) + 'px)"></div>'; });
+  var lines = achseLinien(start, end, PX, xn);
   var t = todayIso();
-  if (dn(t) >= start && dn(t) <= end) lines += '<div class="today" style="left:calc(' + L + ' + ' + (x(t) + PX/2) + 'px)"></div><div class="flag" style="bottom:4px;color:var(--amber-ink);left:calc(' + L + ' + ' + (x(t) + PX/2 + 4) + 'px)">heute</div>';
-  if (m.test && m.test.datum) lines += '<div class="testl" style="left:calc(' + L + ' + ' + (x(m.test.datum) + PX/2) + 'px)"></div><div class="flag" style="bottom:4px;color:var(--clay);left:calc(' + L + ' + ' + (x(m.test.datum) + PX/2 + 4) + 'px)">' + esc(m.test.name || 'Schultest') + (m.test.offen ? ' (Datum offen)' : '') + '</div>';
+  if (dn(t) >= start && dn(t) <= end) lines += '<div class="today" style="left:calc(' + L + ' + ' + (xs(t) + PX/2) + 'px)"></div><div class="flag" style="bottom:4px;color:var(--amber-ink);left:calc(' + L + ' + ' + (xs(t) + PX/2 + 4) + 'px)">heute</div>';
+  if (m.test && m.test.datum) lines += '<div class="testl" style="left:calc(' + L + ' + ' + (xs(m.test.datum) + PX/2) + 'px)"></div><div class="flag" style="bottom:4px;color:var(--clay);left:calc(' + L + ' + ' + (xs(m.test.datum) + PX/2 + 4) + 'px)">' + esc(m.test.name || 'Schultest') + (m.test.offen ? ' (Datum offen)' : '') + '</div>';
   h += '<div style="position:relative">' + lines + body + '</div></div></div>';
-  // Erkenntnis-Karte (unten fest über der Zeitleiste)
+  // Erkenntnis-Karte (unten fest über der Zeitleiste); bei einer Gruppe mit Nummern-Leiste und ‹ ›
   if (selIns) {
-    h += '<section class="ins" aria-live="polite" aria-label="Erkenntnis ' + esc(selIns.n) + '"><div class="num">' + esc(selIns.n) + '</div><div style="min-width:0">' +
+    var grp = S.grp && S.grp.length > 1 ? S.grp.map(function(id){ return S.ins.filter(function(e){ return e._id === id; })[0]; }).filter(Boolean) : null;
+    var gi = grp ? grp.indexOf(selIns) : -1;
+    var leiste = grp ? '<div class="gleiste" role="group" aria-label="Erkenntnisse der Gruppe"><button type="button" class="gpf" data-gschritt="-1" aria-label="Vorherige"' + (gi <= 0 ? ' disabled' : '') + '>‹</button>' + grp.map(function(e){ return '<button type="button" class="gnr" data-gwahl="' + esc(e._id) + '" aria-pressed="' + (e === selIns) + '">' + esc(e.n) + '</button>'; }).join('') + '<button type="button" class="gpf" data-gschritt="1" aria-label="Nächste"' + (gi >= grp.length - 1 ? ' disabled' : '') + '>›</button></div>' : '';
+    h += '<section class="ins" aria-live="polite" aria-label="Erkenntnis ' + esc(selIns.n) + '"><div class="num">' + esc(selIns.n) + '</div><div style="min-width:0">' + leiste +
       '<div class="meta"><span class="chip ' + srcClass(selIns.src) + '">' + esc(selIns.src) + '</span><span>' + esc(de(selIns.date)) + '</span><span>· betrifft die hervorgehobenen Zeilen</span>' + (S.edit ? '<button type="button" class="btn ghost" style="min-height:28px;padding:2px 10px;font-size:12px" data-editins="' + esc(selIns._id) + '">Ändern</button>' : '') + '</div>' +
       '<div class="three"><div><div class="k">Gesehen</div>' + esc(selIns.obs) + '</div><div><div class="k ch">Geändert</div>' + esc(selIns.eff) + '</div><div><div class="k wa">Wirkt ab</div>' + esc(selIns.when) + '</div></div></div>' +
       '<button type="button" class="x" data-unsel="1" aria-label="Erkenntnis abwählen" title="Abwählen"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="var(--fg)" stroke-width="2.4" stroke-linecap="round"></path></svg></button></section>';
@@ -148,38 +264,54 @@ function renderZeit(){
 
 /* ---------- Bahnen ---------- */
 function renderBahnen(){
-  var m = S.meta, PX = 50, LW = 130;
-  var von = dn((m.fenster && m.fenster.von) || m.start) + S.shift * 7, days = 21, bis = von + days - 1;
+  var m = S.meta, LW = 130;
+  var von = dn(m.start), bis = dn(m.end), days = bis - von + 1;
+  var PX = zPx(LW), sichtbar = zTage();
+  zStart(von, sichtbar);
   function x(n){ return LW + (n - von) * PX; }
-  var W = LW + days * PX;
-  var h = '<div class="controls"><button type="button" class="btn" id="lp-prev">← 1 Woche</button><span class="chip src-bogen" style="font-size:13px;padding:4px 10px">' + de(iso(von)) + ' – ' + de(iso(bis)) + '</span><button type="button" class="btn" id="lp-next">1 Woche →</button></div>';
-  h += '<div class="card scroller"><div style="position:relative;min-width:' + W + 'px;height:600px">';
-  // Tage
-  for (var i = 0; i < days; i++) {
-    var dd = new Date((von + i) * 864e5), we = dd.getUTCDay() === 0 || dd.getUTCDay() === 6;
-    h += '<div style="position:absolute;top:30px;bottom:0;width:' + PX + 'px;left:' + x(von + i) + 'px;border-left:1px solid var(--line-soft);background:' + (we ? 'var(--surface-2)' : 'transparent') + '"></div>';
-    h += '<div style="position:absolute;top:36px;width:' + PX + 'px;left:' + x(von + i) + 'px;text-align:center;font-size:12px;color:var(--muted)">' + dd.getUTCDate() + '.</div>';
+  function xn(n, plus){ return (x(n) + (plus || 0)) + 'px'; }
+  var W = LW + days * PX, eng = PX < 30, sehrEng = PX < 14;
+  var tw = Math.max(PX - (eng ? 2 : 8), 3), tl = eng ? 1 : 4; // Kachel-Breite und -Abstand
+  var h = zoomLeiste();
+  h += '<div class="card bahnkarte"><div class="scroller" data-px="' + PX + '" data-von="' + von + '" data-lw="' + LW + '"><div style="position:relative;min-width:' + W + 'px;height:600px">';
+  // Tage bzw. Achse
+  if (!sehrEng) {
+    for (var i = 0; i < days; i++) {
+      var dd = new Date((von + i) * 864e5), we = dd.getUTCDay() === 0 || dd.getUTCDay() === 6;
+      h += '<div style="position:absolute;top:30px;bottom:0;width:' + PX + 'px;left:' + x(von + i) + 'px;border-left:1px solid var(--line-soft);background:' + (we ? 'var(--surface-2)' : 'transparent') + '"></div>';
+      h += '<div style="position:absolute;top:36px;width:' + PX + 'px;left:' + x(von + i) + 'px;text-align:center;font-size:12px;color:var(--muted)">' + dd.getUTCDate() + '.</div>';
+    }
+    (m.wochen||[]).forEach(function(w){ var n = dn(w.start); if (n >= von && n <= bis) h += '<div style="position:absolute;top:8px;left:' + (x(n) + 6) + 'px;font-size:13px;font-weight:700">' + esc(w.name) + '</div>'; });
+  } else {
+    h += '<div class="hdr bahn-achse">' + achse(von, bis, PX, xn) + '</div>' + achseLinien(von, bis, PX, function(n){ return x(n) + 'px'; }).replace(/class="vline"/g, 'class="vline" data-ab="30"');
   }
-  (m.wochen||[]).forEach(function(w){ var n = dn(w.start); if (n >= von && n <= bis) h += '<div style="position:absolute;top:8px;left:' + (x(n) + 6) + 'px;font-size:13px;font-weight:700">' + esc(w.name) + '</div>'; });
   var tage = noBoegen() ? [] : S.tage.slice().sort(function(a,b){ return dn(a.date) - dn(b.date); });
-  if (noBoegen()) h += freiBahn(von, bis, x, PX);
+  if (noBoegen()) h += freiBahn(von, bis, x, PX, tw, tl);
   // Bahn Bögen
   else h += '<div class="lane-lab" style="position:absolute;top:64px;height:124px;background:var(--surface-2)"><div style="font-family:var(--f-display);color:var(--teal);font-size:16px">Bögen</div><div style="font-weight:400;color:var(--muted);margin-top:4px">auf Papier, führt Neues ein</div></div>';
   tage.forEach(function(t){
     var n = dn(t.date); if (n < von || n > bis) return;
-    h += '<button type="button" class="tile ' + esc(t.status || 'plan') + '" data-tag="' + esc(t._id) + '" style="top:76px;height:104px;width:' + (PX - 8) + 'px;left:' + (x(n) + 4) + 'px" aria-label="Bogen ' + esc(t.wk) + ' ' + esc(t.day) + ', Details"><div style="font-weight:700;opacity:.85">' + esc(t.wk) + '</div><div class="d">' + esc(t.day) + '</div><div class="t">' + esc(t.theme) + '</div></button>';
+    h += '<button type="button" class="tile ' + esc(t.status || 'plan') + (eng ? ' klein' : '') + '" data-tag="' + esc(t._id) + '" title="' + esc('Bogen ' + t.wk + ' ' + t.day + ' · ' + de(t.date)) + '" style="top:76px;height:104px;width:' + tw + 'px;left:' + (x(n) + tl) + 'px" aria-label="Bogen ' + esc(t.wk) + ' ' + esc(t.day) + ', Details">' +
+      (eng ? (sehrEng ? '' : '<div class="d">' + esc(t.day) + '</div>') : '<div style="font-weight:700;opacity:.85">' + esc(t.wk) + '</div><div class="d">' + esc(t.day) + '</div><div class="t">' + esc(t.theme) + '</div>') + '</button>';
   });
-  if (m.test && m.test.datum) { var tn = dn(m.test.datum); if (tn >= von && tn <= bis) h += '<button type="button" class="tile test" data-test="1" style="top:76px;height:104px;width:' + (PX - 8) + 'px;left:' + (x(tn) + 4) + 'px"><b>' + esc(m.test.name || 'Schultest') + '</b>' + (m.test.offen ? '<span>Datum offen</span>' : '') + '</button>'; }
-  // Rückmeldung
+  if (m.test && m.test.datum) { var tn = dn(m.test.datum); if (tn >= von && tn <= bis) h += '<button type="button" class="tile test' + (eng ? ' klein' : '') + '" data-test="1" title="' + esc(m.test.name || 'Schultest') + '" style="top:76px;height:104px;width:' + tw + 'px;left:' + (x(tn) + tl) + 'px">' + (eng ? (sehrEng ? '' : '<b>!</b>') : '<b>' + esc(m.test.name || 'Schultest') + '</b>' + (m.test.offen ? '<span>Datum offen</span>' : '')) + '</button>'; }
+  // Rückmeldung (bei engem Zoom gruppiert wie die Erkenntnis-Marker)
   h += '<div class="lane-lab" style="position:absolute;top:196px;height:84px;background:var(--amber-soft);color:var(--amber-ink)">Rückmeldung<div style="font-weight:400;color:var(--muted);margin-top:3px">' + (noBoegen() ? 'aus App und Feedback in neue Inhalte' : 'aus App und Bogen in den nächsten Bogen') + '</div></div>';
-  var feedRow = {};
-  S.ins.forEach(function(e){
-    if (!e.ab) return; var n = dn(e.ab); if (n < von || n > bis) return;
-    var lvl = feedRow[n] || 0; feedRow[n] = lvl + 1; if (lvl > 1) return;
-    h += '<button type="button" class="feed" data-feed="' + esc(e._id) + '" style="top:' + (204 + lvl * 36) + 'px;left:' + (x(n) + 3) + 'px;width:' + (2 * PX - 6) + 'px;text-align:left">' + esc(e.n) + ' · ' + esc(e.kurz || e.eff) + '</button>';
-  });
+  if (PX >= 40) {
+    var feedRow = {};
+    S.ins.forEach(function(e){
+      if (!e.ab) return; var n = dn(e.ab); if (n < von || n > bis) return;
+      var lvl = feedRow[n] || 0; feedRow[n] = lvl + 1; if (lvl > 1) return;
+      h += '<button type="button" class="feed" data-feed="' + esc(e._id) + '" style="top:' + (204 + lvl * 36) + 'px;left:' + (x(n) + 3) + 'px;width:' + (2 * PX - 6) + 'px;text-align:left">' + esc(e.n) + ' · ' + esc(e.kurz || e.eff) + '</button>';
+    });
+  } else {
+    var mitAb = S.ins.filter(function(e){ return e.ab && dn(e.ab) >= von && dn(e.ab) <= bis; }).sort(function(a, b){ return (dn(a.ab) - dn(b.ab)) || (a.n - b.n); });
+    gruppieren(mitAb.map(function(e){ return { e: e, pos: x(dn(e.ab)) + PX / 2 - 13 }; })).forEach(function(g){
+      h += '<button type="button" class="mark feedm' + (g.items.length > 1 ? ' grp' : '') + '" data-feed="' + esc(g.ids.join(',')) + '" aria-label="Rückmeldung ' + esc(g.text) + ' ab ' + esc(de(g.items[0].ab)) + '" style="top:222px;left:' + g.pos + 'px' + (g.items.length > 1 ? ';width:' + g.breite + 'px' : '') + '">' + esc(g.text) + '</button>';
+    });
+  }
   // Bahnen App
-  h += '<div style="position:absolute;top:284px;left:12px;font-family:var(--f-display);font-weight:700;color:var(--amber-ink);font-size:13px">App</div>';
+  h += '<div class="lane-lab lane-app" style="position:absolute;top:284px;left:0;padding:0 12px;border:0;background:transparent;font-family:var(--f-display);font-weight:700;color:var(--amber-ink);font-size:13px">App</div>';
   var top = 306;
   groups().forEach(function(g){
     var blocks = (g.bars||[]).filter(function(b){ return b.kind === 'app' || b.kind === 'planapp'; });
@@ -187,7 +319,8 @@ function renderBahnen(){
     h += '<div class="lane-lab" style="position:absolute;top:' + (top - 6) + 'px;height:44px;background:var(--surface)">' + esc(g.lane || g.label) + '</div>';
     blocks.forEach(function(b, bi){
       var f = Math.max(dn(b.from), von), t = Math.min(dn(b.to), bis); if (t < f) return;
-      h += '<button type="button" class="blk ' + esc(b.kind) + '" data-blk="' + esc(g._id) + '|' + bi + '" style="top:' + top + 'px;left:' + x(f) + 'px;width:' + ((t - f + 1) * PX - 2) + 'px;text-align:left" aria-label="' + esc((g.lane || g.label) + ': ' + (b.lab || 'App')) + ', Details">' + esc(b.lab || '') + '</button>';
+      var bw = Math.max((t - f + 1) * PX - 2, 3);
+      h += '<button type="button" class="blk ' + esc(b.kind) + '" data-blk="' + esc(g._id) + '|' + bi + '" title="' + esc((b.lab || 'App') + ' · ' + de(b.from) + '–' + de(b.to)) + '" style="top:' + top + 'px;left:' + x(f) + 'px;width:' + bw + 'px;text-align:left' + (bw < 24 ? ';padding:0' : '') + '" aria-label="' + esc((g.lane || g.label) + ': ' + (b.lab || 'App')) + ', Details">' + (bw < 24 ? '' : esc(b.lab || '')) + '</button>';
     });
     top += 52;
   });
@@ -196,13 +329,14 @@ function renderBahnen(){
     if (!t.etappe) return; var n = dn(t.date) + 1; if (n < von || n > bis) return;
     var g = groups().filter(function(gg){ return gg._id === t.etappe.paket; })[0]; if (!g) return;
     var idx = 0, yy = 306; groups().forEach(function(gg){ var has = (gg.bars||[]).some(function(b){ return b.kind === 'app' || b.kind === 'planapp'; }); if (!has) return; if (gg._id === g._id) yy = 306 + idx * 52; idx++; });
-    h += '<div class="link" style="top:182px;height:' + (yy - 182) + 'px;left:' + (x(n) + 8) + 'px"></div><div class="flag" style="top:' + (yy - 18) + 'px;left:' + (x(n) + 12) + 'px;color:var(--teal)">ab morgen: E' + esc(t.etappe.nr) + '</div>';
+    h += '<div class="link" style="top:182px;height:' + (yy - 182) + 'px;left:' + (x(n) + Math.min(8, PX / 2)) + 'px"></div>' + (PX >= 30 ? '<div class="flag" style="top:' + (yy - 18) + 'px;left:' + (x(n) + 12) + 'px;color:var(--teal)">ab morgen: E' + esc(t.etappe.nr) + '</div>' : '');
   });
   var td = dn(todayIso());
   if (td >= von && td <= bis) h += '<div class="today" style="top:56px;left:' + (x(td) + PX/2) + 'px"></div><div class="flag" style="top:56px;color:var(--amber-ink);left:' + (x(td) + PX/2 + 4) + 'px">heute</div>';
-  h += '</div></div>';
-  // Karten
-  var near = S.ins.filter(function(e){ var n = dn(e.date); return n >= von - 21 && n <= bis; }).sort(function(a,b){ return b.n - a.n; }).slice(0, 8);
+  h += '</div></div><div class="bahn-links" aria-hidden="false"></div></div>';
+  // Karten: Erkenntnisse aus dem sichtbaren Zeitraum (und den drei Wochen davor)
+  var sv = S.z.tag, sb = sv + sichtbar;
+  var near = S.ins.filter(function(e){ var n = dn(e.date); return n >= sv - 21 && n <= sb; }).sort(function(a,b){ return b.n - a.n; }).slice(0, 8);
   h += '<h2 style="margin:6px 0 0;font-family:var(--f-display);font-size:19px">Erkenntnisse und ihre Wirkung</h2>';
   h += near.length ? '<div class="cards">' + near.map(function(e){
     return '<button type="button" class="icard" data-ins="' + esc(e._id) + '"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;width:100%"><span class="chip ' + srcClass(e.src) + '">' + esc(e.n) + ' · ' + esc(e.src) + '</span><span style="color:var(--muted)">' + esc(de(e.date)) + '</span></div><div style="font-size:14px"><b>Gesehen:</b> ' + esc(e.obs) + '</div><div style="font-size:12px;font-weight:700;color:var(--teal)">↓ geändert</div><div style="font-size:14px">' + esc(e.eff) + '</div><div class="when">wirkt ab <b>' + esc(e.when) + '</b></div></button>';
@@ -211,13 +345,15 @@ function renderBahnen(){
 }
 
 /* ---------- Freischaltungen (Schalter boegen: false) ---------- */
-function freiBahn(von, bis, x, PX){
+function freiBahn(von, bis, x, PX, tw, tl){
+  var eng = PX < 30, sehrEng = PX < 14; tw = tw || PX - 8; tl = tl == null ? 4 : tl;
   var h = '<div class="lane-lab" style="position:absolute;top:64px;height:124px;background:var(--surface-2)"><div style="font-family:var(--f-display);color:var(--teal);font-size:16px">Freischaltungen</div><div style="font-weight:400;color:var(--muted);margin-top:4px">Etappen schalten in der App automatisch frei</div></div>';
   var et = S.rows.filter(function(r){ return r.etappe; }), td = dn(todayIso()), byDay = {};
   et.forEach(function(r){ if (!r.etappe.ab) return; var n = dn(r.etappe.ab); if (n < von || n > bis) return; (byDay[n] = byDay[n] || []).push(r); });
   Object.keys(byDay).forEach(function(k){
     var n = +k, list = byDay[k];
-    h += '<button type="button" class="tile ' + (n <= td ? 'done' : 'next') + '" data-frei="' + esc(list.map(function(r){ return r._id; }).join(',')) + '" style="top:76px;height:104px;width:' + (PX - 8) + 'px;left:' + (x(n) + 4) + 'px;overflow:hidden" aria-label="Freigeschaltet am ' + esc(de(iso(n))) + ', Details"><div class="d">' + new Date(n * 864e5).getUTCDate() + '.</div><div class="t">' + (list.length > 2 ? esc(list.map(function(r){ return 'E' + r.etappe.nr; }).filter(function(v, i, a){ return a.indexOf(v) === i; }).join(', ')) + '\n' + list.length + ' Pakete' : list.map(function(r){ return esc(etName(r)); }).join('\n')) + '</div></button>';
+    var inhalt = eng ? (sehrEng ? '' : '<div class="d">' + list.length + '</div>') : '<div class="d">' + new Date(n * 864e5).getUTCDate() + '.</div><div class="t">' + (list.length > 2 ? esc(list.map(function(r){ return 'E' + r.etappe.nr; }).filter(function(v, i, a){ return a.indexOf(v) === i; }).join(', ')) + '\n' + list.length + ' Pakete' : list.map(function(r){ return esc(etName(r)); }).join('\n')) + '</div>';
+    h += '<button type="button" class="tile ' + (n <= td ? 'done' : 'next') + (eng ? ' klein' : '') + '" data-frei="' + esc(list.map(function(r){ return r._id; }).join(',')) + '" title="' + esc(de(iso(n)) + ': ' + list.map(etName).join(', ')) + '" style="top:76px;height:104px;width:' + tw + 'px;left:' + (x(n) + tl) + 'px;overflow:hidden" aria-label="Freigeschaltet am ' + esc(de(iso(n))) + ', Details">' + inhalt + '</button>';
   });
   // offene Etappen: je Paket die nächste, ohne Datum, ab morgen der Reihe nach
   var next = {}; et.forEach(function(r){ if (r.etappe.ab) return; var p = r.etappe.paket; if (!next[p] || r.etappe.nr < next[p].etappe.nr) next[p] = r; });
@@ -226,7 +362,7 @@ function freiBahn(von, bis, x, PX){
   sortedRows().filter(function(r){ return next[r.etappe && r.etappe.paket] === r; }).forEach(function(r){
     while (used[pos] || used[pos + 1]) pos++;
     if (pos > bis) return;
-    h += '<button type="button" class="tile offen" data-frei="' + esc(r._id) + '" style="top:76px;height:104px;width:' + (PX - 8) + 'px;left:' + (x(pos) + 4) + 'px;overflow:hidden" aria-label="' + esc(etName(r)) + ', noch gesperrt, Details"><div class="d">?</div><div class="t">' + esc(etName(r)) + '</div></button>';
+    h += '<button type="button" class="tile offen' + (eng ? ' klein' : '') + '" data-frei="' + esc(r._id) + '" title="' + esc(etName(r)) + '" style="top:76px;height:104px;width:' + tw + 'px;left:' + (x(pos) + tl) + 'px;overflow:hidden" aria-label="' + esc(etName(r)) + ', noch gesperrt, Details">' + (sehrEng ? '' : '<div class="d">?</div>' + (eng ? '' : '<div class="t">' + esc(etName(r)) + '</div>')) + '</button>';
     used[pos] = 1; pos += 2;
   });
   return h;
@@ -261,6 +397,8 @@ function render(){
   if (S.meta.eyebrow) $('eyebrow').textContent = S.meta.eyebrow;
   if (S.meta.titel) $('title').textContent = S.meta.titel;
   v.innerHTML = S.view === 'zeit' ? renderZeit() : renderBahnen();
+  S.breite = v.clientWidth;
+  scrollerSetzen();
   var hasCard = S.view === 'zeit' && S.ins.some(function(e){ return e._id === S.sel; });
   root.querySelector('.wrap').style.paddingBottom = hasCard ? 'calc(260px + env(safe-area-inset-bottom, 0px))' : '';
 }
@@ -497,6 +635,13 @@ function openBlk(key, opener){
   infoSheet(esc(g.lane || g.label), 'App', b, opener, S.edit ? '<button type="button" class="btn" data-edit-row="' + esc(g._id) + '">Ändern</button>' : '');
 }
 function openInsInfo(id, opener){
+  // Gruppe aus der Rückmeldungs-Bahn: alle Erkenntnisse der Gruppe
+  if (id.indexOf(',') >= 0) {
+    var liste = id.split(',').map(function(i){ return S.ins.filter(function(x){ return x._id === i; })[0]; }).filter(Boolean);
+    if (!liste.length) return;
+    infoSheet('Erkenntnisse ' + esc(nummernText(liste.map(function(e){ return e.n; }))), 'Rückmeldung', liste.map(insMini).join(''), opener, '');
+    return;
+  }
   var e = S.ins.filter(function(x){ return x._id === id; })[0]; if (!e) return;
   var names = (e.rows || []).map(function(r){ var rr = rowById(r); return rr ? esc(rr.label) : ''; }).filter(Boolean).join(', ');
   var b = kv('Woher', '<span class="chip ' + srcClass(e.src) + '">' + esc(e.src) + '</span> ' + esc(de(e.date))) + kv('Gesehen', esc(e.obs)) + kv('Geändert', esc(e.eff)) + kv('Wirkt ab', esc(e.when)) + (names ? kv('Betrifft', names) : '');
@@ -519,21 +664,77 @@ $('add-ins').onclick = function(){ editIns(null); };
 $('add-tag').onclick = function(){ editTag(null); };
 $('edit-meta').onclick = editMeta;
 $('view').addEventListener('click', function(e){
-  var t = e.target.closest('button'); if (!t) return;
-  if (t.id === 'lp-prev') { S.shift--; render(); return; }
-  if (t.id === 'lp-next') { S.shift++; render(); return; }
+  if (zieh.bewegt) { zieh.bewegt = false; return; }
+  var t = e.target.closest('button');
+  if (!t) { var tp = e.target.closest('[data-tipp]'); if (tp) toast(tp.dataset.tipp); return; }
+  if (t.dataset.zoom) {
+    // Stufe wählen: „heute“ bleibt an seiner Stelle, wenn es zu sehen ist, sonst die Mitte
+    var st = STUFEN.filter(function(s){ return s[0] === t.dataset.zoom; })[0], alt = zTage(), td = dn(todayIso()) + 0.5, li = S.z.tag;
+    if (li != null && td >= li && td <= li + alt) zoomen(st[1] || gesamtTage(), td, (td - li) / alt); else zoomen(st[1] || gesamtTage());
+    return;
+  }
+  if (t.dataset.zoomrel) { zoomen(zTage() / (+t.dataset.zoomrel > 0 ? 1.5 : 1 / 1.5)); return; }
+  if (t.dataset.heute) { S.z.tag = dn(todayIso()) - zTage() / 3; render(); return; }
+  if (t.dataset.grp) { var ids = t.dataset.grp.split(','); if (S.view === 'zeit' && gruppeAn(ids)) { S.sel = null; S.grp = null; render(); return; } S.grp = ids; S.sel = ids[0]; render(); return; }
+  if (t.dataset.gwahl) { S.sel = t.dataset.gwahl; render(); return; }
+  if (t.dataset.gschritt) { var gi = (S.grp || []).indexOf(S.sel) + (+t.dataset.gschritt); if (S.grp && S.grp[gi]) { S.sel = S.grp[gi]; render(); } return; }
   if (t.dataset.bsp) { openBeispiel(t.dataset.bsp, t); return; }
   if (t.dataset.toggle) { S.open[t.dataset.toggle] = !isOpen(t.dataset.toggle); saveOpen(); render(); return; }
   if (t.dataset.editins) { editIns(t.dataset.editins); return; }
-  if (t.dataset.unsel) { S.sel = null; render(); return; }
-  if (t.dataset.ins) { if (S.view === 'zeit' && S.sel === t.dataset.ins) { S.sel = null; render(); return; } S.sel = t.dataset.ins; if (S.view === 'bahnen') S.view = 'zeit'; render(); return; }
+  if (t.dataset.unsel) { S.sel = null; S.grp = null; render(); return; }
+  if (t.dataset.ins) { if (S.view === 'zeit' && S.sel === t.dataset.ins && !S.grp) { S.sel = null; render(); return; } S.grp = null; S.sel = t.dataset.ins; if (S.view === 'bahnen') S.view = 'zeit'; render(); return; }
   if (t.dataset.row && S.edit) { editRow(t.dataset.row); return; }
   if (t.dataset.tag) { openTag(t.dataset.tag, t); return; }
   if (t.dataset.frei) { openFrei(t.dataset.frei, t); return; }
   if (t.dataset.blk) { openBlk(t.dataset.blk, t); return; }
   if (t.dataset.feed) { openInsInfo(t.dataset.feed, t); return; }
+
   if (t.dataset.test) { openTest(t); return; }
 });
+/* Zoom mit Strg/⌘ + Mausrad und zwei Fingern, Verschieben durch Ziehen mit der Maus (ab 1.3.0) */
+function ankerBei(sc, clientX){
+  var r = sc.getBoundingClientRect(), lw = S.view === 'zeit' ? labwPx() : 130;
+  var px = +sc.dataset.px, von = +sc.dataset.von, sichtbar = sc.clientWidth - lw;
+  var rel = Math.max(0, Math.min(sichtbar, clientX - r.left - lw));
+  return { tag: von + (sc.scrollLeft + rel) / px, anteil: rel / Math.max(1, sichtbar) };
+}
+$('view').addEventListener('wheel', function(e){
+  var sc = e.target.closest('.scroller[data-px]'); if (!sc || !(e.ctrlKey || e.metaKey)) return;
+  e.preventDefault();
+  var a = ankerBei(sc, e.clientX);
+  zoomen(zTage() * Math.exp(e.deltaY * 0.004), a.tag, a.anteil);
+}, { passive: false });
+var zieh = { aktiv: false, bewegt: false };
+$('view').addEventListener('pointerdown', function(e){
+  var sc = e.target.closest('.scroller[data-px]');
+  if (!sc || e.pointerType !== 'mouse' || e.button !== 0 || e.target.closest('.lab, .stickyl, .lane-lab')) return;
+  zieh = { aktiv: true, bewegt: false, x: e.clientX, links: sc.scrollLeft, sc: sc };
+});
+window.addEventListener('pointermove', function(e){
+  if (!zieh.aktiv) return;
+  var dx = e.clientX - zieh.x;
+  if (Math.abs(dx) > 4) { zieh.bewegt = true; root.classList.add('lp-zieht'); }
+  if (zieh.bewegt) zieh.sc.scrollLeft = zieh.links - dx;
+});
+window.addEventListener('pointerup', function(){ if (zieh.aktiv) { zieh.aktiv = false; root.classList.remove('lp-zieht'); } });
+var pinch = null, pinchRaf = 0;
+function abstand(t){ var dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY; return Math.sqrt(dx * dx + dy * dy); }
+$('view').addEventListener('touchstart', function(e){
+  var sc = e.target.closest('.scroller[data-px]'); if (!sc || e.touches.length !== 2) return;
+  var a = ankerBei(sc, (e.touches[0].clientX + e.touches[1].clientX) / 2);
+  pinch = { d: abstand(e.touches), tage: zTage(), tag: a.tag, anteil: a.anteil };
+}, { passive: true });
+$('view').addEventListener('touchmove', function(e){
+  if (!pinch || e.touches.length !== 2) return;
+  e.preventDefault();
+  var neu = pinch.tage * pinch.d / Math.max(10, abstand(e.touches));
+  cancelAnimationFrame(pinchRaf);
+  pinchRaf = requestAnimationFrame(function(){ zoomen(neu, pinch.tag, pinch.anteil); });
+}, { passive: false });
+$('view').addEventListener('touchend', function(e){ if (e.touches.length < 2) pinch = null; });
+$('view').addEventListener('gesturestart', function(e){ if (e.target.closest('.scroller[data-px]')) e.preventDefault(); });
+// Breite geändert (Drehen, Seitenleiste, Lernplan erst später sichtbar): neu zeichnen, damit Zoom und Stelle stimmen
+if (typeof ResizeObserver === 'function') new ResizeObserver(function(){ var w = $('view').clientWidth; if (w && Math.abs(w - (S.breite || 0)) > 2 && S.meta && S.bereit) render(); }).observe($('view'));
 document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && root.isConnected && $('dlg').innerHTML) closeDlg(); });
 if (opt.info) { $('info').innerHTML = opt.info; $('info').hidden = false; }
 render();
@@ -568,7 +769,7 @@ function setzen(d){
 }
 return { setzen: setzen, render: render, zustand: S };
 }
-return { VERSION: VERSION, erstellen: erstellen, ausExport: ausExport };
+return { VERSION: VERSION, erstellen: erstellen, ausExport: ausExport, nummernText: nummernTextAussen };
 })();
 
 export { Lernplan };
