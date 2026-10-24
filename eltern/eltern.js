@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.36.0';
+export const ELTERN_VERSION = '1.37.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -871,8 +871,9 @@ function uebersichtSeite() {
     ['Aufgaben', k.aufgaben, C.zeitraum > 1 ? `an ${k.aktiveTage} von ${C.zeitraum} Tagen` : 'heute'],
     ['Richtig im 1. Versuch', k.quote == null ? '–' : `${k.quote} %`, vor.quote == null ? '' : `davor ${vor.quote} %`],
     ['Übungszeit', A.minutenText(k.uebungMs / 1000), 'reine Aufgabenzeit'],
-    ['Spielzeit verdient', A.minutenText(k.verdientSek), `${A.minutenText(k.gespieltSek)} gespielt`]
-  ].map(([l, w, z]) => `<div class="kachel"><span class="kachel-label">${l}</span><span class="kachel-wert">${w}</span><span class="kachel-zusatz">${z}</span></div>`).join('');
+    ['Spielzeit verdient', A.minutenText(k.verdientSek), `${A.minutenText(k.gespieltSek)} gespielt`],
+    ...(bzKachelZeigen(k) ? [['Bildschirmzeit verdient', A.minutenText(k.bzVerdientSek), bzKachelZusatz(k), 'bz']] : [])
+  ].map(([l, w, z, kl]) => `<div class="kachel${kl ? ' kachel-' + kl : ''}"><span class="kachel-label">${l}</span><span class="kachel-wert">${w}</span><span class="kachel-zusatz">${z}</span></div>`).join('');
 
   const max = Math.max(1, ...tage.map(t => (k.tage[t] || {}).anzahl || 0));
   const balken = C.zeitraum === 1 ? '' : `<section class="karte">
@@ -1380,6 +1381,20 @@ function paketQuotenKarte(vonTag) {
   </section>`;
 }
 
+// Übersicht-Kachel Bildschirmzeit: im Zeitraum verdient und eingelöst (abgeschickt), dazu der Kontostand auf dem Gerät
+// Konto je Gerät (stand.json → bildschirm, ab App 2.26.4), über alle Geräte zusammen
+function bzKonto() {
+  const l = ((D.daten && D.daten.staende) || []).map(x => x.stand && x.stand.bildschirm).filter(b => b && Number.isFinite(b.stand));
+  return l.length ? { stand: l.reduce((s, b) => s + b.stand, 0) } : null;
+}
+function bzKachelZeigen(k) {
+  const w = D.daten.einst && D.daten.einst.werte && D.daten.einst.werte.bildschirm;
+  return !!((w && w.an) || k.bzVerdientSek || k.bzEingeloest);
+}
+function bzKachelZusatz(k) {
+  const konto = bzKonto();
+  return `${A.minutenText(k.bzEingeloestSek)} eingelöst${k.bzEingeloest ? ` (${k.bzEingeloest}-mal)` : ''}${konto ? ` · ${A.minutenText(konto.stand)} noch nicht abgeschickt` : ''}`;
+}
 // Übersicht: heute verdient und abgeschickte Bildschirmzeit mit Code
 function bzKarte() {
   const ein = D.daten.eintraege || [];

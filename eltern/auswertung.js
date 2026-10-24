@@ -341,6 +341,10 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
     uebungMs: auf.reduce((s, r) => s + (r.ende.ms || 0), 0),
     verdientSek: auf.reduce((s, r) => s + (r.ende.sekunden || 0), 0),
     gespieltSek: ein.filter(e => e.typ === 'spiel_ende').reduce((s, e) => s + (e.sekunden || 0), 0),
+    // Bildschirmzeit: verdient (aufgabe_ende.bildschirm) und eingelöst (abgeschickt, Ereignis bildschirmzeit)
+    bzVerdientSek: auf.reduce((s, r) => s + (r.ende.bildschirm || 0), 0),
+    bzEingeloestSek: ein.filter(e => e.typ === 'bildschirmzeit').reduce((s, e) => s + (e.sekunden || 0), 0),
+    bzEingeloest: ein.filter(e => e.typ === 'bildschirmzeit').length,
     geschenkt: ein.filter(e => e.typ === 'basis').length,
     aktiveTage: Object.keys(tage).length,
     themen: Object.values(proThema).sort((a, b) => b.anzahl - a.anzahl).map(t => ({ ...t, quote: Math.round(t.erst / t.anzahl * 100) })),

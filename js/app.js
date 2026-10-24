@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.26.3';
+export const APP_VERSION = '2.26.4';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -339,7 +339,8 @@ function standDaten() {
     pakete: pakete() ? S.pakete.map(p => ({ id: p.id, name: p.paket.name, rolle: p.rolle, anteil: p.anteil, ...(p.paket.etappen ? { etappe: p.etappe, etappen: p.paket.etappen.length, ...(p.naechste ? { naechste: p.naechste } : {}) } : {}) })) : null,
     etappeAnzeigen: !!S.etappeAnzeigen, gestaltung: S.gestaltung || 'schrein',
     ...(S.wissen ? { wissen: { stand: SZ.wissenVon(S.wissen).stand, archiv: SZ.archivVon(S.archiv).gekauft } } : {}),
-    ...(UZ().an ? { uebung: uzKonto() } : {}), statistik: S.statistik, zusammenfassung7Tage: zusammenfassung(7), letzterExport: S.letzterExport
+    ...(UZ().an ? { uebung: uzKonto() } : {}),
+    ...(BZ().an ? { bildschirm: (k => ({ stand: k.stand, tag: k.tag, heute: k.heute }))(bzKonto()) } : {}), statistik: S.statistik, zusammenfassung7Tage: zusammenfassung(7), letzterExport: S.letzterExport
   };
 }
 
