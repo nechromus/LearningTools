@@ -78,6 +78,18 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
   const ziel = teil ? teil.wert : aufgabe.antwort && aufgabe.antwort.wert;
   if (ziel == null) return null;
 
+  // Doppeltes Minus und Minus vor einer Klammer mit Minus innen (Auftrag 21)
+  const par = (aufgabe.parameter || []).filter(x => typeof x === 'number');
+  const ttx = teil ? teil.text || '' : '';
+  if (aufgabe.form === 'minusminus' && par.length >= 2) {
+    const [a, b] = par.slice(-2);
+    if (gleich(w, a - b) || (/\+\s*$/.test(ttx) && gleich(w, -b))) return { typ: 'minusminus-nicht-gedreht', text: 'Schulden fallen weg. Das ist wie Geld bekommen.' };
+  }
+  if (aufgabe.form === 'klammer_negativ' && par.length >= 3) {
+    const [a, b, c] = par.slice(-3);
+    if (gleich(w, a - (c - b)) || (/^Klammer/.test(ttx) && gleich(w, c - b))) return { typ: 'klammer-negativ', text: 'Erst die Klammer ausrechnen. Was kommt in der Klammer heraus?' };
+  }
+
   // Radius aus Durchmesser: Rechenweg steht nicht in der Frage, Tipp erst nach einem Fehler
   if (teil && /^Radius\b/.test(teil.text || '')) {
     if (gleich(w, 2 * ziel)) return { typ: 'kugel-d-statt-r', text: 'Das ist der Durchmesser. Der Radius ist halb so lang.' };
@@ -555,8 +567,7 @@ export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
     else a.gegeben.forEach((g, i) => { if (!g || !g.name || typeof g.wert !== 'number') f.push(`${id}: gegeben ${i + 1} braucht name und wert`); });
   }
   const text = JSON.stringify(a);
-  // Doppeltes Minus ist eine Regel für die BOA-Themen; bei Physik und Umstellen erlaubt (Antwort Vater, 2026-10-21)
-  if (/−\s*\(\s*−/.test(text) && fachVon(a) !== 'physik' && a.thema !== 'umstellen') f.push(`${id}: doppeltes Minus wie −(−3) ist noch nicht erlaubt`);
+  // Doppeltes Minus ist seit 2026-10-24 erlaubt (Auftrag 21, Wunsch Vater); die Prüfung darauf ist entfernt.
   if (a.fach != null && !['mathe', 'physik'].includes(a.fach)) f.push(`${id}: fach muss mathe oder physik sein`);
   if (a.modus != null && a.modus !== 'knobeln') f.push(`${id}: unbekannter modus „${a.modus}“`);
   if (a.modus === 'knobeln' && !(Array.isArray(a.schritte) && a.schritte.length)) f.push(`${id}: knobeln braucht schritte für „In Schritten rechnen“`);
@@ -734,6 +745,8 @@ export const BEDIENUNG = [
   { k: 'rechner_frei', f: 'rechnerFrei', std: false, titel: 'Taschenrechner immer ohne Abzug', text: 'An: Der Taschenrechner kostet nie Zeit.' },
   { k: 'umformen_sofort', f: 'umformenSofort', std: false, titel: 'Gleichungen gleich in Schritten umformen', text: 'An: Gleichungen starten direkt mit „In Schritten umformen“, ohne Abzug bei den Wissenspunkten.' }
 ];
+export const FREIGABEN = ['minusminus'];
+export const freigegeben = (z, k, heute) => !!(z && z.freigaben && z.freigaben[k] && z.freigaben[k] <= heute);
 export const bedienung = (e, k) => { const b = BEDIENUNG.find(x => x.k === k); return typeof (e || {})[b.f] === 'boolean' ? e[b.f] : b.std; };
 import { paketeAusWerte } from './lernplan.js';
 import { pruefeFormel as pruefeFormelFn, pruefeGueltig } from './physik.js';
@@ -787,6 +800,13 @@ export function fernAnwenden(z, datei) {
     if (JSON.stringify(liste) !== JSON.stringify(z.pakete || null)) geaendert.push('pakete');
     z.pakete = liste;
     z.abweichungen = w.abweichungen && typeof w.abweichungen === 'object' ? { ...w.abweichungen } : {};
+  }
+  // Freigaben pro Kind mit Datum (Auftrag 21): minusminus = doppeltes Minus und Minus vor Klammer mit Minus innen
+  if (w.freigaben && typeof w.freigaben === 'object') {
+    const neu = {};
+    for (const k of FREIGABEN) if (/^\d{4}-\d{2}-\d{2}$/.test(w.freigaben[k] || '')) neu[k] = w.freigaben[k];
+    if (JSON.stringify(neu) !== JSON.stringify(z.freigaben || {})) geaendert.push('freigaben');
+    z.freigaben = neu;
   }
   // Feedback-Knopf pro Kind (Testgeräte haben ihn immer)
   if (typeof w.feedback === 'boolean' && w.feedback !== !!z.feedbackAn) { z.feedbackAn = w.feedback; geaendert.push('feedback'); }

@@ -35,6 +35,7 @@ function standard() {
     ansichtName: '',        // Name der App bei Gestaltung Sternzeit (Standard „Logbuch Sternzeit“)
     gestaltung: 'schrein',  // schrein (Standard) oder sternzeit („Logbuch Sternzeit“), aus der Eltern-App
     uzRegeln: null,         // Übungszeit pro Tag (js/bildschirm.js uzRegeln, null = aus)
+    freigaben: {},          // Freigaben mit Datum aus der Eltern-App, z. B. { minusminus: '2026-10-26' } (Auftrag 21)
     uebung: null,           // Übungszeit heute: { tag, sek, hinweis, code, gefragt }
     wissen: null,           // Wissenspunkte: { stand, verlauf: [{ t, n, grund, id }] } (nur Sternzeit)
     logbuch: null,          // Logbuch: { frei: { eintragId: { tag, sternzeit } }, gelesen: [ids] }

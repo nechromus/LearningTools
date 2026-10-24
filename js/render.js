@@ -235,7 +235,7 @@ export function hinweisBlatt(h) {
     <div class="hw-regeln">${regeln}</div>
     ${h.achtung ? `<div class="hw-achtung"><b>Achtung:</b> ${mathe(h.achtung)}</div>` : ''}
     ${h.zusatz ? `<div class="hw-zusatz">${mathe(h.zusatz)}</div>` : ''}
-    ${h.beispiel ? `<div class="hw-beispiel"><span class="hw-beispiel-label">Beispiel</span>${mathe(h.beispiel)}</div>` : ''}`;
+    ${h.beispiel ? `<div class="hw-beispiel"><span class="hw-beispiel-label">Beispiel</span>${mathe(h.beispiel)}</div>` : ''}${h.beispiel2 ? `<div class="hw-beispiel"><span class="hw-beispiel-label">Beispiel</span>${mathe(h.beispiel2)}</div>` : ''}`;
 }
 
 // „Gleich viel gefärbt“ (Auftrag 17): Bild mit Linien zum Antippen.

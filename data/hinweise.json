@@ -17,9 +17,11 @@
         "− Zahl = Schulden",
         "+ Zahl = Geld, das du hast",
         "+ heißt: du bekommst Geld",
-        "− heißt: du gibst Geld aus"
+        "− heißt: du gibst Geld aus",
+        "− (−3): 3 € Schulden fallen weg → + 3"
       ],
-      "beispiel": "−7 + 3 → 7 € Schulden, du bekommst 3 € → noch 4 € Schulden → −4"
+      "beispiel": "−7 + 3 → 7 € Schulden, du bekommst 3 € → noch 4 € Schulden → −4",
+      "beispiel2": "5 − (−3) → 5 + 3 → 8"
     },
     {
       "nr": 2,

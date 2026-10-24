@@ -30,7 +30,27 @@ function satzErgebnis(res) {
   return 'Am Ende genau 0 €.';
 }
 
+// Doppeltes Minus (Auftrag 21, ab Freigabe): „a − (−b)“ und „−a − (−b)“. Die ersten 5 mit Zwischenschritt.
+// Schulden-Methode: − (−b) heißt, b € Schulden fallen weg → + b.
+export function minusMinus(stufe, rng, opts = {}) {
+  const max = stufe === 1 ? 20 : 50;
+  for (let v = 0; v < 200; v++) {
+    const a = wahl(rng, [1, -1]) * zufall(rng, 2, max), b = zufall(rng, 2, max), wert = a + b;
+    if (wert === 0 || Math.abs(wert) > 100) continue;
+    const rechnung = `${zahlText(a)} − (${M}${b})`;
+    const felder = {
+      thema: 'minus-zahlen', stufe, form: 'minusminus', rechnung, hinweise: ['euro'],
+      loesungsweg: [`${rechnung} = ${zahlText(a)} + ${b} = ${zahlText(wert)}`],
+      erklaerung: `− (${M}${b}): ${b} € Schulden fallen weg. Das ist wie ${b} € bekommen. ${satzErgebnis(wert)}`
+    };
+    if (opts.zwischenschritt) return neu('minus-plus', ['minusminus', 'z', a, b], { ...felder, typ: 'schritte', frage: 'Rechne aus. Schreib den Zwischenschritt auf.',
+      schritte: [{ text: `${rechnung} = ${zahlText(a)} +`, wert: b }, { text: `${zahlText(a)} + ${b} =`, wert }] });
+    return neu('minus-plus', ['minusminus', a, b], { ...felder, typ: 'zahl', frage: 'Rechne aus.', antwort: { wert } });
+  }
+}
+
 export function minusPlus(stufe, rng, opts = {}) {
+  if (opts.minusminus && rng() < 0.25) return minusMinus(stufe, rng, { zwischenschritt: !((opts.formZaehler || {}).minusminus >= 5) });
   const max = stufe === 1 ? 20 : stufe === 2 ? 50 : 100;
   const anzahl = stufe === 1 ? 1 : stufe === 2 ? wahl(rng, [1, 2]) : wahl(rng, [2, 3]);
   for (let versuch = 0; versuch < 200; versuch++) {
@@ -70,7 +90,26 @@ export function minusPlus(stufe, rng, opts = {}) {
 
 // ---------- Reihenfolge ----------
 
-export function reihenfolge(stufe, rng) {
+// Minus vor einer Klammer mit negativem Ergebnis (Auftrag 21, ab Freigabe): „a − (b − c)“ mit b < c.
+// Erst die Klammer ausrechnen, dann − (−n) mit der Schulden-Methode. Die ersten 5 in Schritten.
+export function klammerNegativ(stufe, rng, opts = {}) {
+  for (let v = 0; v < 200; v++) {
+    const a = zufall(rng, 2, stufe === 1 ? 20 : 40), b = zufall(rng, 2, 9), c = b + zufall(rng, 1, 9), k = b - c, wert = a - k;
+    if (wert > 100) continue;
+    const rechnung = `${a} − (${b} − ${c})`;
+    const felder = {
+      thema: 'reihenfolge', stufe, form: 'klammer_negativ', rechnung, hinweise: ['klammer', 'euro'],
+      loesungsweg: [`${b} − ${c} = ${zahlText(k)}`, `${a} − (${zahlText(k)}) = ${a} + ${-k} = ${wert}`],
+      erklaerung: `Zuerst die Klammer: ${b} − ${c} = ${zahlText(k)}. Dann fallen ${-k} € Schulden weg: + ${-k}.`
+    };
+    if (opts.zwischenschritt) return neu('reihenfolge', ['klammer_negativ', 'z', a, b, c], { ...felder, typ: 'schritte', frage: 'Rechne aus. Erst die Klammer.',
+      schritte: [{ text: `Klammer: ${b} − ${c} =`, wert: k }, { text: `${a} − (${zahlText(k)}) =`, wert }] });
+    return neu('reihenfolge', ['klammer_negativ', a, b, c], { ...felder, typ: 'zahl', frage: 'Rechne aus.', antwort: { wert } });
+  }
+}
+
+export function reihenfolge(stufe, rng, opts = {}) {
+  if (opts.minusminus && rng() < 0.25) return klammerNegativ(stufe, rng, { zwischenschritt: !((opts.formZaehler || {}).klammer_negativ >= 5) });
   for (let v = 0; v < 200; v++) {
     const form = stufe === 1 ? wahl(rng, ['a+b*c', 'a-b*c', '(a+b)*c', '(a-b)*c'])
       : stufe === 2 ? wahl(rng, ['a-(b+c)', 'a+b*c', '(a-b)*c', 'a-b*c'])

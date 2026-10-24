@@ -14,7 +14,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.30.0';
+export const ELTERN_VERSION = '1.31.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -791,6 +791,7 @@ function einstellungenSeite() {
       ${Object.keys(GEN_NAMEN).map(g => baukastenZeile(g, w, liveStufe)).join('')}
     </section>
     <p class="klein gedaempft">Die App passt die Stufen weiter selbst an. Was du hier änderst, ist der neue Startpunkt.</p>
+    ${freigabeKarte(w)}
     <p class="klein gedaempft">Die Häufigkeit kommt aus dem Paket. Änderst du sie hier, gilt das nur für ${esc(name())}. Das Paket bleibt, wie es ist.</p>
     ${speicherLeiste()}
     <section class="karte liste-karte"><a class="einstell-zeile" href="#pakete"><span>Aufgabenpakete verwalten<span class="klein gedaempft block">anlegen, ändern, mit Claude erstellen</span></span>${svg('weiter', 16)}</a>
@@ -976,6 +977,16 @@ const GEN_THEMA = {
   'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'runden': 'runden', 'bruch-bild': 'bruch-bild', 'kugel': 'kugel', 'zylinder': 'zylinder'
 };
 const GEN_WIE = { 'geld-geschichte': ['minus-zahlen'], 'rabatt-geschichte': ['rabatt', 'neuer-preis'] };
+
+// Freigaben mit Datum (Auftrag 21): neue Aufgabenformen erst ab dem Tag, an dem der Bogen sie eingeführt hat
+const FREIGABE_TEXTE = { minusminus: ['Doppeltes Minus und Minus in Klammern', 'Minus-Zahlen: 6 − (−4). Reihenfolge: 10 − (3 − 8). Etwa jede 4. Aufgabe, die ersten 5 mit Zwischenschritt.'] };
+function freigabeKarte(w) {
+  const f = w.freigaben || {}, heute = L.tagKey();
+  return `<section class="karte liste-karte">${L.FREIGABEN.map(k => {
+    const ab = f[k], an = !!ab;
+    return `<div class="einstell-block"><span>${esc(FREIGABE_TEXTE[k][0])}<span class="klein gedaempft block">${esc(FREIGABE_TEXTE[k][1])}${an ? ` ${ab > heute ? `In der App ab ${tagKurz(ab)}.` : `In der App seit ${tagKurz(ab)}.`}` : ''}</span></span><div class="segmente" role="group">${[[0, 'Aus'], [1, 'An']].map(([v, t]) => `<button class="segment${(v === 1) === an ? ' an' : ''}" data-act="freigabe" data-k="${k}" data-v="${v}" aria-pressed="${(v === 1) === an}">${t}</button>`).join('')}</div></div>`;
+  }).join('')}</section>`;
+}
 
 function baukastenZeile(g, w, liveStufe) {
   const kopf = `<div class="baukasten-kopf"><span class="gewicht-name"><b>${esc(GEN_NAMEN[g])}</b>${geaenderteStufen.has(g) ? ` <span class="klein amber">vorher Stufe ${liveStufe(g)}</span>` : ''}</span>${stepper('stufe', `data-g="${g}"`, `Stufe ${w.genStufen[g]}`, GEN_NAMEN[g])}</div>`;
@@ -1593,6 +1604,7 @@ document.addEventListener('click', (ev) => {
     }
     case 'anteil': entwurf.spielzeit[el.dataset.k] = Number(el.dataset.v); meldung = null; zeichne(); break;
     case 'muehe': entwurf.spielzeit = { ...entwurf.spielzeit, muehe: { ...entwurf.spielzeit.muehe, [el.dataset.g]: Number(el.dataset.v) } }; meldung = null; zeichne(); break;
+    case 'freigabe': { const f = { ...(entwurf.freigaben || {}) }; if (el.dataset.v === '1') f[el.dataset.k] = f[el.dataset.k] || L.tagKey(); else delete f[el.dataset.k]; entwurf.freigaben = f; meldung = null; zeichne(); break; }
     case 'muehStandard': entwurf.spielzeit = { ...entwurf.spielzeit, muehe: { ...L.SPIELZEIT_STANDARD.muehe } }; meldung = null; zeichne(); break;
     case 'durchklick': entwurf.spielzeit = { ...entwurf.spielzeit, durchklick: el.dataset.v === '1' }; meldung = null; zeichne(); break;
     case 'bonusF': entwurf.spielzeit = { ...entwurf.spielzeit, bonus: Number(el.dataset.v) }; meldung = null; zeichne(); break;

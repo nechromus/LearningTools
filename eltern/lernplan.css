@@ -1,4 +1,4 @@
-/* Gebaut aus lernplan/lernplan.css (Version 1.3.0). Nicht hier ändern. */
+/* Gebaut aus lernplan/lernplan.css (Version 1.4.0). Nicht hier ändern. */
 
 /* Layout: Kopfzeile mit Ansichts-Umschalter, darunter eine waagerecht scrollbare Zeitleiste mit fester Namensspalte, darunter die Erkenntnis-Karte. */
 .lp{
@@ -194,3 +194,76 @@
 .lp .bahn-links{position:absolute;left:0;top:0;width:130px;height:600px;pointer-events:none;background:var(--surface);border-right:1px solid var(--line)}
 .lp .bahn-links .lane-lab{pointer-events:auto;position:absolute}
 .lp .bahn-links .lane-app{width:130px}
+/* Ab 1.4.0: Kenntnisstand als Farbe, Tendenz, Erkenntnis im Vollbild */
+.lp{--n0:#D64541;--n1:#EC8A2F;--n2:#E8C21E;--n3:#9CCB54;--n4:#2F9A55;--n5:#E4B12B;--nx:#C3C8C1;--n-ink:#1C2726}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .lp:not([data-theme="light"]){--n0:#E5625D;--n1:#F09A4A;--n2:#EBCB3F;--n3:#A9D468;--n4:#47B26C;--n5:#F2C543;--nx:#4E5957;--n-ink:#10181A}}
+:root[data-theme="dark"] .lp:not([data-theme="light"]), .lp[data-theme="dark"]{--n0:#E5625D;--n1:#F09A4A;--n2:#EBCB3F;--n3:#A9D468;--n4:#47B26C;--n5:#F2C543;--nx:#4E5957;--n-ink:#10181A}
+.lp .n0{background:var(--n0)} .lp .n1{background:var(--n1)} .lp .n2{background:var(--n2)} .lp .n3{background:var(--n3)} .lp .n4{background:var(--n4)} .lp .nx{background:var(--nx)}
+.lp .n5{background:linear-gradient(135deg,#F7DC6F 0%,var(--n5) 45%,#C8901A 70%,#F7DC6F 100%);box-shadow:0 0 6px rgba(228,177,43,.75)}
+.lp .seg.farbe{align-items:center}
+.lp .seg.farbe .seg-lab{padding:0 4px 0 14px;font-size:13px;font-weight:700;color:var(--muted);background:var(--surface);align-self:stretch;display:flex;align-items:center}
+.lp .legend.lg-stand{gap:6px 14px}
+.lp .legend .lg-st-titel{font-weight:700;color:var(--fg)}
+.lp .sw.st{height:12px;border-radius:3px}
+.lp .bar.st{background:transparent!important;border:0!important;overflow:visible}
+.lp .bar.st .seg-st{position:absolute;top:0;bottom:0;display:block}
+.lp .bar.st .seg-st:first-child{border-top-left-radius:3px;border-bottom-left-radius:3px}
+.lp .bar.st .seg-st:last-of-type{border-top-right-radius:3px;border-bottom-right-radius:3px}
+.lp .bar.app.st,.lp .bar.planapp.st{top:23px;height:7px}
+.lp .bar.pause.st .seg-st{background-image:repeating-linear-gradient(135deg,transparent 0 4px,rgba(255,255,255,.62) 4px 7px)}
+.lp .bar.plan.st .seg-st,.lp .bar.planapp.st .seg-st{opacity:.38}
+.lp .bar.plan.st,.lp .bar.planapp.st{outline:1.5px dashed var(--muted);outline-offset:0;border-radius:3px}
+.lp .bar.st .st-lab{position:relative;z-index:1;color:var(--n-ink);text-shadow:0 0 3px rgba(255,255,255,.9)}
+.lp .tend-end{position:absolute;top:6px;z-index:1}
+.lp .tend{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 5px;border-radius:11px;font-weight:700;font-size:15px;line-height:1;border:1.5px solid var(--line);background:var(--surface)}
+.lp .tend.klein{min-width:20px;height:18px;font-size:12.5px;padding:0 4px}
+.lp .tend-auf{color:#1E7A43;border-color:#8FCBA4} .lp .tend-ab{color:var(--clay);border-color:#E3A88E} .lp .tend-gleich{color:var(--muted)} .lp .tend-neu{font-size:11px;color:var(--teal);border-color:var(--teal-soft)}
+.lp .tend.klein.tend-neu{font-size:10px}
+.lp .vb-knopf{min-height:28px;padding:2px 10px;font-size:12.5px;border-color:var(--teal);color:var(--teal)}
+/* Vollbild */
+.lp .voll{position:fixed;inset:0;z-index:70;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.lp .voll-box{max-width:1200px;margin:0 auto;padding:18px max(16px, env(safe-area-inset-right, 0px)) calc(32px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));display:flex;flex-direction:column;gap:16px}
+.lp .vkopf{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;border-bottom:1.5px solid var(--line);padding-bottom:12px}
+.lp .vkopf .num{width:40px;height:40px;border-radius:50%;background:var(--amber-line);color:var(--surface);font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;font-size:17px}
+.lp .vtitel{flex:1;min-width:200px}
+.lp .vtitel .src{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center}
+.lp .vtitel h2{margin:4px 0 0;font-family:var(--f-display);font-size:22px;color:var(--teal)}
+.lp .vnav{display:flex;gap:6px}
+.lp .vnav .btn{min-width:40px;font-size:18px;padding:4px 10px}
+.lp .vnav .btn:disabled{opacity:.35}
+.lp .vknoepfe{display:flex;gap:8px;align-items:center}
+.lp .vknoepfe .x{width:40px;height:40px;border-radius:8px;border:1.5px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:center;padding:0}
+.lp .vknoepfe .btn.an{background:var(--amber-soft);border-color:var(--amber-line);color:var(--amber-ink)}
+.lp .vfilter{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--teal-soft);color:var(--teal-ink);border-radius:10px;padding:8px 12px}
+.lp .vfilter .btn{min-height:32px;padding:3px 10px;font-size:13px}
+.lp .voll section h3{margin:0 0 6px;font-family:var(--f-display);font-size:17px}
+.lp .voll section p{margin:0;font-size:15.5px;line-height:1.5;max-width:900px}
+.lp .vtab{width:100%;border-collapse:collapse;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;overflow:hidden;font-size:14px}
+.lp .vtab th,.lp .vtab td{padding:9px 10px;text-align:left;vertical-align:middle;border-bottom:1px solid var(--line-soft)}
+.lp .vtab thead th{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);background:var(--surface-2)}
+.lp .vthema,.lp .vlink{border:0;background:transparent;padding:0;font-weight:700;color:var(--teal);text-align:left;text-decoration:underline;text-decoration-color:var(--teal-soft);text-underline-offset:3px}
+.lp .vlink{font-weight:400}
+.lp .nkast{display:inline-flex;gap:2px;vertical-align:middle;margin-right:8px}
+.lp .nkast i{width:12px;height:12px;border-radius:2px;display:block;padding:0;margin:0}
+.lp .nkast i.nk-leer{background:transparent;border:1.5px solid var(--line)}
+.lp .nwort{font-size:13px}
+.lp .kurve{display:block;overflow:visible}
+.lp .kurve polyline{fill:none;stroke-width:2;stroke-linejoin:round}
+.lp .kurve .k-frueh polyline{stroke:var(--teal)} .lp .kurve circle.k-frueh{fill:var(--teal)}
+.lp .kurve .k-spaet polyline{stroke:var(--teal);opacity:.3} .lp .kurve circle.k-spaet{fill:var(--teal);opacity:.3}
+.lp .kurve .k-achse{stroke:var(--line);stroke-dasharray:3 3}
+.lp .kurve .k-tag{stroke:var(--amber-line);stroke-width:1.5}
+.lp .ksum{font-size:12px;color:var(--muted);margin-top:2px}
+.lp .heute{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+.lp .heute .sw{width:12px;height:12px}
+.lp .heute small{color:var(--muted);font-size:11.5px;width:100%}
+html.lp-voll-offen, html.lp-voll-offen body{overflow:hidden}
+@media (max-width:720px){
+  .lp .vtab, .lp .vtab tbody, .lp .vtab tr, .lp .vtab th, .lp .vtab td{display:block;width:100%}
+  .lp .vtab thead{display:none}
+  .lp .vtab{border:0;background:transparent}
+  .lp .vtab tr{background:var(--surface);border:1.5px solid var(--line);border-radius:12px;margin-bottom:10px;padding:6px 4px}
+  .lp .vtab th,.lp .vtab td{border:0;padding:5px 10px}
+  .lp .vtab td[data-k]::before{content:attr(data-k);display:block;font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+  .lp .vtitel h2{font-size:19px}
+}

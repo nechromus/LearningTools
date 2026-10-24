@@ -1,5 +1,5 @@
 // Auswertung der Lerndaten für die Eltern-App. Reine Funktionen, ohne DOM (testbar mit node).
-import { tagKey, potenzWert, SPIELZEIT_STANDARD, spielzeitRegeln, BEDIENUNG } from '../js/logic.js';
+import { tagKey, potenzWert, SPIELZEIT_STANDARD, spielzeitRegeln, BEDIENUNG, FREIGABEN } from '../js/logic.js';
 import { THEMA_NAMEN, FEHLER_NAMEN, GEN_NAMEN } from '../js/namen.js';
 import * as P from '../js/paket.js';
 import * as SP from '../js/splitter.js';
@@ -418,6 +418,7 @@ export function startWerte(einst, stand, paketVon = () => null) {
     bildschirm: bzWerte(w.bildschirm || (stand && stand.bzRegeln)),
     spielzeitTag: szWerte(w.spielzeitTag || (stand && stand.szRegeln)),
     etappe_anzeigen: w.etappe_anzeigen === true,
+    freigaben: Object.fromEntries(Object.entries((w.freigaben && typeof w.freigaben === 'object') ? w.freigaben : {}).filter(([k, v]) => FREIGABEN.includes(k) && /^\d{4}-\d{2}-\d{2}$/.test(v || ''))),
     gestaltung: ['schrein', 'sternzeit'].includes(w.gestaltung) ? w.gestaltung : 'schrein',
     umform_stufe: [1, 2, 3].includes(w.umform_stufe) ? w.umform_stufe : 3,
     feedback: w.feedback === true,
@@ -537,6 +538,7 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
       ...(Array.isArray(werte.pakete) ? { pakete: werte.pakete.map(paketEintragDatei), etappe_anzeigen: !!werte.etappe_anzeigen } : {}),
       gestaltung: werte.gestaltung === 'sternzeit' ? 'sternzeit' : 'schrein', umform_stufe: [1, 2, 3].includes(werte.umform_stufe) ? werte.umform_stufe : 3, feedback: werte.feedback === true, ...Object.fromEntries(BEDIENUNG.map(b => [b.k, typeof werte[b.k] === 'boolean' ? werte[b.k] : b.std])), ...(werte.ansicht_name ? { ansicht_name: werte.ansicht_name } : {}),
       uebungszeit: uzDatei(werte.uebungszeit, tagKey(jetzt)),
+      ...(werte.freigaben && Object.keys(werte.freigaben).length ? { freigaben: { ...werte.freigaben } } : {}),
       ...(werte.splitter ? { splitter: { preise: werte.splitter.preise, boni: werte.splitter.boni.slice(-50), frei: werte.splitter.frei } } : {}) }
   };
 }

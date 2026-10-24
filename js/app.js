@@ -30,7 +30,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.23.1';
+export const APP_VERSION = '2.24.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -390,7 +390,7 @@ async function testAlsSetzen(ordner) {
   await fernHolen(true);
 }
 function personaZuruecksetzen(z) {
-  for (const f of ['gestaltung', 'ansichtName', 'uzRegeln', 'bzRegeln', 'szRegeln', 'etappeAnzeigen', 'fernEtappen', 'feedbackAn']) delete z[f];
+  for (const f of ['gestaltung', 'ansichtName', 'uzRegeln', 'bzRegeln', 'szRegeln', 'etappeAnzeigen', 'fernEtappen', 'feedbackAn', 'freigaben']) delete z[f];
   delete z.einstellungen.umformStufe;
   for (const b of L.BEDIENUNG) delete z.einstellungen[b.f];
 }
@@ -1237,6 +1237,8 @@ function fokusOptionen() {
   return n >= 2 ? { fokus: 'vorzeichen' } : {};
 }
 
+// Doppeltes Minus und Minus vor Klammer (Auftrag 21): nur mit Freigabe ab ihrem Datum; die ersten 5 je Form mit Zwischenschritt
+const formOpts = (g) => ((g === 'minus-plus' || g === 'reihenfolge') && L.freigegeben(S, 'minusminus', S.tag.key) ? { minusminus: true, formZaehler: S.verlauf.formZaehler || {} } : {});
 function erzeuge(g, stufe, opts = {}) {
   const letzte = S.verlauf.letzteIds.slice(-15);
   // Etappe ohne „Was ist gesucht?“ (Zylinder, Etappe 3)
@@ -1244,6 +1246,7 @@ function erzeuge(g, stufe, opts = {}) {
   if (bgOhne.includes('auswahl')) opts = { ...opts, ohneAuswahl: true };
   // Varianten, die die Etappe nicht erlaubt (Dichte: vergleich, verhaeltnis, gewichtskraft)
   if (bgOhne.length) opts = { ...opts, ohne: bgOhne };
+  opts = { ...opts, ...formOpts(g) };
   let a;
   for (let i = 0; i < 8; i++) {
     a = G.GENERATOREN[g](stufe, Math.random, opts);
@@ -1362,7 +1365,7 @@ function testAufgabe(thema, stufe) {
     const g = wahl(gens);
     let a;
     for (let i = 0; i < 8; i++) {
-      a = g === 'einmaleins' ? G.block('einmaleins', Math.random, stufe) : G.GENERATOREN[g](stufe, Math.random);
+      a = g === 'einmaleins' ? G.block('einmaleins', Math.random, stufe) : G.GENERATOREN[g](stufe, Math.random, formOpts(g));
       if (a && !letzte.includes(a.id)) break;
     }
     return a;
@@ -2931,6 +2934,7 @@ function abschliessen() {
   // Nach dem Hinweis gegen Durchklicken kommt diese oder eine ähnliche Aufgabe wieder, mit Bonuszeit
   if (A.durchklick && !A.test) S.wiederholen = [...S.wiederholen, { ab: S.verlauf.zaehler + 3, aufgabe: a, wdh: (A.wdh || 0) + 1, bonus: true }].slice(-10);
   S.verlauf.zaehler++;
+  if (a.form && !A.test) { const fz = S.verlauf.formZaehler || (S.verlauf.formZaehler = {}); fz[a.form] = (fz[a.form] || 0) + 1; }
   S.verlauf.themaZuletzt[a.thema] = { ergebnis, stufe: a.stufe };
   // Wissenspunkte (nur Gestaltung Sternzeit)
   A.wp = sternzeit() && !A.test ? L.wissenspunkteFuer(a, { ergebnis, schritte: !!A.schritteAn && !A.ufSofort }) : 0;

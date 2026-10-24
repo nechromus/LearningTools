@@ -1,10 +1,10 @@
-/* Gebaut aus lernplan/lernplan.js (Version 1.3.0). Nicht hier ändern. */
+/* Gebaut aus lernplan/lernplan.js (Version 1.4.0). Nicht hier ändern. */
 /* Lernplan-Darstellung: gemeinsame Quelle für die Lernplan-Seite in claude.ai und die Eltern-App.
    Quelle: LearningToolsCode/lernplan/lernplan.js (+ lernplan.css). Daraus baut `npm run lernplan`
    die Vorlage (wissensbasis/15-lernplan-seite-vorlage.html, alles eingebettet) und app/eltern/lernplan.mjs.
    Nur hier ändern. Datenformat und Regeln: wissensbasis/15-lernplan-seite.md. */
 var Lernplan = (function(){
-var VERSION = '1.3.0';
+var VERSION = '1.4.0';
 function esc0(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 // Export (Format lernplan-1, daten/<name>/lernplan.json) in die Form der Seite: Sammlungen als Listen mit _id
 // Nummern einer Erkenntnis-Gruppe als Text (auch für Tests): lückenlos „3–7“, bis 4 Einträge „3, 5, 7“, sonst „3–5, 8, 11–14“
@@ -50,6 +50,7 @@ root.insertAdjacentHTML('beforeend', '<div class="wrap">\n' +
   '        <button type="button" id="lp-v-zeit" aria-pressed="true">Zeitleiste</button>\n' +
   '        <button type="button" id="lp-v-bahnen" aria-pressed="false">Bahnen</button>\n' +
   '      </div>\n' +
+  '      <div class="seg farbe" role="group" aria-label="Farbe der Balken" id="lp-farbe" hidden><span class="seg-lab">Farbe</span><button type="button" data-farbe="art" aria-pressed="true">Art</button><button type="button" data-farbe="stand" aria-pressed="false">Stand</button></div>\n' +
   '      <button type="button" class="btn" id="lp-edit" aria-pressed="false" hidden>Bearbeiten</button>\n' +
   '    </div>\n' +
   '  </header>\n' +
@@ -63,6 +64,7 @@ root.insertAdjacentHTML('beforeend', '<div class="wrap">\n' +
   '    <span><i class="dot">1</i>Erkenntnis</span>\n' +
   '    <span id="lp-stand"></span>\n' +
   '  </div>\n' +
+  '  <div class="legend lg-stand" id="lp-lg-stand" aria-label="Legende Kenntnisstand" hidden></div>\n' +
   '  <div class="lp-info" id="lp-info" hidden></div>\n' +
   '\n' +
   '  <div id="lp-editbar" class="controls" hidden>\n' +
@@ -76,6 +78,7 @@ root.insertAdjacentHTML('beforeend', '<div class="wrap">\n' +
   '  <main id="lp-view"></main>\n' +
   '</div>\n' +
   '<div id="lp-dlg"></div>\n' +
+  '<div id="lp-voll" class="voll" hidden></div>\n' +
   '<div id="lp-toast" class="toast" role="status" hidden></div>');
 var S = { meta:null, rows:[], ins:[], tage:[], view:'zeit', open:{}, sel:null, edit:false, canEdit:false, db:null, loaded:{meta:false,rows:false,ins:false,tage:false}, grp:null, z:null };
 try { S.open = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e) {}
@@ -191,6 +194,143 @@ function gruppieren(liste, abstand){
 function insSortiert(){ return S.ins.slice().sort(function(a, b){ return (dn(a.date) - dn(b.date)) || (a.n - b.n); }); }
 function gruppeAn(ids){ return S.grp && S.grp.length === ids.length && ids.every(function(id){ return S.grp.indexOf(id) >= 0; }); }
 
+/* ---------- Kenntnisstand (ab 1.4.0): rows.niveau, rows.verlauf, insights.stand ---------- */
+var NIVEAU = ['keine Kenntnisse', 'neu eingeführt', 'geht mit Hilfe', 'meist sicher', 'sicher in App und Bogen', 'sicher wie in der Abschlussarbeit'];
+var TENDENZ = { auf: ['↗', 'steigt'], gleich: ['→', 'bleibt gleich'], ab: ['↘', 'fällt'], neu: ['neu', 'neu dabei'] };
+var FKEY = KEY + '-farbe';
+if (!S.farbe) { try { S.farbe = localStorage.getItem(FKEY) === 'stand' ? 'stand' : 'art'; } catch(e) { S.farbe = 'art'; } }
+function hatNiveau(){ return S.rows.some(function(r){ return Array.isArray(r.niveau) && r.niveau.length; }); }
+function standModus(){ return S.farbe === 'stand' && hatNiveau(); }
+function niveauListe(r){ return (Array.isArray(r && r.niveau) ? r.niveau : []).filter(function(x){ return x && !isNaN(dn(x[0])) && x[1] >= 0 && x[1] <= 5; }).slice().sort(function(a, b){ return dn(a[0]) - dn(b[0]); }); }
+// Stufe einer Zeile an einem Tag (null = keine Daten). Pakete: niedrigste Stufe der Themen darin (Antwort Vater), damit Schwächen sichtbar bleiben
+function niveauAm(r, n){
+  if (!r) return null;
+  if (r.group) {
+    var werte = S.rows.filter(function(c){ return c.parent === r._id; }).map(function(c){ return niveauAm(c, n); }).filter(function(v){ return v != null; });
+    if (!werte.length) return null;
+    return Math.min.apply(null, werte);
+  }
+  var l = niveauListe(r), v = null;
+  for (var i = 0; i < l.length; i++) { if (dn(l[i][0]) <= n) v = l[i][1]; else break; }
+  return v;
+}
+function niveauSeit(r, n){ var l = niveauListe(r), s = null; for (var i = 0; i < l.length; i++) if (dn(l[i][0]) <= n) s = l[i][0]; return s; }
+function nivText(v){ return v == null ? 'keine Daten' : v + ' · ' + NIVEAU[v]; }
+// Neueste Einschätzung eines Themas aus den Erkenntnissen (stand.themen), optional bis zu einer Erkenntnis
+function insSortN(){ return S.ins.slice().sort(function(a, b){ return (dn(a.date) - dn(b.date)) || (a.n - b.n); }); }
+function letzteEinschaetzung(rowId, bis){
+  var l = insSortN(), out = null;
+  for (var i = 0; i < l.length; i++) {
+    var e = l[i];
+    if (bis && (dn(e.date) > dn(bis.date) || (dn(e.date) === dn(bis.date) && e.n > bis.n))) break;
+    var t = ((e.stand && e.stand.themen) || []).filter(function(x){ return x.row === rowId; })[0];
+    if (t) out = { e: e, t: t };
+  }
+  return out;
+}
+function tendenzHtml(t, klein){
+  if (!t || !TENDENZ[t]) return '';
+  return '<span class="tend tend-' + esc(t) + (klein ? ' klein' : '') + '" title="Tendenz: ' + esc(TENDENZ[t][1]) + '">' + esc(TENDENZ[t][0]) + '</span>';
+}
+function kaestchen(v){
+  var h = '<span class="nkast" role="img" aria-label="Stand ' + esc(nivText(v)) + '">';
+  for (var i = 0; i <= 5; i++) h += '<i class="' + (v != null && i <= v ? 'n' + v : 'nk-leer') + '"></i>';
+  return h + '</span>';
+}
+// Balken im Modus „Stand“: abschnittsweise nach der Stufe am Tag gefärbt; die Art bleibt an der Form erkennbar
+function standBalken(r, b, f, t, start, PX, L, lab, fits, tipp){
+  var segs = [], cur = null;
+  for (var n = f; n <= t; n++) { var v = niveauAm(r, n); if (cur && cur.v === v) cur.bis = n; else { cur = { v: v, von: n, bis: n }; segs.push(cur); } }
+  var l = (f - start) * PX, w = Math.max((t - f + 1) * PX, Math.min(14, PX));
+  var h = '<div class="bar ' + esc(b.kind) + ' st"' + (tipp ? ' data-tipp="' + esc(lab + ' · ' + de(b.from) + '–' + de(b.to)) + '"' : '') + ' style="left:calc(' + L + ' + ' + l + 'px);width:' + w + 'px">';
+  segs.forEach(function(s, i){
+    var sl = (s.von - f) * PX, sw = (s.bis - s.von + 1) * PX;
+    if (i === segs.length - 1) sw = w - sl;
+    h += '<i class="seg-st ' + (s.v == null ? 'nx' : 'n' + s.v) + '" style="left:' + sl + 'px;width:' + sw + 'px" title="' + esc((b.lab ? b.lab + ' · ' : '') + 'Stand ' + nivText(s.v) + (s.v != null ? ' (ab ' + de(niveauSeit(r, s.von) || iso(s.von)) + ')' : '') + ' · ' + de(iso(s.von)) + '–' + de(iso(s.bis))) + '"></i>';
+  });
+  return h + (fits ? '<span class="st-lab">' + esc(lab) + '</span>' : '') + '</div>';
+}
+function standLegende(){
+  return '<span class="lg-st-titel">Stand:</span>' + NIVEAU.map(function(t, i){ return '<span title="' + esc(t) + '"><i class="sw st n' + i + '"></i>' + i + ' ' + esc(t) + '</span>'; }).join('') +
+    '<span><i class="sw st nx"></i>keine Daten</span><span class="hint">Bogen breit · App schmal · Pause gestreift · geplant gestrichelt</span>';
+}
+
+/* ---------- Vollbild einer Erkenntnis (ab 1.4.0) ---------- */
+function hatVollbild(e){ return !!(e && (e.stand || (e.rows || []).some(function(id){ var r = rowById(id); return r && r.verlauf && r.verlauf.length; }))); }
+function verlaufSumme(r, bis, letzte){
+  var l = ((r && r.verlauf) || []).filter(function(x){ return !bis || dn(x[0]) <= dn(bis); }).sort(function(a, b){ return dn(a[0]) - dn(b[0]); });
+  if (letzte) l = l.slice(-letzte);
+  return l.reduce(function(s, x){ return { r: s.r + (+x[1] || 0), n: s.n + (+x[2] || 0) }; }, { r: 0, n: 0 });
+}
+// App-Kurve (Anteil der Aufgaben im 1. Versuch je Tag): bis zum Datum kräftig, danach blass bis heute
+function kurve(r, bis, breit){
+  var l = ((r && r.verlauf) || []).filter(function(x){ return x && x[2] > 0; }).sort(function(a, b){ return dn(a[0]) - dn(b[0]); });
+  if (!l.length) return '<span class="hint">keine App-Daten</span>';
+  var W = breit || 170, H = 40, P = 4, von = Math.min(dn(l[0][0]), bis ? dn(bis) : Infinity) - 1, ende = Math.max(dn(todayIso()), dn(l[l.length - 1][0])) + 1;
+  function xx(n){ return P + (n - von) / Math.max(1, ende - von) * (W - 2 * P); }
+  function yy(q){ return H - P - q * (H - 2 * P); }
+  var pts = l.map(function(x){ return { x: xx(dn(x[0])), y: yy(x[1] / x[2]), fruh: !bis || dn(x[0]) <= dn(bis), n: x[2], t: de(x[0]) + ': ' + x[1] + ' von ' + x[2] }; });
+  var a = pts.filter(function(p){ return p.fruh; }), b2 = pts.filter(function(p, i){ return !p.fruh || (pts[i + 1] && !pts[i + 1].fruh && p.fruh); });
+  function linie(ps){ return ps.length > 1 ? '<polyline points="' + ps.map(function(p){ return p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' ') + '"/>' : ''; }
+  var h = '<svg class="kurve" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="App-Aufgaben im 1. Versuch je Tag">';
+  h += '<line class="k-achse" x1="' + P + '" x2="' + (W - P) + '" y1="' + yy(0.8) + '" y2="' + yy(0.8) + '"/>';
+  h += '<g class="k-spaet">' + linie(b2) + '</g><g class="k-frueh">' + linie(a) + '</g>';
+  pts.forEach(function(p){ h += '<circle class="' + (p.fruh ? 'k-frueh' : 'k-spaet') + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + (p.n >= 5 ? 3 : 2.2) + '"><title>' + esc(p.t) + '</title></circle>'; });
+  if (bis) h += '<line class="k-tag" x1="' + xx(dn(bis)) + '" x2="' + xx(dn(bis)) + '" y1="1" y2="' + (H - 1) + '"/>';
+  return h + '</svg>';
+}
+function rowName(id){ var r = rowById(id); return r ? r.label : id; }
+function vollThemen(e){
+  var t = (e.stand && e.stand.themen) || [];
+  if (t.length) return t;
+  return (e.rows || []).filter(function(id){ var r = rowById(id); return r && r.verlauf && r.verlauf.length; }).map(function(id){ return { row: id }; });
+}
+function themaZeile(t, e){
+  var r = rowById(t.row), sum = verlaufSumme(r, e.date), drei = verlaufSumme(r, e.date, 3), heute = letzteEinschaetzung(t.row);
+  var heuteHtml = heute && heute.e !== e ? '<span class="heute">' + (heute.t.niveau != null ? '<i class="sw st n' + heute.t.niveau + '"></i>' + heute.t.niveau : '–') + ' ' + tendenzHtml(heute.t.tendenz, true) + '<small>Erkenntnis ' + esc(heute.e.n) + '</small></span>' : '<span class="hint">aktuell</span>';
+  return '<tr><th scope="row"><button type="button" class="vthema" data-vthema="' + esc(t.row) + '" title="Nur Erkenntnisse zu diesem Thema">' + esc(rowName(t.row)) + '</button></th>' +
+    '<td data-k="Stand">' + kaestchen(t.niveau) + '<span class="nwort">' + esc(t.niveau == null ? 'keine Daten' : NIVEAU[t.niveau]) + '</span></td>' +
+    '<td data-k="Tendenz">' + (tendenzHtml(t.tendenz) || '<span class="hint">–</span>') + '</td>' +
+    '<td data-k="App">' + kurve(r, e.date) + (sum.n ? '<div class="ksum">bis hier ' + sum.r + '/' + sum.n + ' · letzte 3 Tage ' + drei.r + '/' + drei.n + '</div>' : '') + '</td>' +
+    '<td data-k="Heute">' + heuteHtml + '</td>' +
+    '<td data-k="Notiz">' + esc(t.notiz || '') + '</td></tr>';
+}
+function vollListe(){ var l = insSortN(); if (S.voll && S.voll.thema) l = l.filter(function(e){ return ((e.stand && e.stand.themen) || []).some(function(t){ return t.row === S.voll.thema; }) || (e.rows || []).indexOf(S.voll.thema) >= 0; }); return l; }
+function renderVoll(){
+  var box = $('voll'); if (!box) return;
+  if (!S.voll) { box.innerHTML = ''; box.hidden = true; document.documentElement.classList.remove('lp-voll-offen'); return; }
+  box.hidden = false; document.documentElement.classList.add('lp-voll-offen');
+  var kopfKnoepfe = '<button type="button" class="btn' + (S.voll.tend ? ' an' : '') + '" data-vtend="1" aria-pressed="' + !!S.voll.tend + '">Tendenzen</button><button type="button" class="x" data-vzu="1" aria-label="Vollbild schließen"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="var(--fg)" stroke-width="2.4" stroke-linecap="round"></path></svg></button>';
+  var h;
+  if (S.voll.tend) {
+    // Übersicht: alle Themen mit ihrer letzten Einschätzung, ↘ zuerst
+    var ids = []; insSortN().forEach(function(e){ ((e.stand && e.stand.themen) || []).forEach(function(t){ if (ids.indexOf(t.row) < 0) ids.push(t.row); }); });
+    var ord = { ab: 0, gleich: 1, neu: 2, auf: 3 };
+    var zeilen = ids.map(function(id){ return letzteEinschaetzung(id); }).filter(Boolean).sort(function(a, b){ return ((ord[a.t.tendenz] ?? 4) - (ord[b.t.tendenz] ?? 4)) || ((a.t.niveau ?? -1) - (b.t.niveau ?? -1)); });
+    h = '<header class="vkopf"><div class="vtitel"><div class="src">Übersicht</div><h2>Tendenzen</h2><p class="hint">Jedes Thema mit seiner letzten Einschätzung. Fallende Tendenz zuerst. Die App-Kurve zeigt die Aufgaben im 1. Versuch je Tag bis heute.</p></div><div class="vknoepfe">' + kopfKnoepfe + '</div></header>' +
+      '<table class="vtab"><thead><tr><th>Thema</th><th>Stand</th><th>Tendenz</th><th>App-Aufgaben im 1. Versuch</th><th>Seit</th><th>Notiz</th></tr></thead><tbody>' +
+      zeilen.map(function(z){ var r = rowById(z.t.row), sum = verlaufSumme(r); return '<tr><th scope="row"><button type="button" class="vthema" data-vthema="' + esc(z.t.row) + '">' + esc(rowName(z.t.row)) + '</button></th><td data-k="Stand">' + kaestchen(z.t.niveau) + '<span class="nwort">' + esc(z.t.niveau == null ? 'keine Daten' : NIVEAU[z.t.niveau]) + '</span></td><td data-k="Tendenz">' + (tendenzHtml(z.t.tendenz) || '–') + '</td><td data-k="App">' + kurve(r, null) + (sum.n ? '<div class="ksum">gesamt ' + sum.r + '/' + sum.n + '</div>' : '') + '</td><td data-k="Seit"><button type="button" class="vlink" data-vgehe="' + esc(z.e._id) + '">Erkenntnis ' + esc(z.e.n) + ', ' + esc(de(z.e.date)) + '</button></td><td data-k="Notiz">' + esc(z.t.notiz || '') + '</td></tr>'; }).join('') +
+      '</tbody></table>';
+  } else {
+    var e = S.ins.filter(function(x){ return x._id === S.voll.id; })[0];
+    if (!e) { S.voll = null; return renderVoll(); }
+    var liste = vollListe(), i = liste.indexOf(e);
+    var nav = '<div class="vnav"><button type="button" class="btn" data-vnav="-1"' + (i <= 0 ? ' disabled' : '') + ' aria-label="Vorige Erkenntnis">‹</button><button type="button" class="btn" data-vnav="1"' + (i < 0 || i >= liste.length - 1 ? ' disabled' : '') + ' aria-label="Nächste Erkenntnis">›</button></div>';
+    var filter = S.voll.thema ? '<div class="vfilter"><span>Nur Thema: <b>' + esc(rowName(S.voll.thema)) + '</b></span><span class="hint">' + (i + 1) + ' von ' + liste.length + '</span><button type="button" class="btn ghost" data-vthema="">alle Erkenntnisse</button></div>' : '';
+    var st = e.stand || {};
+    h = '<header class="vkopf">' + nav + '<div class="num">' + esc(e.n) + '</div><div class="vtitel"><div class="src"><span class="chip ' + srcClass(e.src) + '">' + esc(e.src) + '</span> ' + esc(de(e.date)) + '</div><h2>' + esc(e.kurz || ('Erkenntnis ' + e.n)) + '</h2></div><div class="vknoepfe">' + kopfKnoepfe + '</div></header>' + filter +
+      '<div class="three"><div><div class="k">Gesehen</div>' + esc(e.obs) + '</div><div><div class="k ch">Geändert</div>' + esc(e.eff) + '</div><div><div class="k wa">Wirkt ab</div>' + esc(e.when) + '</div></div>' +
+      (st.text ? '<section><h3>Entwicklung bis hier</h3><p>' + esc(st.text) + '</p></section>' : '') +
+      '<section><h3>Stand an diesem Tag</h3>' + (vollThemen(e).length ? '<table class="vtab"><thead><tr><th>Thema</th><th>Stand</th><th>Tendenz</th><th>App-Aufgaben im 1. Versuch</th><th>Heute</th><th>Notiz</th></tr></thead><tbody>' + vollThemen(e).map(function(t){ return themaZeile(t, e); }).join('') + '</tbody></table><p class="hint">App-Kurve: Anteil der Aufgaben im 1. Versuch je Tag, bis zu diesem Tag kräftig, danach blass bis heute. Die Linie zeigt 80 %. Ein Tipp auf ein Thema zeigt nur Erkenntnisse zu diesem Thema.</p>' : '<p class="hint">Zu dieser Erkenntnis gibt es noch keine Einschätzung je Thema.</p>') + '</section>' +
+      (st.naechstes ? '<section><h3>Als Nächstes</h3><p>' + esc(st.naechstes) + '</p></section>' : '');
+  }
+  box.innerHTML = '<div class="voll-box" role="dialog" aria-modal="true" aria-label="Erkenntnis im Vollbild">' + h + '</div>';
+  box.scrollTop = 0;
+  var x = box.querySelector('[data-vzu]'); if (x && !box.contains(document.activeElement)) x.focus();
+}
+function vollAuf(id){ S.voll = { id: id, thema: null, tend: false }; renderVoll(); }
+function vollZu(){ var id = S.voll && S.voll.id; S.voll = null; renderVoll(); if (id) { S.sel = id; render(); } }
+
 /* ---------- Zeitleiste ---------- */
 function renderZeit(){
   var m = S.meta, start = dn(m.start), end = dn(m.end), days = end - start + 1, L = 'var(--labw)';
@@ -214,7 +354,7 @@ function renderZeit(){
   // Zeilen
   var body = '';
   var selIns = S.ins.filter(function(e){ return e._id === S.sel; })[0];
-  var rows = sortedRows();
+  var rows = sortedRows(), stand = standModus();
   rows.forEach(function(r){
     if (r.parent && !isOpen(r.parent)) return;
     var kids = rows.filter(function(c){ return c.parent === r._id; });
@@ -227,6 +367,7 @@ function renderZeit(){
     if (r.etappe && !r.etappe.ab) body += '<span class="lock" title="' + esc(r.etappe.bedingung || 'noch nicht freigeschaltet') + '">gesperrt</span>';
     if (r.quote && r.quote.n) body += '<span class="q ' + qClass(r.quote) + '" title="' + esc(qTitle(r.quote)) + '">' + esc(r.quote.r) + '/' + esc(r.quote.n) + (r.quote.kn != null ? ' · K' + esc(r.quote.kn) : '') + '</span>';
     body += '</div>';
+    var ende = -1;
     (r.bars||[]).forEach(function(b){
       var f = Math.max(dn(b.from), start), t = Math.min(dn(b.to), end);
       if (isNaN(f) || isNaN(t) || t < f) return;
@@ -235,9 +376,12 @@ function renderZeit(){
       var lab = thin ? '' : (b.lab || '');
       var fits = lab && (lab.length * 6.6 + 10) <= w;
       var tipp = lab && !fits && w < 10; // sehr schmal: Text nur beim Antippen oder Überfahren
+      ende = Math.max(ende, l + w + (lab && !fits && !tipp ? lab.length * 6.6 + 14 : 0));
+      if (stand) { body += standBalken(r, b, f, t, start, PX, L, lab, fits, tipp); if (lab && !fits && !tipp) body += '<div class="blab" style="left:calc(' + L + ' + ' + (l + w + 4) + 'px)">' + esc(lab) + '</div>'; return; }
       body += '<div class="bar ' + esc(b.kind) + '"' + (tipp ? ' data-tipp="' + esc(lab + ' · ' + de(b.from) + '–' + de(b.to)) + '"' : '') + ' style="left:calc(' + L + ' + ' + l + 'px);width:' + w + 'px" title="' + esc(b.lab || '') + ' ' + de(b.from) + '–' + de(b.to) + '">' + (fits ? esc(lab) : '') + '</div>';
       if (lab && !fits && !tipp) body += '<div class="blab" style="left:calc(' + L + ' + ' + (l + w + 4) + 'px)">' + esc(lab) + '</div>';
     });
+    if (stand && ende >= 0 && !r.group) { var le = letzteEinschaetzung(r._id); if (le && TENDENZ[le.t.tendenz]) body += '<div class="tend-end" style="left:calc(' + L + ' + ' + (ende + 4) + 'px)" title="Tendenz: ' + esc(TENDENZ[le.t.tendenz][1]) + ' (Erkenntnis ' + esc(le.e.n) + ')">' + tendenzHtml(le.t.tendenz, true) + '</div>'; }
     body += '</div>';
   });
   if (!rows.length) body = '<div class="empty">Noch keine Zeilen. Claude trägt die Pakete und Themen ein; im Bearbeiten-Modus kannst du selbst Zeilen anlegen.</div>';
@@ -253,7 +397,7 @@ function renderZeit(){
     var gi = grp ? grp.indexOf(selIns) : -1;
     var leiste = grp ? '<div class="gleiste" role="group" aria-label="Erkenntnisse der Gruppe"><button type="button" class="gpf" data-gschritt="-1" aria-label="Vorherige"' + (gi <= 0 ? ' disabled' : '') + '>‹</button>' + grp.map(function(e){ return '<button type="button" class="gnr" data-gwahl="' + esc(e._id) + '" aria-pressed="' + (e === selIns) + '">' + esc(e.n) + '</button>'; }).join('') + '<button type="button" class="gpf" data-gschritt="1" aria-label="Nächste"' + (gi >= grp.length - 1 ? ' disabled' : '') + '>›</button></div>' : '';
     h += '<section class="ins" aria-live="polite" aria-label="Erkenntnis ' + esc(selIns.n) + '"><div class="num">' + esc(selIns.n) + '</div><div style="min-width:0">' + leiste +
-      '<div class="meta"><span class="chip ' + srcClass(selIns.src) + '">' + esc(selIns.src) + '</span><span>' + esc(de(selIns.date)) + '</span><span>· betrifft die hervorgehobenen Zeilen</span>' + (S.edit ? '<button type="button" class="btn ghost" style="min-height:28px;padding:2px 10px;font-size:12px" data-editins="' + esc(selIns._id) + '">Ändern</button>' : '') + '</div>' +
+      '<div class="meta"><span class="chip ' + srcClass(selIns.src) + '">' + esc(selIns.src) + '</span><span>' + esc(de(selIns.date)) + '</span><span>· betrifft die hervorgehobenen Zeilen</span>' + (hatVollbild(selIns) ? '<button type="button" class="btn ghost vb-knopf" data-vollbild="' + esc(selIns._id) + '">Vollbild</button>' : '') + (S.edit ? '<button type="button" class="btn ghost" style="min-height:28px;padding:2px 10px;font-size:12px" data-editins="' + esc(selIns._id) + '">Ändern</button>' : '') + '</div>' +
       '<div class="three"><div><div class="k">Gesehen</div>' + esc(selIns.obs) + '</div><div><div class="k ch">Geändert</div>' + esc(selIns.eff) + '</div><div><div class="k wa">Wirkt ab</div>' + esc(selIns.when) + '</div></div></div>' +
       '<button type="button" class="x" data-unsel="1" aria-label="Erkenntnis abwählen" title="Abwählen"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="var(--fg)" stroke-width="2.4" stroke-linecap="round"></path></svg></button></section>';
   } else if (S.ins.length) {
@@ -389,6 +533,11 @@ function render(){
   $('v-bahnen').setAttribute('aria-pressed', S.view === 'bahnen');
   $('edit').hidden = !S.canEdit;
   $('edit').setAttribute('aria-pressed', S.edit);
+  // Farbe der Balken: Art (wie bisher) oder Kenntnisstand, nur wenn es Daten dazu gibt
+  $('farbe').hidden = !(S.view === 'zeit' && hatNiveau());
+  Array.prototype.forEach.call($('farbe').querySelectorAll('button'), function(b){ b.setAttribute('aria-pressed', b.dataset.farbe === (standModus() ? 'stand' : 'art')); });
+  $('lg-stand').hidden = !(S.view === 'zeit' && standModus());
+  if (!$('lg-stand').hidden && !$('lg-stand').innerHTML) $('lg-stand').innerHTML = standLegende();
   $('editbar').hidden = !S.edit;
   var v = $('view');
   if (!S.bereit) { v.innerHTML = '<div class="card empty">Der Lernplan wird geladen. Er zeigt Pakete, Themen und Erkenntnisse, sobald die gespeicherten Daten da sind.</div>'; return; }
@@ -448,6 +597,8 @@ function editRow(id){
       if (r.etappe) out.etappe = r.etappe;
       if (r.lane) out.lane = r.lane;
       if (r.beispiel) out.beispiel = r.beispiel;
+      if (r.niveau) out.niveau = r.niveau;
+      if (r.verlauf) out.verlauf = r.verlauf;
       return S.db.doc('rows/' + (id || slug(out.label))).set(out);
     }, id ? function(){ return S.db.doc('rows/' + id).delete(); } : null);
     wire();
@@ -466,6 +617,7 @@ function editIns(id){
     '<div class="flabel">Betroffene Zeilen</div><div class="checks">' + leaf.map(function(r){ return '<label><input type="checkbox" name="rows" value="' + esc(r._id) + '"' + ((e.rows||[]).indexOf(r._id) >= 0 ? ' checked' : '') + '>' + (r.group ? '<b>' + esc(r.label) + '</b>' : esc(r.label)) + '</label>'; }).join('') + '</div>';
   openPanel(id ? 'Erkenntnis ändern' : 'Neue Erkenntnis', inner, function(fd){
     var out = { n: +fd.get('n'), date: fd.get('date'), src: fd.get('src'), obs: fd.get('obs'), eff: fd.get('eff'), when: fd.get('when'), ab: fd.get('ab') || '', kurz: fd.get('kurz') || '', rows: fd.getAll('rows') };
+    if (e.stand) out.stand = e.stand;
     var nid = id || ('e' + out.n + '-' + Math.random().toString(36).slice(2,5));
     S.sel = nid;
     return S.db.doc('insights/' + nid).set(out);
@@ -681,6 +833,7 @@ $('view').addEventListener('click', function(e){
   if (t.dataset.bsp) { openBeispiel(t.dataset.bsp, t); return; }
   if (t.dataset.toggle) { S.open[t.dataset.toggle] = !isOpen(t.dataset.toggle); saveOpen(); render(); return; }
   if (t.dataset.editins) { editIns(t.dataset.editins); return; }
+  if (t.dataset.vollbild) { vollAuf(t.dataset.vollbild); return; }
   if (t.dataset.unsel) { S.sel = null; S.grp = null; render(); return; }
   if (t.dataset.ins) { if (S.view === 'zeit' && S.sel === t.dataset.ins && !S.grp) { S.sel = null; render(); return; } S.grp = null; S.sel = t.dataset.ins; if (S.view === 'bahnen') S.view = 'zeit'; render(); return; }
   if (t.dataset.row && S.edit) { editRow(t.dataset.row); return; }
@@ -735,7 +888,28 @@ $('view').addEventListener('touchend', function(e){ if (e.touches.length < 2) pi
 $('view').addEventListener('gesturestart', function(e){ if (e.target.closest('.scroller[data-px]')) e.preventDefault(); });
 // Breite geändert (Drehen, Seitenleiste, Lernplan erst später sichtbar): neu zeichnen, damit Zoom und Stelle stimmen
 if (typeof ResizeObserver === 'function') new ResizeObserver(function(){ var w = $('view').clientWidth; if (w && Math.abs(w - (S.breite || 0)) > 2 && S.meta && S.bereit) render(); }).observe($('view'));
-document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && root.isConnected && $('dlg').innerHTML) closeDlg(); });
+document.addEventListener('keydown', function(e){
+  if (e.key !== 'Escape' || !root.isConnected) return;
+  if ($('dlg').innerHTML) { closeDlg(); return; }
+  if (S.voll) vollZu();
+});
+$('farbe').addEventListener('click', function(e){
+  var b = e.target.closest('button[data-farbe]'); if (!b) return;
+  S.farbe = b.dataset.farbe; try { localStorage.setItem(FKEY, S.farbe); } catch(err) {}
+  render();
+});
+$('voll').addEventListener('click', function(e){
+  var t = e.target.closest('button'); if (!t) return;
+  if (t.dataset.vzu) { vollZu(); return; }
+  if (t.dataset.vtend) { S.voll.tend = !S.voll.tend; renderVoll(); return; }
+  if (t.dataset.vnav) { var l = vollListe(), i = l.findIndex(function(x){ return x._id === S.voll.id; }) + (+t.dataset.vnav); if (l[i]) { S.voll.id = l[i]._id; renderVoll(); } return; }
+  if (t.dataset.vgehe) { S.voll = { id: t.dataset.vgehe, thema: null, tend: false }; renderVoll(); return; }
+  if (t.dataset.vthema != null) {
+    var th = t.dataset.vthema || null; S.voll.thema = th; S.voll.tend = false;
+    if (th) { var le = letzteEinschaetzung(th), l2 = vollListe(); if (!l2.some(function(x){ return x._id === S.voll.id; })) S.voll.id = le ? le.e._id : (l2[l2.length - 1] || {})._id; if (!S.voll.id) S.voll.thema = null; }
+    renderVoll(); return;
+  }
+});
 if (opt.info) { $('info').innerHTML = opt.info; $('info').hidden = false; }
 render();
 
