@@ -721,3 +721,22 @@ export function gedrucktSetzen(g, h, nr, an, von, am, alt) {
   neu.zuletzt = { von, am };
   return neu;
 }
+
+// ---------- Berichte (Auftrag 28): daten/<name>/berichte/index.json, Format berichte-1 ----------
+export function berichteNorm(x) {
+  if (!x || x.format !== 'berichte-1' || !Array.isArray(x.berichte)) return [];
+  const TAG = /^\d{4}-\d{2}-\d{2}$/;
+  return x.berichte.filter(b => b && typeof b.id === 'string' && /^[\w.-]+$/.test(b.id) && typeof b.datei === 'string' && /^[\w.-]+\.html$/.test(b.datei))
+    .map(b => ({ ...b, zeitraum: Array.isArray(b.zeitraum) && TAG.test(b.zeitraum[0] || '') && TAG.test(b.zeitraum[1] || '') ? b.zeitraum : null,
+      kommentare: Number.isInteger(b.kommentare) && b.kommentare > 0 ? b.kommentare : 0 }));
+}
+const brAb = (b) => (b.zeitraum && b.zeitraum[0]) || b.datum || '';
+// Neueste zuerst (nach Beginn des Zeitraums, sonst Datum)
+export function berichteSortiert(l) { return l.slice().sort((a, b) => brAb(b).localeCompare(brAb(a)) || String(b.datum || '').localeCompare(String(a.datum || ''))); }
+// Aktuell: der Bericht, dessen Zeitraum heute läuft; sonst der nächste kommende; sonst der neueste
+export function berichtAktuell(l, heute) {
+  const s = berichteSortiert(l);
+  return s.find(b => b.zeitraum && b.zeitraum[0] <= heute && heute <= b.zeitraum[1])
+    || s.filter(b => b.zeitraum && b.zeitraum[0] > heute).sort((a, b) => a.zeitraum[0].localeCompare(b.zeitraum[0]))[0]
+    || s[0] || null;
+}

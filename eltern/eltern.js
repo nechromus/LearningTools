@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.37.0';
+export const ELTERN_VERSION = '1.38.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -48,6 +48,7 @@ const icon = {
   uebersicht: '<path d="M4 19V10M10 19V5M16 19v-7M21 19H3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
   verlauf: '<path d="M5 6h14M5 12h14M5 18h9" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
   lernplan: '<rect x="3" y="5" width="18" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4M7 14h5M7 17h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  berichte: '<path d="M4 5h16v14H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 15v-3M12 15V9M16 15v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   boegen: '<path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M15 3v4h4M9 12h7M9 16h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   tickets: '<path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   einstellungen: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="16" cy="7" r="2" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="10" cy="17" r="2" stroke="currentColor" stroke-width="2" fill="none"/>',
@@ -163,6 +164,7 @@ async function datenLaden() {
     einst, geladen: Date.now(), kennung: kennung.sort().join('|')
   };
   datenHinweisWeg();
+  berichteLaden(n.ordner);
 }
 
 // ---------- Neue Daten melden ----------
@@ -235,7 +237,7 @@ function nutzerWahl(klasse) {
 
 function navLinks(art) {
   const aktiv = route.seite === 'aufgabe' || route.seite === 'spiel' ? 'verlauf' : route.seite === 'ticket' ? 'tickets' : ['spielzeit', 'gewichte', 'pakete', 'paket', 'qr', 'einheit', 'splitter'].includes(route.seite) ? 'einstellungen' : route.seite;
-  return [['uebersicht', 'Übersicht'], ['verlauf', 'Verlauf'], ['lernplan', 'Lernplan'], ...(boegenAn() ? [['boegen', 'Bögen']] : []), ['tickets', 'Tickets'], ['einstellungen', 'Einstellungen']].map(([k, t]) =>
+  return [['uebersicht', 'Übersicht'], ['verlauf', 'Verlauf'], ['lernplan', 'Lernplan'], ...(boegenAn() ? [['boegen', 'Bögen']] : []), ...(berichteAn() ? [['berichte', 'Berichte']] : []), ['tickets', 'Tickets'], ['einstellungen', 'Einstellungen']].map(([k, t]) =>
     `<a href="#${k}" class="${art}${aktiv === k ? ' aktiv' : ''}"${aktiv === k ? ' aria-current="page"' : ''}>${svg(k, 24)}<span>${t}</span></a>`).join('');
 }
 
@@ -258,12 +260,12 @@ function zeichne() {
         <nav class="seiten-nav">${navLinks('nav-link')}</nav>
         <div class="seitenleiste-fuss"><span class="klein gedaempft">${standZeile()}</span>${neuKnopf}</div>
       </aside>
-      <main class="inhalt-breit${route.seite === 'verlauf' || route.seite === 'aufgabe' || route.seite === 'boegen' ? ' ohne-rand' : ''}">${inhalt}</main>
+      <main class="inhalt-breit${route.seite === 'verlauf' || route.seite === 'aufgabe' || route.seite === 'boegen' || route.seite === 'berichte' ? ' ohne-rand' : ''}">${inhalt}</main>
     </div>`;
   } else {
     app.innerHTML = `<div class="rahmen-schmal">
       <main class="inhalt-schmal">${inhalt}</main>
-      <nav class="tabs${boegenAn() ? ' sechs' : ''}">${navLinks('tab')}</nav>
+      <nav class="tabs${boegenAn() && berichteAn() ? ' sieben' : boegenAn() || berichteAn() ? ' sechs' : ''}">${navLinks('tab')}</nav>
     </div>`;
   }
   if (route.seite === 'lernplan') lernplanEinhaengen();
@@ -288,9 +290,77 @@ function seiteHtml() {
     case 'lernplan': return lernplanSeite();
     case 'tickets': return ticketsSeite();
     case 'boegen': return boegenSeite();
+    case 'berichte': return berichteSeite();
     case 'ticket': return ticketSeite(route.arg);
     default: return uebersichtSeite();
   }
+}
+
+// ---------- Berichte (Auftrag 28) ----------
+// daten/<name>/berichte/index.json (berichte-1) und <id>.html schreibt der Kinder-Chat. Hier nur lesen.
+const BR = { kind: null, index: null, html: {}, laedt: false };
+function berichteAn() { return BR.kind === C.nutzer && !!(BR.index && BR.index.length); }
+async function berichteLaden(o, neu = false) {
+  if (BR.laedt || (BR.kind === o && BR.index && !neu)) return;
+  if (BR.kind !== o) Object.assign(BR, { kind: o, index: null, html: {} });
+  BR.laedt = true;
+  try {
+    const x = await U.dateiLesen(C, `daten/${o}/berichte/index.json`);
+    BR.index = A.berichteNorm(x);
+    if (neu) BR.html = {};
+  } catch (e) { BR.index = BR.index || []; }
+  BR.laedt = false; zeichne();
+}
+const brStatus = (b) => b.status === 'freigegeben' ? 'freigegeben' : b.status === 'vorschlag' ? 'Vorschlag' : (b.status || '');
+const brZeitraum = (b) => b.zeitraum ? `${datumKurz(b.zeitraum[0])}–${datumKurz(b.zeitraum[1])}` : datumKurz(b.datum);
+function brHtml(b) {
+  const k = b.id;
+  if (BR.html[k] === undefined) {
+    BR.html[k] = null;
+    U.dateiBlob(C, `daten/${BR.kind}/berichte/${b.datei}`).then(x => x ? x.text() : 'fehlt').then(t => { BR.html[k] = t; zeichne(); }).catch(() => { BR.html[k] = 'fehlt'; zeichne(); });
+  }
+  return BR.html[k];
+}
+function brZeile(b, aktuell, gewaehlt) {
+  return `<a class="zeile br-zeile${aktuell ? ' aktuell' : ''}${gewaehlt ? ' gewaehlt' : ''}" href="#berichte/${encodeURIComponent(b.id)}">
+    <span class="zeile-haupt"><b>${esc(b.titel || b.id)}</b><span class="klein gedaempft block">${esc(brZeitraum(b))}${b.kommentare ? ` · ${b.kommentare} ${b.kommentare === 1 ? 'Kommentar' : 'Kommentare'}` : ''}</span></span>
+    <span class="br-pills">${aktuell ? '<span class="bg-pill">aktuell</span>' : ''}<span class="bg-pill ${b.status === 'freigegeben' ? 'fertig' : 'warn'}">${esc(brStatus(b))}</span></span></a>`;
+}
+function brListe(gewaehlt) {
+  const l = A.berichteSortiert(BR.index || []), akt = A.berichtAktuell(BR.index || [], L.tagKey());
+  return `${BR.laedt && !BR.index ? '<p class="gedaempft pad">Berichte werden geladen …</p>' : ''}
+    ${akt ? `<h2 class="abschnitt">Aktuell</h2><section class="karte liste-karte">${brZeile(akt, true, gewaehlt === akt.id)}</section>` : ''}
+    ${l.filter(b => !akt || b.id !== akt.id).length ? `<h2 class="abschnitt">Frühere Wochen</h2><section class="karte liste-karte">${l.filter(b => !akt || b.id !== akt.id).map(b => brZeile(b, false, gewaehlt === b.id)).join('')}</section>` : ''}
+    <button class="knopf bg-neu-laden" data-act="brNeuLaden">${BR.laedt ? 'Lädt …' : 'Neu laden'}</button>`;
+}
+function brAnsicht(b) {
+  const h = brHtml(b);
+  const kopf = `<div class="br-kopf"><div><h1>${esc(b.titel || b.id)}</h1><span class="klein gedaempft">${esc(brZeitraum(b))} · ${esc(brStatus(b))}${b.kommentare ? ` · ${b.kommentare} ${b.kommentare === 1 ? 'Kommentar' : 'Kommentare'}` : ''} · nur zum Lesen</span></div>
+    ${b.quelle && /^https:\/\/claude\.ai\//.test(b.quelle) ? `<a class="knopf" href="${esc(b.quelle)}" target="_blank" rel="noopener">In Claude öffnen ↗</a>` : ''}</div>`;
+  if (!h || h === 'fehlt') return `${kopf}<p class="gedaempft pad">${h === 'fehlt' ? 'Die Berichtsdatei fehlt im Daten-Repo.' : 'Bericht wird geladen …'}</p>`;
+  // Feste Fassung in einem abgeschotteten Rahmen: eigenes Inline-Skript ja, Zugriff auf die Eltern-App nein. Immer hell wie die App.
+  const doc = String(h).replace(/<html(\s|>)/i, (m, z) => `<html data-theme="light"${z}`);
+  return `${kopf}<iframe class="br-rahmen" title="${esc(b.titel || 'Bericht')}" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" srcdoc="${esc(doc)}"></iframe>`;
+}
+function berichteSeite() {
+  if (!berichteAn()) return `<div class="seite">${breit.matches ? '<h1>Berichte</h1>' : kopfSchmal('Berichte')}<section class="karte"><p class="pad">${BR.laedt ? 'Berichte werden geladen …' : `Für ${esc(name())} gibt es noch keine Berichte. Sie erscheinen, sobald der Kinder-Chat sie ablegt.`}</p></section></div>`;
+  const b = route.arg ? (BR.index || []).find(x => x.id === route.arg) : null;
+  if (breit.matches) {
+    const zeige = b || A.berichtAktuell(BR.index, L.tagKey());
+    return `<div class="bg-breit br-breit"><aside class="bg-seite-liste"><h1>Berichte</h1>${brListe(zeige && zeige.id)}</aside>
+      <section class="bg-haupt br-haupt">${zeige ? brAnsicht(zeige) : '<p class="gedaempft pad">Wähle links einen Bericht.</p>'}</section></div>`;
+  }
+  if (!b) return `<div class="seite schmal-inhalt">${kopfSchmal('Berichte')}<p class="klein gedaempft">${esc(name())} · Wochenberichte mit Wochenplan</p>${brListe('')}</div>`;
+  return `<div class="seite schmal-inhalt br-schmal"><a class="zurueck" href="#berichte">‹ Berichte</a>${brAnsicht(b)}</div>`;
+}
+// Übersicht: Kachel „Wochenplan“ mit dem aktuellen Bericht
+function berichtKachel() {
+  if (!berichteAn()) return '';
+  const b = A.berichtAktuell(BR.index, L.tagKey());
+  if (!b) return '';
+  return `<a class="karte br-kachel" href="#berichte/${encodeURIComponent(b.id)}"><span class="br-k-l">${svg('berichte', 22)}</span>
+    <span class="br-k-m"><span class="kachel-label">Wochenplan</span><b>${esc(b.titel || b.id)}</b><span class="klein gedaempft">${esc(brZeitraum(b))} · ${esc(brStatus(b))}${b.kommentare ? ` · ${b.kommentare} ${b.kommentare === 1 ? 'Kommentar' : 'Kommentare'}` : ''}</span></span>
+    <span class="br-k-r">Lesen ›</span></a>`;
 }
 
 // ---------- Bögen und Bogen-Feedback (Auftrag 25) ----------
@@ -901,6 +971,7 @@ function uebersichtSeite() {
 
   return `<div class="seite">
     ${breit.matches ? `<header class="kopf-breit"><h1>Übersicht · ${esc(name())}</h1>${nutzerWahl('nutzer-chip nur-hoch')}${zeitraumWahl()}</header>` : kopfSchmal('Übersicht') + zeitraumWahl()}
+    ${berichtKachel()}
     <div class="kacheln">${kacheln}</div>
     ${leer}
     <div class="zwei-spalten">
@@ -2132,6 +2203,7 @@ document.addEventListener('click', (ev) => {
     case 'umformStufe': entwurf.umform_stufe = Number(el.dataset.w); meldung = null; zeichne(); break;
     case 'feedbackAn': entwurf.feedback = el.dataset.w === 'true'; meldung = null; zeichne(); break;
     case 'boegenAn': entwurf.boegen_feedback = el.dataset.w === 'true'; meldung = null; zeichne(); break;
+    case 'brNeuLaden': berichteLaden(C.nutzer, true); break;
     case 'bgNeuLaden': BG.hbPdf = {}; bgLaden(true); break;
     case 'hbDrucken': hbDrucken(el.dataset.w); break;
     case 'hbWarnDrucken': hbDrucken('neu'); if (route.arg !== 'hinweisblatt') location.hash = '#boegen/hinweisblatt'; break;

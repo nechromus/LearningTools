@@ -478,3 +478,23 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .hb-box { width: 22px; height: 22px; flex-shrink: 0; border-radius: 6px; border: 2px solid var(--linie); display: flex; align-items: center; justify-content: center; font-weight: 700; }
 .hb-haken[aria-pressed="true"] { border-color: var(--teal); }
 .hb-haken[aria-pressed="true"] .hb-box { background: var(--teal); border-color: var(--teal); color: #fff; }
+/* Berichte (Auftrag 28) */
+.tabs.sieben .tab { font-size: 9.5px; letter-spacing: -0.3px; }
+.tabs.sieben .tab svg { width: 21px; height: 21px; }
+.br-zeile { display: flex; align-items: center; gap: 8px; }
+.br-zeile.aktuell { background: var(--teal-hell); }
+.br-zeile.gewaehlt { background: #FFF8E8; box-shadow: inset 4px 0 0 var(--teal); }
+.br-kopf { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 14px; margin-bottom: 10px; }
+.br-kopf h1 { margin: 0; }
+.br-kopf .knopf { text-decoration: none; }
+.br-rahmen { display: block; width: 100%; border: 1px solid var(--linie); border-radius: var(--radius); background: #fff; height: calc(100vh - 150px); min-height: 420px; }
+.br-breit .br-haupt { padding-bottom: 20px; }
+.br-breit .br-rahmen { height: calc(100vh - 130px); }
+.br-schmal .br-rahmen { height: calc(100vh - 230px - env(safe-area-inset-bottom)); border-radius: 10px; }
+.br-kachel { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 12px 0 0; text-decoration: none; color: inherit; border-left: 5px solid var(--teal); }
+.br-k-l { color: var(--teal); display: flex; }
+.br-k-m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.br-k-r { font-weight: 700; color: var(--teal); white-space: nowrap; }
+.br-pills { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.br-zeile .zeile-haupt { min-width: 0; }
+.br-kopf .knopf { display: inline-flex; align-items: center; min-height: 40px; padding: 6px 14px; }
