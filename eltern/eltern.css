@@ -564,3 +564,12 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .br-k-r { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .br-k-r a { color: var(--teal); text-decoration: none; font-weight: 700; }
 .br-k-r a.klein { font-weight: 400; text-decoration: underline; }
+/* Live-Anzeige */
+.live-karte { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 12px 0 0; }
+.live-karte.an { border-left: 5px solid #2F7D32; }
+.live-karte.aus { border-left: 5px solid var(--linie); }
+.live-punkt { width: 12px; height: 12px; border-radius: 50%; flex: none; background: #A9B3B1; }
+.live-karte.an .live-punkt { background: #2F9A55; box-shadow: 0 0 0 4px rgba(47, 154, 85, .2); animation: live-puls 2s infinite; }
+@keyframes live-puls { 50% { box-shadow: 0 0 0 7px rgba(47, 154, 85, .08); } }
+@media (prefers-reduced-motion: reduce) { .live-karte.an .live-punkt { animation: none; } }
+.live-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }

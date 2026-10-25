@@ -819,6 +819,8 @@ export function fernAnwenden(z, datei) {
   }
   // Feedback-Knopf pro Kind (Testgeräte haben ihn immer)
   if (typeof w.feedback === 'boolean' && w.feedback !== !!z.feedbackAn) { z.feedbackAn = w.feedback; geaendert.push('feedback'); }
+  // Live-Anzeige pro Kind: App meldet „übt“, „spielt“, „weg“ nach daten/<name>/live.json
+  if (typeof w.live === 'boolean' && w.live !== !!z.liveAn) { z.liveAn = w.live; geaendert.push('live'); }
   if (typeof w.etappe_anzeigen === 'boolean' && w.etappe_anzeigen !== !!z.etappeAnzeigen) { z.etappeAnzeigen = w.etappe_anzeigen; geaendert.push('etappeAnzeigen'); }
   // Gestaltung pro Kind: schrein (Standard) oder sternzeit („Logbuch Sternzeit“)
   if (GESTALTUNGEN.includes(w.gestaltung) && w.gestaltung !== (z.gestaltung || 'schrein')) { z.gestaltung = w.gestaltung; geaendert.push('gestaltung'); }

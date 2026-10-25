@@ -94,8 +94,12 @@ export function speichern(s) {
 }
 export const hatSpeicherFehler = () => speicherFehler;
 
+// Live-Anzeige (Eltern-App): die App meldet ausgewählte Ereignisse zusätzlich an einen Beobachter
+let protokollBeobachter = null;
+export function protokollBeobachten(fn) { protokollBeobachter = fn; }
 export function protokoll(s, typ, daten = {}) {
   s.log.push({ ...daten, t: new Date().toISOString(), typ });
+  if (protokollBeobachter) { try { protokollBeobachter(typ, daten); } catch (e) { /* egal */ } }
   logGeaendert = true;
   if (s.log.length > 12000) s.log.splice(0, s.log.length - 12000);
 }

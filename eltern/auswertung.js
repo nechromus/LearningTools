@@ -431,6 +431,7 @@ export function startWerte(einst, stand, paketVon = () => null) {
     umform_stufe: [1, 2, 3].includes(w.umform_stufe) ? w.umform_stufe : 3,
     feedback: w.feedback === true,
     boegen_feedback: w.boegen_feedback === true,
+    live: w.live === true,
     ...Object.fromEntries(BEDIENUNG.map(b => [b.k, typeof w[b.k] === 'boolean' ? w[b.k] : b.std])),
     ...(typeof w.ansicht_name === 'string' ? { ansicht_name: w.ansicht_name } : {}),
     uebungszeit: uzWerte(w.uebungszeit),
@@ -545,7 +546,7 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
     app: 'lernapp-2048-eltern', version, geaendert: jetzt.toISOString(),
     werte: { thema: hauptThema(werte), paket: werte.paket, abweichungen: werte.abweichungen || {}, gewichte: P.gewichteNorm(werte.gewichte), basisVon: werte.basisVon, basisBis: werte.basisBis, rechnerAngebot: werte.rechnerAngebot, langeHinweise: [0, 1, 2, 3].includes(werte.langeHinweise) ? werte.langeHinweise : 1, spielzeit: spielzeitRegeln(werte.spielzeit), bildschirm: bzDatei(werte.bildschirm, tagKey(jetzt)), spielzeitTag: szDatei(werte.spielzeitTag, tagKey(jetzt)), genStufen,
       ...(Array.isArray(werte.pakete) ? { pakete: werte.pakete.map(paketEintragDatei), etappe_anzeigen: !!werte.etappe_anzeigen } : {}),
-      gestaltung: werte.gestaltung === 'sternzeit' ? 'sternzeit' : 'schrein', umform_stufe: [1, 2, 3].includes(werte.umform_stufe) ? werte.umform_stufe : 3, feedback: werte.feedback === true, ...(werte.boegen_feedback ? { boegen_feedback: true } : {}), ...Object.fromEntries(BEDIENUNG.map(b => [b.k, typeof werte[b.k] === 'boolean' ? werte[b.k] : b.std])), ...(werte.ansicht_name ? { ansicht_name: werte.ansicht_name } : {}),
+      gestaltung: werte.gestaltung === 'sternzeit' ? 'sternzeit' : 'schrein', umform_stufe: [1, 2, 3].includes(werte.umform_stufe) ? werte.umform_stufe : 3, feedback: werte.feedback === true, ...(werte.boegen_feedback ? { boegen_feedback: true } : {}), ...(werte.live ? { live: true } : {}), ...Object.fromEntries(BEDIENUNG.map(b => [b.k, typeof werte[b.k] === 'boolean' ? werte[b.k] : b.std])), ...(werte.ansicht_name ? { ansicht_name: werte.ansicht_name } : {}),
       uebungszeit: uzDatei(werte.uebungszeit, tagKey(jetzt)),
       ...(werte.freigaben && Object.keys(werte.freigaben).length ? { freigaben: { ...werte.freigaben } } : {}),
       // Wochenplan (Auftrag 24): schreibt nur der Kinder-Chat, darum immer aus der frisch gelesenen Datei übernehmen
@@ -770,4 +771,22 @@ export function planAktuell(l, heute) {
   return s.filter(b => b.zeitraum && b.zeitraum[0] > heute).sort((a, b) => a.zeitraum[0].localeCompare(b.zeitraum[0]))[0]
     || s.find(b => b.zeitraum && b.zeitraum[0] <= heute && heute <= b.zeitraum[1])
     || s[0] || null;
+}
+
+// ---------- Live-Anzeige: daten/<name>/live.json (live-1) ----------
+// Zustand aus live.json und dem letzten Lebenszeichen der Lerndaten. offen = vor höchstens grenzeMin Minuten etwas gehört.
+export function liveStand(live, eintraege = [], jetzt = Date.now(), grenzeMin = 15) {
+  if (!live || live.format !== 'live-1' || !['uebung', 'spiel', 'weg'].includes(live.zustand) || !live.seit) return null;
+  const seit = Date.parse(live.seit);
+  if (!Number.isFinite(seit)) return null;
+  const nach = eintraege.filter(e => e.t && Date.parse(e.t) >= seit && Date.parse(e.t) <= jetzt + 60000);
+  const letzte = Math.max(seit, ...nach.map(e => Date.parse(e.t)).filter(Number.isFinite));
+  const aktiv = live.zustand !== 'weg' && jetzt - letzte <= grenzeMin * 60000;
+  const heute = tagKey(new Date(jetzt));
+  const ende = eintraege.filter(e => e.typ === 'aufgabe_ende' && tagKey(new Date(e.t)) === heute);
+  const starts = nach.filter(e => e.typ === 'aufgabe_start');
+  return { zustand: live.zustand, aktiv, seit, letzte, thema: (starts.length ? starts[starts.length - 1].thema : live.thema) || null,
+    spiel: live.spiel || null, zweck: live.zweck || null,
+    heute: { aufgaben: ende.length, erst: ende.filter(e => e.ergebnis === 'erst').length },
+    seitStart: nach.filter(e => e.typ === 'aufgabe_ende').length };
 }

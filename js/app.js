@@ -29,9 +29,9 @@ import * as FB from './feedback.js';
 import { ANLEITUNGEN } from './anleitungen.js';
 import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
-import { laden, speichern, protokoll, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
+import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.26.7';
+export const APP_VERSION = '2.27.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -392,7 +392,7 @@ async function testAlsSetzen(ordner) {
   await fernHolen(true);
 }
 function personaZuruecksetzen(z) {
-  for (const f of ['gestaltung', 'ansichtName', 'uzRegeln', 'bzRegeln', 'szRegeln', 'etappeAnzeigen', 'fernEtappen', 'feedbackAn', 'freigaben', 'wochenplan', 'eingriffe', 'wp', 'zuletzt']) delete z[f];
+  for (const f of ['gestaltung', 'ansichtName', 'uzRegeln', 'bzRegeln', 'szRegeln', 'etappeAnzeigen', 'fernEtappen', 'feedbackAn', 'liveAn', 'freigaben', 'wochenplan', 'eingriffe', 'wp', 'zuletzt']) delete z[f];
   delete z.einstellungen.umformStufe;
   for (const b of L.BEDIENUNG) delete z.einstellungen[b.f];
 }
@@ -505,6 +505,25 @@ async function standHochladen(erzwingen = false) {
     sichern();
   }
 }
+
+// ---------- Live-Anzeige für die Eltern-App ----------
+// Nur Ereignisse: „startet Übung“, „startet Spiel“, „verlässt die App“. Ein Commit nur, wenn sich der Zustand ändert.
+// Das Lebenszeichen dazwischen sind die normalen Lerndaten (höchstens alle 10 Minuten).
+let liveZustand = null;
+async function liveMelden(zustand, extra = {}) {
+  const u = S.upload;
+  if (!S.liveAn || !S.einstellungen.name || u.testgeraet || u.testAls || !u.repo || !u.token) return;
+  const key = zustand + '|' + (extra.spiel || '');
+  if (key === liveZustand) return;
+  liveZustand = key;
+  const inhalt = { format: 'live-1', zustand, seit: new Date().toISOString(), geraetId: S.geraetId, version: APP_VERSION, ...extra };
+  try { await U.dateiSchreiben(u, `daten/${nutzerOrdner()}/live.json`, JSON.stringify(inhalt, null, 1), `Live: ${zustand}`); }
+  catch (e) { liveZustand = null; }
+}
+protokollBeobachten((typ, d) => {
+  if (typ === 'aufgabe_start') liveMelden('uebung', { thema: d.thema || null, zweck: zweck || null });
+  else if (typ === 'spiel_start' && !d.test) liveMelden('spiel', { spiel: d.spiel || null });
+});
 
 async function syncen(erzwingen = false) {
   const u = S.upload;
@@ -3412,6 +3431,7 @@ function sichtbarkeit() {
     S.laufend = ansicht === 'aufgabe' && A && !A.fertig && !A.aufgabe.bonus ? aufgabeSchnappschuss() : null;
     sichern();
     standHochladen(); // falls die App jetzt geschlossen wird
+    liveMelden('weg');
     return;
   }
   const dauer = versteckt ? Date.now() - versteckt : 0;

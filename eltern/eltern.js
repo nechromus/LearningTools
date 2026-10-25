@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.40.0';
+export const ELTERN_VERSION = '1.41.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -165,6 +165,7 @@ async function datenLaden() {
   };
   datenHinweisWeg();
   berichteLaden(n.ordner);
+  liveLaden(n.ordner);
 }
 
 // ---------- Neue Daten melden ----------
@@ -295,6 +296,29 @@ function seiteHtml() {
     default: return uebersichtSeite();
   }
 }
+
+// ---------- Live-Anzeige: daten/<name>/live.json ----------
+const LV = { kind: null, live: null, geholt: 0 };
+function liveAn() { const w = D.daten && D.daten.einst && D.daten.einst.werte; return !!(w && w.live === true); }
+async function liveLaden(o) {
+  if (!liveAn()) return;
+  try { const x = await U.dateiLesen(C, `daten/${o}/live.json`); if (C.nutzer === o) { LV.kind = o; LV.live = x; LV.geholt = Date.now(); zeichne(); } } catch (e) { /* später */ }
+}
+// Solange die Übersicht offen ist: alle 30 Sekunden nachsehen
+setInterval(() => { if (!document.hidden && route.seite === 'uebersicht' && C.token && D.daten && !D.daten.leer) liveLaden(C.nutzer); }, 30000);
+const lvUhr = (ms) => new Date(ms).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+function liveKarte() {
+  if (!liveAn() || LV.kind !== C.nutzer) return '';
+  const st = A.liveStand(LV.live, D.daten.eintraege || []);
+  if (!st) return '';
+  const nm = esc(name());
+  if (!st.aktiv) return `<section class="karte live-karte aus"><span class="live-punkt"></span><span class="live-text"><b>Gerade nicht in der App</b><span class="klein gedaempft">zuletzt aktiv ${esc(wann(new Date(st.letzte).toISOString()))}</span></span></section>`;
+  const was = st.zustand === 'spiel' ? `Spielt ${esc(SPIELNAMEN[st.spiel] || st.spiel || 'im Schrein')} seit ${lvUhr(st.seit)}`
+    : `Übt seit ${lvUhr(st.seit)}${st.thema ? ' · ' + esc(THEMA_NAMEN[st.thema] || st.thema) : ''}${st.zweck === 'bild' ? ' · für Bildschirmzeit' : ''}`;
+  const zahlen = `heute ${st.heute.aufgaben} ${st.heute.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}, ${st.heute.erst} im 1. Versuch · Stand ${lvUhr(st.letzte)}`;
+  return `<section class="karte live-karte an"><span class="live-punkt"></span><span class="live-text"><b>${nm} ist gerade in der App</b><span>${was}</span><span class="klein gedaempft">${zahlen}</span></span><button class="knopf-icon" data-act="neuLaden" aria-label="Neu laden" title="Neu laden">${svg('neu', 20)}</button></section>`;
+}
+const SPIELNAMEN = { '2048': '2048', runenfeld: 'Runenfeld', kristallmine: 'Kristallmine', steinschieber: 'Steinschieber', runenfall: 'Runenfall', runenreihen: 'Runenreihen', hoehlenkarte: 'Höhlenkarte' };
 
 // ---------- Berichte (Auftrag 28) ----------
 // daten/<name>/berichte/index.json (berichte-1) und <id>.html schreibt der Kinder-Chat. Hier nur lesen.
@@ -1019,6 +1043,7 @@ function uebersichtSeite() {
 
   return `<div class="seite">
     ${breit.matches ? `<header class="kopf-breit"><h1>Übersicht · ${esc(name())}</h1>${nutzerWahl('nutzer-chip nur-hoch')}${zeitraumWahl()}</header>` : kopfSchmal('Übersicht') + zeitraumWahl()}
+    ${liveKarte()}
     ${berichtKachel()}
     <div class="kacheln">${kacheln}</div>
     ${leer}
@@ -1406,6 +1431,7 @@ function gestaltungEinstellungen(w) {
     <section class="karte liste-karte">
       <div class="einstell-block"><span>Gestaltung der App<span class="klein gedaempft block">Logbuch Sternzeit: dunkle Konsole, Logbuch, Wissensarchiv und Wissenspunkte. Hinweiskarten bleiben gleich.</span></span>${seg('gestaltung', ['schrein', 'sternzeit'], w.gestaltung, x => x === 'schrein' ? 'Schrein' : 'Logbuch Sternzeit')}</div>
       <div class="einstell-block"><span>Bögen und Feedback<span class="klein gedaempft block">Bereich „Bögen“: Bögen ausdrucken und Feedback eintragen. Die Bögen legt Claude im Kinder-Chat an.</span></span>${seg('boegenAn', [true, false], w.boegen_feedback === true, x => x ? 'An' : 'Aus')}</div>
+      <div class="einstell-block"><span>Live-Anzeige<span class="klein gedaempft block">Die Übersicht zeigt, ob ${esc(name())} gerade übt oder spielt. Die App meldet nur Beginn und Ende.</span></span>${seg('liveAn', [true, false], w.live === true, x => x ? 'An' : 'Aus')}</div>
       <div class="einstell-block"><span>Feedback-Knopf<span class="klein gedaempft block">Kleiner Knopf am rechten Rand. ${esc(name())} kann damit ein Bild der App und einen Text schicken. Er landet unter „Tickets“. Auf Testgeräten ist er immer da.</span></span>${seg('feedbackAn', [true, false], w.feedback === true, x => x ? 'An' : 'Aus')}</div>
       <div class="einstell-block"><span>„In Schritten umformen“: Start-Stufe<span class="klein gedaempft block">3: beide Seiten selbst vereinfachen. 2: die App schreibt eine Seite. 1: die App vereinfacht. Die anderen Stufen gibt es als Hilfe.</span></span>${seg('umformStufe', [3, 2, 1], w.umform_stufe, x => 'Stufe ' + x)}</div>
       ${L.BEDIENUNG.map(b => `<div class="einstell-block"><span>${esc(b.titel)}<span class="klein gedaempft block">${esc(b.text)}</span></span>${seg('bedienung" data-k="' + b.k, [true, false], w[b.k] ?? b.std, x => x ? 'An' : 'Aus')}</div>`).join('')}
@@ -2251,6 +2277,7 @@ document.addEventListener('click', (ev) => {
     case 'umformStufe': entwurf.umform_stufe = Number(el.dataset.w); meldung = null; zeichne(); break;
     case 'feedbackAn': entwurf.feedback = el.dataset.w === 'true'; meldung = null; zeichne(); break;
     case 'boegenAn': entwurf.boegen_feedback = el.dataset.w === 'true'; meldung = null; zeichne(); break;
+    case 'liveAn': entwurf.live = el.dataset.w === 'true'; meldung = null; zeichne(); break;
     case 'brArt': BR.art = el.dataset.w === 'bericht' ? 'bericht' : 'plan'; if (route.arg) location.hash = '#berichte'; else zeichne(); break;
     case 'brNeuLaden': berichteLaden(C.nutzer, true); break;
     case 'bgNeuLaden': BG.hbPdf = {}; bgLaden(true); break;
