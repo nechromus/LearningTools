@@ -635,7 +635,12 @@ export function wochenplanStand(werte, eintraege, heute = tagKey()) {
 
 // ---------- Bögen und Bogen-Feedback (Auftrag 25, nur Kinder mit Schalter „boegen_feedback“) ----------
 export const BOGEN_ERGEBNISSE = ['klappt', 'mit Hilfe', 'nicht verstanden', 'ausgelassen'];
-export const BOGEN_CHIPS = ['Flüchtigkeitsfehler', 'Hinweisblatt benutzt', 'Taschenrechner', 'Rechenweg unklar', 'Text nicht verstanden', 'Brauchte Rückversicherung', 'motiviert', 'unmotiviert'];
+export const BOGEN_CHIPS = ['Flüchtigkeitsfehler', '2. Versuch', 'Hinweisblatt benutzt', 'Taschenrechner', 'Rechenweg unklar', 'Text nicht verstanden', 'Brauchte Rückversicherung', 'motiviert', 'unmotiviert'];
+// Bonus getrennt bewerten (Auftrag 27): Teile mit bonus: true in bogen.json
+export const BOGEN_BONUS = ['klappt', 'mit Hilfe', 'nicht verstanden', 'ausgelassen', 'nicht versucht'];
+// Am Anfang nur „Wer trägt ein?“ und „Anfang“, der Rest im Überblick am Ende (Auftrag 27)
+export const BOGEN_ANFANG = ['von', 'anfang'];
+export const BOGEN_ENDE = ['stimmung', 'hinweisblatt', 'dauer'];
 export const BOGEN_ALLGEMEIN = [
   { k: 'von', titel: 'Wer trägt ein?', werte: ['Vater', 'Mutter'] },
   { k: 'anfang', titel: 'Anfang', werte: ['direkt los', 'kurz überredet', 'stark überredet'] },
@@ -645,7 +650,10 @@ export const BOGEN_ALLGEMEIN = [
 ];
 export function bogenNorm(b) {
   if (!b || b.format !== 'bogen-1' || !b.id || !Array.isArray(b.uebungen)) return null;
-  return { ...b, uebungen: b.uebungen.filter(u => u && u.nr != null).map(u => ({ ...u, nr: String(u.nr) })) };
+  return { ...b, uebungen: b.uebungen.filter(u => u && u.nr != null).map(u => {
+    const bonus = (Array.isArray(u.teile) ? u.teile : []).filter(t => t && t.bonus === true).map(t => String(t.l || '')).filter(Boolean);
+    return { ...u, nr: String(u.nr), ...(bonus.length ? { bonusTeile: bonus } : {}) };
+  }) };
 }
 // Entwurf → Datei bogen-feedback-1. Übungen ohne Eintrag (klappt, keine Beobachtung, keine Notiz, kein Foto) fallen weg.
 export function bogenFeedbackDatei(kind, id, e, jetzt = new Date()) {
@@ -655,8 +663,9 @@ export function bogenFeedbackDatei(kind, id, e, jetzt = new Date()) {
     const chips = (x.chips || []).filter(c => BOGEN_CHIPS.includes(c));
     const notiz = String(x.notiz || '').trim();
     const fotos = (x.fotos || []).map(f => typeof f === 'string' ? f : f.name).filter(Boolean);
-    if (ergebnis === 'klappt' && !chips.length && !notiz && !fotos.length) continue;
-    uebungen[nr] = { ergebnis, ...(chips.length ? { chips } : {}), ...(notiz ? { notiz } : {}), ...(fotos.length ? { fotos } : {}) };
+    const bonus = x.bonus && BOGEN_BONUS.includes(x.bonus.ergebnis) ? { ergebnis: x.bonus.ergebnis, ...(String(x.bonus.notiz || '').trim() ? { notiz: String(x.bonus.notiz).trim() } : {}) } : null;
+    if (ergebnis === 'klappt' && !chips.length && !notiz && !fotos.length && !bonus) continue;
+    uebungen[nr] = { ergebnis, ...(chips.length ? { chips } : {}), ...(notiz ? { notiz } : {}), ...(fotos.length ? { fotos } : {}), ...(bonus ? { bonus } : {}) };
   }
   const off = -jetzt.getTimezoneOffset(), p = (n) => String(Math.floor(Math.abs(n))).padStart(2, '0');
   const lokal = new Date(jetzt.getTime() + off * 60000).toISOString().slice(0, 19) + (off >= 0 ? '+' : '-') + p(off / 60) + ':' + p(off % 60);
@@ -671,7 +680,7 @@ export function bogenFeedbackDatei(kind, id, e, jetzt = new Date()) {
 export function bogenFeedbackEntwurf(f) {
   if (!f || f.format !== 'bogen-feedback-1') return null;
   const uebungen = {};
-  for (const [nr, x] of Object.entries(f.uebungen || {})) uebungen[nr] = { ergebnis: x.ergebnis || 'klappt', chips: x.chips || [], notiz: x.notiz || '', fotos: (x.fotos || []).map(name => ({ name })) };
+  for (const [nr, x] of Object.entries(f.uebungen || {})) uebungen[nr] = { ergebnis: x.ergebnis || 'klappt', chips: x.chips || [], notiz: x.notiz || '', fotos: (x.fotos || []).map(name => ({ name })), ...(x.bonus && x.bonus.ergebnis ? { bonus: { ergebnis: x.bonus.ergebnis, notiz: x.bonus.notiz || '' } } : {}) };
   return { von: f.von || '', gemacht: f.gemacht, anfang: f.anfang || '', stimmung: f.stimmung || '', hinweisblatt: f.hinweisblatt || '', dauer: f.dauer || null, uebungen, sonst: f.sonst || '', gesehen: Object.keys(uebungen), frei: !!f.ohne_bogen };
 }
 

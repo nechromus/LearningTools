@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.38.0';
+export const ELTERN_VERSION = '1.39.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -579,7 +579,7 @@ function boegenSeite() {
   const [id, schritt] = route.arg ? route.arg.split('/') : ['', ''];
   if (breit.matches) {
     return `<div class="bg-breit"><aside class="bg-seite-liste"><h1>Bögen</h1>${bgListe(id)}</aside>
-      <section class="bg-haupt">${id === 'hinweisblatt' ? hinweisSeite(true) : id ? bogenVoll(id) : '<p class="gedaempft pad">Wähle links einen Bogen.</p>'}</section></div>`;
+      <section class="bg-haupt">${id === 'hinweisblatt' ? hinweisSeite(true) : !id ? '<p class="gedaempft pad">Wähle links einen Bogen.</p>' : !schritt ? bogenAllgemein(id) : schritt === 'ende' ? bogenEnde(id) : bogenKarte(id, schritt)}</section></div>`;
   }
   if (id === 'hinweisblatt') return `<div class="seite schmal-inhalt bg-schritt">${hinweisSeite(false)}</div>`;
   if (!id) return `<div class="seite schmal-inhalt">${kopfSchmal('Bögen')}<p class="klein gedaempft">${esc(name())} · Bögen ausdrucken und Feedback eintragen</p>${bgListe('')}</div>`;
@@ -595,7 +595,8 @@ function bgPdfLeiste(id) {
   const knopf = (w, t) => b.pdf[w] ? `<button class="bg-pdf-knopf" data-act="bgPdf" data-id="${esc(id)}" data-w="${w}"${k(w) === 'fehlt' ? ' disabled' : ''}>${t} · PDF${!k(w) ? ' <span class="klein">(lädt …)</span>' : k(w) === 'fehlt' ? ' <span class="klein">(fehlt)</span>' : ''}</button>` : '';
   const hl = hbFuerBogen(id);
   const hk = BG.hb ? (hl.length ? hbKnopf(hl.map(s => s.nr).join(','), hl, 'Hinweisblatt · ⚠ neu', 'zweit warn-rand') : hbKnopf('alle', BG.hb.seiten, 'Hinweisblatt · aktuell', 'zweit')) : '';
-  return `${hbBogenBox(id)}<div class="bg-pdf"><span class="bg-pdf-titel">Zum Ausdrucken</span>${knopf('aufgaben', 'Aufgaben')}${knopf('loesungen', 'Lösungen')}${hk}</div>`;
+  const ansehen = b.uebungen.some(u => u.bilder) ? `<div class="bg-ansehen"><span class="bg-pdf-titel">In der App ansehen</span><button class="knopf" data-act="bgAnsicht" data-id="${esc(id)}" data-w="auf">Aufgaben</button><button class="knopf" data-act="bgAnsicht" data-id="${esc(id)}" data-w="loes">Lösungen</button></div>` : '';
+  return `${hbBogenBox(id)}${ansehen}<div class="bg-pdf"><span class="bg-pdf-titel">Zum Ausdrucken</span>${knopf('aufgaben', 'Aufgaben')}${knopf('loesungen', 'Lösungen')}${hk}</div>`;
 }
 function bgPdfLaden(id) {
   const b = BG.boegen[id]; if (!b || !b.pdf) return;
@@ -628,40 +629,50 @@ function bgBild(id, pfad) {
 function bgSeg(id, k, werte, aktuell, text = (v) => v, spalten = werte.length) {
   return `<div class="bg-seg" style="grid-template-columns:repeat(${spalten},minmax(0,1fr))" role="group">${werte.map(v => `<button data-act="bgWert" data-id="${esc(id)}" data-k="${k}" data-v="${esc(v)}" aria-pressed="${aktuell === v}">${esc(text(v))}</button>`).join('')}</div>`;
 }
-function bgAllgemeinFelder(id, e) {
-  return A.BOGEN_ALLGEMEIN.map(f => `<div class="bg-gruppe"><span class="bg-lbl">${esc(f.titel)}${f.frei ? ' <span class="klein gedaempft">(optional)</span>' : ''}</span>${bgSeg(id, f.k, f.werte, e[f.k], f.text)}</div>`).join('') +
-    `<div class="bg-gruppe"><span class="bg-lbl">Gemacht am</span><input type="date" id="bg-gemacht" data-id="${esc(id)}" value="${esc(e.gemacht || L.tagKey())}" max="${L.tagKey()}"></div>`;
+// keys: welche allgemeinen Fragen (Anfang: von, anfang + Datum; Ende: stimmung, hinweisblatt, dauer)
+function bgAllgemeinFelder(id, e, keys = A.BOGEN_ANFANG, mitDatum = true) {
+  return A.BOGEN_ALLGEMEIN.filter(f => keys.includes(f.k)).map(f => `<div class="bg-gruppe"><span class="bg-lbl">${esc(f.titel)}${f.frei ? ' <span class="klein gedaempft">(optional)</span>' : ''}</span>${bgSeg(id, f.k, f.werte, e[f.k], f.text)}</div>`).join('') +
+    (mitDatum ? `<div class="bg-gruppe"><span class="bg-lbl">Gemacht am</span><input type="date" id="bg-gemacht" data-id="${esc(id)}" value="${esc(e.gemacht || L.tagKey())}" max="${L.tagKey()}"></div>` : '');
 }
 function bgUeInfo(id, nr) { const b = BG.boegen[id]; return b ? b.uebungen.find(u => u.nr === nr) : { nr, titel: '' }; }
+// Stand einer Übung für die Leiste: offen (noch nicht angesehen, nichts eingetragen) oder das Ergebnis
+function bgUeStand(id, nr) {
+  const e = bgEntwurf(id), u = e.uebungen[nr];
+  if (!u || (!e.gesehen.includes(nr) && u.ergebnis === 'klappt' && !u.chips.length && !u.notiz && !(u.fotos || []).length && !u.bonus)) return 'offen';
+  return u.ergebnis;
+}
+// Leiste mit allen Übungen: antippen springt, Farbe nach Ergebnis
+function bgLeiste(id, aktiv) {
+  const nrn = bgNummern(id);
+  if (!nrn.length) return '';
+  return `<nav class="bg-leiste" aria-label="Übungen">${nrn.map(n => `<a href="#boegen/${encodeURIComponent(id)}/${encodeURIComponent(n)}" class="bg-l" data-stand="${esc(bgUeStand(id, n))}"${n === aktiv ? ' aria-current="true"' : ''} title="Übung ${esc(n)}: ${esc(bgUeStand(id, n))}">${esc(n)}</a>`).join('')}
+    <a href="#boegen/${encodeURIComponent(id)}/ende" class="bg-l bg-l-ende"${aktiv === 'ende' ? ' aria-current="true"' : ''}>Überblick</a></nav>`;
+}
 function ueKarte(id, nr, kompakt) {
   const e = bgEntwurf(id), u = bgUe(e, nr), x = bgUeInfo(id, nr) || { nr };
-  const zeig = BG.zeig[id + '|' + nr];
-  const pfad = zeig && x.bilder && x.bilder[zeig];
-  const src = pfad ? bgBild(id, pfad) : null;
-  return `${x.neu ? '<div class="bg-neu">Neu auf diesem Bogen. Wie kam es an?</div>' : ''}
-    <div class="bg-gruppe"><span class="bg-lbl">Ergebnis</span><div class="bg-seg bg-erg" style="grid-template-columns:repeat(2,minmax(0,1fr))" role="group">${A.BOGEN_ERGEBNISSE.map(v => `<button data-act="bgErg" data-id="${esc(id)}" data-nr="${esc(nr)}" data-v="${esc(v)}" data-erg="${esc(v)}" aria-pressed="${u.ergebnis === v}">${esc(v)}</button>`).join('')}</div></div>
-    ${x.bilder ? `<div class="bg-seg" style="grid-template-columns:1fr 1fr" role="group"><button data-act="bgZeig" data-id="${esc(id)}" data-nr="${esc(nr)}" data-w="auf" aria-pressed="${zeig === 'auf'}">Aufgabe zeigen</button><button data-act="bgZeig" data-id="${esc(id)}" data-nr="${esc(nr)}" data-w="loes" aria-pressed="${zeig === 'loes'}">Lösung zeigen</button></div>
-      ${zeig ? (src && src !== 'fehlt' ? `<img class="bg-crop" data-act="bgGross" src="${src}" alt="${zeig === 'auf' ? 'Aufgabe' : 'Lösung'} Übung ${esc(nr)}" title="Antippen: groß anzeigen">` : `<p class="klein gedaempft">${src === 'fehlt' ? 'Kein Bild vorhanden.' : 'Bild wird geladen …'}</p>`) : ''}` : ''}
+  const loesAn = BG.zeig[id + '|' + nr] === 'loes';
+  const bild = (w) => { const pfad = x.bilder && x.bilder[w]; if (!pfad) return ''; const src = bgBild(id, pfad);
+    return src && src !== 'fehlt' ? `<img class="bg-mini${w === 'loes' ? ' loes' : ''}" data-act="bgGross" src="${src}" alt="${w === 'auf' ? 'Aufgabe' : 'Lösung'} Übung ${esc(nr)}" title="Antippen: groß anzeigen">` : `<span class="bg-mini-platz klein gedaempft">${src === 'fehlt' ? 'Kein Bild' : 'Bild lädt …'}</span>`; };
+  const bonus = x.bonusTeile ? `<div class="bg-gruppe bg-bonus"><span class="bg-lbl">Bonus${x.bonusTeile.filter(t => !/^bonus$/i.test(t)).length ? ' (Teil ' + esc(x.bonusTeile.filter(t => !/^bonus$/i.test(t)).join(', ')) + ')' : ''}</span>
+      <div class="bg-seg bg-erg" style="grid-template-columns:repeat(3,minmax(0,1fr))" role="group">${A.BOGEN_BONUS.map(v => `<button data-act="bgBonus" data-id="${esc(id)}" data-nr="${esc(nr)}" data-v="${esc(v)}" data-erg="${esc(v)}" aria-pressed="${!!(u.bonus && u.bonus.ergebnis === v)}">${esc(v)}</button>`).join('')}</div>
+      <textarea class="bg-text bg-text-klein" data-id="${esc(id)}" data-nr="${esc(nr)}" data-bonus="1" rows="1" placeholder="Notiz zum Bonus (optional)">${esc((u.bonus && u.bonus.notiz) || '')}</textarea></div>` : '';
+  const loesKnopf = `<button class="bg-loes-knopf" data-act="bgZeig" data-id="${esc(id)}" data-nr="${esc(nr)}" data-w="loes" aria-pressed="${loesAn}">${loesAn ? 'Lösung ausblenden' : 'Lösung zeigen'}</button>`;
+  return `${x.bilder && x.bilder.auf ? `<div class="bg-aufgabe"><div class="bg-a-auf"><span class="bg-a-lbl">Aufgabe</span>${bild('auf')}</div>
+    <div class="bg-a-loes${loesAn ? ' an' : ''}">${loesAn ? `<span class="bg-a-lbl">Lösung</span>${bild('loes')}` : ''}${x.bilder.loes ? loesKnopf : ''}</div></div>` : ''}
+    <div class="bg-bewertung">${x.neu ? '<div class="bg-neu">Neu auf diesem Bogen. Wie kam es an?</div>' : ''}
+    <div class="bg-gruppe bg-erg-gruppe"><span class="bg-lbl">Ergebnis${x.bonusTeile ? ' ohne Bonus' : ''}</span><div class="bg-seg bg-erg" style="grid-template-columns:repeat(2,minmax(0,1fr))" role="group">${A.BOGEN_ERGEBNISSE.map(v => `<button data-act="bgErg" data-id="${esc(id)}" data-nr="${esc(nr)}" data-v="${esc(v)}" data-erg="${esc(v)}" aria-pressed="${u.ergebnis === v}">${esc(v)}</button>`).join('')}</div></div>
+    ${bonus}
     <div class="bg-gruppe"><span class="bg-lbl">Beobachtungen</span><div class="bg-chips">${A.BOGEN_CHIPS.map(c => `<button class="bg-chip" data-act="bgChip" data-id="${esc(id)}" data-nr="${esc(nr)}" data-v="${esc(c)}" aria-pressed="${u.chips.includes(c)}">${esc(c)}</button>`).join('')}</div></div>
     <label class="bg-gruppe"><span class="bg-lbl">Notiz</span><textarea class="bg-text" data-id="${esc(id)}" data-nr="${esc(nr)}" rows="${kompakt ? 2 : 3}" placeholder="Was ist dir aufgefallen? Diktieren: Mikrofon auf der Tastatur">${esc(u.notiz || '')}</textarea></label>
     <div class="bg-fotos">${u.fotos.map((p, i) => `<span class="bg-foto-mini">${p.data ? `<img src="${p.data}" alt="Foto ${i + 1}">` : `<span class="klein">Foto ${i + 1} gespeichert</span>`}<button class="bg-foto-weg" data-act="bgFotoWeg" data-id="${esc(id)}" data-nr="${esc(nr)}" data-i="${i}" aria-label="Foto entfernen">✕</button></span>`).join('')}
-      <label class="bg-foto-neu">＋ Foto<input type="file" accept="image/*" class="bg-foto" data-id="${esc(id)}" data-nr="${esc(nr)}" hidden></label></div>`;
+      <label class="bg-foto-neu">＋ Foto<input type="file" accept="image/*" class="bg-foto" data-id="${esc(id)}" data-nr="${esc(nr)}" hidden></label></div></div>`;
 }
 function bgSpeichernKnopf(id) {
   return `${BG.meldung ? `<p class="meldung ${BG.meldung.art}">${esc(BG.meldung.text)}</p>` : ''}<button class="knopf haupt breit" data-act="bgSpeichern" data-id="${esc(id)}"${BG.speichert ? ' disabled' : ''}>${BG.speichert ? 'Wird gespeichert …' : 'Speichern und an den Chat geben'}</button>`;
 }
 function bgFreiNeu(id) { return `<div class="bg-frei-form"><input id="bg-ue-nr" placeholder="Übung, z. B. 3b" autocomplete="off"><button class="knopf" data-act="bgUeNeu" data-id="${esc(id)}">Übung hinzufügen</button></div>`; }
-// iPad: ganzer Bogen auf einen Blick
-function bogenVoll(id) {
-  const e = bgEntwurf(id), b = BG.boegen[id];
-  return `<div class="bg-kopf"><div><h1>${esc(b ? b.titel || bgTitel(id) : bgTitel(id))}</h1><span class="klein gedaempft">${esc(bgUntertitel(id))}${BG.fb[id] ? ` · gespeichert ${esc(datumKurz(String(BG.fb[id].gespeichert || '').slice(0, 10)))}` : ''}</span></div></div>
-    ${bgPdfLeiste(id)}
-    <section class="karte bg-allg">${bgAllgemeinFelder(id, e)}</section>
-    <div class="bg-karten">${bgNummern(id).map(nr => { const x = bgUeInfo(id, nr) || {}; return `<section class="karte bg-karte${x.neu ? ' neu' : ''}"><h3>Übung ${esc(nr)}${x.titel ? ' · ' + esc(x.titel) : ''}${x.neu ? '<span class="bg-pill halb">neu</span>' : ''}</h3>${ueKarte(id, nr, true)}</section>`; }).join('')}</div>
-    ${b ? '' : bgFreiNeu(id)}
-    <section class="karte bg-allg"><label class="bg-gruppe"><span class="bg-lbl">Sonst noch etwas?</span><textarea class="bg-text" data-id="${esc(id)}" rows="3" placeholder="z. B. Ideen für die App. Diktieren: Mikrofon auf der Tastatur">${esc(e.sonst || '')}</textarea></label>${bgSpeichernKnopf(id)}</section>`;
-}
-// iPhone: Allgemein → je Übung eine Karte → Überblick
+const bgSonst = (id, e) => `<label class="bg-gruppe"><span class="bg-lbl">Sonst noch etwas?</span><textarea class="bg-text" data-id="${esc(id)}" rows="3" placeholder="z. B. Ideen für die App. Diktieren: Mikrofon auf der Tastatur">${esc(e.sonst || '')}</textarea></label>`;
+// iPhone und iPad: Allgemein → je Übung eine Karte → Überblick
 function bogenAllgemein(id) {
   const e = bgEntwurf(id), nrn = bgNummern(id);
   return `<div class="seite schmal-inhalt bg-schritt"><a class="zurueck" href="#boegen">‹ Bögen</a><h1>${esc(bgTitel(id))}</h1><span class="klein gedaempft">${esc(bgUntertitel(id))}</span>
@@ -669,25 +680,45 @@ function bogenAllgemein(id) {
     <p class="klein gedaempft">Schritt 1 von 3 · Allgemein</p>
     <section class="karte bg-allg">${bgAllgemeinFelder(id, e)}</section>
     ${BG.boegen[id] ? '' : bgFreiNeu(id)}
-    <a class="knopf haupt breit" href="#boegen/${encodeURIComponent(id)}/${nrn.length ? encodeURIComponent(nrn[0]) : 'ende'}">${nrn.length ? 'Weiter zu den Übungen' : 'Weiter zum Überblick'}</a></div>`;
+    ${nrn.length ? `<div class="bg-gruppe"><span class="bg-lbl">Direkt zu einer Übung</span>${bgLeiste(id, '')}</div>` : ''}
+    <a class="knopf haupt breit" href="#boegen/${encodeURIComponent(id)}/${nrn.length ? encodeURIComponent(nrn[0]) : 'ende'}">${nrn.length ? 'Weiter zu den Übungen' : 'Weiter zum Überblick'}</a>
+    ${bgAnsichtOverlay(id)}</div>`;
 }
 function bogenKarte(id, nr) {
   bgGesehen(id, nr);
   const nrn = bgNummern(id), i = nrn.indexOf(nr), x = bgUeInfo(id, nr) || {};
   const vor = i > 0 ? `#boegen/${encodeURIComponent(id)}/${encodeURIComponent(nrn[i - 1])}` : `#boegen/${encodeURIComponent(id)}`;
   const nach = i < nrn.length - 1 ? `#boegen/${encodeURIComponent(id)}/${encodeURIComponent(nrn[i + 1])}` : `#boegen/${encodeURIComponent(id)}/ende`;
-  return `<div class="seite schmal-inhalt bg-schritt"><div class="bg-nav"><a class="zurueck" href="${vor}">‹ ${i > 0 ? 'Übung ' + esc(nrn[i - 1]) : 'Allgemein'}</a><span class="klein gedaempft">${i + 1} von ${nrn.length}</span></div>
-    <h1 class="bg-h">Übung ${esc(nr)}${x.titel ? ' · ' + esc(x.titel) : ''}</h1>
-    <div class="bg-punkte">${nrn.map((n, j) => `<a href="#boegen/${encodeURIComponent(id)}/${encodeURIComponent(n)}" class="${j === i ? 'an' : bgEntwurf(id).gesehen.includes(n) ? 'ok' : ''}" aria-label="Übung ${esc(n)}"></a>`).join('')}</div>
+  return `<div class="seite schmal-inhalt bg-schritt bg-wisch" data-vor="${vor}" data-nach="${nach}">
+    <div class="bg-oben"><a class="knopf bg-pfeil" href="${vor}" aria-label="Zurück">‹</a><span class="bg-oben-mitte"><b>Übung ${esc(nr)}</b><span class="klein gedaempft">${i + 1} von ${nrn.length}</span></span><a class="knopf bg-pfeil" href="${nach}" aria-label="Weiter">›</a><a class="knopf bg-zum-ende" href="#boegen/${encodeURIComponent(id)}/ende">Überblick</a></div>
+    ${bgLeiste(id, nr)}
+    <h1 class="bg-h">${x.titel ? esc(x.titel) : 'Übung ' + esc(nr)}</h1>
     <section class="karte bg-karte${x.neu ? ' neu' : ''}">${ueKarte(id, nr, false)}</section>
-    <div class="bg-weiter"><a class="knopf" href="${vor}">‹ ${i > 0 ? 'Übung ' + esc(nrn[i - 1]) : 'Allgemein'}</a><a class="knopf haupt" href="${nach}">${i < nrn.length - 1 ? 'Übung ' + esc(nrn[i + 1]) + ' ›' : 'Überblick ›'}</a></div></div>`;
+    <div class="bg-weiter"><a class="knopf" href="${vor}">‹ ${i > 0 ? 'Übung ' + esc(nrn[i - 1]) : 'Allgemein'}</a><a class="knopf haupt" href="${nach}">${i < nrn.length - 1 ? 'Übung ' + esc(nrn[i + 1]) + ' ›' : 'Überblick ›'}</a></div>
+    <p class="klein gedaempft mitte">Wischen wechselt die Übung.</p>${bgAnsichtOverlay(id)}</div>`;
 }
 function bogenEnde(id) {
   const e = bgEntwurf(id), nrn = bgNummern(id);
-  return `<div class="seite schmal-inhalt bg-schritt"><a class="zurueck" href="#boegen/${encodeURIComponent(id)}/${nrn.length ? encodeURIComponent(nrn[nrn.length - 1]) : ''}">‹ ${nrn.length ? 'Übung ' + esc(nrn[nrn.length - 1]) : 'Allgemein'}</a><h1>Fertig?</h1><p class="klein gedaempft">Schritt 3 von 3 · Überblick</p>
-    <section class="karte liste-karte">${nrn.map(nr => { const u = e.uebungen[nr] || { ergebnis: 'klappt', chips: [], notiz: '' }, x = bgUeInfo(id, nr) || {}; return `<a class="zeile bg-ueb" href="#boegen/${encodeURIComponent(id)}/${encodeURIComponent(nr)}"><span class="zeile-haupt">${esc(nr)}${x.titel ? ' · ' + esc(x.titel) : ''}<span class="klein gedaempft block">${[u.chips.length ? u.chips.join(', ') : '', u.notiz ? 'Notiz' : '', u.fotos && u.fotos.length ? u.fotos.length + ' Foto' + (u.fotos.length > 1 ? 's' : '') : ''].filter(Boolean).join(' · ')}</span></span><span class="bg-pill" data-erg="${esc(u.ergebnis)}">${esc(u.ergebnis)}</span></a>`; }).join('')}</section>
-    <section class="karte bg-allg"><label class="bg-gruppe"><span class="bg-lbl">Sonst noch etwas?</span><textarea class="bg-text" data-id="${esc(id)}" rows="3" placeholder="z. B. Ideen für die App. Diktieren: Mikrofon auf der Tastatur">${esc(e.sonst || '')}</textarea></label></section>
+  const zurueck = `#boegen/${encodeURIComponent(id)}/${nrn.length ? encodeURIComponent(nrn[nrn.length - 1]) : ''}`;
+  return `<div class="seite schmal-inhalt bg-schritt bg-wisch" data-vor="${zurueck}"><a class="zurueck" href="${zurueck}">‹ ${nrn.length ? 'Übung ' + esc(nrn[nrn.length - 1]) : 'Allgemein'}</a><h1>Fertig?</h1><p class="klein gedaempft">Schritt 3 von 3 · Überblick</p>
+    ${bgLeiste(id, 'ende')}
+    <section class="karte liste-karte">${nrn.map(nr => { const u = e.uebungen[nr] || { ergebnis: 'klappt', chips: [], notiz: '' }, x = bgUeInfo(id, nr) || {}; return `<a class="zeile bg-ueb" href="#boegen/${encodeURIComponent(id)}/${encodeURIComponent(nr)}"><span class="zeile-haupt">${esc(nr)}${x.titel ? ' · ' + esc(x.titel) : ''}<span class="klein gedaempft block">${[u.bonus ? 'Bonus: ' + u.bonus.ergebnis : '', u.chips.length ? u.chips.join(', ') : '', u.notiz ? 'Notiz' : '', u.fotos && u.fotos.length ? u.fotos.length + ' Foto' + (u.fotos.length > 1 ? 's' : '') : ''].filter(Boolean).join(' · ')}</span></span><span class="bg-pill" data-erg="${esc(u.ergebnis)}">${esc(u.ergebnis)}</span></a>`; }).join('')}</section>
+    <section class="karte bg-allg"><h3 class="bg-h3">Zum Schluss</h3>${bgAllgemeinFelder(id, e, A.BOGEN_ENDE, false)}${bgSonst(id, e)}</section>
     ${bgSpeichernKnopf(id)}<p class="klein gedaempft mitte">Danach im Chat: „Bogen ${esc(bgTitel(id).replace(' · ', ' '))} erledigt“</p></div>`;
+}
+// Bogen in der App ansehen (Auftrag 27): alle Übungen als Bilder untereinander, antippen zoomt
+function bgAnsichtOverlay(id) {
+  const a = BG.ansicht;
+  if (!a || a.id !== id) return '';
+  const b = BG.boegen[id];
+  if (!b) return '';
+  const w = a.w === 'loes' ? 'loes' : 'auf';
+  return `<div class="bg-ansicht" role="dialog" aria-modal="true" aria-label="${w === 'auf' ? 'Aufgaben' : 'Lösungen'} ansehen">
+    <div class="bg-ansicht-kopf"><div class="bg-seg" style="grid-template-columns:1fr 1fr" role="group"><button data-act="bgAnsicht" data-id="${esc(id)}" data-w="auf" aria-pressed="${w === 'auf'}">Aufgaben</button><button data-act="bgAnsicht" data-id="${esc(id)}" data-w="loes" aria-pressed="${w === 'loes'}">Lösungen</button></div>
+      <button class="knopf bg-ansicht-zu" data-act="bgAnsichtZu" aria-label="Schließen">✕</button></div>
+    <div class="bg-ansicht-inhalt">${b.uebungen.map(u => { const pfad = u.bilder && u.bilder[w]; const src = pfad ? bgBild(id, pfad) : 'fehlt';
+      return `<figure class="bg-ansicht-ue"><figcaption><b>Übung ${esc(u.nr)}</b>${u.titel ? ' · ' + esc(u.titel) : ''}</figcaption>${src && src !== 'fehlt' ? `<img src="${src}" data-act="bgGross" alt="${w === 'auf' ? 'Aufgabe' : 'Lösung'} Übung ${esc(u.nr)}">` : `<span class="klein gedaempft">${src === 'fehlt' ? 'Kein Bild' : 'Lädt …'}</span>`}</figure>`; }).join('')}
+      <p class="klein gedaempft mitte">Antippen vergrößert. Zum Drucken die PDF-Knöpfe nutzen.</p></div></div>`;
 }
 // Fotos: verkleinert auf 1600 px an der langen Seite, bis zum Speichern im Zwischenstand
 function bildVerkleinern(file, max = 1600) {
@@ -2212,6 +2243,9 @@ document.addEventListener('click', (ev) => {
     case 'bgErg': { const e = bgEntwurf(el.dataset.id), u = bgUe(e, el.dataset.nr); u.ergebnis = el.dataset.v; bgSichern(el.dataset.id, e); zeichne(); break; }
     case 'bgChip': { const e = bgEntwurf(el.dataset.id), u = bgUe(e, el.dataset.nr), c = el.dataset.v; u.chips = u.chips.includes(c) ? u.chips.filter(x => x !== c) : [...u.chips, c]; bgSichern(el.dataset.id, e); zeichne(); break; }
     case 'bgZeig': { const k = el.dataset.id + '|' + el.dataset.nr; BG.zeig[k] = BG.zeig[k] === el.dataset.w ? null : el.dataset.w; zeichne(); break; }
+    case 'bgBonus': { const e = bgEntwurf(el.dataset.id), u = bgUe(e, el.dataset.nr), v = el.dataset.v; u.bonus = u.bonus && u.bonus.ergebnis === v ? null : { ergebnis: v, notiz: (u.bonus && u.bonus.notiz) || '' }; bgSichern(el.dataset.id, e); zeichne(); break; }
+    case 'bgAnsicht': BG.ansicht = { id: el.dataset.id, w: el.dataset.w }; zeichne(); break;
+    case 'bgAnsichtZu': BG.ansicht = null; zeichne(); break;
     case 'bgGross': lupeAuf(el.getAttribute('src'), el.getAttribute('alt')); break;
     case 'bgFotoWeg': { const e = bgEntwurf(el.dataset.id), u = bgUe(e, el.dataset.nr); u.fotos = u.fotos.filter((_, i) => i !== Number(el.dataset.i)); bgSichern(el.dataset.id, e); zeichne(); break; }
     case 'bgPdf': bgPdfTeilen(el.dataset.id, el.dataset.w); break;
@@ -2393,7 +2427,7 @@ document.addEventListener('input', (ev) => {
   if (paketEntwurf && el.id === 'p-name') paketEntwurf.name = el.value;
   if (paketEntwurf && el.id === 'p-beschr') paketEntwurf.beschreibung = el.value;
   if (el.id === 'p-text') paketText.text = el.value;
-  if (el.classList && el.classList.contains('bg-text')) { const e = bgEntwurf(el.dataset.id); if (el.dataset.nr) bgUe(e, el.dataset.nr).notiz = el.value; else e.sonst = el.value; bgSichern(el.dataset.id, e); }
+  if (el.classList && el.classList.contains('bg-text')) { const e = bgEntwurf(el.dataset.id); if (el.dataset.bonus) { const u = bgUe(e, el.dataset.nr); u.bonus = { ergebnis: (u.bonus && u.bonus.ergebnis) || '', notiz: el.value }; } else if (el.dataset.nr) bgUe(e, el.dataset.nr).notiz = el.value; else e.sonst = el.value; bgSichern(el.dataset.id, e); }
   if (el.id === 'bg-gemacht') { const e = bgEntwurf(el.dataset.id); e.gemacht = el.value; bgSichern(el.dataset.id, e); }
 });
 
@@ -2404,6 +2438,20 @@ document.addEventListener('keydown', (ev) => {
 
 window.addEventListener('hashchange', () => { if (location.hash.includes('einrichten=')) return linkPruefen(); leseRoute(); if (route.seite !== 'qr') qr = { name: '', token: '', link: '', art: 'kind' }; meldung = ['einstellungen', 'spielzeit', 'gewichte', 'pakete', 'splitter', 'einheit'].includes(route.seite) ? meldung : null; zeichne(); window.scrollTo(0, 0); });
 breit.addEventListener('change', zeichne);
+// Bogen-Feedback (iPhone): waagerecht wischen wechselt die Übung (nicht in Textfeldern, der Leiste oder groß angezeigten Bildern)
+(() => {
+  let w = null;
+  document.addEventListener('touchstart', (ev) => {
+    const t = ev.target, box = t.closest && t.closest('.bg-wisch');
+    w = box && ev.touches.length === 1 && !t.closest('textarea, input, .bg-leiste, #bg-lupe, .bg-ansicht') ? { box, x: ev.touches[0].clientX, y: ev.touches[0].clientY } : null;
+  }, { passive: true });
+  document.addEventListener('touchend', (ev) => {
+    if (!w || !ev.changedTouches.length) return;
+    const dx = ev.changedTouches[0].clientX - w.x, dy = ev.changedTouches[0].clientY - w.y, ziel = dx < 0 ? w.box.dataset.nach : w.box.dataset.vor;
+    w = null;
+    if (Math.abs(dx) > 70 && Math.abs(dx) > 2 * Math.abs(dy) && ziel) location.hash = ziel;
+  }, { passive: true });
+})();
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && Date.now() - letztePruefung > 60 * 1000) updatePruefen();
   // Zurück in der App: nachsehen, ob es neue Daten gibt, und das melden (geladen wird erst nach „Laden“)
