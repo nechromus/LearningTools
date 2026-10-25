@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.44.0';
+export const ELTERN_VERSION = '1.44.1';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -252,6 +252,7 @@ function standZeile() {
 function zeichne() {
   if (!C.token) return zeichneEinrichten();
   const inhalt = seiteHtml();
+  const scroll = bgScrollMerken();
   const neuKnopf = `<button class="knopf-icon" data-act="neuLaden" aria-label="Neu laden">${svg('neu', 22)}</button>`;
   if (breit.matches) {
     app.innerHTML = `<div class="rahmen-breit">
@@ -270,6 +271,30 @@ function zeichne() {
     </div>`;
   }
   if (route.seite === 'lernplan') lernplanEinhaengen();
+  bgScrollZurueck(scroll);
+}
+// Bögen auf dem iPad: Liste und Bogen scrollen getrennt. Beim Neuzeichnen bleibt die Liste stehen;
+// der Bogen bleibt stehen, solange derselbe Bogen offen ist, sonst geht er nach oben.
+const BGS = { liste: null, haupt: 0, arg: null, gezeigt: null };
+function bgScrollMerken() {
+  const l = document.querySelector('.bg-seite-liste'), h = document.querySelector('.bg-haupt');
+  if (l) BGS.liste = l.scrollTop;
+  if (h) BGS.haupt = h.scrollTop;
+  return BGS;
+}
+function bgScrollZurueck() {
+  const l = document.querySelector('.bg-seite-liste'), h = document.querySelector('.bg-haupt');
+  if (!l || !h) { BGS.arg = null; return; }
+  if (BGS.liste != null) l.scrollTop = BGS.liste;
+  // Von außen geöffnet (Lernplan, Deep Link): gewählten Bogen einmal in der Liste zeigen, wenn er nicht zu sehen ist
+  const g = l.querySelector('.bg-zeile.gewaehlt');
+  if (g && BGS.gezeigt !== route.arg) {
+    BGS.gezeigt = route.arg;
+    const r = g.getBoundingClientRect(), lr = l.getBoundingClientRect();
+    if (r.top < lr.top || r.bottom > lr.bottom) l.scrollTop += r.top - lr.top - (lr.height - r.height) / 2;
+  }
+  h.scrollTop = BGS.arg === route.arg ? BGS.haupt : 0;
+  BGS.arg = route.arg; BGS.liste = l.scrollTop;
 }
 
 function seiteHtml() {

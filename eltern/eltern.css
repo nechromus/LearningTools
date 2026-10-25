@@ -388,10 +388,11 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 @container (max-width: 560px) { .wp-zeile { grid-template-columns: minmax(0, 1fr); } .wp-balken { height: 20px; } }
 /* Bögen und Bogen-Feedback (Auftrag 25) */
 .tabs.sechs .tab { font-size: 10.5px; letter-spacing: -0.2px; }
-.bg-breit { display: grid; grid-template-columns: 300px minmax(0, 1fr); min-height: 100vh; }
+.bg-breit { display: grid; grid-template-columns: 300px minmax(0, 1fr); height: 100vh; height: 100dvh; overflow: hidden; }
 .bg-seite-liste { border-right: 1px solid var(--linie); padding: 24px 14px; background: #F7F6F0; overflow-y: auto; }
 .bg-seite-liste h1 { margin: 0 0 8px; }
-.bg-haupt { padding: 24px 28px 60px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.bg-haupt { padding: 24px 28px 60px; display: flex; flex-direction: column; gap: 14px; min-width: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.bg-breit .bg-seite-liste { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .bg-zeile { display: flex; align-items: center; gap: 10px; }
 .bg-zeile.gewaehlt { background: #FFF8E8; box-shadow: inset 4px 0 0 var(--teal); }
 .bg-zeile.neu { background: var(--teal-hell); }
