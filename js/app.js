@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.28.0';
+export const APP_VERSION = '2.29.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1373,7 +1373,7 @@ function paketFuerThema(t) {
 const TEST_GEN = {
   'minus-zahlen': ['minus-plus', 'geld-geschichte'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'], 'bruch-bild': ['bruch-bild'],
   'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'prozent-formel': ['prozent-formel'], 'rabatt': ['rabatt-geschichte'], 'neuer-preis': ['rabatt-geschichte'],
-  'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder'],
+  'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'],
   'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
 };
 const testFokus = () => (S.upload.testgeraet && S.testFokus && L.THEMEN.includes(S.testFokus.thema) ? S.testFokus : null);
@@ -1511,7 +1511,18 @@ function heuteTag() {
   return S.tag;
 }
 // Dieselbe Aufgabe (gleiche id, bei Baukästen also gleiche Zahlen) höchstens 2-mal am Tag
-const heuteOk = (a) => !a || ((S.tag.ids || {})[a.id] || 0) < 2;
+// Arten nur mit wenigen festen Aufgaben und ohne Baukasten (z. B. Neuer Preis, Kreisdiagramm, Zuordnung):
+// jede Aufgabe höchstens 1-mal am Tag, lieber seltener als Wiederholungen (Auftrag 30, Ferien)
+let knappCache = null;
+function knappeThemen() {
+  if (knappCache && knappCache.n === alleAufgaben().length) return knappCache.s;
+  const n = {}; for (const a of alleAufgaben()) if (!a.bonus) n[a.thema] = (n[a.thema] || 0) + 1;
+  const mitBaukasten = new Set(Object.values(LP.GEN_THEMA));
+  const s = new Set(Object.keys(n).filter(t => n[t] <= 3 && !mitBaukasten.has(t)));
+  knappCache = { n: alleAufgaben().length, s };
+  return s;
+}
+const heuteOk = (a) => !a || ((S.tag.ids || {})[a.id] || 0) < (!a.generator && knappeThemen().has(a.thema) ? 1 : 2);
 function heuteZaehlen(a) { const t = heuteTag(); t.ids[a.id] = (t.ids[a.id] || 0) + 1; t.gestartet++; }
 function paketZeitBuchen(paket, ms) { if (!paket || !(ms > 0)) return; const t = heuteTag(); t.paketMs[paket] = (t.paketMs[paket] || 0) + Math.min(ms, 10 * 60000); }
 function simBuchen(a, paket, ms) { heuteZaehlen(a); paketZeitBuchen(paket, ms); }
@@ -1717,9 +1728,10 @@ function waehleIn(kategorie, g, ersatz, ohneDetektiv = false) {
   // Zylinder, Kegel, Pyramide: auf den Plätzen Schritte und Abschluss, je nach Gewicht im Paket.
   // Zylinder halb aus dem Pool, halb aus dem Baukasten; Kegel und Pyramide nur aus dem Pool.
   const koerperOptionen = (gw) => ['zylinder', 'kegel', 'pyramide'].map(t => ({ w: gw[t] || 0, koerper: t }));
+  // Seit Auftrag 30 auch Kegel und Pyramide halb aus dem Baukasten (mehr Abwechslung bei viel Übungszeit)
   const koerperAufgabe = (t) => {
-    if (t === 'zylinder' && Math.random() < 0.5) return erzeuge('zylinder', genStufe('zylinder'));
-    return ausPool('thema', t) || (t === 'zylinder' ? erzeuge('zylinder', genStufe('zylinder')) : null);
+    if (Math.random() < 0.5) return erzeuge(t, genStufe(t));
+    return ausPool('thema', t) || erzeuge(t, genStufe(t));
   };
   let a = null;
   // Fehler-Detektiv (Auftrag 17): höchstens 1 pro 10 Aufgaben, auf dem Platz „Schritte“ oder „Abschluss“

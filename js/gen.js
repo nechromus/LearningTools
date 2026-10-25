@@ -386,6 +386,8 @@ export function zylinder(stufe, rng, opts = {}) {
   } else if (stufe === 3 && opts.ohneAuswahl) {
     // Etappe „Oberfläche und Mantel“: ohne „Was ist gesucht?“, die Frage nennt, was gesucht ist
     art = rng() < 0.5 ? 'O' : 'M';
+  } else if (stufe === 3 && !opts.ohneGesucht4 && rng() < 0.25) {
+    return zylinderGesucht4(rng);
   } else if (stufe === 3) {
     if (rng() < 0.35) art = 'O';
     else { g = wahl(rng, ZYL_AUSSEN); art = g.art; r = zufall(rng, 2, 8); h = zufall(rng, 5, 20); mitD = rng() < 0.5; }
@@ -644,6 +646,113 @@ export function prozentFormel(stufe, rng) {
   return null;
 }
 
+// ---------- Zylinder „Was wird gesucht?“ mit vier Möglichkeiten (Auftrag 30, Form gesucht4) ----------
+const ZYL_GESUCHT4 = [
+  { art: 'V', text: 'Ein Glas hat die Form eines Zylinders.', frage: 'Wie viel Wasser passt in das Glas?' },
+  { art: 'M', text: 'Ein Etikett wird rund um die Dose geklebt. Deckel und Boden bleiben frei.', frage: 'Wie viel cm² Papier braucht man für das Etikett?' },
+  { art: 'O', text: 'Eine Dose wird aus Blech gebaut, mit Deckel und Boden.', frage: 'Wie viel cm² Blech braucht man?' },
+  { art: 'G', text: 'Eine Dose steht auf dem Tisch.', frage: 'Wie groß ist der runde Boden der Dose?' },
+  { art: 'V', text: 'Ein Eimer hat die Form eines Zylinders.', frage: 'Wie viel Sand passt in den Eimer?' },
+  { art: 'O', text: 'Eine Tonne wird ganz angemalt, auch Deckel und Boden.', frage: 'Wie viel cm² muss man anmalen?' },
+  { art: 'V', text: 'Ein Topf hat die Form eines Zylinders.', frage: 'Wie viel Farbe passt in den Topf?' },
+  { art: 'M', text: 'Ein Papierstreifen geht einmal um die Rolle herum.', frage: 'Wie viel cm² Papier braucht man?' },
+  { art: 'G', text: 'Ein Untersetzer soll genau so groß sein wie der Boden einer Vase.', frage: 'Wie groß ist die Fläche des Bodens?' }
+];
+const GESUCHT4_OPT = ['Volumen V', 'Oberfläche A_O', 'Mantel A_M', 'Grundfläche A_G'];
+const GESUCHT4_IDX = { V: 0, O: 1, M: 2, G: 3 };
+function zylinderGesucht4(rng) {
+  const g = wahl(rng, ZYL_GESUCHT4), r = zufall(rng, 2, 8), h = zufall(rng, 4, 20), mitD = rng() < 0.4, art = g.art;
+  const ag = Math.PI * r * r, am = 2 * Math.PI * r * h, ao = 2 * ag + am, v = ag * h;
+  const schritte = [{ text: 'Was wird gesucht?', optionen: GESUCHT4_OPT, richtig: GESUCHT4_IDX[art] }];
+  const weg = [art === 'V' ? '„passt hinein“ → Volumen' : art === 'M' ? '„rund herum“ → Mantel' : art === 'O' ? '„alles außen, mit Deckel und Boden“ → Oberfläche' : '„der runde Boden“ → Grundfläche'];
+  if (mitD) { schritte.push({ text: 'Radius r =', wert: r, einheit: 'cm' }); weg.push(`r = ${2 * r} : 2 = ${r} cm`); }
+  let x, n, e = 'cm²';
+  if (art === 'V') {
+    schritte.push({ text: 'r² =', wert: r * r }, { text: `V = π × ${r * r} × ${h} =`, wert: r3(v), toleranz: 0.01 });
+    weg.push(`π × ${r * r} × ${h} = ${zahlText(r3(v))}…`); x = v; n = 'V'; e = 'cm³';
+  } else if (art === 'G') {
+    schritte.push({ text: 'A_G = π · r² =', wert: r3(ag), toleranz: 0.01, einheit: 'cm²' });
+    weg.push(`A_G = π × ${r * r} = ${zahlText(r3(ag))}… cm²`); x = ag; n = 'A_G';
+  } else if (art === 'M') {
+    schritte.push({ text: 'A_M = 2 · π · r · h =', wert: r3(am), toleranz: 0.01, einheit: 'cm²' });
+    weg.push(`A_M = 2 × π × ${r} × ${h} = ${zahlText(r3(am))}… cm²`); x = am; n = 'A_M';
+  } else {
+    schritte.push({ text: 'A_G = π · r² =', wert: r3(ag), toleranz: 0.01, einheit: 'cm²' }, { text: 'A_M = 2 · π · r · h =', wert: r3(am), toleranz: 0.01, einheit: 'cm²' }, { text: 'A_O = 2 · A_G + A_M =', wert: r3(ao), toleranz: 0.02, einheit: 'cm²' });
+    weg.push(`A_G = ${zahlText(r3(ag))}… cm², A_M = ${zahlText(r3(am))}… cm²`, `A_O = 2 · A_G + A_M = ${zahlText(r3(ao))}… cm²`); x = ao; n = 'A_O';
+  }
+  schritte.push({ text: `Runde auf eine Stelle nach dem Komma. ${n} ≈`, wert: r1(x), einheit: e, runden: 1 });
+  weg.push(`${n} ≈ ${zahlText(r1(x), 1)} ${e}`);
+  const mass = `${mitD ? `Der Durchmesser ist ${2 * r} cm` : `Der Radius ist ${r} cm`}, die Höhe ${h} cm.`;
+  return neu('zylinder', ['gesucht4', art, ZYL_GESUCHT4.indexOf(g), mitD ? 'd' : 'r', mitD ? 2 * r : r, h], {
+    thema: 'zylinder', typ: 'schritte', stufe: 3, form: 'gesucht4', taschenrechner: true,
+    bild: { form: 'zylinder', ...(mitD ? { d: 2 * r } : { r }), h },
+    geschichte: `${g.text} ${mass}`, frage: g.frage,
+    gegeben: [mitD ? { name: 'Durchmesser d', wert: 2 * r, einheit: 'cm' } : { name: 'Radius r', wert: r, einheit: 'cm' }, { name: 'Höhe h', wert: h, einheit: 'cm' }],
+    schritte, hinweise: ['zylinder', 'runden', 'lang'], loesungsweg: weg,
+    erklaerung: '„passt hinein“ → Volumen. „rund herum“ → Mantel. „alles außen, mit Deckel und Boden“ → Oberfläche. „der Boden“ → Grundfläche.'
+  });
+}
+
+// ---------- Kegel und Pyramide (Auftrag 30) ----------
+// Mehr Abwechslung bei viel Übungszeit; die festen Aufgaben app-kegel-*, app-pyramide-* bleiben.
+const KEGEL_TRIPEL = [[3, 4, 5], [6, 8, 10], [5, 12, 13], [9, 12, 15]];
+export function kegel(stufe, rng) {
+  const mantel = stufe >= 2 && rng() < (stufe === 3 ? 0.6 : 0.4);
+  if (mantel) {
+    const [r, h, sl] = wahl(rng, KEGEL_TRIPEL), am = Math.PI * r * sl;
+    const opt = rng() < 0.5 ? [`h = ${h} cm`, `s = ${sl} cm`] : [`s = ${sl} cm`, `h = ${h} cm`];
+    return neu('kegel', ['mantel', r, h, sl], {
+      thema: 'kegel', typ: 'schritte', stufe, taschenrechner: true, bild: { form: 'kegel', r, h, s: sl },
+      frage: `Ein Kegel hat den Radius r = ${r} cm, die Höhe h = ${h} cm und die Mantellinie s = ${sl} cm. Wie groß ist sein Mantel?`,
+      gegeben: [{ name: 'Radius r', wert: r, einheit: 'cm' }, { name: 'Höhe h', wert: h, einheit: 'cm' }, { name: 'Mantellinie s', wert: sl, einheit: 'cm' }],
+      schritte: [{ text: 'Welche Länge brauchst du für den Mantel?', optionen: opt, richtig: opt.findIndex(o => o.startsWith('s')) },
+        { text: 'A_M = π · r · s =', wert: r3(am), toleranz: 0.01, einheit: 'cm²' },
+        { text: 'Runde auf eine Stelle nach dem Komma. A_M ≈', wert: r1(am), einheit: 'cm²', runden: 1 }],
+      hinweise: ['kegel', 'runden'], loesungsweg: ['Mantel → s (schräg außen)', `A_M = π × ${r} × ${sl} = ${zahlText(r3(am))}… cm²`, `A_M ≈ ${zahlText(r1(am), 1)} cm²`],
+      erklaerung: 'Für den Mantel brauchst du s, die schräge Linie außen. h ist innen.'
+    });
+  }
+  const mitD = stufe >= 2;
+  const r = mitD ? zufall(rng, 2, 8) : zufall(rng, 2, 6), h = zufall(rng, 5, 15);
+  const z = Math.PI * r * r * h, v = z / 3;
+  const schritte = [], weg = [];
+  if (mitD) { schritte.push({ text: 'Radius r =', wert: r, einheit: 'cm' }); weg.push(`r = ${2 * r} : 2 = ${r} cm`); }
+  schritte.push({ text: 'r² =', wert: r * r }, { text: `π × ${r * r} × ${h} =`, wert: r3(z), toleranz: 0.01 },
+    { text: 'Ein Drittel davon (: 3) =', wert: r3(v), toleranz: 0.01 }, { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(v), einheit: 'cm³', runden: 1 });
+  weg.push(`r² = ${r * r}`, `π × ${r * r} × ${h} = ${zahlText(r3(z))}… (wie Zylinder)`, `: 3 = ${zahlText(r3(v))}…`, `V ≈ ${zahlText(r1(v), 1)} cm³`);
+  return neu('kegel', ['volumen', mitD ? 'd' : 'r', mitD ? 2 * r : r, h], {
+    thema: 'kegel', typ: 'schritte', stufe, taschenrechner: true, bild: { form: 'kegel', ...(mitD ? { d: 2 * r } : { r }), h },
+    frage: `Ein Kegel hat ${mitD ? `den Durchmesser d = ${2 * r}` : `den Radius r = ${r}`} cm und die Höhe h = ${h} cm. Wie groß ist sein Volumen?`,
+    gegeben: [mitD ? { name: 'Durchmesser d', wert: 2 * r, einheit: 'cm' } : { name: 'Radius r', wert: r, einheit: 'cm' }, { name: 'Höhe h', wert: h, einheit: 'cm' }],
+    schritte, hinweise: ['kegel', 'runden'], loesungsweg: weg,
+    erklaerung: 'Erst wie beim Zylinder: π · r² · h. Dann durch 3.' + (mitD ? ' In der Formel steht r, nicht d.' : '')
+  });
+}
+export function pyramide(stufe, rng) {
+  for (let v = 0; v < 200; v++) {
+    const inM = stufe >= 2 && rng() < 0.25;
+    const a = inM ? zufall(rng, 2, 6) : zufall(rng, 3, 12), h = inM ? zufall(rng, 2, 5) : zufall(rng, 4, 15);
+    const e = inM ? 'm' : 'cm', ag = a * a, ah = ag * h, vol = ah / 3, ganz = ah % 3 === 0;
+    if (stufe === 1 && !ganz) continue;
+    const schritte = [{ text: 'A_G = a · a =', wert: ag, einheit: `${e}²` }, { text: 'A_G · h =', wert: ah }];
+    const weg = [`A_G = ${a} · ${a} = ${ag} ${e}²`, `${ag} · ${h} = ${ah}`];
+    if (ganz) { schritte.push({ text: 'Ein Drittel davon (: 3). V =', wert: vol, einheit: `${e}³` }); weg.push(`${ah} : 3 = ${vol} ${e}³`); }
+    else {
+      schritte.push({ text: 'Ein Drittel davon (: 3) =', wert: r3(vol), toleranz: 0.01 }, { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(vol), einheit: `${e}³`, runden: 1 });
+      weg.push(`${ah} : 3 = ${zahlText(r3(vol))}…`, `V ≈ ${zahlText(r1(vol), 1)} ${e}³`);
+    }
+    return neu('pyramide', ['volumen', a, h, e], {
+      thema: 'pyramide', typ: 'schritte', stufe, taschenrechner: true, bild: { form: 'pyramide', a, h, ...(inM ? { einheit: 'm' } : {}) },
+      ...(inM ? { geschichte: `Ein Zelt hat die Form einer Pyramide. Unten ist ein Quadrat mit der Seite ${a} m. Das Zelt ist ${h} m hoch.`, frage: 'Wie viel m³ Luft sind im Zelt?' }
+        : { frage: `Eine Pyramide hat eine quadratische Grundfläche mit der Seite a = ${a} cm. Sie ist h = ${h} cm hoch. Wie groß ist ihr Volumen?` }),
+      gegeben: [{ name: 'Seite a', wert: a, einheit: e }, { name: 'Höhe h', wert: h, einheit: e }],
+      schritte, hinweise: ganz ? ['pyramide'] : ['pyramide', 'runden'], loesungsweg: weg,
+      erklaerung: 'Erst die Grundfläche a · a, dann mal h. Dann durch 3.'
+    });
+  }
+  return null;
+}
+
 // ---------- Dreierblock ----------
 
 export function block(gen, rng, stufe = 1) {
@@ -674,7 +783,7 @@ export function block(gen, rng, stufe = 1) {
 export const GENERATOREN = {
   'minus-plus': minusPlus, 'reihenfolge': reihenfolge, 'potenz': potenz, 'einmaleins': einmaleins, 'mal10': mal10,
   'prozent': prozent, 'baukasten': baukasten, 'runden': runden, 'bruch-bild': bruchBild, 'kugel': kugel, 'zylinder': zylinder,
-  'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte, 'prozent-formel': prozentFormel,
+  'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte, 'prozent-formel': prozentFormel, 'kegel': kegel, 'pyramide': pyramide,
   'zehnerpotenz': zehnerpotenz, 'einheiten': einheiten, 'gewichtskraft': gewichtskraft, 'gleichung': gleichung, 'formel-umstellen': formelUmstellen, 'dichte': dichte
 };
 
@@ -683,7 +792,7 @@ export const THEMA_GENERATOREN = {
   'minus-zahlen': ['minus-plus', 'minus-plus', 'reihenfolge'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'],
   'bruch-bild': ['bruch-bild'], 'zuordnung': ['bruch-bild'], 'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'],
   'prozent-formel': ['prozent-formel'], 'rabatt': ['prozent', 'baukasten'], 'neuer-preis': ['prozent', 'baukasten'], 'kreisdiagramm': ['prozent'],
-  'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'zylinder': ['zylinder'], 'kegel': ['potenz', 'runden'], 'pyramide': ['potenz'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'],
+  'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'],
   'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
 };
 export const MIX_GENERATOREN = ['einmaleins', 'potenz', 'mal10', 'prozent', 'runden', 'bruch-bild', 'minus-plus', 'reihenfolge', 'baukasten', 'einmaleins'];

@@ -66,7 +66,9 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
   const o = String(teil.optionen[gewaehlt] || ''), frage = teil.text || '';
   if (aufgabe.thema === 'pyramide' && /Volumen/.test(frage) && /^hₛ/.test(o)) return { typ: 'pyramide-hs-statt-h', text: 'hₛ liegt außen auf der Seitenfläche. Für das Volumen brauchst du h: von der Spitze gerade nach unten.' };
   if (aufgabe.thema === 'pyramide' && /Seitenfl/.test(frage) && /^h\s*=/.test(o)) return { typ: 'pyramide-h-statt-hs', text: 'Die Seitenfläche ist ein Dreieck außen. Seine Höhe ist hₛ.' };
-  if (aufgabe.thema === 'kegel' && /Mantel/.test(frage) && /^h\s*=/.test(o)) return { typ: 'kegel-h-statt-s', text: 'Für den Mantel brauchst du s, die schräge Linie außen.' };
+  if (aufgabe.thema === 'kegel' && /Mantel/.test(frage) && /^h\s*=/.test(o)) return { typ: 'kegel-h-statt-s', text: aufgabe.generator === 'kegel' ? 'Mantel → s (schräg außen). h ist innen.' : 'Für den Mantel brauchst du s, die schräge Linie außen.' };
+  // Zylinder „Was wird gesucht?“ mit vier Möglichkeiten (Auftrag 30)
+  if (aufgabe.form === 'gesucht4' && /gesucht/.test(frage)) return { typ: 'zylinder-gesucht', text: '„passt hinein“ → Volumen. „rund herum“ → Mantel. „alles außen, mit Deckel und Boden“ → Oberfläche.' };
   return null;
 }
 // Prozent mit Formel: G und p aus den Parametern (direkt|rabatt: [art, G, p, …], text: [art, k, G, p, …])
@@ -148,7 +150,12 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
   if (koerper && teil && teil.wert != null) {
     // Kegel/Pyramide: Drittel vergessen
     if (/Drittel/.test(ttext) && vorher && vorher.wert != null && nah(w, vorher.wert)) {
+      if (aufgabe.generator === 'kegel') return { typ: 'kegel-drittel-vergessen', text: 'Das Drittel nicht vergessen! Erst wie Zylinder, dann durch 3.' };
+      if (aufgabe.generator === 'pyramide') return { typ: 'drittel-vergessen', text: 'Das Drittel nicht vergessen! Erst A_G · h, dann durch 3.' };
       return { typ: 'drittel-vergessen', text: 'Hast du an das Drittel gedacht? Teile durch 3.' };
+    }
+    if ((aufgabe.generator === 'kegel' || aufgabe.generator === 'pyramide') && /≈\s*$/.test(ttext) && nah(w, teil.wert * 3)) {
+      return aufgabe.generator === 'kegel' ? { typ: 'kegel-drittel-vergessen', text: 'Das Drittel nicht vergessen! Erst wie Zylinder, dann durch 3.' } : { typ: 'drittel-vergessen', text: 'Das Drittel nicht vergessen! Erst A_G · h, dann durch 3.' };
     }
     if (aufgabe.thema !== 'zylinder' && /\bV\s*[=≈]\s*$/.test(ttext) && nah(w, teil.wert * 3)) {
       return { typ: 'drittel-vergessen', text: aufgabe.thema === 'kegel' ? 'Ein Kegel ist nur ein Drittel. Teile durch 3.' : 'Eine Pyramide ist nur ein Drittel. Teile durch 3.' };

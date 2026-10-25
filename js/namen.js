@@ -13,7 +13,7 @@ export const THEMA_NAMEN = {
 export const GEN_NAMEN = {
   'minus-plus': 'Minus-Zahlen', 'reihenfolge': 'Reihenfolge', 'potenz': 'Potenzen', 'einmaleins': 'Einmaleins',
   'mal10': 'Mal 10 / durch 10', 'prozent': 'Prozent von …', 'baukasten': 'Prozent-Baukasten', 'runden': 'Runden',
-  'bruch-bild': 'Bruch aus Bild', 'kugel': 'Kugel', 'zylinder': 'Zylinder', 'geld-geschichte': 'Geld-Geschichten', 'rabatt-geschichte': 'Rabatt-Geschichten', 'prozent-formel': 'Prozent mit Formel',
+  'bruch-bild': 'Bruch aus Bild', 'kugel': 'Kugel', 'zylinder': 'Zylinder', 'geld-geschichte': 'Geld-Geschichten', 'rabatt-geschichte': 'Rabatt-Geschichten', 'prozent-formel': 'Prozent mit Formel', 'kegel': 'Kegel', 'pyramide': 'Pyramide',
   'zehnerpotenz': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Gewichtskraft', 'gleichung': 'Gleichungen', 'formel-umstellen': 'Formeln umstellen', 'dichte': 'Dichte'
 };
 
@@ -22,7 +22,7 @@ export const FEHLER_NAMEN = {
   'kugel-d-statt-r': 'Kugel: d statt r', 'kugel-ohne-4-3': 'Kugel: 4 ÷ 3 vergessen',
   'rabatt-ersparnis': 'Ersparnis statt neuer Preis', 'runden': 'Falsch gerundet', 'bruch-vertauscht': 'Bruch vertauscht',
   'merk': 'Wert im Text nicht gefunden (Merkzettel)',
-  'formel-ohne-100': 'Prozent-Formel: nicht durch 100 geteilt', 'formel-g-p-vertauscht': 'Prozent-Formel: G und p vertauscht', 'formel-rabatt-statt-preis': 'Rabatt statt neuer Preis',
+  'formel-ohne-100': 'Prozent-Formel: nicht durch 100 geteilt', 'formel-g-p-vertauscht': 'Prozent-Formel: G und p vertauscht', 'formel-rabatt-statt-preis': 'Rabatt statt neuer Preis', 'kegel-drittel-vergessen': 'Kegel: Drittel vergessen', 'zylinder-gesucht': 'Zylinder: falsch gewählt, was gesucht ist',
   'potenz-zweimal': 'Hoch 3: nur zweimal malgenommen', 'd-statt-r': 'Zylinder/Kegel: d statt r',
   'zylinder-ein-kreis': 'Zylinder: nur ein Kreis', 'drittel-vergessen': 'Kegel/Pyramide: Drittel vergessen',
   'pyramide-hs-statt-h': 'Pyramide: hₛ statt h', 'pyramide-h-statt-hs': 'Pyramide: h statt hₛ',
