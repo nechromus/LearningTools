@@ -3,7 +3,7 @@
 export const THEMA_NAMEN = {
   'minus-zahlen': 'Minus-Zahlen', 'reihenfolge': 'Reihenfolge', 'potenzen': 'Potenzen',
   'bruch-bild': 'Bruch aus Bild', 'zuordnung': 'Zuordnung', 'prozent': 'Prozent von …',
-  'prozent-baukasten': 'Prozent-Baukasten', 'rabatt': 'Rabatt', 'neuer-preis': 'Neuer Preis',
+  'prozent-baukasten': 'Prozent-Baukasten', 'prozent-formel': 'Prozent mit Formel', 'rabatt': 'Rabatt', 'neuer-preis': 'Neuer Preis',
   'kreisdiagramm': 'Kreisdiagramm', 'runden': 'Runden', 'kugel': 'Kugel',
   'einmaleins': 'Einmaleins', 'mal-10': 'Mal 10 und durch 10',
   'zylinder': 'Zylinder', 'kegel': 'Kegel', 'pyramide': 'Pyramide',
@@ -13,7 +13,7 @@ export const THEMA_NAMEN = {
 export const GEN_NAMEN = {
   'minus-plus': 'Minus-Zahlen', 'reihenfolge': 'Reihenfolge', 'potenz': 'Potenzen', 'einmaleins': 'Einmaleins',
   'mal10': 'Mal 10 / durch 10', 'prozent': 'Prozent von …', 'baukasten': 'Prozent-Baukasten', 'runden': 'Runden',
-  'bruch-bild': 'Bruch aus Bild', 'kugel': 'Kugel', 'zylinder': 'Zylinder', 'geld-geschichte': 'Geld-Geschichten', 'rabatt-geschichte': 'Rabatt-Geschichten',
+  'bruch-bild': 'Bruch aus Bild', 'kugel': 'Kugel', 'zylinder': 'Zylinder', 'geld-geschichte': 'Geld-Geschichten', 'rabatt-geschichte': 'Rabatt-Geschichten', 'prozent-formel': 'Prozent mit Formel',
   'zehnerpotenz': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Gewichtskraft', 'gleichung': 'Gleichungen', 'formel-umstellen': 'Formeln umstellen', 'dichte': 'Dichte'
 };
 
@@ -22,6 +22,7 @@ export const FEHLER_NAMEN = {
   'kugel-d-statt-r': 'Kugel: d statt r', 'kugel-ohne-4-3': 'Kugel: 4 ÷ 3 vergessen',
   'rabatt-ersparnis': 'Ersparnis statt neuer Preis', 'runden': 'Falsch gerundet', 'bruch-vertauscht': 'Bruch vertauscht',
   'merk': 'Wert im Text nicht gefunden (Merkzettel)',
+  'formel-ohne-100': 'Prozent-Formel: nicht durch 100 geteilt', 'formel-g-p-vertauscht': 'Prozent-Formel: G und p vertauscht', 'formel-rabatt-statt-preis': 'Rabatt statt neuer Preis',
   'potenz-zweimal': 'Hoch 3: nur zweimal malgenommen', 'd-statt-r': 'Zylinder/Kegel: d statt r',
   'zylinder-ein-kreis': 'Zylinder: nur ein Kreis', 'drittel-vergessen': 'Kegel/Pyramide: Drittel vergessen',
   'pyramide-hs-statt-h': 'Pyramide: hₛ statt h', 'pyramide-h-statt-hs': 'Pyramide: h statt hₛ',

@@ -2,7 +2,7 @@
 // Den Plan legt der Kinder-Chat mit dem Vater fest. Die App rechnet keine eigenen Ziele aus, sie sorgt nur dafür,
 // dass Plan und Ist zusammenpassen. Ohne gültigen, laufenden Plan: null überall, die App arbeitet wie bisher.
 // Reine Logik ohne DOM (testbar mit node), genutzt von der Übungs-App und der Eltern-App.
-import { THEMEN } from './logic.js';
+import { THEMEN, FREIGABE_THEMEN } from './logic.js';
 
 const DATUM = /^\d{4}-\d{2}-\d{2}$/;
 export const MOTIVATION = 'motivation';
@@ -45,13 +45,15 @@ export function artName(art, pakete = []) {
 
 // Arten mit Soll-Anteil (in %, Summe 100), Themen und Merkmal Motivation. Gesperrte und ausgeschaltete Themen fallen weg.
 // Ein Thema gehört zu genau einer Art: Motivation vor Plan-Arten, Thema vor Paket.
-export function wpArten(wp, pakete = [], eingriffe = [], heute = '') {
+// Gesperrte Arten, die ihr Freigabedatum erreicht haben, sind frei (Auftrag 30: prozent-formel ab freigaben.prozent_formel)
+const freiAb = (g, freigaben = {}, heute = '') => { const k = FREIGABE_THEMEN[g]; return !!(k && freigaben && freigaben[k] && freigaben[k] <= heute); };
+export function wpArten(wp, pakete = [], eingriffe = [], heute = '', freigaben = {}) {
   if (!wp) return [];
   const aktiv = eingriffeAktiv(eingriffe, heute);
   const aus = new Set();
   for (const e of aktiv) if (e.typ === 'aus') themenVon(e.art, pakete).forEach(t => aus.add(t));
   const gesperrt = new Set();
-  for (const g of wp.gesperrt) themenVon(g, pakete).forEach(t => gesperrt.add(t));
+  for (const g of wp.gesperrt) if (!freiAb(g, freigaben, heute)) themenVon(g, pakete).forEach(t => gesperrt.add(t));
   const weg = (t) => aus.has(t) || gesperrt.has(t);
   const vergeben = new Set();
   const arten = [];
@@ -70,10 +72,10 @@ export function wpArten(wp, pakete = [], eingriffe = [], heute = '') {
   return arten.filter(a => a.soll > 0).map(a => ({ ...a, name: artName(a.art, pakete) }));
 }
 export function artVonThema(arten, t) { return (arten || []).find(a => a.themen.includes(t)) || null; }
-export function gesperrteThemen(wp, pakete = [], eingriffe = [], heute = '') {
+export function gesperrteThemen(wp, pakete = [], eingriffe = [], heute = '', freigaben = {}) {
   if (!wp) return [];
   const s = new Set();
-  for (const g of wp.gesperrt) themenVon(g, pakete).forEach(t => s.add(t));
+  for (const g of wp.gesperrt) if (!freiAb(g, freigaben, heute)) themenVon(g, pakete).forEach(t => s.add(t));
   for (const e of eingriffeAktiv(eingriffe, heute)) if (e.typ === 'aus') themenVon(e.art, pakete).forEach(t => s.add(t));
   return [...s];
 }

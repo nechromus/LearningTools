@@ -437,6 +437,24 @@
       "beispiel": "m = 63,2 g, V = 8,00 cm³ → ρ = 63,2 g : 8,00 cm³ = 7,90 g/cm³",
       "fach": "physik",
       "hinweis_schreibweise": "ρ = griechisch Rho"
+    },
+    {
+      "nr": 23,
+      "id": "formel",
+      "titel": "Prozent mit Formel",
+      "symbol": "W=",
+      "farbe": "#14707A",
+      "farbe_hell": "#D3EEF0",
+      "farbe_text": "#0B4B52",
+      "regeln": [
+        "W = G · p : 100",
+        "G = das Ganze (100 %), zum Beispiel der Preis",
+        "p = die Zahl vor dem %",
+        "W = der Teil, den du suchst",
+        "Rechner: G × p ÷ 100 ="
+      ],
+      "beispiel": "15 % von 240 € → G = 240, p = 15 → 240 · 15 : 100 = 36 €",
+      "fach": "mathe"
     }
   ]
 }

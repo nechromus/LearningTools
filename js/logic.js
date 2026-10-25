@@ -69,6 +69,23 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
   if (aufgabe.thema === 'kegel' && /Mantel/.test(frage) && /^h\s*=/.test(o)) return { typ: 'kegel-h-statt-s', text: 'Für den Mantel brauchst du s, die schräge Linie außen.' };
   return null;
 }
+// Prozent mit Formel: G und p aus den Parametern (direkt|rabatt: [art, G, p, …], text: [art, k, G, p, …])
+const PF_VERTAUSCHT = { typ: 'formel-g-p-vertauscht', text: 'G ist das Ganze: die Zahl nach „von“, zum Beispiel der Preis.' };
+function pfGp(a) {
+  const par = a.parameter || [];
+  if (par[0] === 'text') return [par[2], par[3]];
+  if (par[0] === 'direkt' || par[0] === 'rabatt') return [par[1], par[2]];
+  return null;
+}
+// Merkzettel: falsche Zahl aus dem Text. Gibt { typ, text } oder null zurück.
+export function erkenneMerkFehler(aufgabe, label, eingabeText) {
+  const p = parseZahl(eingabeText);
+  if (!p.ok || aufgabe.generator !== 'prozent-formel') return null;
+  const gp = pfGp(aufgabe);
+  if (!gp) return null;
+  if ((/^G\b/.test(label || '') && gleich(p.wert, gp[1])) || (/^p\b/.test(label || '') && gleich(p.wert, gp[0]))) return PF_VERTAUSCHT;
+  return null;
+}
 // Gibt { typ, text } oder null zurück. teil = Schritt/Frage-Objekt oder null.
 
 export function erkenneFehler(aufgabe, teil, eingabeText) {
@@ -88,6 +105,18 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
   if (aufgabe.form === 'klammer_negativ' && par.length >= 3) {
     const [a, b, c] = par.slice(-3);
     if (gleich(w, a - (c - b)) || (/^Klammer/.test(ttx) && gleich(w, c - b))) return { typ: 'klammer-negativ', text: 'Erst die Klammer ausrechnen. Was kommt in der Klammer heraus?' };
+  }
+
+  // Prozent mit Formel (Auftrag 30): ohne : 100, G und p vertauscht, Rabatt statt neuer Preis
+  if (aufgabe.generator === 'prozent-formel') {
+    const gp = pfGp(aufgabe);
+    if (gp) {
+      const [G, p] = gp;
+      if (/^G =/.test(ttx) && gleich(w, p)) return PF_VERTAUSCHT;
+      if (/^p =/.test(ttx) && gleich(w, G)) return PF_VERTAUSCHT;
+      if (/W = G/.test(ttx) && gleich(w, G * p)) return { typ: 'formel-ohne-100', text: 'Hast du durch 100 geteilt?' };
+      if (/^Neuer Preis/.test(ttx) && gleich(w, G * p / 100)) return { typ: 'formel-rabatt-statt-preis', text: 'Das ist der Rabatt. Wie viel kostet es jetzt? G − Rabatt.' };
+    }
   }
 
   // Radius aus Durchmesser: Rechenweg steht nicht in der Frage, Tipp erst nach einem Fehler
@@ -537,7 +566,7 @@ export function hoechsteKachel(feld) {
 // ---------- Aufgaben aus JSON kontrollieren (Elternbereich, Tools) ----------
 
 export const TYPEN = ['zahl', 'auswahl', 'bruch', 'schritte', 'zuordnung', 'mehrfrage', 'zehnerpotenz', 'formel', 'detektiv'];
-export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte'];
+export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'prozent-formel', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte'];
 // Fach je Thema (Auftrag 13). Fehlt das Feld fach an der Aufgabe, gilt das Fach des Themas.
 export const PHYSIK_THEMEN = ['zehnerpotenzen', 'einheiten', 'gewichtskraft', 'dichte'];
 export const fachVon = (a) => (a && (a.fach || (PHYSIK_THEMEN.includes(a.thema) ? 'physik' : 'mathe'))) || 'mathe';
@@ -691,7 +720,7 @@ export function neueKachelObjekt(kacheln, zaehler, rng = Math.random) {
 
 // ---------- Freiwilliger Taschenrechner bei großen Zahlen ----------
 // Angeboten bei diesen Themen, wenn in der Aufgabe eine Zahl ab 100 vorkommt. Kostet die halbe Spielzeit.
-export const RECHNER_OPTIONAL_THEMEN = ['minus-zahlen', 'reihenfolge', 'prozent', 'prozent-baukasten', 'rabatt', 'neuer-preis', 'kreisdiagramm'];
+export const RECHNER_OPTIONAL_THEMEN = ['minus-zahlen', 'reihenfolge', 'prozent', 'prozent-baukasten', 'prozent-formel', 'rabatt', 'neuer-preis', 'kreisdiagramm'];
 
 export function groessteZahl(a) {
   const texte = [a.rechnung, a.geschichte, a.frage, ...(a.fragen || []).map(f => f.frage), ...(a.schritte || []).map(s => s.text || '')].filter(Boolean).join(' ');
@@ -745,7 +774,10 @@ export const BEDIENUNG = [
   { k: 'rechner_frei', f: 'rechnerFrei', std: false, titel: 'Taschenrechner immer ohne Abzug', text: 'An: Der Taschenrechner kostet nie Zeit.' },
   { k: 'umformen_sofort', f: 'umformenSofort', std: false, titel: 'Gleichungen gleich in Schritten umformen', text: 'An: Gleichungen starten direkt mit „In Schritten umformen“, ohne Abzug bei den Wissenspunkten.' }
 ];
-export const FREIGABEN = ['minusminus'];
+export const FREIGABEN = ['minusminus', 'prozent_formel'];
+// Themen, die erst ab ihrem Freigabedatum kommen (Auftrag 30). Steht so ein Thema im Wochenplan unter „gesperrt“, wird es ab dem Datum frei.
+export const FREIGABE_THEMEN = { 'prozent-formel': 'prozent_formel' };
+export const themaFreigegeben = (z, thema, heute) => !FREIGABE_THEMEN[thema] || freigegeben(z, FREIGABE_THEMEN[thema], heute);
 export const freigegeben = (z, k, heute) => !!(z && z.freigaben && z.freigaben[k] && z.freigaben[k] <= heute);
 export const bedienung = (e, k) => { const b = BEDIENUNG.find(x => x.k === k); return typeof (e || {})[b.f] === 'boolean' ? e[b.f] : b.std; };
 import { paketeAusWerte } from './lernplan.js';

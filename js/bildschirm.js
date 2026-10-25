@@ -27,23 +27,38 @@ export function mitExtra(roh, heute, normalSek, grenzeSek, faktor) {
 }
 export const BZ_STANDARD = Object.freeze({ an: true, faktor: 1, max: 45, ab: 15, extra: null });
 
+// Eigener Höchstwert (Auftrag 30): ganze Minuten 15–240 neben den festen Stufen, optional mit „gilt bis“ (max_bis).
+// Nach max_bis gilt wieder max_danach (der vorherige Wert).
+export const MAX_FREI = Object.freeze({ min: 15, max: 240 });
+const heuteLokal = () => { const d = new Date(), z = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`; };
+export const maxOk = (v, liste) => liste.includes(v) || (Number.isInteger(v) && v >= MAX_FREI.min && v <= MAX_FREI.max);
+export function maxVon(r, liste, std, heute = heuteLokal()) {
+  const bis = /^\d{4}-\d{2}-\d{2}$/.test(r.max_bis || '') ? r.max_bis : null;
+  const danach = maxOk(r.max_danach, liste) ? r.max_danach : std;
+  if (bis && heute > bis) return { max: danach };
+  const max = maxOk(r.max, liste) ? r.max : std;
+  return bis ? { max, max_bis: bis, max_danach: danach } : { max };
+}
+
 // Einstellungen aus der Eltern-App prüfen. extra = { tag: 'JJJJ-MM-TT', min } gilt nur an diesem Tag.
-export function bzRegeln(r) {
+export function bzRegeln(r, heute) {
   const S0 = BZ_STANDARD;
   if (!r || typeof r !== 'object') return { an: S0.an, faktor: S0.faktor, max: S0.max, ab: S0.ab, extra: null };
   const extra = extraVon(r.extra);
+  const m = maxVon(r, HOECHSTWERTE, S0.max, heute);
   return {
     an: typeof r.an === 'boolean' ? r.an : S0.an,
     faktor: FAKTOREN.includes(r.faktor) ? r.faktor : S0.faktor,
-    max: HOECHSTWERTE.includes(r.max) ? r.max : S0.max,
+    max: m.max,
     ab: MINDESTWERTE.includes(r.ab) ? r.ab : S0.ab,
-    extra
+    extra,
+    ...(m.max_bis ? { max_bis: m.max_bis, max_danach: m.max_danach } : {})
   };
 }
 
 // Erlaubte Sekunden an einem Tag
 export function grenzeSek(regeln, tag) {
-  const r = bzRegeln(regeln);
+  const r = bzRegeln(regeln, tag);
   return (r.max + (r.extra && r.extra.tag === tag ? r.extra.min : 0)) * 60;
 }
 
@@ -70,7 +85,7 @@ export const restSek = (konto, regeln) => Math.max(0, grenzeSek(regeln, konto.ta
 // Spielzeit-Sekunden einer Aufgabe in Bildschirmzeit umrechnen und gutschreiben (höchstens bis zur Tagesgrenze).
 // Gibt { plus, voll } zurück. voll = Tagesgrenze jetzt erreicht.
 export function gutschreiben(konto, spielSek, regeln) {
-  const r = bzRegeln(regeln);
+  const r = bzRegeln(regeln, konto.tag);
   const roh = Math.round(Math.max(0, spielSek) * r.faktor);
   const ex = r.extra && r.extra.tag === konto.tag ? r.extra : null;
   const g = mitExtra(roh, konto.heute, r.max * 60, grenzeSek(r, konto.tag), ex ? ex.faktor : null);
@@ -120,20 +135,21 @@ export function abschicken(konto) {
 // Zählt nur die mit Aufgaben verdiente Spielzeit (nicht die geschenkten Basis-Minuten).
 export const SZ_HOECHSTWERTE = [15, 30, 45, 60, 90];
 export const SZ_STANDARD = Object.freeze({ max: 45, extra: null });
-export function szRegeln(r) {
+export function szRegeln(r, heute) {
   if (!r || typeof r !== 'object') return { max: SZ_STANDARD.max, extra: null };
   const extra = extraVon(r.extra);
-  return { max: SZ_HOECHSTWERTE.includes(r.max) ? r.max : SZ_STANDARD.max, extra };
+  const m = maxVon(r, SZ_HOECHSTWERTE, SZ_STANDARD.max, heute);
+  return { max: m.max, extra, ...(m.max_bis ? { max_bis: m.max_bis, max_danach: m.max_danach } : {}) };
 }
 export function szGrenzeSek(regeln, tag) {
-  const r = szRegeln(regeln);
+  const r = szRegeln(regeln, tag);
   return (r.max + (r.extra && r.extra.tag === tag ? r.extra.min : 0)) * 60;
 }
 // Noch verdienbare Spielzeit heute (verdient = heute schon mit Aufgaben verdiente Sekunden)
 export const szRestSek = (regeln, tag, verdient) => Math.max(0, szGrenzeSek(regeln, tag) - Math.max(0, verdient || 0));
 // Spielzeit einer Aufgabe gutschreiben: normale Grenze voll, Extra-Zeit mal Extra-Faktor
 export function szGutschrift(regeln, tag, verdient, sek) {
-  const r = szRegeln(regeln);
+  const r = szRegeln(regeln, tag);
   const ex = r.extra && r.extra.tag === tag ? r.extra : null;
   return mitExtra(sek, Math.max(0, verdient || 0), r.max * 60, szGrenzeSek(r, tag), ex ? ex.faktor : null);
 }

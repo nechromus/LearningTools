@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.27.0';
+export const APP_VERSION = '2.28.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1294,7 +1294,7 @@ function grenzen() {
   grenzenCache = { k: schluessel, g };
   return g;
 }
-const erlaubt = (a) => LP.aufgabeErlaubt(a, grenzen()) && !(a && wpGesperrt().includes(a.thema));
+const erlaubt = (a) => LP.aufgabeErlaubt(a, grenzen()) && !(a && wpGesperrt().includes(a.thema)) && !(a && !L.themaFreigegeben(S, a.thema, L.tagKey()));
 // Nächste Etappe wird ab ihrem Datum wirksam (Gerätezeit)
 function etappenAktualisieren() {
   if (!pakete()) return;
@@ -1372,7 +1372,7 @@ function paketFuerThema(t) {
 // Welche Baukästen zu einem Thema gehören; Themen ohne Baukasten kommen nur aus dem Pool.
 const TEST_GEN = {
   'minus-zahlen': ['minus-plus', 'geld-geschichte'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'], 'bruch-bild': ['bruch-bild'],
-  'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'rabatt': ['rabatt-geschichte'], 'neuer-preis': ['rabatt-geschichte'],
+  'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'prozent-formel': ['prozent-formel'], 'rabatt': ['rabatt-geschichte'], 'neuer-preis': ['rabatt-geschichte'],
   'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder'],
   'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
 };
@@ -1534,8 +1534,8 @@ function wpJetzt() {
 let wpGespCache = null;
 function wpGesperrt() {
   const wp = wpJetzt(); if (!wp) return [];
-  const k = JSON.stringify([S.wochenplan, S.eingriffe, L.tagKey(), (S.pakete || []).map(p => p.id)]);
-  if (!wpGespCache || wpGespCache.k !== k) wpGespCache = { k, t: W.gesperrteThemen(wp, S.pakete || [], S.eingriffe, L.tagKey()) };
+  const k = JSON.stringify([S.wochenplan, S.eingriffe, L.tagKey(), (S.pakete || []).map(p => p.id), S.freigaben]);
+  if (!wpGespCache || wpGespCache.k !== k) wpGespCache = { k, t: W.gesperrteThemen(wp, S.pakete || [], S.eingriffe, L.tagKey(), S.freigaben) };
   return wpGespCache.t;
 }
 // Wann wurde ein Thema zuletzt geübt? Beim Start eines Plans aus dem Protokoll, danach laufend gepflegt.
@@ -1554,7 +1554,7 @@ function wpZustand(wp) {
   if (!S.zuletzt) S.zuletzt = zuletztAusLog({});
   return S.wp;
 }
-const wpArtenJetzt = (wp) => W.wpArten(wp, S.pakete || [], S.eingriffe, L.tagKey());
+const wpArtenJetzt = (wp) => W.wpArten(wp, S.pakete || [], S.eingriffe, L.tagKey(), S.freigaben);
 // Mittlere Dauer einer Aufgabe je Thema: seit Beginn des Plans, sonst aus dem Protokoll, sonst 30 s
 let dauerCache = null;
 function dauerJe(st) {
@@ -1738,10 +1738,11 @@ function waehleIn(kategorie, g, ersatz, ohneDetektiv = false) {
       const o = P.ziehe([
         { w: poolGewicht('text'), art: 'pool' },
         { w: g['minus-zahlen'], art: 'geld-geschichte' },
-        { w: Math.max(g.rabatt, g['neuer-preis']), art: 'rabatt-geschichte' }
+        { w: Math.max(g.rabatt, g['neuer-preis']), art: 'rabatt-geschichte' },
+        { w: g['prozent-formel'] || 0, art: 'prozent-formel' }
       ]);
       if (o && o.art === 'pool') a = ausPool('text');
-      else if (o) a = erzeuge(o.art, genStufe(o.art), fokus);
+      else if (o) a = erzeuge(o.art, o.art === 'prozent-formel' ? Math.max(2, genStufe(o.art)) : genStufe(o.art), fokus);
       break;
     }
     case 'struktur': {
@@ -2987,7 +2988,7 @@ function antwortGeben() {
     }
     if (!richtig && L.fremdeZahl(a, p.wert)) return fremdeZahlMelden(t, eingabe);
     if (!richtig && !fehler) {
-      if (t.merk) fehler = { typ: 'merk', text: 'Lies noch einmal im Text nach. Welche Zahl gehört dazu?' };
+      if (t.merk) fehler = L.erkenneMerkFehler(a, t.label, t.eingabe) || { typ: 'merk', text: 'Lies noch einmal im Text nach. Welche Zahl gehört dazu?' };
       else if (a.bild && a.bild.linien && /Hälfte|Viertel/.test(t.label || '')) fehler = { typ: 'gefaerbt-zaehler', text: `Zähl die gefärbten ${gefaerbtWort(a)} im Bild.` };
       else if (t.knobel) fehler = { typ: 'knobel', text: 'Probier es noch einmal. Oder tippe auf „In Schritten rechnen“.' };
       else {

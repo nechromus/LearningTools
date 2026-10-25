@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.41.0';
+export const ELTERN_VERSION = '1.42.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -1482,6 +1482,18 @@ const extraBlock = (act, w, heuteMin, nm) => {
     ${w.extraMin > 0 ? `<span class="einstell-unter">Extra-Zeit zählt ${seg(act + 'Faktor', BS.EXTRA_FAKTOREN, f, extraText)}</span>` : ''}
     <span class="klein gedaempft">Heute: ${w.max + w.extraMin} Min. erlaubt, ${heuteMin} verdient.${w.extraMin > 0 && f < 1 ? ` Ab Minute ${w.max} bekommt ${nm} für jede Aufgabe ${f === 0.5 ? 'die Hälfte' : 'drei Viertel'}.` : ''} Morgen gilt wieder der normale Wert.</span></div>`;
 };
+// Höchstwert pro Tag: feste Stufen oder eigener Wert (15–240 Min.), optional „gilt bis“ (Auftrag 30)
+function maxBlock(art, w, liste, text) {
+  const eigen = !liste.includes(w.max);
+  const danach = w.maxDanach || (liste.includes(w.max) ? w.max : 45);
+  return `<div class="einstell-block max-block"><span>Höchstens pro Tag</span>
+    <div class="segmente" role="group">${liste.map(x => `<button class="segment${x === w.max ? ' an' : ''}" data-act="${art}Max" data-w="${x}" aria-pressed="${x === w.max}">${x}</button>`).join('')}<button class="segment${eigen ? ' an' : ''}" data-act="maxEigen" data-art="${art}" aria-pressed="${eigen}">Eigener Wert</button></div>
+    ${eigen || w.maxBis ? `<div class="max-eigen"><label>Minuten <input type="number" inputmode="numeric" min="${BS.MAX_FREI.min}" max="${BS.MAX_FREI.max}" step="5" data-maxfeld="${art}" value="${w.max}"></label>
+      <label>gilt bis <input type="date" data-maxbis="${art}" value="${esc(w.maxBis || '')}" min="${L.tagKey()}"></label>
+      ${w.maxBis ? `<button class="knopf knopf-klein" data-act="maxBisWeg" data-art="${art}">ohne Ende</button>` : ''}</div>
+      <span class="klein gedaempft">${w.maxBis ? `Bis ${esc(datumKurz(w.maxBis))} gelten ${w.max} Min., danach wieder ${danach} Min.` : `Gilt jeden Tag, bis du es änderst. Erlaubt sind ${BS.MAX_FREI.min} bis ${BS.MAX_FREI.max} Minuten.`}</span>` : ''}
+    <span class="klein gedaempft">${text}</span></div>`;
+}
 // Spielzeit im Schrein pro Tag: Höchstwert und „nur heute mehr“ (zählt nur mit Aufgaben verdiente Zeit)
 function szEinstellungen(w) {
   const z = w.spielzeitTag;
@@ -1489,7 +1501,7 @@ function szEinstellungen(w) {
   const heute = A.szHeute(D.daten.eintraege || []);
   return `<h2 class="abschnitt">Spielzeit im Schrein pro Tag</h2>
     <section class="karte liste-karte">
-      <div class="einstell-block"><span>Höchstens pro Tag</span>${seg('szMax', BS.SZ_HOECHSTWERTE, z.max)}<span class="klein gedaempft">Minuten, die ${esc(name())} pro Tag mit Aufgaben verdienen kann. Geschenkte Minuten zählen nicht mit.</span></div>
+      ${maxBlock('sz', z, BS.SZ_HOECHSTWERTE, `Minuten, die ${esc(name())} pro Tag mit Aufgaben verdienen kann. Geschenkte Minuten zählen nicht mit.`)}
       ${extraBlock('szExtra', z, A.minutenText(heute), esc(name()))}
     </section>`;
 }
@@ -1504,7 +1516,7 @@ function bzEinstellungen(w) {
     <section class="karte liste-karte">
       <div class="einstell-block"><span>Kann für Bildschirmzeit üben<span class="klein gedaempft block">Vor der ersten Aufgabe fragt die App: Spielzeit oder Bildschirmzeit?</span></span>${seg('bzAn', [true, false], b.an, x => x ? 'An' : 'Aus')}</div>
       ${b.an ? `<div class="einstell-block"><span>Faktor zur Spielzeit</span>${seg('bzFaktor', BS.FAKTOREN, b.faktor, bruch)}<span class="klein gedaempft">1 = gleich viel wie Spielzeit. Gleiche Regeln (Serie, 2. Versuch, Hilfen).</span></div>
-      <div class="einstell-block"><span>Höchstens pro Tag</span>${seg('bzMax', BS.HOECHSTWERTE, b.max)}<span class="klein gedaempft">Minuten. Gilt jeden Tag.</span></div>
+      ${maxBlock('bz', b, BS.HOECHSTWERTE, 'Minuten.')}
       <div class="einstell-block"><span>Abschicken ab</span>${seg('bzAb', BS.MINDESTWERTE, b.ab)}<span class="klein gedaempft">Minuten. Vorher kann ${esc(name())} noch nichts abschicken.</span></div>
       ${extraBlock('bzExtra', b, A.minutenText(heute), esc(name()))}` : ''}
     </section>`;
@@ -1609,12 +1621,13 @@ function splitterSeite() {
 // Welches Thema die Häufigkeit eines Baukastens steuert. Geschichten hängen an einem anderen Baukasten-Thema.
 const GEN_THEMA = {
   'minus-plus': 'minus-zahlen', 'reihenfolge': 'reihenfolge', 'potenz': 'potenzen', 'einmaleins': 'einmaleins', 'mal10': 'mal-10',
-  'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'runden': 'runden', 'bruch-bild': 'bruch-bild', 'kugel': 'kugel', 'zylinder': 'zylinder'
+  'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'prozent-formel': 'prozent-formel', 'runden': 'runden', 'bruch-bild': 'bruch-bild', 'kugel': 'kugel', 'zylinder': 'zylinder'
 };
 const GEN_WIE = { 'geld-geschichte': ['minus-zahlen'], 'rabatt-geschichte': ['rabatt', 'neuer-preis'] };
 
 // Freigaben mit Datum (Auftrag 21): neue Aufgabenformen erst ab dem Tag, an dem der Bogen sie eingeführt hat
-const FREIGABE_TEXTE = { minusminus: ['Doppeltes Minus und Minus in Klammern', 'Minus-Zahlen: 6 − (−4). Reihenfolge: 10 − (3 − 8). Etwa jede 4. Aufgabe, die ersten 5 mit Zwischenschritt.'] };
+const FREIGABE_TEXTE = { minusminus: ['Doppeltes Minus und Minus in Klammern', 'Minus-Zahlen: 6 − (−4). Reihenfolge: 10 − (3 − 8). Etwa jede 4. Aufgabe, die ersten 5 mit Zwischenschritt.'],
+  prozent_formel: ['Prozent mit Formel', 'W = G · p : 100: Formel direkt, im Text, Rabatt mit Formel. Steht die Art im Wochenplan unter „gesperrt“, wird sie ab diesem Tag frei.'] };
 function freigabeKarte(w) {
   const f = w.freigaben || {}, heute = L.tagKey();
   return `<section class="karte liste-karte">${L.FREIGABEN.map(k => {
@@ -2272,7 +2285,10 @@ document.addEventListener('click', (ev) => {
     case 'langeHinweise': entwurf.langeHinweise = Number(el.dataset.w); meldung = null; zeichne(); break;
     case 'bzAn': entwurf.bildschirm = { ...entwurf.bildschirm, an: el.dataset.w === 'true' }; meldung = null; zeichne(); break;
     case 'bzFaktor': entwurf.bildschirm = { ...entwurf.bildschirm, faktor: Number(el.dataset.w) }; meldung = null; zeichne(); break;
-    case 'bzMax': entwurf.bildschirm = { ...entwurf.bildschirm, max: Number(el.dataset.w) }; meldung = null; zeichne(); break;
+    case 'bzMax': entwurf.bildschirm = { ...entwurf.bildschirm, max: Number(el.dataset.w), maxBis: '', maxDanach: null }; meldung = null; zeichne(); break;
+    case 'maxEigen': { const k = el.dataset.art === 'bz' ? 'bildschirm' : 'spielzeitTag', w = entwurf[k]; const liste = el.dataset.art === 'bz' ? BS.HOECHSTWERTE : BS.SZ_HOECHSTWERTE;
+      if (liste.includes(w.max)) entwurf[k] = { ...w, maxDanach: w.max, max: Math.min(BS.MAX_FREI.max, liste[liste.length - 1] + 30) }; meldung = null; zeichne(); break; }
+    case 'maxBisWeg': { const k = el.dataset.art === 'bz' ? 'bildschirm' : 'spielzeitTag'; entwurf[k] = { ...entwurf[k], maxBis: '', maxDanach: null }; meldung = null; zeichne(); break; }
     case 'gestaltung': entwurf.gestaltung = el.dataset.w; if (entwurf.gestaltung === 'sternzeit' && !entwurf.ansicht_name) entwurf.ansicht_name = 'Logbuch Sternzeit'; meldung = null; zeichne(); break;
     case 'umformStufe': entwurf.umform_stufe = Number(el.dataset.w); meldung = null; zeichne(); break;
     case 'feedbackAn': entwurf.feedback = el.dataset.w === 'true'; meldung = null; zeichne(); break;
@@ -2307,7 +2323,7 @@ document.addEventListener('click', (ev) => {
     case 'uzMax': entwurf.uebungszeit = { ...entwurf.uebungszeit, max: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'uzNachlauf': entwurf.uebungszeit = { ...entwurf.uebungszeit, nachlauf_prozent: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'uzExtra': entwurf.uebungszeit = { ...entwurf.uebungszeit, extraMin: Number(el.dataset.w) }; meldung = null; zeichne(); break;
-    case 'szMax': entwurf.spielzeitTag = { ...entwurf.spielzeitTag, max: Number(el.dataset.w) }; meldung = null; zeichne(); break;
+    case 'szMax': entwurf.spielzeitTag = { ...entwurf.spielzeitTag, max: Number(el.dataset.w), maxBis: '', maxDanach: null }; meldung = null; zeichne(); break;
     case 'szExtra': entwurf.spielzeitTag = { ...entwurf.spielzeitTag, extraMin: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'szExtraFaktor': entwurf.spielzeitTag = { ...entwurf.spielzeitTag, extraFaktor: Number(el.dataset.w) }; meldung = null; zeichne(); break;
     case 'bzExtraFaktor': entwurf.bildschirm = { ...entwurf.bildschirm, extraFaktor: Number(el.dataset.w) }; meldung = null; zeichne(); break;
@@ -2434,6 +2450,15 @@ document.addEventListener('change', (ev) => {
     allesLaden(); return;
   }
   if (!entwurf) return;
+  if (el.dataset.maxfeld) {
+    const k = el.dataset.maxfeld === 'bz' ? 'bildschirm' : 'spielzeitTag', n = Math.round(Number(el.value));
+    if (Number.isFinite(n)) { entwurf[k] = { ...entwurf[k], max: Math.max(BS.MAX_FREI.min, Math.min(BS.MAX_FREI.max, n)) }; meldung = null; }
+    zeichne(); return;
+  }
+  if (el.dataset.maxbis) {
+    const k = el.dataset.maxbis === 'bz' ? 'bildschirm' : 'spielzeitTag', w = entwurf[k];
+    entwurf[k] = { ...w, maxBis: el.value || '', maxDanach: el.value ? (w.maxDanach || 45) : null }; meldung = null; zeichne(); return;
+  }
   if (el.dataset.pk && el.type === 'range') {
     const p = entwurf.pakete.find(x => x.id === el.dataset.pk);
     if (p) p.anteil = Number(el.value);

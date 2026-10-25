@@ -485,22 +485,22 @@ export function paketQuoten(aufgaben, vonTag) {
 
 // Bildschirmzeit-Einstellungen für die Seite. extraMin gilt nur heute (danach 0).
 export function bzWerte(r, heute = tagKey()) {
-  const g = BS.bzRegeln(r);
-  return { an: g.an, faktor: g.faktor, max: g.max, ab: g.ab, extraMin: g.extra && g.extra.tag === heute ? g.extra.min : 0, extraFaktor: g.extra ? g.extra.faktor : 0.5 };
+  const g = BS.bzRegeln(r, heute);
+  return { an: g.an, faktor: g.faktor, max: g.max, maxBis: g.max_bis || '', maxDanach: g.max_danach || null, ab: g.ab, extraMin: g.extra && g.extra.tag === heute ? g.extra.min : 0, extraFaktor: g.extra ? g.extra.faktor : 0.5 };
 }
 // Zurück in die Form der Einstellungsdatei
 export function bzDatei(werte, heute = tagKey()) {
   const w = werte || bzWerte(null, heute);
-  return BS.bzRegeln({ an: w.an, faktor: w.faktor, max: w.max, ab: w.ab, extra: w.extraMin > 0 ? { tag: heute, min: w.extraMin, faktor: w.extraFaktor ?? 0.5 } : null });
+  return BS.bzRegeln({ an: w.an, faktor: w.faktor, max: w.max, ...(w.maxBis ? { max_bis: w.maxBis, max_danach: w.maxDanach } : {}), ab: w.ab, extra: w.extraMin > 0 ? { tag: heute, min: w.extraMin, faktor: w.extraFaktor ?? 0.5 } : null }, heute);
 }
 // Spielzeit im Schrein pro Tag (wie Bildschirmzeit)
 export function szWerte(r, heute = tagKey()) {
-  const g = BS.szRegeln(r);
-  return { max: g.max, extraMin: g.extra && g.extra.tag === heute ? g.extra.min : 0, extraFaktor: g.extra ? g.extra.faktor : 0.5 };
+  const g = BS.szRegeln(r, heute);
+  return { max: g.max, maxBis: g.max_bis || '', maxDanach: g.max_danach || null, extraMin: g.extra && g.extra.tag === heute ? g.extra.min : 0, extraFaktor: g.extra ? g.extra.faktor : 0.5 };
 }
 export function szDatei(werte, heute = tagKey()) {
   const w = werte || szWerte(null, heute);
-  return BS.szRegeln({ max: w.max, extra: w.extraMin > 0 ? { tag: heute, min: w.extraMin, faktor: w.extraFaktor ?? 0.5 } : null });
+  return BS.szRegeln({ max: w.max, ...(w.maxBis ? { max_bis: w.maxBis, max_danach: w.maxDanach } : {}), extra: w.extraMin > 0 ? { tag: heute, min: w.extraMin, faktor: w.extraFaktor ?? 0.5 } : null }, heute);
 }
 // Heute mit Aufgaben verdiente Spielzeit (Sekunden)
 export function szHeute(eintraege, heute = tagKey()) {
@@ -612,12 +612,12 @@ export function wochenplanStand(werte, eintraege, heute = tagKey()) {
     if (tag >= wp.ab && tag <= wp.bis && e.ms > 0) { ms[e.thema] = (ms[e.thema] || 0) + Math.min(e.ms, 10 * 60000); n[e.thema] = (n[e.thema] || 0) + 1; }
   }
   const stichtag = status === 'abgelaufen' ? wp.bis : heute;
-  const arten = W.wpArten(wp, pakete, werte.eingriffe, stichtag);
+  const arten = W.wpArten(wp, pakete, werte.eingriffe, stichtag, werte.freigaben || {});
   const nGesamt = Object.values(n).reduce((s, v) => s + v, 0);
   const ist = W.wpIst(arten, ms).map(a => ({ ...a, n: a.themen.reduce((s, t) => s + (n[t] || 0), 0), istN: nGesamt ? a.themen.reduce((s, t) => s + (n[t] || 0), 0) / nGesamt * 100 : 0 }));
   const imPlan = new Set(arten.flatMap(a => a.themen));
   const sonstMs = Object.keys(ms).filter(t => !imPlan.has(t)).reduce((s, t) => s + ms[t], 0);
-  const gesperrt = W.gesperrteThemen(wp, pakete, werte.eingriffe, stichtag);
+  const gesperrt = W.gesperrteThemen(wp, pakete, werte.eingriffe, stichtag, werte.freigaben || {});
   const motiv = (arten.find(a => a.motiv) || { themen: [] }).themen;
   const kand = new Set([...imPlan]);
   for (const p of pakete) for (const [t, g] of Object.entries(p.paket.gewichte || {})) if (g > 0) kand.add(t);

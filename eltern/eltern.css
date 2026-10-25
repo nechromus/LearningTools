@@ -573,3 +573,9 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 @keyframes live-puls { 50% { box-shadow: 0 0 0 7px rgba(47, 154, 85, .08); } }
 @media (prefers-reduced-motion: reduce) { .live-karte.an .live-punkt { animation: none; } }
 .live-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+/* Eigener Höchstwert (Auftrag 30) */
+.max-eigen { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-top: 6px; }
+.max-eigen label { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.max-eigen input { font: inherit; font-size: 16px; min-height: 42px; border: 1.5px solid var(--linie); border-radius: 10px; padding: 0 10px; background: #fff; }
+.max-eigen input[type="number"] { width: 96px; }
+.max-eigen .knopf { min-height: 42px; font-size: 15px; padding: 0 12px; white-space: nowrap; width: auto; }
