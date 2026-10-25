@@ -737,7 +737,11 @@ export function berichteNorm(x) {
   const TAG = /^\d{4}-\d{2}-\d{2}$/;
   return x.berichte.filter(b => b && typeof b.id === 'string' && /^[\w.-]+$/.test(b.id) && typeof b.datei === 'string' && /^[\w.-]+\.html$/.test(b.datei))
     .map(b => ({ ...b, zeitraum: Array.isArray(b.zeitraum) && TAG.test(b.zeitraum[0] || '') && TAG.test(b.zeitraum[1] || '') ? b.zeitraum : null,
-      kommentare: Number.isInteger(b.kommentare) && b.kommentare > 0 ? b.kommentare : 0 }));
+      kommentare: Number.isInteger(b.kommentare) && b.kommentare > 0 ? b.kommentare : 0,
+      // Auftrag 29: art bericht (Rückblick) oder plan (Wochenplan); alte Einträge ohne art gelten als plan
+      art: b.art === 'bericht' ? 'bericht' : 'plan',
+      woche: Number.isInteger(b.woche) ? b.woche : null,
+      partner: typeof b.partner === 'string' && b.partner ? b.partner : null }));
 }
 const brAb = (b) => (b.zeitraum && b.zeitraum[0]) || b.datum || '';
 // Neueste zuerst (nach Beginn des Zeitraums, sonst Datum)
@@ -747,5 +751,23 @@ export function berichtAktuell(l, heute) {
   const s = berichteSortiert(l);
   return s.find(b => b.zeitraum && b.zeitraum[0] <= heute && heute <= b.zeitraum[1])
     || s.filter(b => b.zeitraum && b.zeitraum[0] > heute).sort((a, b) => a.zeitraum[0].localeCompare(b.zeitraum[0]))[0]
+    || s[0] || null;
+}
+// Nach Monat gruppieren (Beginn des Zeitraums), neueste zuerst: [{ monat: 'JJJJ-MM', liste }]
+export function berichteNachMonat(l) {
+  const out = [];
+  for (const b of berichteSortiert(l)) {
+    const m = brAb(b).slice(0, 7);
+    if (!out.length || out[out.length - 1].monat !== m) out.push({ monat: m, liste: [] });
+    out[out.length - 1].liste.push(b);
+  }
+  return out;
+}
+// Aktueller Wochenplan (Auftrag 29, Wunsch des Vaters): liegt schon ein Plan für eine kommende Woche vor, gilt er
+// ab sofort (der Plan entsteht sonntags); sonst der Plan, dessen Zeitraum heute läuft; sonst der neueste.
+export function planAktuell(l, heute) {
+  const s = berichteSortiert(l);
+  return s.filter(b => b.zeitraum && b.zeitraum[0] > heute).sort((a, b) => a.zeitraum[0].localeCompare(b.zeitraum[0]))[0]
+    || s.find(b => b.zeitraum && b.zeitraum[0] <= heute && heute <= b.zeitraum[1])
     || s[0] || null;
 }

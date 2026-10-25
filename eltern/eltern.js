@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.39.0';
+export const ELTERN_VERSION = '1.40.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -298,7 +298,7 @@ function seiteHtml() {
 
 // ---------- Berichte (Auftrag 28) ----------
 // daten/<name>/berichte/index.json (berichte-1) und <id>.html schreibt der Kinder-Chat. Hier nur lesen.
-const BR = { kind: null, index: null, html: {}, laedt: false };
+const BR = { kind: null, index: null, html: {}, laedt: false, art: 'plan' };
 function berichteAn() { return BR.kind === C.nutzer && !!(BR.index && BR.index.length); }
 async function berichteLaden(o, neu = false) {
   if (BR.laedt || (BR.kind === o && BR.index && !neu)) return;
@@ -311,7 +311,13 @@ async function berichteLaden(o, neu = false) {
   } catch (e) { BR.index = BR.index || []; }
   BR.laedt = false; zeichne();
 }
-const brStatus = (b) => b.status === 'freigegeben' ? 'freigegeben' : b.status === 'vorschlag' ? 'Vorschlag' : (b.status || '');
+const BR_STATUS = { vorschlag: 'Vorschlag', freigegeben: 'freigegeben', fertig: 'fertig', 'rückwirkend': 'rückwirkend' };
+const brStatus = (b) => BR_STATUS[b.status] || b.status || '';
+const brStatusKlasse = (b) => b.status === 'freigegeben' || b.status === 'fertig' ? 'fertig' : b.status === 'vorschlag' ? 'warn' : 'grau';
+const brNachArt = (art) => (BR.index || []).filter(b => b.art === art);
+const brPlanAktuell = () => A.planAktuell(brNachArt('plan'), L.tagKey());
+const MONATSNAMEN = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const monatText = (m) => m ? `${MONATSNAMEN[+m.slice(5, 7) - 1]} ${m.slice(0, 4)}` : 'Ohne Datum';
 const brZeitraum = (b) => b.zeitraum ? `${datumKurz(b.zeitraum[0])}–${datumKurz(b.zeitraum[1])}` : datumKurz(b.datum);
 function brHtml(b) {
   const k = b.id;
@@ -323,20 +329,29 @@ function brHtml(b) {
 }
 function brZeile(b, aktuell, gewaehlt) {
   return `<a class="zeile br-zeile${aktuell ? ' aktuell' : ''}${gewaehlt ? ' gewaehlt' : ''}" href="#berichte/${encodeURIComponent(b.id)}">
-    <span class="zeile-haupt"><b>${esc(b.titel || b.id)}</b><span class="klein gedaempft block">${esc(brZeitraum(b))}${b.kommentare ? ` · ${b.kommentare} ${b.kommentare === 1 ? 'Kommentar' : 'Kommentare'}` : ''}</span></span>
-    <span class="br-pills">${aktuell ? '<span class="bg-pill">aktuell</span>' : ''}<span class="bg-pill ${b.status === 'freigegeben' ? 'fertig' : 'warn'}">${esc(brStatus(b))}</span></span></a>`;
+    <span class="zeile-haupt"><b>${esc(b.titel || b.id)}</b><span class="klein gedaempft block">${b.woche ? `Woche ${b.woche} · ` : ''}${esc(brZeitraum(b))}${b.kommentare ? ` · ${b.kommentare} ${b.kommentare === 1 ? 'Kommentar' : 'Kommentare'}` : ''}</span></span>
+    <span class="br-pills">${aktuell ? '<span class="bg-pill">aktuell</span>' : ''}<span class="bg-pill ${brStatusKlasse(b)}">${esc(brStatus(b))}</span></span></a>`;
+}
+function brUmschalter() {
+  return `<div class="segmente br-umschalter" role="group" aria-label="Art">${[['bericht', 'Wochenberichte'], ['plan', 'Wochenpläne']].map(([a, t]) => `<button class="segment${BR.art === a ? ' an' : ''}" data-act="brArt" data-w="${a}" aria-pressed="${BR.art === a}">${t}</button>`).join('')}</div>`;
 }
 function brListe(gewaehlt) {
-  const l = A.berichteSortiert(BR.index || []), akt = A.berichtAktuell(BR.index || [], L.tagKey());
-  return `${BR.laedt && !BR.index ? '<p class="gedaempft pad">Berichte werden geladen …</p>' : ''}
-    ${akt ? `<h2 class="abschnitt">Aktuell</h2><section class="karte liste-karte">${brZeile(akt, true, gewaehlt === akt.id)}</section>` : ''}
-    ${l.filter(b => !akt || b.id !== akt.id).length ? `<h2 class="abschnitt">Frühere Wochen</h2><section class="karte liste-karte">${l.filter(b => !akt || b.id !== akt.id).map(b => brZeile(b, false, gewaehlt === b.id)).join('')}</section>` : ''}
+  const l = brNachArt(BR.art), akt = BR.art === 'plan' ? brPlanAktuell() : null;
+  return `${brUmschalter()}
+    ${BR.laedt && !BR.index ? '<p class="gedaempft pad">Berichte werden geladen …</p>' : ''}
+    ${BR.index && !l.length ? `<p class="gedaempft pad">Noch keine ${BR.art === 'plan' ? 'Wochenpläne' : 'Wochenberichte'}.</p>` : ''}
+    ${A.berichteNachMonat(l).map(g => `<h2 class="abschnitt">${esc(monatText(g.monat))}</h2><section class="karte liste-karte">${g.liste.map(b => brZeile(b, akt && akt.id === b.id, gewaehlt === b.id)).join('')}</section>`).join('')}
     <button class="knopf bg-neu-laden" data-act="brNeuLaden">${BR.laedt ? 'Lädt …' : 'Neu laden'}</button>`;
+}
+function brPartner(b) { return b.partner ? (BR.index || []).find(x => x.id === b.partner) || null : null; }
+function brPartnerKnopf(b) {
+  const p = brPartner(b);
+  return p ? `<a class="knopf br-partner" href="#berichte/${encodeURIComponent(p.id)}">${p.art === 'plan' ? 'Zum Plan ›' : '‹ Zum Rückblick'}</a>` : '';
 }
 function brAnsicht(b) {
   const h = brHtml(b);
-  const kopf = `<div class="br-kopf"><div><h1>${esc(b.titel || b.id)}</h1><span class="klein gedaempft">${esc(brZeitraum(b))} · ${esc(brStatus(b))}${b.kommentare ? ` · ${b.kommentare} ${b.kommentare === 1 ? 'Kommentar' : 'Kommentare'}` : ''} · nur zum Lesen</span></div>
-    ${b.quelle && /^https:\/\/claude\.ai\//.test(b.quelle) ? `<a class="knopf" href="${esc(b.quelle)}" target="_blank" rel="noopener">In Claude öffnen ↗</a>` : ''}</div>`;
+  const kopf = `<div class="br-kopf"><div><span class="br-art">${b.art === 'plan' ? 'Wochenplan' : 'Wochenbericht · Rückblick'}${b.woche ? ' · Woche ' + b.woche : ''}</span><h1>${esc(b.titel || b.id)}</h1><span class="klein gedaempft">${esc(brZeitraum(b))} · ${esc(brStatus(b))}${b.kommentare ? ` · ${b.kommentare} ${b.kommentare === 1 ? 'Kommentar' : 'Kommentare'}` : ''} · nur zum Lesen</span></div>
+    <span class="br-knoepfe">${brPartnerKnopf(b)}${b.quelle && /^https:\/\/claude\.ai\//.test(b.quelle) ? `<a class="knopf" href="${esc(b.quelle)}" target="_blank" rel="noopener">In Claude öffnen ↗</a>` : ''}</span></div>`;
   if (!h || h === 'fehlt') return `${kopf}<p class="gedaempft pad">${h === 'fehlt' ? 'Die Berichtsdatei fehlt im Daten-Repo.' : 'Bericht wird geladen …'}</p>`;
   // Feste Fassung in einem abgeschotteten Rahmen: eigenes Inline-Skript ja, Zugriff auf die Eltern-App nein. Immer hell wie die App.
   const doc = String(h).replace(/<html(\s|>)/i, (m, z) => `<html data-theme="light"${z}`);
@@ -345,22 +360,24 @@ function brAnsicht(b) {
 function berichteSeite() {
   if (!berichteAn()) return `<div class="seite">${breit.matches ? '<h1>Berichte</h1>' : kopfSchmal('Berichte')}<section class="karte"><p class="pad">${BR.laedt ? 'Berichte werden geladen …' : `Für ${esc(name())} gibt es noch keine Berichte. Sie erscheinen, sobald der Kinder-Chat sie ablegt.`}</p></section></div>`;
   const b = route.arg ? (BR.index || []).find(x => x.id === route.arg) : null;
+  if (b) BR.art = b.art;
   if (breit.matches) {
-    const zeige = b || A.berichtAktuell(BR.index, L.tagKey());
+    const zeige = b || (BR.art === 'plan' ? brPlanAktuell() : A.berichteSortiert(brNachArt('bericht'))[0]);
     return `<div class="bg-breit br-breit"><aside class="bg-seite-liste"><h1>Berichte</h1>${brListe(zeige && zeige.id)}</aside>
       <section class="bg-haupt br-haupt">${zeige ? brAnsicht(zeige) : '<p class="gedaempft pad">Wähle links einen Bericht.</p>'}</section></div>`;
   }
-  if (!b) return `<div class="seite schmal-inhalt">${kopfSchmal('Berichte')}<p class="klein gedaempft">${esc(name())} · Wochenberichte mit Wochenplan</p>${brListe('')}</div>`;
+  if (!b) return `<div class="seite schmal-inhalt">${kopfSchmal('Berichte')}<p class="klein gedaempft">${esc(name())} · ${BR.art === 'plan' ? 'Wochenpläne für die kommende Woche' : 'Rückblicke auf die vergangene Woche'}</p>${brListe('')}</div>`;
   return `<div class="seite schmal-inhalt br-schmal"><a class="zurueck" href="#berichte">‹ Berichte</a>${brAnsicht(b)}</div>`;
 }
 // Übersicht: Kachel „Wochenplan“ mit dem aktuellen Bericht
 function berichtKachel() {
   if (!berichteAn()) return '';
-  const b = A.berichtAktuell(BR.index, L.tagKey());
+  const b = brPlanAktuell();
   if (!b) return '';
-  return `<a class="karte br-kachel" href="#berichte/${encodeURIComponent(b.id)}"><span class="br-k-l">${svg('berichte', 22)}</span>
-    <span class="br-k-m"><span class="kachel-label">Wochenplan</span><b>${esc(b.titel || b.id)}</b><span class="klein gedaempft">${esc(brZeitraum(b))} · ${esc(brStatus(b))}${b.kommentare ? ` · ${b.kommentare} ${b.kommentare === 1 ? 'Kommentar' : 'Kommentare'}` : ''}</span></span>
-    <span class="br-k-r">Lesen ›</span></a>`;
+  const p = brPartner(b);
+  return `<div class="karte br-kachel"><span class="br-k-l">${svg('berichte', 22)}</span>
+    <a class="br-k-m" href="#berichte/${encodeURIComponent(b.id)}"><span class="kachel-label">Wochenplan${b.woche ? ' · Woche ' + b.woche : ''}</span><b>${esc(b.titel || b.id)}</b><span class="klein gedaempft">${esc(brZeitraum(b))} · ${esc(brStatus(b))}${b.kommentare ? ` · ${b.kommentare} ${b.kommentare === 1 ? 'Kommentar' : 'Kommentare'}` : ''}</span></a>
+    <span class="br-k-r"><a href="#berichte/${encodeURIComponent(b.id)}">Lesen ›</a>${p ? `<a class="klein" href="#berichte/${encodeURIComponent(p.id)}">Rückblick</a>` : ''}</span></div>`;
 }
 
 // ---------- Bögen und Bogen-Feedback (Auftrag 25) ----------
@@ -2234,6 +2251,7 @@ document.addEventListener('click', (ev) => {
     case 'umformStufe': entwurf.umform_stufe = Number(el.dataset.w); meldung = null; zeichne(); break;
     case 'feedbackAn': entwurf.feedback = el.dataset.w === 'true'; meldung = null; zeichne(); break;
     case 'boegenAn': entwurf.boegen_feedback = el.dataset.w === 'true'; meldung = null; zeichne(); break;
+    case 'brArt': BR.art = el.dataset.w === 'bericht' ? 'bericht' : 'plan'; if (route.arg) location.hash = '#berichte'; else zeichne(); break;
     case 'brNeuLaden': berichteLaden(C.nutzer, true); break;
     case 'bgNeuLaden': BG.hbPdf = {}; bgLaden(true); break;
     case 'hbDrucken': hbDrucken(el.dataset.w); break;

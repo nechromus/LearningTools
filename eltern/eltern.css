@@ -555,3 +555,12 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .bg-breit .bg-bewertung > .bg-bonus { grid-column: 2; border-top: 0; padding-top: 0; }
 .bg-breit .bg-bonus .bg-seg { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
 .bg-breit .bg-weiter { max-width: 520px; margin-left: auto; width: 100%; }
+/* Berichte und Pläne getrennt (Auftrag 29) */
+.br-umschalter { margin: 4px 0 6px; }
+.bg-pill.grau { background: #E8EBEA; color: #4F5E5E; }
+.br-art { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; color: var(--teal); }
+.br-knoepfe { display: flex; flex-wrap: wrap; gap: 8px; }
+.br-kachel .br-k-m { text-decoration: none; color: inherit; }
+.br-k-r { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.br-k-r a { color: var(--teal); text-decoration: none; font-weight: 700; }
+.br-k-r a.klein { font-weight: 400; text-decoration: underline; }
