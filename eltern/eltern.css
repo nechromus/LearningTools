@@ -579,3 +579,26 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .max-eigen input { font: inherit; font-size: 16px; min-height: 42px; border: 1.5px solid var(--linie); border-radius: 10px; padding: 0 10px; background: #fff; }
 .max-eigen input[type="number"] { width: 96px; }
 .max-eigen .knopf { min-height: 42px; font-size: 15px; padding: 0 12px; white-space: nowrap; width: auto; }
+
+/* Auftrag 31: Bogen-Archiv nach Wochen, Formelübersicht */
+.bg-woche { margin: 0; }
+.bg-woche > summary.bg-woche-kopf { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; font-size: 16px; font-weight: 700; min-height: 44px; padding: 4px 2px; }
+.bg-woche > summary::-webkit-details-marker { display: none; }
+.bg-woche > summary::before { content: '›'; display: inline-block; width: 16px; color: var(--teal); font-size: 22px; line-height: 1; transition: transform .15s; }
+.bg-woche[open] > summary::before { transform: rotate(90deg); }
+.bg-woche > summary .klein { margin-left: auto; font-weight: 400; }
+.bg-woche:not([open]) > summary { border-bottom: 1px solid var(--linie-hell); }
+.bg-arch-hinweis { font-size: 14px; line-height: 1.5; color: var(--gedaempft); margin: 8px 0 10px; }
+.bg-arch-hinweis .bg-pill { display: inline-block; margin-right: 6px; }
+.bg-arch-ue { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.bg-nur-pdf { flex: 1; min-width: 120px; text-align: center; }
+.fo-fassungen { display: grid; gap: 12px; margin: 10px 0; }
+.bg-breit .fo-fassungen { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.fo-fassung { display: flex; flex-direction: column; gap: 8px; }
+.fo-fassung.neu { border: 2px solid var(--amber); }
+.fo-fassung p { margin: 0; }
+.fo-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fo-kopf .bg-h3 { margin: 0; }
+.fo-seiten { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.fo-seiten .hb-platz, .fo-seiten img { aspect-ratio: 794 / 1123; }
+.hb-warn a.hb-warn-knopf { display: flex; align-items: center; justify-content: center; text-decoration: none; }

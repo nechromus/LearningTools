@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.43.0';
+export const ELTERN_VERSION = '1.44.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -407,7 +407,7 @@ function berichtKachel() {
 // ---------- Bögen und Bogen-Feedback (Auftrag 25) ----------
 // daten/<name>/boegen/<id>/ (bogen.json, aufgaben.pdf, loesungen.pdf, bilder/) legt der Kinder-Chat an.
 // Das Feedback schreibt die Eltern-App nach daten/<name>/bogen-feedback/<id>.json (Fotos unter fotos/). Zwischenstand auf dem Gerät.
-const BG = { kind: null, liste: null, laedt: false, fehler: null, boegen: {}, fb: {}, bilder: {}, pdf: {}, zeig: {}, meldung: null, speichert: false, hb: null, hbG: null, hbPdf: {}, hbAlt: {}, hbMeldung: null, hbSchreibt: false };
+const BG = { kind: null, liste: null, laedt: false, fehler: null, boegen: {}, fb: {}, bilder: {}, pdf: {}, zeig: {}, meldung: null, speichert: false, hb: null, hbG: null, hbPdf: {}, hbAlt: {}, hbMeldung: null, hbSchreibt: false, fo: null, foG: null, foPdf: {}, foAlt: {}, foMeldung: null, foSchreibt: false, wochenAuf: {} };
 function boegenAn() { const w = D.daten && D.daten.einst && D.daten.einst.werte; return !!(w && w.boegen_feedback === true); }
 const bgKey = (id) => `bogen-fb:${C.nutzer}:${id}`;
 function bgEntwurf(id) {
@@ -428,7 +428,7 @@ function bgGesehen(id, nr) { const e = bgEntwurf(id); if (!e.gesehen.includes(nr
 async function bgLaden(neu = false) {
   const o = C.nutzer;
   if (BG.laedt || (BG.kind === o && BG.liste && !neu)) return;
-  if (BG.kind !== o) Object.assign(BG, { kind: o, liste: null, boegen: {}, fb: {}, bilder: {}, pdf: {}, zeig: {}, entwuerfe: {}, hb: null, hbG: null, hbPdf: {}, hbAlt: {}, hbMeldung: null });
+  if (BG.kind !== o) Object.assign(BG, { kind: o, liste: null, boegen: {}, fb: {}, bilder: {}, pdf: {}, zeig: {}, entwuerfe: {}, hb: null, hbG: null, hbPdf: {}, hbAlt: {}, hbMeldung: null, fo: null, foG: null, foPdf: {}, foAlt: {}, foMeldung: null });
   BG.laedt = true; BG.fehler = null; zeichne();
   try {
     const [ordner, fbs] = await Promise.all([U.ordnerLesen(C, `daten/${o}/boegen`), U.ordnerLesen(C, `daten/${o}/bogen-feedback`)]);
@@ -437,7 +437,7 @@ async function bgLaden(neu = false) {
     await Promise.all([
       ...ids.filter(id => neu || !BG.boegen[id]).map(id => U.dateiLesen(C, `daten/${o}/boegen/${id}/bogen.json`).then(b => { BG.boegen[id] = A.bogenNorm(b); }).catch(() => { BG.boegen[id] = null; })),
       ...fbIds.map(id => U.dateiLesen(C, `daten/${o}/bogen-feedback/${id}.json`).then(x => { BG.fb[id] = x; }).catch(() => {})),
-      hbLaden(o)
+      hbLaden(o), foLaden(o)
     ]);
     const lokal = [];
     try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(`bogen-fb:${o}:`)) lokal.push(k.split(':').slice(2).join(':')); } } catch (x) {}
@@ -527,9 +527,9 @@ function hbWarnung(kurz) {
 function hbZeile(gewaehlt) {
   if (!BG.hb) return '';
   const n = hbNeu().length;
-  return `<h2 class="abschnitt">Immer da</h2><section class="karte liste-karte"><a class="zeile bg-zeile${gewaehlt ? ' gewaehlt' : ''}" href="#boegen/hinweisblatt">
+  return `<a class="zeile bg-zeile${gewaehlt ? ' gewaehlt' : ''}" href="#boegen/hinweisblatt">
     <span class="zeile-haupt"><b>Hinweisblatt</b><span class="klein gedaempft block">${BG.hb.seiten.length} Seiten${BG.hb.stand ? ' · Stand ' + esc(datumKurz(BG.hb.stand)) : ''}</span></span>
-    <span class="bg-pdfi" title="PDF zum Ausdrucken">PDF</span><span class="bg-pill ${n ? 'warn' : 'fertig'}">${n ? 'neu' : 'aktuell'}</span></a></section>`;
+    <span class="bg-pdfi" title="PDF zum Ausdrucken">PDF</span><span class="bg-pill ${n ? 'warn' : 'fertig'}">${n ? 'neu' : 'aktuell'}</span></a>`;
 }
 function hbBild(s) {
   if (!s.bild) return 'fehlt';
@@ -578,12 +578,97 @@ function hbBogenBox(id) {
   return `<div class="hb-warn"><b>Erst Hinweisblatt ${hbSeitenText(l)} neu drucken</b>${l.map(s => `<span class="hb-grund">Neu auf Seite ${s.nr}: ${esc(s.aenderung || 'geändert')}</span>`).join('')}
     <button class="knopf hb-warn-knopf" data-act="hbDrucken" data-w="${l.map(s => s.nr).join(',')}">${l.length === 1 ? `Seite ${l[0].nr} drucken` : 'Geänderte Seiten drucken'}</button></div>`;
 }
+// ---------- Formelübersicht zum Ausdrucken (Auftrag 31) ----------
+// daten/<name>/formelblatt/: formelblatt.json, PDFs und Seitenbilder schreibt der Kinder-Chat.
+// gedruckt.json (fassungen {id: datum}) schreibt nur die Eltern-App. Ohne gedruckt.json gilt keine Fassung als gedruckt.
+const FO = (o) => `daten/${o}/formelblatt`;
+async function foLaden(o) {
+  try {
+    BG.fo = A.formelNorm(await U.dateiLesen(C, `${FO(o)}/formelblatt.json`));
+    if (BG.fo) BG.foG = A.formelGedrucktNorm(await U.dateiLesen(C, `${FO(o)}/gedruckt.json`).catch(() => null));
+  } catch (e) { BG.fo = null; }
+}
+const foNeu = () => A.formelNeu(BG.fo, BG.foG);
+const foAktuell = (x) => !A.formelNeu({ fassungen: [x] }, BG.foG).length;
+function foPdf(datei) {
+  if (!datei) return 'fehlt';
+  if (BG.foPdf[datei] === undefined) {
+    BG.foPdf[datei] = null;
+    U.dateiBlob(C, `${FO(C.nutzer)}/${datei}`).then(x => { BG.foPdf[datei] = x || 'fehlt'; zeichne(); }).catch(() => { BG.foPdf[datei] = 'fehlt'; zeichne(); });
+  }
+  return BG.foPdf[datei];
+}
+function foBild(pfad) {
+  const k = 'fo:' + pfad;
+  if (BG.bilder[k] === undefined) {
+    BG.bilder[k] = null;
+    U.dateiBlob(C, `${FO(C.nutzer)}/${pfad}`).then(x => { BG.bilder[k] = x ? URL.createObjectURL(x) : 'fehlt'; zeichne(); }).catch(() => { BG.bilder[k] = 'fehlt'; zeichne(); });
+  }
+  return BG.bilder[k];
+}
+function foKnopf(x, text, extra = '') {
+  const d = foPdf(x.pdf);
+  return `<button class="bg-pdf-knopf ${extra}" data-act="foDrucken" data-id="${esc(x.id)}"${d === 'fehlt' ? ' disabled' : ''}>${text}${!d ? ' <span class="klein">(lädt …)</span>' : d === 'fehlt' ? ' <span class="klein">(fehlt)</span>' : ''}</button>`;
+}
+function foDrucken(id) {
+  const x = BG.fo && BG.fo.fassungen.find(y => y.id === id), b = x && foPdf(x.pdf);
+  if (b && b !== 'fehlt') pdfTeilen([{ blob: b, name: `${String(x.titel).replace(/\s*·\s*/g, ' ')}.pdf` }]);
+}
+const foNamen = (l) => l.map(x => `„${String(x.titel).split(' · ').slice(-1)[0]}“`).join(' und ');
+function foWarnung(kurz) {
+  const neu = foNeu();
+  if (!neu.length) return '';
+  const nie = neu.every(x => !(BG.foG && BG.foG.fassungen[x.id]));
+  return `<div class="hb-warn"><b>Formelübersicht: ${nie ? 'noch nicht gedruckt' : `${foNamen(neu)} ${neu.length === 1 ? 'ist' : 'sind'} neu`}</b>
+    ${kurz ? '' : neu.map(x => `<span class="hb-grund">${esc(String(x.titel).split(' · ').slice(-1)[0])}, ${esc(datumKurz(x.geaendert))}: ${esc(x.aenderung || 'geändert')}</span>`).join('')}
+    ${kurz ? '<a class="knopf hb-warn-knopf" href="#boegen/formelblatt">Ansehen und drucken</a>' : ''}</div>`;
+}
+function foZeile(gewaehlt) {
+  if (!BG.fo) return '';
+  const n = foNeu().length;
+  return `<a class="zeile bg-zeile${gewaehlt ? ' gewaehlt' : ''}" href="#boegen/formelblatt">
+    <span class="zeile-haupt"><b>Formelübersicht</b><span class="klein gedaempft block">${BG.fo.fassungen.length} Fassungen${BG.fo.stand ? ' · Stand ' + esc(datumKurz(BG.fo.stand)) : ''}</span></span>
+    <span class="bg-pdfi" title="PDF zum Ausdrucken">PDF</span><span class="bg-pill ${n ? 'warn' : 'fertig'}">${n ? 'neu' : 'aktuell'}</span></a>`;
+}
+function formelSeite(breitAn) {
+  const kopf = (unter) => breitAn ? `<div class="bg-kopf"><div><h1>Formelübersicht</h1>${unter}</div></div>` : `<a class="zurueck" href="#boegen">‹ Bögen</a><h1>Formelübersicht</h1>${unter}`;
+  if (!BG.fo) return kopf('') + `<p class="gedaempft pad">${BG.laedt ? 'Wird geladen …' : 'Noch keine Formelübersicht. Sie erscheint, sobald Claude sie im Kinder-Chat ablegt.'}</p>`;
+  const z = BG.foG && BG.foG.zuletzt;
+  const fassung = (x) => {
+    const ok = foAktuell(x), gedr = BG.foG && BG.foG.fassungen[x.id];
+    const bilder = x.bilder.map((p, i) => { const src = foBild(p); return `<figure class="hb-seite${ok ? '' : ' neu'}">${src && src !== 'fehlt' ? `<img src="${src}" data-act="bgGross" alt="${esc(x.titel)} Seite ${i + 1}" title="Antippen: groß anzeigen">` : `<span class="hb-platz klein gedaempft">${src === 'fehlt' ? 'Kein Bild' : 'Lädt …'}</span>`}<figcaption><span class="klein gedaempft">Seite ${i + 1}</span></figcaption></figure>`; }).join('');
+    return `<section class="karte fo-fassung${ok ? '' : ' neu'}"><div class="fo-kopf"><h3 class="bg-h3">${esc(String(x.titel).split(' · ').slice(-1)[0])}</h3>${ok ? `<span class="bg-pill fertig">gedruckt ${esc(datumKurz(gedr || ''))}</span>` : `<span class="bg-pill warn">${gedr ? 'neu seit ' + esc(datumKurz(x.geaendert)) : 'noch nicht gedruckt'}</span>`}</div>
+      ${x.beschreibung ? `<p class="klein gedaempft">${esc(x.beschreibung)}</p>` : ''}
+      <div class="fo-seiten">${bilder}</div>
+      ${foKnopf(x, `${x.bilder.length > 1 ? x.bilder.length + ' Seiten' : 'Drucken'} · PDF`, ok ? '' : 'warn')}
+      <button class="hb-haken" data-act="foHaken" data-id="${esc(x.id)}" aria-pressed="${ok}"${BG.foSchreibt ? ' disabled' : ''}><span class="hb-box">${ok ? '✓' : ''}</span>Ist gedruckt (Stand ${esc(datumKurz(x.geaendert))})</button></section>`;
+  };
+  return `${kopf(`<span class="klein gedaempft">${BG.fo.stand ? 'Stand ' + esc(datumKurz(BG.fo.stand)) + ' · ' : ''}${BG.fo.fassungen.length} Fassungen</span>`)}
+    ${foWarnung(false)}
+    <div class="fo-fassungen">${BG.fo.fassungen.map(fassung).join('')}</div>
+    ${BG.foMeldung ? `<p class="meldung ${BG.foMeldung.art}">${esc(BG.foMeldung.text)}</p>` : ''}
+    <p class="klein gedaempft">Der Haken gilt für beide Eltern.${z && z.am && z.von ? ` Zuletzt: ${esc(z.von)}, ${esc(datumKurz(String(z.am).slice(0, 10)))}.` : ''} Das PDF zu öffnen setzt noch keinen Haken. Im Test ist nur das Blatt der Schule erlaubt.</p>`;
+}
+async function foHaken(id) {
+  const o = C.nutzer, x = BG.fo && BG.fo.fassungen.find(y => y.id === id);
+  if (!x || BG.foSchreibt) return;
+  const an = !foAktuell(x);
+  BG.foSchreibt = true; BG.foMeldung = null; zeichne();
+  try {
+    const frisch = A.formelGedrucktNorm(await U.dateiLesen(C, `${FO(o)}/gedruckt.json`).catch(() => null)) || BG.foG;
+    if (an) BG.foAlt[id] = (frisch && frisch.fassungen[id]) || '';
+    const neu = A.formelGedrucktSetzen(frisch, BG.fo, id, an, hbVon(), jetztLokal(), BG.foAlt[id] || '');
+    await U.dateiSchreiben(C, `${FO(o)}/gedruckt.json`, JSON.stringify(neu, null, 1), `${ordnerName(o)}: Formelübersicht ${id} ${an ? 'gedruckt' : 'doch nicht gedruckt'}`);
+    BG.foG = neu;
+  } catch (e) { BG.foMeldung = { art: 'fehler', text: e.message || 'Speichern hat nicht geklappt.' }; }
+  BG.foSchreibt = false; zeichne();
+}
 function bgTitel(id) { const b = BG.boegen[id]; return b ? (b.woche && b.tag ? `W${b.woche} · Tag ${b.tag}` : b.titel || id) : id.toUpperCase(); }
 function bgUntertitel(id) {
   const b = BG.boegen[id], f = BG.fb[id];
   const teile = [];
   if (b && b.titel) { const t = String(b.titel).split(' · ').slice(2).join(' · '); if (t) teile.push(t); }
-  if (b && b.datum) teile.push(wochentag(b.datum) + ' ' + datumKurz(b.datum));
+  if (b && b.datum) teile.push((b.datum_genau === false ? 'ca. ' : '') + wochentag(b.datum) + ' ' + datumKurz(b.datum));
   if (f && f.von) teile.push(f.von);
   else if (b) teile.push(`${b.uebungen.length} Übungen`);
   if (!b) teile.push(BG.liste && BG.liste.find(x => x.id === id && x.ordner) ? 'Bogen-Datei fehlt' : 'ohne Bogen-Ordner');
@@ -595,21 +680,29 @@ function bgZeile(x, gewaehlt) {
   const entwurf = bgHatEntwurf(x.id);
   const g = entwurf ? bgEntwurf(x.id).gesehen.filter(nr => !b || b.uebungen.some(u => u.nr === nr)).length : 0;
   const hbFehlt = !x.fertig && hbFuerBogen(x.id).length;
-  const pill = hbFehlt ? '<span class="bg-pill warn" title="Erst Hinweisblatt neu drucken">⚠ Hinweis</span>' : x.fertig && !entwurf ? '<span class="bg-pill fertig">fertig</span>' : entwurf && n ? `<span class="bg-pill halb">${g} von ${n}</span>` : entwurf ? '<span class="bg-pill halb">angefangen</span>' : '';
-  return `<a class="zeile bg-zeile${gewaehlt ? ' gewaehlt' : ''}${!x.fertig && !entwurf && x.ordner ? ' neu' : ''}" href="#boegen/${encodeURIComponent(x.id)}">
+  const pill = b && b.archiv && !x.fertig && !entwurf ? '<span class="bg-pill grau" title="Alter Bogen: ansehen und drucken, ohne Feedback">Archiv</span>' : hbFehlt ? '<span class="bg-pill warn" title="Erst Hinweisblatt neu drucken">⚠ Hinweis</span>' : x.fertig && !entwurf ? '<span class="bg-pill fertig">fertig</span>' : entwurf && n ? `<span class="bg-pill halb">${g} von ${n}</span>` : entwurf ? '<span class="bg-pill halb">angefangen</span>' : '';
+  return `<a class="zeile bg-zeile${gewaehlt ? ' gewaehlt' : ''}${!x.fertig && !entwurf && x.ordner && !(b && b.archiv) ? ' neu' : ''}" href="#boegen/${encodeURIComponent(x.id)}">
     <span class="zeile-haupt"><b>${esc(bgTitel(x.id))}</b><span class="klein gedaempft block">${esc(bgUntertitel(x.id))}</span></span>
     ${b && b.pdf ? '<span class="bg-pdfi" title="PDF zum Ausdrucken">PDF</span>' : ''}${pill}</a>`;
 }
+const bgArchiv = (id) => !!(BG.boegen[id] && BG.boegen[id].archiv);
+// Liste: Warnungen, Offen (neue Bögen ohne Feedback), Immer da (Hinweisblatt, Formelübersicht), dann alle übrigen Bögen nach Wochen (neueste oben)
 function bgListe(gewaehlt) {
-  const l = (BG.liste || []).slice().sort((a, b) => String((BG.boegen[b.id] || {}).datum || b.id).localeCompare(String((BG.boegen[a.id] || {}).datum || a.id)));
-  const offen = l.filter(x => !x.fertig || bgHatEntwurf(x.id)), fertig = l.filter(x => x.fertig && !bgHatEntwurf(x.id));
+  const l = BG.liste || [];
+  const offen = l.filter(x => (!x.fertig && !bgArchiv(x.id)) || bgHatEntwurf(x.id));
+  const rest = l.filter(x => !offen.includes(x));
+  const datum = (x) => String((BG.boegen[x.id] || {}).datum || x.id);
+  offen.sort((a, b) => datum(b).localeCompare(datum(a)));
+  const immer = hbZeile(gewaehlt === 'hinweisblatt') + foZeile(gewaehlt === 'formelblatt');
+  const wochen = A.bogenWochen(rest, BG.boegen);
   return `${BG.fehler ? `<p class="hinweis-box">${esc(BG.fehler)}</p>` : ''}
-    ${hbWarnung(true)}
+    ${hbWarnung(true)}${foWarnung(true)}
     ${BG.laedt && !BG.liste ? '<p class="gedaempft pad">Bögen werden geladen …</p>' : ''}
     ${BG.liste && !l.length ? '<p class="gedaempft pad">Noch keine Bögen. Sie erscheinen, sobald Claude sie im Kinder-Chat anlegt.</p>' : ''}
     ${offen.length ? `<h2 class="abschnitt">Offen</h2><section class="karte liste-karte">${offen.map(x => bgZeile(x, x.id === gewaehlt)).join('')}</section>` : ''}
-    ${hbZeile(gewaehlt === 'hinweisblatt')}
-    ${fertig.length ? `<h2 class="abschnitt">Erledigt</h2><section class="karte liste-karte">${fertig.map(x => bgZeile(x, x.id === gewaehlt)).join('')}</section>` : ''}
+    ${immer ? `<h2 class="abschnitt">Immer da</h2><section class="karte liste-karte">${immer}</section>` : ''}
+    ${wochen.map((g, i) => { const auf = BG.wochenAuf[g.woche] !== undefined ? BG.wochenAuf[g.woche] : i < 2 || g.eintraege.some(x => x.id === gewaehlt);
+      return `<details class="bg-woche" data-woche="${g.woche}"${auf ? ' open' : ''}><summary class="abschnitt bg-woche-kopf"><span>${g.woche ? 'Woche ' + g.woche : 'Ohne Woche'}</span><span class="klein gedaempft">${g.eintraege.length} ${g.eintraege.length === 1 ? 'Bogen' : 'Bögen'}</span></summary><section class="karte liste-karte">${g.eintraege.map(x => bgZeile(x, x.id === gewaehlt)).join('')}</section></details>`; }).join('')}
     <details class="bg-frei"><summary>Feedback ohne Bogen-Ordner</summary><p class="klein gedaempft">Für einen Bogen, den Claude nicht angelegt hat: Allgemein und je Übungsnummer Ergebnis und Notiz.</p>
       <div class="bg-frei-form"><input id="bg-frei-id" placeholder="Kürzel, z. B. w6t1" autocomplete="off"><button class="knopf" data-act="bgFrei">Anlegen</button></div></details>
     <button class="knopf bg-neu-laden" data-act="bgNeuLaden">${BG.laedt ? 'Lädt …' : 'Neu laden'}</button>`;
@@ -620,9 +713,11 @@ function boegenSeite() {
   const [id, schritt] = route.arg ? route.arg.split('/') : ['', ''];
   if (breit.matches) {
     return `<div class="bg-breit"><aside class="bg-seite-liste"><h1>Bögen</h1>${bgListe(id)}</aside>
-      <section class="bg-haupt">${id === 'hinweisblatt' ? hinweisSeite(true) : !id ? '<p class="gedaempft pad">Wähle links einen Bogen.</p>' : !schritt ? bogenAllgemein(id) : schritt === 'ende' ? bogenEnde(id) : bogenKarte(id, schritt)}</section></div>`;
+      <section class="bg-haupt">${id === 'hinweisblatt' ? hinweisSeite(true) : id === 'formelblatt' ? formelSeite(true) : !id ? '<p class="gedaempft pad">Wähle links einen Bogen.</p>' : bgArchiv(id) ? bogenArchiv(id) : !schritt ? bogenAllgemein(id) : schritt === 'ende' ? bogenEnde(id) : bogenKarte(id, schritt)}</section></div>`;
   }
   if (id === 'hinweisblatt') return `<div class="seite schmal-inhalt bg-schritt">${hinweisSeite(false)}</div>`;
+  if (id === 'formelblatt') return `<div class="seite schmal-inhalt bg-schritt">${formelSeite(false)}</div>`;
+  if (bgArchiv(id)) return bogenArchiv(id);
   if (!id) return `<div class="seite schmal-inhalt">${kopfSchmal('Bögen')}<p class="klein gedaempft">${esc(name())} · Bögen ausdrucken und Feedback eintragen</p>${bgListe('')}</div>`;
   if (!schritt) return bogenAllgemein(id);
   if (schritt === 'ende') return bogenEnde(id);
@@ -635,8 +730,9 @@ function bgPdfLeiste(id) {
   const k = (w) => BG.pdf[id + ':' + w];
   const knopf = (w, t) => b.pdf[w] ? `<button class="bg-pdf-knopf" data-act="bgPdf" data-id="${esc(id)}" data-w="${w}"${k(w) === 'fehlt' ? ' disabled' : ''}>${t} · PDF${!k(w) ? ' <span class="klein">(lädt …)</span>' : k(w) === 'fehlt' ? ' <span class="klein">(fehlt)</span>' : ''}</button>` : '';
   const hl = hbFuerBogen(id);
-  const hk = BG.hb ? (hl.length ? hbKnopf(hl.map(s => s.nr).join(','), hl, 'Hinweisblatt · ⚠ neu', 'zweit warn-rand') : hbKnopf('alle', BG.hb.seiten, 'Hinweisblatt · aktuell', 'zweit')) : '';
-  const ansehen = b.uebungen.some(u => u.bilder) ? `<div class="bg-ansehen"><span class="bg-pdf-titel">In der App ansehen</span><button class="knopf" data-act="bgAnsicht" data-id="${esc(id)}" data-w="auf">Aufgaben</button><button class="knopf" data-act="bgAnsicht" data-id="${esc(id)}" data-w="loes">Lösungen</button></div>` : '';
+  const hk = BG.hb && !b.archiv ? (hl.length ? hbKnopf(hl.map(s => s.nr).join(','), hl, 'Hinweisblatt · ⚠ neu', 'zweit warn-rand') : hbKnopf('alle', BG.hb.seiten, 'Hinweisblatt · aktuell', 'zweit')) : '';
+  const mitLoes = A.bogenHatBilder(b, 'loes');
+  const ansehen = A.bogenHatBilder(b, 'auf') ? `<div class="bg-ansehen"><span class="bg-pdf-titel">In der App ansehen</span><button class="knopf" data-act="bgAnsicht" data-id="${esc(id)}" data-w="auf">Aufgaben</button>${mitLoes ? `<button class="knopf" data-act="bgAnsicht" data-id="${esc(id)}" data-w="loes">Lösungen</button>` : '<span class="klein gedaempft bg-nur-pdf">Lösungen nur als PDF</span>'}</div>` : '';
   return `${hbBogenBox(id)}${ansehen}<div class="bg-pdf"><span class="bg-pdf-titel">Zum Ausdrucken</span>${knopf('aufgaben', 'Aufgaben')}${knopf('loesungen', 'Lösungen')}${hk}</div>`;
 }
 function bgPdfLaden(id) {
@@ -713,6 +809,21 @@ function bgSpeichernKnopf(id) {
 }
 function bgFreiNeu(id) { return `<div class="bg-frei-form"><input id="bg-ue-nr" placeholder="Übung, z. B. 3b" autocomplete="off"><button class="knopf" data-act="bgUeNeu" data-id="${esc(id)}">Übung hinzufügen</button></div>`; }
 const bgSonst = (id, e) => `<label class="bg-gruppe"><span class="bg-lbl">Sonst noch etwas?</span><textarea class="bg-text" data-id="${esc(id)}" rows="3" placeholder="z. B. Ideen für die App. Diktieren: Mikrofon auf der Tastatur">${esc(e.sonst || '')}</textarea></label>`;
+// Archiv (alte Bögen, Auftrag 31): ansehen und drucken, ohne Feedback. Bilder laden erst hier.
+function bogenArchiv(id) {
+  const b = BG.boegen[id];
+  const ue = b.uebungen.map(u => {
+    const bild = (w) => { const pfad = u.bilder && u.bilder[w]; if (!pfad) return ''; const src = bgBild(id, pfad);
+      return src && src !== 'fehlt' ? `<img class="bg-mini${w === 'loes' ? ' loes' : ''}" data-act="bgGross" src="${src}" alt="${w === 'auf' ? 'Aufgabe' : 'Lösung'} Übung ${esc(u.nr)}" title="Antippen: groß anzeigen">` : `<span class="bg-mini-platz klein gedaempft">${src === 'fehlt' ? 'Kein Bild' : 'Bild lädt …'}</span>`; };
+    const an = BG.zeig[id + '|' + u.nr] === 'loes';
+    return `<section class="karte bg-arch-ue"><h3 class="bg-h3">Übung ${esc(u.nr)}${u.titel ? ' · ' + esc(u.titel) : ''}</h3>
+      ${u.bilder && u.bilder.auf ? `<div class="bg-aufgabe"><div class="bg-a-auf"><span class="bg-a-lbl">Aufgabe</span>${bild('auf')}</div><div class="bg-a-loes${an ? ' an' : ''}">${an ? `<span class="bg-a-lbl">Lösung</span>${bild('loes')}` : ''}${u.bilder.loes ? `<button class="bg-loes-knopf" data-act="bgZeig" data-id="${esc(id)}" data-nr="${esc(u.nr)}" data-w="loes" aria-pressed="${an}">${an ? 'Lösung ausblenden' : 'Lösung zeigen'}</button>` : ''}</div></div>` : '<p class="klein gedaempft">Kein Bild.</p>'}</section>`;
+  }).join('');
+  return `<div class="seite schmal-inhalt bg-schritt"><a class="zurueck" href="#boegen">‹ Bögen</a><h1>${esc(bgTitel(id))}</h1><span class="klein gedaempft">${esc(bgUntertitel(id))}</span>
+    <p class="bg-arch-hinweis"><span class="bg-pill grau">Archiv</span> Alter Bogen zum Ansehen und Drucken. Feedback gibt es hier nicht.${b.datum_genau === false ? ' Das Datum ist ungefähr.' : ''}</p>
+    ${bgPdfLeiste(id)}
+    <h2 class="abschnitt">Übungen</h2>${ue}${bgAnsichtOverlay(id)}</div>`;
+}
 // iPhone und iPad: Allgemein → je Übung eine Karte → Überblick
 function bogenAllgemein(id) {
   const e = bgEntwurf(id), nrn = bgNummern(id);
@@ -753,9 +864,9 @@ function bgAnsichtOverlay(id) {
   if (!a || a.id !== id) return '';
   const b = BG.boegen[id];
   if (!b) return '';
-  const w = a.w === 'loes' ? 'loes' : 'auf';
+  const mitLoes = A.bogenHatBilder(b, 'loes'), w = a.w === 'loes' && mitLoes ? 'loes' : 'auf';
   return `<div class="bg-ansicht" role="dialog" aria-modal="true" aria-label="${w === 'auf' ? 'Aufgaben' : 'Lösungen'} ansehen">
-    <div class="bg-ansicht-kopf"><div class="bg-seg" style="grid-template-columns:1fr 1fr" role="group"><button data-act="bgAnsicht" data-id="${esc(id)}" data-w="auf" aria-pressed="${w === 'auf'}">Aufgaben</button><button data-act="bgAnsicht" data-id="${esc(id)}" data-w="loes" aria-pressed="${w === 'loes'}">Lösungen</button></div>
+    <div class="bg-ansicht-kopf"><div class="bg-seg" style="grid-template-columns:1fr 1fr" role="group"><button data-act="bgAnsicht" data-id="${esc(id)}" data-w="auf" aria-pressed="${w === 'auf'}">Aufgaben</button><button data-act="bgAnsicht" data-id="${esc(id)}" data-w="loes" aria-pressed="${w === 'loes'}"${mitLoes ? '' : ' disabled title="Lösungen nur als PDF"'}>Lösungen</button></div>
       <button class="knopf bg-ansicht-zu" data-act="bgAnsichtZu" aria-label="Schließen">✕</button></div>
     <div class="bg-ansicht-inhalt">${b.uebungen.map(u => { const pfad = u.bilder && u.bilder[w]; const src = pfad ? bgBild(id, pfad) : 'fehlt';
       return `<figure class="bg-ansicht-ue"><figcaption><b>Übung ${esc(u.nr)}</b>${u.titel ? ' · ' + esc(u.titel) : ''}</figcaption>${src && src !== 'fehlt' ? `<img src="${src}" data-act="bgGross" alt="${w === 'auf' ? 'Aufgabe' : 'Lösung'} Übung ${esc(u.nr)}">` : `<span class="klein gedaempft">${src === 'fehlt' ? 'Kein Bild' : 'Lädt …'}</span>`}</figure>`; }).join('')}
@@ -882,7 +993,7 @@ function lernplanEinhaengen() {
   if (!platz || !z || !z.daten) return;
   if (!z.el) {
     z.el = document.createElement('div');
-    z.inst = Lernplan.erstellen(z.el, { daten: z.daten, eingebettet: true, hell: true, speicher: 'lp-open-' + C.nutzer, info: lernplanInfo(z.daten) });
+    z.inst = Lernplan.erstellen(z.el, { daten: z.daten, eingebettet: true, hell: true, speicher: 'lp-open-' + C.nutzer, info: lernplanInfo(z.daten), bogenOeffnen: (id) => { location.hash = '#boegen/' + encodeURIComponent(id); } });
   }
   platz.appendChild(z.el);
   const tabs = document.querySelector('.tabs');
@@ -2093,6 +2204,18 @@ function elternScan() {
     .catch(e => info(e && e.name === 'NotAllowedError' ? 'Die Kamera ist nicht erlaubt. Du kannst den Link unten einfügen.' : (e.message || 'Die Kamera konnte nicht gestartet werden.')));
 }
 
+// Deep Link auf einen Bogen (Auftrag 31): …/eltern/#bogen/<kind>/<id> → Kind wählen, #boegen/<id> öffnen.
+// Gibt true zurück, wenn das Kind gewechselt wurde (dann neu laden).
+function bogenLinkPruefen() {
+  const l = A.bogenLinkLesen(location.hash);
+  if (!l) return false;
+  history.replaceState(null, '', location.pathname + location.search + '#boegen/' + encodeURIComponent(l.id));
+  leseRoute();
+  if (l.kind === C.nutzer) return false;
+  C.nutzer = l.kind; if (C.token) konfigSichern();
+  D.daten = null; entwurf = null; geaenderteStufen = new Set(); meldung = null;
+  return true;
+}
 // Link aus der Kamera-App (…/eltern/#einrichten=…)
 function linkPruefen() {
   const d = einrichtungLesen(location.hash);
@@ -2300,6 +2423,8 @@ document.addEventListener('click', (ev) => {
     case 'hbDrucken': hbDrucken(el.dataset.w); break;
     case 'hbWarnDrucken': hbDrucken('neu'); if (route.arg !== 'hinweisblatt') location.hash = '#boegen/hinweisblatt'; break;
     case 'hbHaken': hbHaken(el.dataset.nr); break;
+    case 'foHaken': foHaken(el.dataset.id); break;
+    case 'foDrucken': foDrucken(el.dataset.id); break;
     case 'bgWert': { const e = bgEntwurf(el.dataset.id); const k = el.dataset.k; let v = el.dataset.v; if (k === 'dauer') v = Number(v); e[k] = e[k] === v && k === 'dauer' ? null : v; if (k === 'von') { try { localStorage.setItem('bogen-von', v); } catch (x) {} } bgSichern(el.dataset.id, e); zeichne(); break; }
     case 'bgErg': { const e = bgEntwurf(el.dataset.id), u = bgUe(e, el.dataset.nr); u.ergebnis = el.dataset.v; bgSichern(el.dataset.id, e); zeichne(); break; }
     case 'bgChip': { const e = bgEntwurf(el.dataset.id), u = bgUe(e, el.dataset.nr), c = el.dataset.v; u.chips = u.chips.includes(c) ? u.chips.filter(x => x !== c) : [...u.chips, c]; bgSichern(el.dataset.id, e); zeichne(); break; }
@@ -2501,12 +2626,14 @@ document.addEventListener('input', (ev) => {
   if (el.id === 'bg-gemacht') { const e = bgEntwurf(el.dataset.id); e.gemacht = el.value; bgSichern(el.dataset.id, e); }
 });
 
+// Bögen: auf- und zugeklappte Wochen merken (toggle steigt nicht auf, darum capture)
+document.addEventListener('toggle', (ev) => { const d = ev.target; if (d && d.classList && d.classList.contains('bg-woche')) BG.wochenAuf[d.dataset.woche] = d.open; }, true);
 document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Enter' && (ev.target.id === 'r-token' || ev.target.id === 'r-repo')) verbinden();
   if (ev.key === 'Enter' && ev.target.classList && ev.target.classList.contains('min-feld')) ev.target.blur();
 });
 
-window.addEventListener('hashchange', () => { if (location.hash.includes('einrichten=')) return linkPruefen(); leseRoute(); if (route.seite !== 'qr') qr = { name: '', token: '', link: '', art: 'kind' }; meldung = ['einstellungen', 'spielzeit', 'gewichte', 'pakete', 'splitter', 'einheit'].includes(route.seite) ? meldung : null; zeichne(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', () => { if (location.hash.includes('einrichten=')) return linkPruefen(); if (bogenLinkPruefen() && C.token) { allesLaden(); return; } leseRoute(); if (route.seite !== 'qr') qr = { name: '', token: '', link: '', art: 'kind' }; meldung = ['einstellungen', 'spielzeit', 'gewichte', 'pakete', 'splitter', 'einheit'].includes(route.seite) ? meldung : null; zeichne(); window.scrollTo(0, 0); });
 breit.addEventListener('change', zeichne);
 // Bogen-Feedback (iPhone): waagerecht wischen wechselt die Übung (nicht in Textfeldern, der Leiste oder groß angezeigten Bildern)
 (() => {
@@ -2534,5 +2661,6 @@ setInterval(updatePruefen, 15 * 60 * 1000);
 setInterval(neueDatenPruefen, 60 * 1000); // solange die Eltern-App offen ist: jede Minute nach neuen Daten sehen
 
 leseRoute();
+bogenLinkPruefen();
 updatePruefen();
 if (!linkPruefen()) { if (C.token) allesLaden(); else zeichneEinrichten(); }

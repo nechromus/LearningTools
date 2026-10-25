@@ -732,6 +732,69 @@ export function gedrucktSetzen(g, h, nr, an, von, am, alt) {
   return neu;
 }
 
+// ---------- Bogen-Archiv, Deep Link, Formelübersicht (Auftrag 31) ----------
+// Woche eines Bogens: Feld woche, sonst aus der id (w5t3b → 5), sonst 0
+export function bogenWoche(id, b) {
+  const w = b && Number.isInteger(+b.woche) && +b.woche > 0 ? +b.woche : 0;
+  if (w) return w;
+  const m = /^w(\d+)/i.exec(String(id || ''));
+  return m ? +m[1] : 0;
+}
+// Liste [{id, …}] → [{woche, eintraege}] neueste Woche oben, in der Woche neuester Bogen oben (Datum, dann id)
+export function bogenWochen(liste, boegen) {
+  const gruppen = new Map();
+  for (const x of liste || []) {
+    const w = bogenWoche(x.id, boegen && boegen[x.id]);
+    if (!gruppen.has(w)) gruppen.set(w, []);
+    gruppen.get(w).push(x);
+  }
+  const datum = (x) => String((boegen && boegen[x.id] && boegen[x.id].datum) || '');
+  return [...gruppen.entries()].sort((a, b) => (b[0] || -1) - (a[0] || -1))
+    .map(([woche, l]) => ({ woche, eintraege: l.sort((a, b) => datum(b).localeCompare(datum(a)) || String(b.id).localeCompare(String(a.id), 'de', { numeric: true })) }));
+}
+// Hat der Bogen Lösungsbilder je Übung? (W2/W3 haben nur das Lösungs-PDF)
+export const bogenHatBilder = (b, w) => !!(b && b.uebungen.some(u => u.bilder && u.bilder[w]));
+// Deep Link auf einen Bogen: …/eltern/#bogen/<kind>/<id> (kind = Ordner unter daten/, id = Ordner unter boegen/)
+const LINK_TEIL = /^[a-z0-9_-]+$/i, LINK_ID = /^[\w.-]+$/;
+export function bogenLinkLesen(hash) {
+  const m = /^#\/?bogen\/([^/]+)\/([^/?#]+)\/?$/.exec(String(hash || ''));
+  if (!m) return null;
+  const kind = decodeURIComponent(m[1]).toLowerCase(), id = decodeURIComponent(m[2]);
+  return LINK_TEIL.test(kind) && LINK_ID.test(id) ? { kind, id } : null;
+}
+export const bogenLink = (basis, kind, id) => `${basis}#bogen/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`;
+// daten/<name>/formelblatt/formelblatt.json (formelblatt-1) schreibt der Kinder-Chat, gedruckt.json (formelblatt-gedruckt-1) die Eltern-App
+export function formelNorm(f) {
+  if (!f || f.format !== 'formelblatt-1' || !Array.isArray(f.fassungen)) return null;
+  const fassungen = f.fassungen.filter(x => x && typeof x.id === 'string' && LINK_ID.test(x.id))
+    .map(x => ({ ...x, titel: x.titel || x.id, bilder: (Array.isArray(x.bilder) ? x.bilder : []).filter(p => typeof p === 'string'), geaendert: TAG.test(x.geaendert || '') ? x.geaendert : '' }));
+  return fassungen.length ? { ...f, fassungen, verlauf: Array.isArray(f.verlauf) ? f.verlauf : [] } : null;
+}
+export function formelGedrucktNorm(g) {
+  if (!g || g.format !== 'formelblatt-gedruckt-1' || !g.fassungen || typeof g.fassungen !== 'object') return null;
+  const fassungen = {};
+  for (const [k, v] of Object.entries(g.fassungen)) if (TAG.test(v || '')) fassungen[k] = v;
+  return { format: g.format, fassungen, zuletzt: g.zuletzt && typeof g.zuletzt === 'object' ? g.zuletzt : {} };
+}
+// Fassungen, deren aktueller Stand nicht gedruckt ist (ohne gedruckt.json: alle)
+export function formelNeu(f, g) {
+  if (!f) return [];
+  const gs = (g && g.fassungen) || {};
+  return f.fassungen.filter(x => x.geaendert && (gs[x.id] || '') < x.geaendert);
+}
+// Haken: Fassung id ist mit ihrem aktuellen Stand gedruckt (an = false: zurück auf den alten Stand oder ungedruckt)
+export function formelGedrucktSetzen(g, f, id, an, von, am, alt) {
+  const x = f && f.fassungen.find(y => y.id === id);
+  const neu = formelGedrucktNorm(g) || { format: 'formelblatt-gedruckt-1', fassungen: {}, zuletzt: {} };
+  if (!x) return neu;
+  if (an) neu.fassungen[id] = x.geaendert || jetztTag(am);
+  else if (alt && alt < (x.geaendert || '')) neu.fassungen[id] = alt;
+  else delete neu.fassungen[id];
+  neu.zuletzt = { von, am };
+  return neu;
+}
+const jetztTag = (am) => TAG.test(String(am || '').slice(0, 10)) ? String(am).slice(0, 10) : tagKey(new Date());
+
 // ---------- Berichte (Auftrag 28): daten/<name>/berichte/index.json, Format berichte-1 ----------
 export function berichteNorm(x) {
   if (!x || x.format !== 'berichte-1' || !Array.isArray(x.berichte)) return [];

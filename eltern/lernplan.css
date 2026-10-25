@@ -1,4 +1,4 @@
-/* Gebaut aus lernplan/lernplan.css (Version 1.6.0). Nicht hier ändern. */
+/* Gebaut aus lernplan/lernplan.css (Version 1.7.0). Nicht hier ändern. */
 
 /* Layout: Kopfzeile mit Ansichts-Umschalter, darunter eine waagerecht scrollbare Zeitleiste mit fester Namensspalte, darunter die Erkenntnis-Karte. */
 .lp{
@@ -349,3 +349,4 @@ html.lp-voll-offen, html.lp-voll-offen body{overflow:hidden}
 .lp .zc-k-kopf{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
 .lp .zc-k-knoepfe{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .lp .zc-k-knoepfe .btn{width:auto;flex:0 0 auto;min-height:38px;padding:6px 12px;font-size:14.5px}
+.lp a.btn { display: inline-flex; align-items: center; text-decoration: none; color: inherit; }

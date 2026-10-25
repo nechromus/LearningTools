@@ -1,10 +1,10 @@
-/* Gebaut aus lernplan/lernplan.js (Version 1.6.0). Nicht hier ändern. */
+/* Gebaut aus lernplan/lernplan.js (Version 1.7.0). Nicht hier ändern. */
 /* Lernplan-Darstellung: gemeinsame Quelle für die Lernplan-Seite in claude.ai und die Eltern-App.
    Quelle: LearningToolsCode/lernplan/lernplan.js (+ lernplan.css). Daraus baut `npm run lernplan`
    die Vorlage (wissensbasis/15-lernplan-seite-vorlage.html, alles eingebettet) und app/eltern/lernplan.mjs.
    Nur hier ändern. Datenformat und Regeln: wissensbasis/15-lernplan-seite.md. */
 var Lernplan = (function(){
-var VERSION = '1.6.0';
+var VERSION = '1.7.0';
 function esc0(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 // Export (Format lernplan-1, daten/<name>/lernplan.json) in die Form der Seite: Sammlungen als Listen mit _id
 // Nummern einer Erkenntnis-Gruppe als Text (auch für Tests): lückenlos „3–7“, bis 4 Einträge „3, 5, 7“, sonst „3–5, 8, 11–14“
@@ -899,10 +899,15 @@ function editTag(id){
   var t = S.tage.filter(function(x){ return x._id === id; })[0] || { wk:'', day:'', date: todayIso(), theme:'', status:'plan', etappe:null };
   var inner = '<div class="row3"><div class="field"><label for="tw">Woche</label><input id="tw" name="wk" value="' + esc(t.wk) + '" placeholder="W6" required></div><div class="field"><label for="td">Tag</label><input id="td" name="day" value="' + esc(t.day) + '" placeholder="T1" required></div><div class="field"><label for="tdt">Datum</label><input id="tdt" name="date" type="date" value="' + esc(t.date) + '" required></div></div>' +
     '<div class="field"><label for="tt">Thema (kurz, Zeilenumbruch erlaubt)</label><textarea id="tt" name="theme">' + esc(t.theme) + '</textarea></div>' +
+    '<div class="field"><label for="tbg">Bogen (Ordner in der Eltern-App, z. B. w5t5)</label><input id="tbg" name="bogen" value="' + esc(t.bogen || '') + '" placeholder="w6t1"></div>' +
     '<div class="field"><label for="tsx">Status</label><select id="tsx" name="status">' + [['done','erledigt'],['next','als Nächstes'],['plan','geplant']].map(function(s){ return '<option value="' + s[0] + '"' + (t.status === s[0] ? ' selected' : '') + '>' + s[1] + '</option>'; }).join('') + '</select></div>' +
     '<div class="row2"><div class="field"><label for="tep">Führt Etappe ein (Paket)</label><select id="tep" name="ep"><option value="">— keine —</option>' + groups().map(function(g){ return '<option value="' + esc(g._id) + '"' + (t.etappe && t.etappe.paket === g._id ? ' selected' : '') + '>' + esc(g.label) + '</option>'; }).join('') + '</select></div><div class="field"><label for="ten">Etappe Nr.</label><input id="ten" name="en" type="number" min="1" value="' + esc(t.etappe ? t.etappe.nr : '') + '"></div></div>';
   openPanel(id ? 'Bogentag ändern' : 'Neuer Bogentag', inner, function(fd){
     var out = { wk: fd.get('wk'), day: fd.get('day'), date: fd.get('date'), theme: fd.get('theme'), status: fd.get('status'), etappe: fd.get('ep') && fd.get('en') ? { paket: fd.get('ep'), nr: +fd.get('en') } : null };
+    // Felder ohne Eingabe bleiben erhalten (row, canvas); bogen aus dem Feld
+    if (t.row) out.row = t.row;
+    if (t.canvas) out.canvas = t.canvas;
+    var bg = String(fd.get('bogen') || '').trim(); if (/^[\w.-]+$/.test(bg)) out.bogen = bg;
     var nid = id || slug(out.wk + out.day);
     return S.db.doc('bogentage/' + nid).set(out);
   }, id ? function(){ return S.db.doc('bogentage/' + id).delete(); } : null);
@@ -1003,6 +1008,13 @@ function openBeispiel(id, opener){
 }
 
 /* ---------- Detail-Overlays (Bahnen) ---------- */
+// Deep Link in die Eltern-App: …/eltern/#bogen/<kind>/<bogen>. kind = Ordner unter daten/ (aus dem Export oder aus dem Namen)
+var ELTERN_URL = 'https://nechromus.github.io/LearningTools/eltern/';
+function kindOrdner(){
+  var k = opt.kind || (S.meta && S.meta.kind) || opt.name || '';
+  return String(k).toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[^a-z0-9_-]+/g, '');
+}
+function bogenLink(id){ return (opt.elternUrl || ELTERN_URL) + '#bogen/' + encodeURIComponent(kindOrdner()) + '/' + encodeURIComponent(id); }
 function rowById(id){ return S.rows.filter(function(r){ return r._id === id; })[0]; }
 function stLabel(s){ return { done:'erledigt', next:'als Nächstes', plan:'geplant' }[s] || s; }
 function qChip(r){ return r.quote && r.quote.n ? '<span class="q ' + qClass(r.quote) + '" title="' + esc(qTitle(r.quote)) + '">' + esc(r.quote.r) + '/' + esc(r.quote.n) + '</span>' + (r.quote.kn != null ? ' <span class="hint">davon geknobelt ' + esc(r.quote.kn) + '</span>' : '') : '<span class="hint">noch keine App-Daten</span>'; }
@@ -1029,6 +1041,8 @@ function infoSheet(title, sub, body, opener, actions){
 function kv(k, v){ return '<div style="display:grid;grid-template-columns:130px minmax(0,1fr);gap:10px;align-items:baseline"><span style="font-size:12.5px;font-weight:700;color:var(--muted)">' + esc(k) + '</span><span>' + v + '</span></div>'; }
 function openTag(id, opener){
   var t = S.tage.filter(function(x){ return x._id === id; })[0]; if (!t) return;
+  // Eltern-App: ein Tipp öffnet immer den hinterlegten Bogen (Auftrag 31)
+  if (opt.bogenOeffnen && t.bogen && !S.edit) { opt.bogenOeffnen(String(t.bogen)); return; }
   var b = '';
   b += kv('Datum', esc(de(t.date))) + kv('Status', '<span class="chip ' + (t.status === 'done' ? 'src-bogen' : 'src-app') + '">' + esc(stLabel(t.status)) + '</span>') + kv('Schwerpunkt', esc(String(t.theme || '').replace(/-\n/g,'').replace(/\n/g,' ')));
   var er = null, actions = '';
@@ -1039,7 +1053,8 @@ function openTag(id, opener){
     b += kv('In der App', t.status === 'done' ? 'ab ' + esc(de(appAb)) : 'ab dem Tag nach dem Bogen (geplant ' + esc(de(appAb)) + ')');
     if (er && er.beispiel) actions += '<button type="button" class="btn" data-bsp-from="' + esc(er._id) + '">Beispielaufgabe</button>';
   }
-  if (t.canvas) b += kv('Übungsblatt', '<a href="' + esc(t.canvas) + '" target="_blank" rel="noopener">Bogen öffnen</a>');
+  if (t.bogen && !opt.bogenOeffnen) actions = '<a class="btn" href="' + esc(bogenLink(t.bogen)) + '" target="_blank" rel="noopener">Bogen in der Eltern-App ↗</a>' + actions;
+  else if (t.canvas && !opt.bogenOeffnen) b += kv('Übungsblatt', '<a href="' + esc(t.canvas) + '" target="_blank" rel="noopener">Bogen öffnen</a>');
   var rel = S.ins.filter(function(e){ return e.date === t.date || e.ab === t.date; });
   if (rel.length) b += '<div class="flabel" style="margin-top:4px">Erkenntnisse zu diesem Tag</div>' + rel.map(insMini).join('');
   var other = S.rows.filter(function(r){ return !r.group && (r.bars || []).some(function(x){ return (x.kind === 'bogen' || x.kind === 'plan') && dn(x.from) <= dn(t.date) && dn(x.to) >= dn(t.date); }); }).map(function(r){ return esc(r.label); });
