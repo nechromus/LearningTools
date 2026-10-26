@@ -24,7 +24,7 @@ export const FEHLER_NAMEN = {
   'merk': 'Wert im Text nicht gefunden (Merkzettel)',
   'formel-ohne-100': 'Prozent-Formel: nicht durch 100 geteilt', 'formel-g-p-vertauscht': 'Prozent-Formel: G und p vertauscht', 'formel-rabatt-statt-preis': 'Rabatt statt neuer Preis', 'kegel-drittel-vergessen': 'Kegel: Drittel vergessen', 'zylinder-gesucht': 'Zylinder: falsch gewählt, was gesucht ist',
   'potenz-zweimal': 'Hoch 3: nur zweimal malgenommen', 'd-statt-r': 'Zylinder/Kegel: d statt r',
-  'zylinder-ein-kreis': 'Zylinder: nur ein Kreis', 'drittel-vergessen': 'Kegel/Pyramide: Drittel vergessen',
+  'abgeschnitten': 'Abgeschnitten statt gerundet', 'zylinder-ein-kreis': 'Zylinder: nur ein Kreis', 'drittel-vergessen': 'Kegel/Pyramide: Drittel vergessen',
   'pyramide-hs-statt-h': 'Pyramide: hₛ statt h', 'pyramide-h-statt-hs': 'Pyramide: h statt hₛ',
   'pyramide-ein-dreieck': 'Pyramide: nur 1 Dreieck', 'kegel-h-statt-s': 'Kegel: h statt s', 'kegel-zwei-kreise': 'Kegel: zwei Kreise',
   'zp-form': 'Zehnerpotenz: Zahl nicht zwischen 1 und 10', 'zp-vorzeichen': 'Zehnerpotenz: Hochzahl mit falschem Vorzeichen', 'zp-hochzahl': 'Zehnerpotenz: Hochzahl falsch',

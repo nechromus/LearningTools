@@ -24,10 +24,21 @@ export function pruefeWert(wert, ziel) {
   if (ziel.toleranz != null) return Math.abs(wert - ziel.wert) <= ziel.toleranz + 1e-9;
   return Math.abs(wert - ziel.wert) <= 1e-9 * Math.max(1, Math.abs(ziel.wert));
 }
+// Ist x (mit k Nachkommastellen getippt) der Wert c, richtig gerundet auf k Stellen? Mindestens 1 Stelle, außer c ist ganz.
+// Viele Stellen (ganze Zahl vom Rechner) haben einen kleinen Spielraum für die Anzeige des Rechners.
+export function rundetRichtig(x, k, c) {
+  if (Number.isInteger(c) && Math.abs(x - c) < 1e-9) return true;
+  if (k < 1) return false;
+  return Math.abs(x - c) <= 0.5 * 10 ** -k * (1 + 1e-9) + 1e-9 * Math.max(1, Math.abs(c));
+}
+const kandidaten = (ziel) => [ziel.genau, ...(ziel.varianten || [])];
 export function pruefeZahl(text, ziel) {
   const p = parseZahl(text);
   if (!p.ok) return false;
   if (ziel.gueltige) return pruefeGueltig(p.wert, ziel.wert, ziel.gueltige);
+  // Körper-Baukästen: nur richtig gerundete Ergebnisse (auch mit gerundeten Zwischenwerten), nicht abgeschnitten
+  if (ziel.genau != null) return kandidaten(ziel).some(c => rundetRichtig(p.wert, p.nachkomma, c));
+  if (ziel.auch && ziel.auch.some(z => gleich(p.wert, z))) return true;
   if (ziel.toleranz != null) {
     if (Math.abs(p.wert - ziel.wert) <= ziel.toleranz + 1e-9) return true;
     // „die ersten Nachkommastellen“: abgeschnitten oder gerundet, ab 2 Stellen
@@ -147,6 +158,13 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
   const schritte = aufgabe.schritte || [];
   const vorher = teil ? schritte[schritte.indexOf(teil) - 1] : null;
 
+  // Abgeschnitten statt gerundet (Körper-Baukästen mit genau): 50,26 statt 50,27 oder Ergebnis aus abgeschnittenen Zahlen
+  if (teil && teil.genau != null) {
+    const p = parseZahl(eingabeText), k = p.ok ? p.nachkomma : 0;
+    const ab = (c) => k >= 1 && gleich(p.wert, Math.trunc(c * 10 ** k) / 10 ** k);
+    if (p.ok && ([teil.genau, ...(teil.varianten || [])].some(ab) || (teil.abgeschnitten || []).some(c => rundetRichtig(p.wert, k, c))))
+      return { typ: 'abgeschnitten', text: 'Runde richtig: Schau auf die nächste Stelle. Oder nimm die ganze Zahl vom Rechner.' };
+  }
   if (koerper && teil && teil.wert != null) {
     // Kegel/Pyramide: Drittel vergessen
     if (/Drittel/.test(ttext) && vorher && vorher.wert != null && nah(w, vorher.wert)) {

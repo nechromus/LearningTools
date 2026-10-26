@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.29.2';
+export const APP_VERSION = '2.30.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1210,7 +1210,7 @@ function schritteVon(liste) {
     ? { art: 'legen', label: s.text, karten: s.karten, wahl: s.karten.map(() => null), quelle: s }
     : s.optionen
     ? { art: 'wahl', label: s.text, optionen: s.optionen, richtig: s.richtig, quelle: s, formel: s.optionen.every(o => /=/.test(o)) }
-    : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden, gueltige: s.gueltige_ziffern || undefined }, einheit: s.einheit || '', quelle: s });
+    : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden, gueltige: s.gueltige_ziffern || undefined, genau: s.genau, varianten: s.varianten, abgeschnitten: s.abgeschnitten, auch: s.auch }, einheit: s.einheit || '', quelle: s });
 }
 
 function hauptTeile(a) {

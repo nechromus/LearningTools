@@ -17,7 +17,41 @@ export function zahlText(n, nachkomma = null) {
 }
 const geld = n => Number.isInteger(n) ? zahlText(n) : zahlText(n, 2);
 
+// ---------- Rundung der Zwischenwerte (Körper) ----------
+// Ein Schritt mit `genau` (ungerundeter Wert) ist richtig, wenn die Eingabe ein richtiges Ergebnis ist,
+// richtig gerundet auf so viele Stellen, wie getippt wurden (oder die ganze Zahl vom Rechner).
+// `varianten`: weitere richtige Ergebnisse, wenn die Zahlen der Schritte davor alle auf 1, 2 oder 3 Stellen gerundet eingesetzt werden.
+// `abgeschnitten`: Ergebnisse mit abgeschnittenen Zahlen davor (für den Tipp).
+const RUND_STELLEN = [null, 1, 2, 3];
+const rdK = (x, k) => k == null ? x : Math.round(x * 10 ** k) / 10 ** k;
+const abK = (x, k) => k == null ? x : Math.trunc(x * 10 ** k) / 10 ** k;
+const r9 = (x) => Math.round(x * 1e9) / 1e9;
+// Alle Zwischenwerte gleich behandelt: ganz oder alle auf k Stellen (gemischte Stellen zählen nicht)
+function kombis(werte, f, op) {
+  return [...new Set(RUND_STELLEN.map(k => r9(f(...werte.map(w => op(w, k))))))];
+}
+// Schritt aus einem genauen Wert (z. B. π × 9 × 5)
+const gs = (schritt, x) => ({ ...schritt, genau: x });
+// Schritt aus Zwischenwerten der Schritte davor: f(…werte)
+function gsAus(schritt, werte, f) {
+  const x = f(...werte), v = kombis(werte, f, rdK).filter(c => Math.abs(c - x) > 1e-9);
+  const ab = kombis(werte, f, abK).filter(c => !v.some(w => Math.abs(w - c) < 1e-9) && Math.abs(c - x) > 1e-9);
+  return { ...schritt, genau: x, ...(v.length ? { varianten: v } : {}), ...(ab.length ? { abgeschnitten: ab } : {}) };
+}
+// Rundungsschritt nach einem Schritt mit `genau`: auch die richtige Rundung jeder richtigen Eingabe davor zählt
+function rundenAuch(schritte) {
+  for (let i = 1; i < (schritte || []).length; i++) {
+    const t = schritte[i], v = schritte[i - 1];
+    if (t.runden == null || t.wert == null || v.genau == null) continue;
+    const auch = new Set();
+    for (const c of [v.genau, ...(v.varianten || [])]) for (const k of RUND_STELLEN) { const z = rdK(rdK(c, k), t.runden); if (Math.abs(z - t.wert) > 1e-9) auch.add(r9(z)); }
+    if (auch.size) t.auch = [...auch];
+  }
+  return schritte;
+}
+
 function neu(generator, parameter, felder) {
+  if (Array.isArray(felder.schritte)) rundenAuch(felder.schritte);
   const id = `gen-${generator}-${parameter.map(p => String(p).replace('.', ',').replace('-', 'm')).join('_')}`;
   return { id, quelle: 'Baukasten', generator, parameter, bonus: false, ...felder };
 }
@@ -337,11 +371,11 @@ export function kugel(stufe, rng) {
   let x;
   if (art === 'V') {
     x = 4 / 3 * Math.PI * r ** 3;
-    schritte.push({ text: 'Zwischenergebnis =', wert: r * r }, { text: 'r³ =', wert: r ** 3 }, { text: `4 ÷ 3 × π × ${r ** 3} =`, wert: r3(x), toleranz: 0.01 }, { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(x), einheit: 'cm³', runden: 1 });
+    schritte.push({ text: 'Zwischenergebnis =', wert: r * r }, { text: 'r³ =', wert: r ** 3 }, gs({ text: `4 ÷ 3 × π × ${r ** 3} =`, wert: r3(x), toleranz: 0.01 }, x), { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(x), einheit: 'cm³', runden: 1 });
     weg.push(`${r} · ${r} = ${r * r}`, `r³ = ${r * r} · ${r} = ${r ** 3}`, `4 ÷ 3 × π × ${r ** 3} = ${zahlText(r3(x))}…`, `V ≈ ${zahlText(r1(x), 1)} cm³`);
   } else {
     x = 4 * Math.PI * r ** 2;
-    schritte.push({ text: 'r² =', wert: r ** 2 }, { text: `4 × π × ${r ** 2} =`, wert: r3(x), toleranz: 0.01 }, { text: 'Runde auf eine Stelle nach dem Komma. O ≈', wert: r1(x), einheit: 'cm²', runden: 1 });
+    schritte.push({ text: 'r² =', wert: r ** 2 }, gs({ text: `4 × π × ${r ** 2} =`, wert: r3(x), toleranz: 0.01 }, x), { text: 'Runde auf eine Stelle nach dem Komma. O ≈', wert: r1(x), einheit: 'cm²', runden: 1 });
     weg.push(`r² = ${r} · ${r} = ${r ** 2}`, `4 × π × ${r ** 2} = ${zahlText(r3(x))}…`, `O ≈ ${zahlText(r1(x), 1)} cm²`);
   }
   const mass = mitD ? `einen Durchmesser von ${2 * r} cm` : `einen Radius von ${r} cm`;
@@ -404,16 +438,16 @@ export function zylinder(stufe, rng, opts = {}) {
   let x, erkl;
   if (art === 'V') {
     x = Math.PI * r * r * h;
-    schritte.push({ text: 'r² =', wert: r * r }, { text: `V = π × ${r * r} × ${h} =`, wert: r3(x), toleranz: 0.01 }, { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(x), einheit: `${e}³`, runden: 1 });
+    schritte.push({ text: 'r² =', wert: r * r }, gs({ text: `V = π × ${r * r} × ${h} =`, wert: r3(x), toleranz: 0.01 }, x), { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(x), einheit: `${e}³`, runden: 1 });
     weg.push(`r² = ${r} · ${r} = ${r * r}`, `π × ${r * r} × ${h} = ${zahlText(r3(x))}…`, `V ≈ ${zahlText(r1(x), 1)} ${e}³`);
     erkl = 'Formel V = π · r² · h. Erst r², dann mal π und mal h.' + (mitD ? ' In der Formel steht r, nicht d.' : '');
   } else {
     const ag = Math.PI * r * r, am = 2 * Math.PI * r * h, ao = 2 * ag + am;
     const formel = !g; // ohne Geschichte: Formeln stehen in der Beschriftung (Einsetzen ist der Lerninhalt)
-    if (art === 'O') schritte.push({ text: formel ? 'A_G = π · r² =' : 'A_G =', wert: r3(ag), toleranz: 0.01, einheit: 'cm²' });
-    schritte.push({ text: formel ? 'A_M = 2 · π · r · h =' : 'A_M =', wert: r3(am), toleranz: 0.01, einheit: 'cm²' });
+    if (art === 'O') schritte.push(gs({ text: formel ? 'A_G = π · r² =' : 'A_G =', wert: r3(ag), toleranz: 0.01, einheit: 'cm²' }, ag));
+    schritte.push(gs({ text: formel ? 'A_M = 2 · π · r · h =' : 'A_M =', wert: r3(am), toleranz: 0.01, einheit: 'cm²' }, am));
     if (art === 'O') {
-      schritte.push({ text: formel ? 'A_O = 2 · A_G + A_M =' : 'A_O =', wert: r3(ao), toleranz: 0.02, einheit: 'cm²' });
+      schritte.push(gsAus({ text: formel ? 'A_O = 2 · A_G + A_M =' : 'A_O =', wert: r3(ao), toleranz: 0.02, einheit: 'cm²' }, [ag, am], (g, m) => 2 * g + m));
       weg.push(`A_G = π × ${r * r} = ${zahlText(r3(ag))}… cm²`);
     }
     weg.push(`A_M = 2 × π × ${r} × ${h} = ${zahlText(r3(am))}… cm²`);
@@ -668,16 +702,16 @@ function zylinderGesucht4(rng) {
   if (mitD) { schritte.push({ text: 'Radius r =', wert: r, einheit: 'cm' }); weg.push(`r = ${2 * r} : 2 = ${r} cm`); }
   let x, n, e = 'cm²';
   if (art === 'V') {
-    schritte.push({ text: 'r² =', wert: r * r }, { text: `V = π × ${r * r} × ${h} =`, wert: r3(v), toleranz: 0.01 });
+    schritte.push({ text: 'r² =', wert: r * r }, gs({ text: `V = π × ${r * r} × ${h} =`, wert: r3(v), toleranz: 0.01 }, v));
     weg.push(`π × ${r * r} × ${h} = ${zahlText(r3(v))}…`); x = v; n = 'V'; e = 'cm³';
   } else if (art === 'G') {
-    schritte.push({ text: 'A_G = π · r² =', wert: r3(ag), toleranz: 0.01, einheit: 'cm²' });
+    schritte.push(gs({ text: 'A_G = π · r² =', wert: r3(ag), toleranz: 0.01, einheit: 'cm²' }, ag));
     weg.push(`A_G = π × ${r * r} = ${zahlText(r3(ag))}… cm²`); x = ag; n = 'A_G';
   } else if (art === 'M') {
-    schritte.push({ text: 'A_M = 2 · π · r · h =', wert: r3(am), toleranz: 0.01, einheit: 'cm²' });
+    schritte.push(gs({ text: 'A_M = 2 · π · r · h =', wert: r3(am), toleranz: 0.01, einheit: 'cm²' }, am));
     weg.push(`A_M = 2 × π × ${r} × ${h} = ${zahlText(r3(am))}… cm²`); x = am; n = 'A_M';
   } else {
-    schritte.push({ text: 'A_G = π · r² =', wert: r3(ag), toleranz: 0.01, einheit: 'cm²' }, { text: 'A_M = 2 · π · r · h =', wert: r3(am), toleranz: 0.01, einheit: 'cm²' }, { text: 'A_O = 2 · A_G + A_M =', wert: r3(ao), toleranz: 0.02, einheit: 'cm²' });
+    schritte.push(gs({ text: 'A_G = π · r² =', wert: r3(ag), toleranz: 0.01, einheit: 'cm²' }, ag), gs({ text: 'A_M = 2 · π · r · h =', wert: r3(am), toleranz: 0.01, einheit: 'cm²' }, am), gsAus({ text: 'A_O = 2 · A_G + A_M =', wert: r3(ao), toleranz: 0.02, einheit: 'cm²' }, [ag, am], (g, m) => 2 * g + m));
     weg.push(`A_G = ${zahlText(r3(ag))}… cm², A_M = ${zahlText(r3(am))}… cm²`, `A_O = 2 · A_G + A_M = ${zahlText(r3(ao))}… cm²`); x = ao; n = 'A_O';
   }
   schritte.push({ text: `Runde auf eine Stelle nach dem Komma. ${n} ≈`, wert: r1(x), einheit: e, runden: 1 });
@@ -706,7 +740,7 @@ export function kegel(stufe, rng) {
       frage: `Ein Kegel hat den Radius r = ${r} cm, die Höhe h = ${h} cm und die Mantellinie s = ${sl} cm. Wie groß ist sein Mantel?`,
       gegeben: [{ name: 'Radius r', wert: r, einheit: 'cm' }, { name: 'Höhe h', wert: h, einheit: 'cm' }, { name: 'Mantellinie s', wert: sl, einheit: 'cm' }],
       schritte: [{ text: 'Welche Länge brauchst du für den Mantel?', optionen: opt, richtig: opt.findIndex(o => o.startsWith('s')) },
-        { text: 'A_M = π · r · s =', wert: r3(am), toleranz: 0.01, einheit: 'cm²' },
+        gs({ text: 'A_M = π · r · s =', wert: r3(am), toleranz: 0.01, einheit: 'cm²' }, am),
         { text: 'Runde auf eine Stelle nach dem Komma. A_M ≈', wert: r1(am), einheit: 'cm²', runden: 1 }],
       hinweise: ['kegel', 'runden'], loesungsweg: ['Mantel → s (schräg außen)', `A_M = π × ${r} × ${sl} = ${zahlText(r3(am))}… cm²`, `A_M ≈ ${zahlText(r1(am), 1)} cm²`],
       erklaerung: 'Für den Mantel brauchst du s, die schräge Linie außen. h ist innen.'
@@ -717,8 +751,8 @@ export function kegel(stufe, rng) {
   const z = Math.PI * r * r * h, v = z / 3;
   const schritte = [], weg = [];
   if (mitD) { schritte.push({ text: 'Radius r =', wert: r, einheit: 'cm' }); weg.push(`r = ${2 * r} : 2 = ${r} cm`); }
-  schritte.push({ text: 'r² =', wert: r * r }, { text: `π × ${r * r} × ${h} =`, wert: r3(z), toleranz: 0.01 },
-    { text: 'Ein Drittel davon (: 3) =', wert: r3(v), toleranz: 0.01 }, { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(v), einheit: 'cm³', runden: 1 });
+  schritte.push({ text: 'r² =', wert: r * r }, gs({ text: `π × ${r * r} × ${h} =`, wert: r3(z), toleranz: 0.01 }, z),
+    gsAus({ text: 'Ein Drittel davon (: 3) =', wert: r3(v), toleranz: 0.01 }, [z], (q) => q / 3), { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(v), einheit: 'cm³', runden: 1 });
   weg.push(`r² = ${r * r}`, `π × ${r * r} × ${h} = ${zahlText(r3(z))}… (wie Zylinder)`, `: 3 = ${zahlText(r3(v))}…`, `V ≈ ${zahlText(r1(v), 1)} cm³`);
   return neu('kegel', ['volumen', mitD ? 'd' : 'r', mitD ? 2 * r : r, h], {
     thema: 'kegel', typ: 'schritte', stufe, taschenrechner: true, bild: { form: 'kegel', ...(mitD ? { d: 2 * r } : { r }), h },
@@ -738,7 +772,7 @@ export function pyramide(stufe, rng) {
     const weg = [`A_G = ${a} · ${a} = ${ag} ${e}²`, `${ag} · ${h} = ${ah}`];
     if (ganz) { schritte.push({ text: 'Ein Drittel davon (: 3). V =', wert: vol, einheit: `${e}³` }); weg.push(`${ah} : 3 = ${vol} ${e}³`); }
     else {
-      schritte.push({ text: 'Ein Drittel davon (: 3) =', wert: r3(vol), toleranz: 0.01 }, { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(vol), einheit: `${e}³`, runden: 1 });
+      schritte.push(gs({ text: 'Ein Drittel davon (: 3) =', wert: r3(vol), toleranz: 0.01 }, vol), { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(vol), einheit: `${e}³`, runden: 1 });
       weg.push(`${ah} : 3 = ${zahlText(r3(vol))}…`, `V ≈ ${zahlText(r1(vol), 1)} ${e}³`);
     }
     return neu('pyramide', ['volumen', a, h, e], {
@@ -798,3 +832,5 @@ export const THEMA_GENERATOREN = {
 export const MIX_GENERATOREN = ['einmaleins', 'potenz', 'mal10', 'prozent', 'runden', 'bruch-bild', 'minus-plus', 'reihenfolge', 'baukasten', 'einmaleins'];
 export const BLOCK_GENERATOREN = ['einmaleins', 'potenz', 'mal10', 'minus-plus', 'einmaleins'];
 export const KOPF_GENERATOREN = ['minus-plus', 'reihenfolge', 'potenz', 'einmaleins', 'mal10', 'prozent', 'baukasten', 'runden', 'bruch-bild'];
+// Nur für Tests
+export const __test = { gs, gsAus, rundenAuch };
