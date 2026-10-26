@@ -158,6 +158,12 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
   const schritte = aufgabe.schritte || [];
   const vorher = teil ? schritte[schritte.indexOf(teil) - 1] : null;
 
+  // Kreisdiagramm (Auftrag 33): Prozentzahl statt Anzahl eingegeben
+  if (aufgabe.thema === 'kreisdiagramm' && teil && /^Wie viele\b/.test(teil.frage || teil.text || '') && aufgabe.bild && aufgabe.bild.gesamt) {
+    const p = parseZahl(eingabeText);
+    if (p.ok && !gleich(p.wert, teil.wert) && (aufgabe.bild.segmente || []).some(sg => !sg.prozent_versteckt && gleich(sg.prozent, p.wert)))
+      return { typ: 'kreis-prozent-statt-anzahl', text: `Gefragt ist die Anzahl: Wie viele von ${aufgabe.bild.gesamt}?` };
+  }
   // Abgeschnitten statt gerundet (Körper-Baukästen mit genau): 50,26 statt 50,27 oder Ergebnis aus abgeschnittenen Zahlen
   if (teil && teil.genau != null) {
     const p = parseZahl(eingabeText), k = p.ok ? p.nachkomma : 0;

@@ -13,7 +13,7 @@ const ERLAUBT = STUFEN.map(s => s.w);
 // Kurze Kopfrechen-Aufgaben: welches Thema welche Baukästen nutzt
 export const KOPF_GEN = {
   'minus-zahlen': ['minus-plus'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'], 'einmaleins': ['einmaleins'],
-  'mal-10': ['mal10'], 'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'prozent-formel': ['prozent-formel'], 'runden': ['runden'], 'bruch-bild': ['bruch-bild'],
+  'mal-10': ['mal10'], 'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'prozent-formel': ['prozent-formel'], 'kreisdiagramm': ['kreisdiagramm'], 'runden': ['runden'], 'bruch-bild': ['bruch-bild'],
   // Physik und Umstellen (Auftrag 13): kommen wie kurze Aufgaben, etwa halb Pool, halb Baukasten
   'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
 };

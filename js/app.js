@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.31.0';
+export const APP_VERSION = '2.32.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1275,6 +1275,8 @@ function erzeuge(g, stufe, opts = {}) {
     a = G.GENERATOREN[g](stufe, Math.random, opts);
     if (a && !letzte.includes(a.id) && heuteOk(a)) break;
   }
+  // Kreisdiagramm (Auftrag 33): ab der Freigabe von Prozent mit Formel auch Hinweis 23
+  if (a && g === 'kreisdiagramm' && L.themaFreigegeben(S, 'prozent-formel', L.tagKey()) && !a.hinweise.includes('formel')) a = { ...a, hinweise: [...a.hinweise, 'formel'] };
   return a;
 }
 
@@ -1372,7 +1374,7 @@ function paketFuerThema(t) {
 // Welche Baukästen zu einem Thema gehören; Themen ohne Baukasten kommen nur aus dem Pool.
 const TEST_GEN = {
   'minus-zahlen': ['minus-plus', 'geld-geschichte'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'], 'bruch-bild': ['bruch-bild'],
-  'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'prozent-formel': ['prozent-formel'], 'rabatt': ['rabatt-geschichte'], 'neuer-preis': ['rabatt-geschichte'],
+  'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'prozent-formel': ['prozent-formel'], 'kreisdiagramm': ['kreisdiagramm'], 'rabatt': ['rabatt-geschichte'], 'neuer-preis': ['rabatt-geschichte'],
   'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'],
   'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
 };

@@ -75,7 +75,7 @@ export function bildSvg(bild, klein = false) {
     segs.forEach((sg, i) => { const e = a + sg.prozent * 3.6; s += torte(c, c, r, a, e, sg.farbe || farben[i % 4]); a = e; });
     const torteSvg = svg(size, size, s, 'Kreisdiagramm');
     if (klein || !segs[0].name) return torteSvg;
-    const legende = segs.map((sg, i) => `<li><span class="leg-farbe" style="background:${sg.farbe || farben[i % 4]}"></span>${esc(sg.name)}: <b>${sg.prozent} %</b></li>`).join('');
+    const legende = segs.map((sg, i) => `<li><span class="leg-farbe" style="background:${sg.farbe || farben[i % 4]}"></span>${esc(sg.name)}: <b>${sg.prozent_versteckt ? '?' : sg.prozent} %</b></li>`).join('');
     return `<div class="diagramm">${bild.titel ? `<div class="diagramm-titel">${esc(bild.titel)}</div>` : ''}<div class="diagramm-inhalt">${torteSvg}<ul class="legende">${legende}</ul></div></div>`;
   }
   if (f === 'kugel') {

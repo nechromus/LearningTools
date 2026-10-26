@@ -7,6 +7,7 @@ export { zehnerpotenz, einheiten, gewichtskraft, gleichung, formelUmstellen, dic
 const M = '−';
 const zufall = (rng, a, b) => a + Math.floor(rng() * (b - a + 1));
 const wahl = (rng, arr) => arr[Math.floor(rng() * arr.length)];
+const mischen = (rng, arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
 const r1 = x => Math.round(x * 10) / 10;
 const r3 = x => Math.round(x * 1000) / 1000;
 
@@ -787,6 +788,81 @@ export function pyramide(stufe, rng) {
   return null;
 }
 
+// ---------- Kreisdiagramm (Auftrag 33) ----------
+// Stufe 1: 3 Teile, gefragt 2 Teile mit 50/25/10/20 %. Stufe 2: 3–4 Teile, alle gefragt, der letzte als Bonus.
+// Stufe 3: umgekehrt: Anzahl → Prozent, oder ein Teil ohne Prozent („Der Rest“). Jede Anzahl ist ganz.
+const KD_FARBEN = ['#1F6F75', '#E9B65A', '#9FC8C8', '#C98A5A'];
+const KD_THEMEN = [
+  { titel: 'Wie kommst du zur Schule?', wer: 'Schülerinnen und Schüler', teile: [
+    ['Bus', 'fahren mit dem Bus'], ['Fahrrad', 'fahren Fahrrad'], ['zu Fuß', 'gehen zu Fuß'], ['Auto', 'kommen mit dem Auto'], ['Bahn', 'fahren mit der Bahn']] },
+  { titel: 'Was ist dein Lieblingssport?', wer: 'Jugendliche', teile: [
+    ['Fußball', 'mögen Fußball am liebsten'], ['Schwimmen', 'mögen Schwimmen am liebsten'], ['Basketball', 'mögen Basketball am liebsten'], ['Tanzen', 'mögen Tanzen am liebsten'], ['Radfahren', 'mögen Radfahren am liebsten']] },
+  { titel: 'Welches Haustier hast du?', wer: 'Kinder', teile: [
+    ['Hund', 'haben einen Hund'], ['Katze', 'haben eine Katze'], ['Fische', 'haben Fische'], ['Hase', 'haben einen Hasen'], ['kein Tier', 'haben kein Tier']] },
+  { titel: 'Was ist auf deinem Pausenbrot?', wer: 'Schülerinnen und Schüler', teile: [
+    ['Käse', 'haben Käse auf dem Brot'], ['Wurst', 'haben Wurst auf dem Brot'], ['Marmelade', 'haben Marmelade auf dem Brot'], ['Gemüse', 'haben Gemüse auf dem Brot'], ['kein Brot', 'haben kein Brot dabei']] },
+  { titel: 'Was spielst du am liebsten?', wer: 'Jugendliche', teile: [
+    ['Brettspiele', 'spielen am liebsten Brettspiele'], ['Kartenspiele', 'spielen am liebsten Kartenspiele'], ['Videospiele', 'spielen am liebsten Videospiele'], ['Ballspiele', 'spielen am liebsten Ballspiele'], ['Rätsel', 'lösen am liebsten Rätsel']] }
+];
+const KD_GESAMT = [20, 40, 60, 80, 100, 200];
+const KD_P1 = [50, 25, 10, 20], KD_P2 = [50, 25, 10, 20, 15, 30, 40, 5];
+const kdGanz = (g, p) => (g * p) % 100 === 0;
+function kdProzente(stufe, rng) {
+  for (let v = 0; v < 500; v++) {
+    if (stufe === 1) {
+      const a = wahl(rng, KD_P1), b = wahl(rng, KD_P1.filter(x => x !== a)), rest = 100 - a - b;
+      if ([25, 30, 40, 50, 60, 70].includes(rest)) return [a, b, rest];
+      continue;
+    }
+    const n = rng() < 0.5 ? 3 : 4, l = [];
+    for (let i = 0; i < n - 1; i++) l.push(wahl(rng, KD_P2));
+    const rest = 100 - l.reduce((x, y) => x + y, 0);
+    if (rest > 0 && KD_P2.includes(rest)) return [...l, rest].sort((x, y) => y - x);
+  }
+  return [50, 25, 25];
+}
+export function kreisdiagramm(stufe, rng) {
+  const st = Math.min(3, Math.max(1, stufe || 1));
+  const th = wahl(rng, KD_THEMEN);
+  for (let v = 0; v < 200; v++) {
+    const pz = kdProzente(st, rng);
+    const gesamt = wahl(rng, KD_GESAMT.filter(g => pz.every(p => kdGanz(g, p))));
+    if (!gesamt) continue;
+    const teile = mischen(rng, th.teile.slice()).slice(0, pz.length);
+    const seg = pz.map((p, i) => ({ name: teile[i][0], prozent: p, farbe: KD_FARBEN[i % 4], anzahl: gesamt * p / 100, verb: teile[i][1] }));
+    const bild = { form: 'kreisdiagramm', titel: th.titel, gesamt, segmente: seg.map(x => ({ name: x.name, prozent: x.prozent, farbe: x.farbe })) };
+    const fragen = [], weg = [];
+    const anzahlFrage = (x, bonus) => { fragen.push({ frage: `Wie viele ${x.verb}?`, wert: x.anzahl, prozent: x.prozent, art: 'anzahl', ...(bonus ? { bonus: true } : {}) }); weg.push(`${x.prozent} % von ${gesamt} = ${gesamt} · ${x.prozent} : 100 = ${x.anzahl}`); };
+    let geschichte = `${gesamt} ${th.wer} wurden gefragt.`, form = 'anzahl';
+    if (st === 1) { seg.slice(0, 2).forEach(x => anzahlFrage(x)); }
+    else if (st === 2) { seg.forEach((x, i) => anzahlFrage(x, i === seg.length - 1 && seg.length > 2)); }
+    else if (rng() < 0.5) {
+      // Anzahl → Prozent: ein Teil ohne Prozentzahl im Bild, seine Anzahl steht im Text
+      form = 'prozent';
+      const k = 1 + Math.floor(rng() * (seg.length - 1)), x = seg[k];
+      bild.segmente[k] = { ...bild.segmente[k], prozent_versteckt: true };
+      geschichte += ` ${x.anzahl} davon ${x.verb}.`;
+      fragen.push({ frage: `Wie viel Prozent ${x.verb}?`, wert: x.prozent, einheit: '%', art: 'prozent' });
+      weg.push(`${x.anzahl} von ${gesamt} → ${x.anzahl} : ${gesamt} · 100 = ${x.prozent} %`);
+      anzahlFrage(seg[0]);
+    } else {
+      // Der Rest: der letzte Teil hat keine Prozentzahl
+      form = 'rest';
+      const k = seg.length - 1, x = seg[k];
+      bild.segmente[k] = { ...bild.segmente[k], prozent_versteckt: true };
+      fragen.push({ frage: `Wie viel Prozent ${x.verb}?`, wert: x.prozent, einheit: '%', art: 'prozent' });
+      weg.push(`Der Rest: 100 % − ${seg.slice(0, k).map(y => y.prozent + ' %').join(' − ')} = ${x.prozent} %`);
+      anzahlFrage(x);
+    }
+    return neu('kreisdiagramm', [st, form, gesamt, ...pz], {
+      thema: 'kreisdiagramm', typ: 'mehrfrage', stufe: st, bild, geschichte,
+      frage: 'Lies das Kreisdiagramm.', fragen, hinweise: ['diagramm', 'prozent'], loesungsweg: weg,
+      erklaerung: st === 3 && form !== 'anzahl' ? 'Alle Teile zusammen sind 100 %.' : `Kontrolle: Alle Teile zusammen sind ${gesamt}.`
+    });
+  }
+  return null;
+}
+
 // ---------- Dreierblock ----------
 
 export function block(gen, rng, stufe = 1) {
@@ -817,7 +893,7 @@ export function block(gen, rng, stufe = 1) {
 export const GENERATOREN = {
   'minus-plus': minusPlus, 'reihenfolge': reihenfolge, 'potenz': potenz, 'einmaleins': einmaleins, 'mal10': mal10,
   'prozent': prozent, 'baukasten': baukasten, 'runden': runden, 'bruch-bild': bruchBild, 'kugel': kugel, 'zylinder': zylinder,
-  'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte, 'prozent-formel': prozentFormel, 'kegel': kegel, 'pyramide': pyramide,
+  'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte, 'prozent-formel': prozentFormel, 'kegel': kegel, 'pyramide': pyramide, 'kreisdiagramm': kreisdiagramm,
   'zehnerpotenz': zehnerpotenz, 'einheiten': einheiten, 'gewichtskraft': gewichtskraft, 'gleichung': gleichung, 'formel-umstellen': formelUmstellen, 'dichte': dichte
 };
 
@@ -825,7 +901,7 @@ export const GENERATOREN = {
 export const THEMA_GENERATOREN = {
   'minus-zahlen': ['minus-plus', 'minus-plus', 'reihenfolge'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'],
   'bruch-bild': ['bruch-bild'], 'zuordnung': ['bruch-bild'], 'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'],
-  'prozent-formel': ['prozent-formel'], 'rabatt': ['prozent', 'baukasten'], 'neuer-preis': ['prozent', 'baukasten'], 'kreisdiagramm': ['prozent'],
+  'prozent-formel': ['prozent-formel'], 'rabatt': ['prozent', 'baukasten'], 'neuer-preis': ['prozent', 'baukasten'], 'kreisdiagramm': ['kreisdiagramm'],
   'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'],
   'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
 };
