@@ -387,7 +387,8 @@ export function runenbrecherStarten(wurzel, opt = {}) {
   // ---------- Eingaben ----------
 
   let zug = null;
-  const feldX = (e) => (e.clientX - canvas.getBoundingClientRect().left) / massstab;
+  // Desktop-Ansicht mit zoom: Bildschirm-Pixel je CSS-Pixel aus der echten Breite des Canvas
+  const feldX = (e) => { const b = canvas.getBoundingClientRect(), f = canvas.offsetWidth ? b.width / canvas.offsetWidth : 1; return (e.clientX - b.left) / (massstab * f); };
   // Gesteuert wird auf dem ganzen Spielfeld und in der Zone darunter (nicht auf Knöpfen und Tafeln)
   const flaeche = (e) => !e.target.closest('button, .tafel-grund, .kopf, .chips');
   an(wurzel, 'pointerdown', (e) => {

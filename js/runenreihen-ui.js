@@ -344,18 +344,20 @@ export function runenreihenStarten(wurzel, opt = {}) {
   // ---------- Eingaben ----------
 
   const zelleBei = (e) => {
-    const b = brett.getBoundingClientRect();
-    const c = Math.floor((e.clientX - b.left) / p), r = Math.floor((e.clientY - b.top) / p);
+    // Desktop-Ansicht (Vergrößerung über zoom): Bildschirm-Pixel je CSS-Pixel aus der echten Größe des Bretts
+    const b = brett.getBoundingClientRect(), f = brett.offsetWidth ? b.width / brett.offsetWidth : 1;
+    const c = Math.floor((e.clientX - b.left) / (p * f)), r = Math.floor((e.clientY - b.top) / (p * f));
     return r >= 0 && c >= 0 && r < R.N && c < R.N ? r * R.N + c : -1;
   };
   let zug = null;
   an(rahmen, 'pointerdown', (e) => {
     const i = zelleBei(e);
-    zug = i >= 0 ? { i, x: e.clientX, y: e.clientY, fertig: false } : null;
+    const b = brett.getBoundingClientRect(), f = brett.offsetWidth ? b.width / brett.offsetWidth : 1;
+    zug = i >= 0 ? { i, x: e.clientX, y: e.clientY, f, fertig: false } : null;
   });
   an(rahmen, 'pointermove', (e) => {
     if (!zug || zug.fertig) return;
-    const dx = e.clientX - zug.x, dy = e.clientY - zug.y;
+    const dx = (e.clientX - zug.x) / zug.f, dy = (e.clientY - zug.y) / zug.f;
     if (Math.max(Math.abs(dx), Math.abs(dy)) < p * 0.35) return;
     zug.fertig = true;
     const r = R.zeile(zug.i), c = R.spalte(zug.i);

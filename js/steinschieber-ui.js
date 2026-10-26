@@ -394,8 +394,8 @@ export function steinschieberStarten(wurzel, opt = {}) {
       return;
     }
     // Antippen
-    const b = welt.getBoundingClientRect();
-    const c = Math.floor((e.clientX - b.left) / (g + 1)), r = Math.floor((e.clientY - b.top) / (g + 1));
+    const b = welt.getBoundingClientRect(), f = welt.offsetWidth ? b.width / welt.offsetWidth : 1; // Desktop-Ansicht mit zoom
+    const c = Math.floor((e.clientX - b.left) / ((g + 1) * f)), r = Math.floor((e.clientY - b.top) / ((g + 1) * f));
     if (!s || r < 0 || c < 0 || r >= s.h || c >= s.w) return;
     const i = r * s.w + c;
     const fr = Math.floor(s.figur / s.w), fc = s.figur % s.w;
