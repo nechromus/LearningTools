@@ -196,8 +196,8 @@ function optionenVon(a, teil) {
 }
 
 const ERGEBNIS = { erst: '1. Versuch', zweit: '2. Versuch', loesung: 'Lösung gezeigt' };
-export const ergebnisText = (rec) => rec.ende ? ERGEBNIS[rec.ende.ergebnis] : rec.status === 'uebersprungen' ? 'Übersprungen' : rec.status === 'abgebrochen' ? 'Abgebrochen' : 'Nicht beendet';
-export const ergebnisArt = (rec) => rec.ende ? rec.ende.ergebnis : 'offen';
+export const ergebnisText = (rec) => rec.ende ? (rec.ende.gleiche_aufgabe && rec.ende.ergebnis !== 'loesung' ? 'Gleiche Aufgabe' : ERGEBNIS[rec.ende.ergebnis]) : rec.status === 'uebersprungen' ? 'Übersprungen' : rec.status === 'abgebrochen' ? 'Abgebrochen' : 'Nicht beendet';
+export const ergebnisArt = (rec) => rec.ende ? (rec.ende.gleiche_aufgabe && rec.ende.ergebnis !== 'loesung' ? 'gleich' : rec.ende.ergebnis) : 'offen';
 
 const sek = (ms) => Math.max(0, Math.round((ms || 0) / 1000));
 export function dauerText(ms) {
@@ -221,7 +221,7 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
     switch (e.typ) {
       case 'aufgabe_start':
         p.titel = e.fortsetzung ? 'Aufgabe wieder geöffnet (hatte gewartet)' : 'Aufgabe geöffnet';
-        p.text = [`Aufgabe ${e.serienPos} der Serie`, e.wiederholung ? 'Wiederholung' : '', e.bonus ? 'Bonus' : ''].filter(Boolean).join(' · ');
+        p.text = [`Aufgabe ${e.serienPos} der Serie`, e.nach_loesung ? (e.nach_loesung === e.id ? 'dieselbe Aufgabe nach gezeigter Lösung' : 'nach gezeigter Lösung, neue Aufgabe derselben Art') : e.wiederholung ? 'Wiederholung' : '', e.bonus ? 'Bonus' : ''].filter(Boolean).join(' · ');
         break;
       case 'versuch': {
         let label = e.label != null ? e.label : labels[e.teil];
@@ -259,6 +259,7 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
           e.kopf ? 'im Kopf gerechnet (Bonus)' : '', e.knobeln ? (e.schritte ? 'Knobeln: in Schritten gelöst' : 'Knobeln: ohne Schritte gelöst') : '',
           e.wp ? `+${e.wp} Wissenspunkte` : '', `Dauer ${dauerText(e.ms)}`].filter(Boolean).join(' · ');
         p.art = e.ergebnis === 'erst' ? 'ok' : e.ergebnis === 'zweit' ? 'info' : 'fehler';
+        if (e.gleiche_aufgabe && e.ergebnis !== 'loesung') { p.text = ['Gleiche Aufgabe nach gezeigter Lösung: zählt nicht als 1. Versuch', p.text].join(' · '); p.art = 'info'; }
         break;
       case 'aufgabe_abgebrochen': p.titel = 'Mit „Fertig“ verlassen'; p.text = [e.ohneEingabe ? 'ohne Eingabe' : '', e.wartet ? 'kommt beim nächsten Mal wieder' : ''].filter(Boolean).join(' · '); p.art = 'fehler'; break;
       case 'hilfe': p.titel = `„Hilf mir“ (${e.stufe}. Schritt)`; p.text = (e.zeilen || []).join(' · ') + ' · weniger Spielzeit'; p.art = 'fehler'; break;
@@ -291,7 +292,7 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
 export function kennzahlen(aufgaben, eintraege, vonTag) {
   const auf = aufgaben.filter(r => r.tag >= vonTag && r.ende);
   const ein = eintraege.filter(e => tagKey(new Date(e.t)) >= vonTag);
-  const erst = auf.filter(r => r.ende.ergebnis === 'erst').length;
+  const erst = auf.filter(r => erstZ(r.ende)).length;
   const proThema = {};
   for (const r of auf) {
     const t = proThema[r.thema] || (proThema[r.thema] = { thema: r.thema, name: THEMA_NAMEN[r.thema] || r.thema, anzahl: 0, erst: 0, loesung: 0, stufe: 0, kurz: 0, kurzOk: 0, lang: 0 });
@@ -299,7 +300,7 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
     // Kurz-Hinweise: Kommt das Kind mit der Formelübersicht aus (gelöst ohne „Mehr Hilfe“)?
     const k = kurzErgebnis(r);
     if (k) { t.kurz++; if (k === 'ok') t.kurzOk++; if (k === 'lang') t.lang++; }
-    if (r.ende.ergebnis === 'erst') t.erst++;
+    if (erstZ(r.ende)) t.erst++;
     if (r.ende.ergebnis === 'loesung') t.loesung++;
     t.stufe = r.stufe || t.stufe;
   }
@@ -318,7 +319,7 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
   const tage = {};
   for (const r of auf) {
     const d = tage[r.tag] || (tage[r.tag] = { tag: r.tag, anzahl: 0, erst: 0, ms: 0, sekunden: 0 });
-    d.anzahl++; if (r.ende.ergebnis === 'erst') d.erst++; d.ms += r.ende.ms || 0; d.sekunden += r.ende.sekunden || 0;
+    d.anzahl++; if (erstZ(r.ende)) d.erst++; d.ms += r.ende.ms || 0; d.sekunden += r.ende.sekunden || 0;
   }
   const auffaellig = Object.entries(fehler).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${FEHLER_NAMEN[k] || k}: ${n}-mal`);
   if (verlassen) auffaellig.push(`App ${verlassen}-mal verlassen während einer Aufgabe`);
@@ -474,10 +475,10 @@ export function paketQuoten(aufgaben, vonTag) {
   for (const r of aufgaben) {
     if (!r.ende || !r.start || !r.start.paket || r.tag < vonTag) continue;
     const q = out[r.start.paket] || (out[r.start.paket] = { anzahl: 0, erst: 0, etappen: {} });
-    q.anzahl++; if (r.ende.ergebnis === 'erst') q.erst++;
+    q.anzahl++; if (erstZ(r.ende)) q.erst++;
     if (r.start.etappe != null) {
       const e = q.etappen[r.start.etappe] || (q.etappen[r.start.etappe] = { anzahl: 0, erst: 0 });
-      e.anzahl++; if (r.ende.ergebnis === 'erst') e.erst++;
+      e.anzahl++; if (erstZ(r.ende)) e.erst++;
     }
   }
   return out;
@@ -732,6 +733,9 @@ export function gedrucktSetzen(g, h, nr, an, von, am, alt) {
   return neu;
 }
 
+// „1. Versuch“ zählt nicht, wenn dieselbe Aufgabe nach einer gezeigten Lösung wiederkam (Auftrag 32)
+export const erstZ = (ende) => !!ende && ende.ergebnis === 'erst' && !ende.gleiche_aufgabe;
+
 // ---------- Bogen-Archiv, Deep Link, Formelübersicht (Auftrag 31) ----------
 // Woche eines Bogens: Feld woche, sonst aus der id (w5t3b → 5), sonst 0
 export function bogenWoche(id, b) {
@@ -850,6 +854,6 @@ export function liveStand(live, eintraege = [], jetzt = Date.now(), grenzeMin = 
   const starts = nach.filter(e => e.typ === 'aufgabe_start');
   return { zustand: live.zustand, aktiv, seit, letzte, thema: (starts.length ? starts[starts.length - 1].thema : live.thema) || null,
     spiel: live.spiel || null, zweck: live.zweck || null,
-    heute: { aufgaben: ende.length, erst: ende.filter(e => e.ergebnis === 'erst').length },
+    heute: { aufgaben: ende.length, erst: ende.filter(e => erstZ(e)).length },
     seitStart: nach.filter(e => e.typ === 'aufgabe_ende').length };
 }

@@ -365,6 +365,6 @@ export function vorschlag(liste) {
 // „Etappe sitzt“: von den letzten 10 fertigen Aufgaben der Etappe mindestens 8 im 1. Versuch, ohne „Hilf mir“ und „Mehr Hilfe“
 export function etappeSitzt(aufgaben) {
   const letzte = aufgaben.slice(-10);
-  const gut = letzte.filter(r => r.ende && r.ende.ergebnis === 'erst' && !r.ende.hilfe && !((r.ende.hinweiseLang || []).length) && !r.ende.langHalb).length;
+  const gut = letzte.filter(r => r.ende && r.ende.ergebnis === 'erst' && !r.ende.gleiche_aufgabe && !r.ende.hilfe && !((r.ende.hinweiseLang || []).length) && !r.ende.langHalb).length;
   return { anzahl: letzte.length, gut, sitzt: letzte.length >= 10 && gut >= 8 };
 }

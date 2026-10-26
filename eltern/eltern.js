@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.44.2';
+export const ELTERN_VERSION = '1.45.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -1197,7 +1197,7 @@ function tageMitAufgaben() {
   const tagVon = (k) => map[k] || (map[k] = { tag: k, anzahl: 0, erst: 0, ms: 0, spiele: 0, spielSek: 0 });
   for (const r of D.daten.aufgaben) {
     const d = tagVon(r.tag);
-    if (r.ende) { d.anzahl++; if (r.ende.ergebnis === 'erst') d.erst++; d.ms += r.ende.ms || 0; }
+    if (r.ende) { d.anzahl++; if (A.erstZ(r.ende)) d.erst++; d.ms += r.ende.ms || 0; }
   }
   for (const sp of D.daten.spiele || []) { const d = tagVon(sp.tag); d.spiele++; d.spielSek += sp.sekunden || 0; }
   return Object.values(map).filter(d => d.anzahl || d.spiele).sort((a, b) => a.tag < b.tag ? 1 : -1);
@@ -1290,7 +1290,7 @@ function filterLeiste() {
 
 function tagZusammenfassung(liste, spiele = []) {
   const fertig = liste.filter(r => r.ende);
-  const erst = fertig.filter(r => r.ende.ergebnis === 'erst').length;
+  const erst = fertig.filter(r => A.erstZ(r.ende)).length;
   const ms = fertig.reduce((s, r) => s + (r.ende.ms || 0), 0);
   const sek = fertig.reduce((s, r) => s + (r.ende.sekunden || 0), 0);
   const gespielt = spiele.reduce((s, sp) => s + (sp.sekunden || 0), 0);

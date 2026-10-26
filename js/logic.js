@@ -408,12 +408,14 @@ export function passtKategorie(a, kategorie, thema) {
 
 // statistik: { [id]: { gesehen, zuletzt (Zähler), letztesErgebnis, letzterTag } }
 // verlauf: { zaehler, letzteIds: [...], themaZuletzt: { [thema]: { ergebnis, stufe } } }
-export function waehleAufgabe(aufgaben, { kategorie, thema, statistik = {}, verlauf = {}, heute }, rng = Math.random) {
+export function waehleAufgabe(aufgaben, { kategorie, thema, statistik = {}, verlauf = {}, heute, gesperrt = null }, rng = Math.random) {
   const zaehler = verlauf.zaehler || 0;
   const letzte = verlauf.letzteIds || [];
   let pool = aufgaben.filter(a => passtKategorie(a, kategorie, thema));
   if (!pool.length) pool = aufgaben.filter(a => !a.bonus);
   if (!pool.length) pool = aufgaben.slice();
+  // Nach „Zeig mir die Lösung“ (Auftrag 32): dieselbe Aufgabe erst nach 20 Minuten Übungszeit
+  if (gesperrt && gesperrt.size) { const o = pool.filter(a => !gesperrt.has(a.id)); if (o.length) pool = o; }
   // nicht direkt wiederholen
   const ohneLetzte = pool.filter(a => !letzte.slice(-4).includes(a.id));
   if (ohneLetzte.length) pool = ohneLetzte;
@@ -429,7 +431,7 @@ export function waehleAufgabe(aufgaben, { kategorie, thema, statistik = {}, verl
     const s = statistik[a.id];
     if (!s) return 1000 + rng();                         // noch nie gesehen
     let p = 0;
-    if (s.letztesErgebnis === 'loesung' && zaehler - s.zuletzt >= 3) p += 2000; // fällig zur Wiederholung
+    if (s.letztesErgebnis === 'loesung' && !s.ersetzt && zaehler - s.zuletzt >= 3) p += 2000; // fällig zur Wiederholung (nicht, wenn schon eine andere Aufgabe derselben Art kam)
     if (s.letzterTag !== heute) p += 500;
     p += Math.min(zaehler - s.zuletzt, 400);              // lange nicht gesehen
     if (s.letztesErgebnis === 'erst') p -= 50;
@@ -981,3 +983,20 @@ export function pruefeKarten(karten, wahl) {
   const falsch = karten.map((k, i) => (wahl[i] === k.richtig ? -1 : i)).filter(i => i >= 0);
   return { richtig: !falsch.length, falsch };
 }
+
+// ---------- Nach „Zeig mir die Lösung“ (Auftrag 32) ----------
+export const LOESUNG_SPERRE_MS = 20 * 60 * 1000; // dieselbe feste Aufgabe frühestens nach 20 Minuten Übungszeit
+// Art einer Baukasten-Aufgabe: gleiche Form bzw. gleiche Wörter vorne in parameter (z. B. Zylinder „O“ mit „r“,
+// Reihenfolge „klammer_negativ“ mit „z“), beim Runden die Stellenzahl, bei Potenzen die Hochzahl.
+export function artSchluessel(a) {
+  if (!a || !a.generator) return '';
+  const p = Array.isArray(a.parameter) ? a.parameter : [];
+  if (a.generator === 'runden') return 'stellen:' + p[1];
+  if (a.generator === 'potenz') return 'hoch:' + p[1];
+  if (a.generator === 'zylinder' && p[0] !== 'gesucht4') return [a.form || '', p[0], p[1], p[4] === 'x' ? 'ohne' : 'geschichte'].join('|');
+  const vorne = [];
+  for (const x of p) { if (typeof x !== 'string' || /^-?[\d,.]+$/.test(x)) break; vorne.push(x); }
+  return [a.form || '', ...vorne].join('|');
+}
+// Ergebnis zählt als „1. Versuch“? Nicht, wenn dieselbe Aufgabe nach einer gezeigten Lösung wiederkam.
+export const erstZaehlt = (ende) => !!ende && ende.ergebnis === 'erst' && !ende.gleiche_aufgabe;

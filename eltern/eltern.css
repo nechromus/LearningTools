@@ -96,6 +96,7 @@ button, select, input { font: inherit; color: inherit; }
 .b-erst { } .badge.b-erst { background: var(--teal-hell); color: var(--teal-dunkel); }
 .badge.b-zweit { background: var(--amber-hell); color: var(--amber-dunkel); }
 .badge.b-loesung, .badge.b-offen { background: var(--linie-hell); color: var(--text); }
+.badge.b-gleich { background: #E8EBEA; color: #4F5E5E; border: 1.5px dashed #8E9A9A; }
 .zurueck { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; font-weight: 700; text-decoration: none; margin-bottom: 4px; }
 
 /* Detail */

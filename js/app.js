@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.30.1';
+export const APP_VERSION = '2.31.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1429,7 +1429,7 @@ function kurzeAufgabe(g, fokus, { leicht = false } = {}) {
   if (P.HALB_POOL.includes(thema)) return halbPoolAufgabe(thema, fokus);
   if (leicht && P.BLOCK_GEN[thema] && Math.random() < 0.4) return G.block(P.BLOCK_GEN[thema], Math.random);
   if (!leicht && Math.random() < 0.15) {
-    const p = L.waehleAufgabe(alleAufgaben().filter(erlaubt), { kategorie: 'thema', thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
+    const p = L.waehleAufgabe(alleAufgaben().filter(erlaubt), { kategorie: 'thema', thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key, gesperrt: loesungGesperrt() });
     if (p && p.thema === thema && !p.geschichte && !p.bonus) return p;
   }
   // Minus-Zahlen: manchmal eine ganz kurze Geldgeschichte (1–2 Sätze), damit Text normal wird
@@ -1443,7 +1443,7 @@ function kurzeAufgabe(g, fokus, { leicht = false } = {}) {
 
 function halbPoolAufgabe(thema, fokus) {
   const ausPool = () => {
-    const p = L.waehleAufgabe(alleAufgaben().filter(a => a.thema === thema && !a.bonus && erlaubt(a)), { kategorie: 'thema', thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
+    const p = L.waehleAufgabe(alleAufgaben().filter(a => a.thema === thema && !a.bonus && erlaubt(a)), { kategorie: 'thema', thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key, gesperrt: loesungGesperrt() });
     return p && p.thema === thema ? p : null;
   };
   const ausBaukasten = () => {
@@ -1457,9 +1457,20 @@ function halbPoolAufgabe(thema, fokus) {
 
 function waehleAufgabe(kategorie) {
   const gAlle = gewichte();
-  const faellig = S.wiederholen.find(w => w.ab <= S.verlauf.zaehler && (gAlle[w.aufgabe.thema] || 0) > 0 && erlaubt(w.aufgabe) && heuteOk(w.aufgabe));
+  const faellig = S.wiederholen.find(w => w.ab <= S.verlauf.zaehler && (gAlle[w.aufgabe.thema] || 0) > 0 && erlaubt(w.aufgabe) && (w.nachLoesung || heuteOk(w.aufgabe))
+    && !(w.feste && w.aufgabe.typ === 'detektiv' && kategorie !== 'struktur'));
   if (faellig && kategorie !== 'abschluss') {
     S.wiederholen = S.wiederholen.filter(w => w !== faellig);
+    // Nach „Zeig mir die Lösung“ (Auftrag 32)
+    if (faellig.nachLoesung) {
+      const auf = faellig.feste ? andereFeste(faellig.aufgabe) : neueZahlen(faellig.aufgabe);
+      if (auf) {
+        if (faellig.feste) { const st = S.statistik[faellig.aufgabe.id]; if (st) st.ersetzt = true; }
+        return { aufgabe: auf, wdh: faellig.wdh, paket: paketFuerThema(auf.thema), nachLoesung: faellig.nachLoesung };
+      }
+      // keine andere feste Aufgabe: dieselbe kommt frühestens nach 20 Minuten Übungszeit über die normale Auswahl
+      return waehleAufgabe(kategorie);
+    }
     // Nach dem Hinweis gegen Durchklicken: dieselbe oder eine ähnliche Aufgabe, mit Bonuszeit (Auftrag 18)
     const auf = faellig.bonus ? aehnlicheAufgabe(faellig.aufgabe) : faellig.aufgabe;
     return { aufgabe: auf, wdh: faellig.wdh, paket: paketFuerThema(auf.thema), bonus: !!faellig.bonus };
@@ -1522,7 +1533,30 @@ function knappeThemen() {
   knappCache = { n: alleAufgaben().length, s };
   return s;
 }
-const heuteOk = (a) => !a || ((S.tag.ids || {})[a.id] || 0) < (!a.generator && knappeThemen().has(a.thema) ? 1 : 2);
+const heuteOk = (a) => !a || (((S.tag.ids || {})[a.id] || 0) < (!a.generator && knappeThemen().has(a.thema) ? 1 : 2) && !loesungGesperrt().has(a.id));
+// ---------- Nach „Zeig mir die Lösung“ (Auftrag 32) ----------
+// Baukasten: dieselbe Art mit neuen Zahlen. Feste Aufgaben: lieber eine andere derselben Art und Stufe,
+// dieselbe erst nach 20 Minuten Übungszeit (S.verlauf.loesung: id → Übungszeit beim Zeigen der Lösung).
+const uebMs = () => S.verlauf.uebMs || 0;
+function loesungGesperrt() { const m = S.verlauf.loesung || {}; return new Set(Object.keys(m).filter(id => uebMs() - m[id] < L.LOESUNG_SPERRE_MS)); }
+function neueZahlen(a) {
+  if (!a.generator || !G.GENERATOREN[a.generator]) return null;
+  const k = L.artSchluessel(a);
+  let ersatz = null;
+  for (let i = 0; i < 40; i++) {
+    const b = erzeuge(a.generator, a.stufe || 1, a.variante ? { variante: a.variante } : {});
+    if (!b || b.id === a.id) continue;
+    if (L.artSchluessel(b) === k) return b;
+    ersatz = ersatz || b;
+  }
+  return ersatz;
+}
+function andereFeste(a) {
+  const heute = S.tag.ids || {}, gesp = loesungGesperrt();
+  const andere = alleAufgaben().filter(x => x.id !== a.id && !x.generator && x.thema === a.thema && (x.stufe || 1) === (a.stufe || 1) && (x.typ === 'detektiv') === (a.typ === 'detektiv')
+    && !x.bonus && !heute[x.id] && !gesp.has(x.id) && erlaubt(x) && heuteOk(x) && (x.typ !== 'detektiv' || detektivHeute(x.id) < 2));
+  return andere.length ? wahl(andere) : null;
+}
 function heuteZaehlen(a) { const t = heuteTag(); t.ids[a.id] = (t.ids[a.id] || 0) + 1; t.gestartet++; }
 function paketZeitBuchen(paket, ms) { if (!paket || !(ms > 0)) return; const t = heuteTag(); t.paketMs[paket] = (t.paketMs[paket] || 0) + Math.min(ms, 10 * 60000); }
 function simBuchen(a, paket, ms) { heuteZaehlen(a); paketZeitBuchen(paket, ms); }
@@ -1698,7 +1732,7 @@ function etappeMindestAufgabe(nur = null) {
     if (wp) { const arten = wpArtenJetzt(wp), ist = W.wpIst(arten, wpZustand(wp).ms); const a = ist.find(x => x.themen.some(t => g[t] > 0)); if (a && a.ms > 0 && a.ist > a.soll) continue; }
     const pool = alleAufgaben().filter(a => ne.ids.includes(a.id) && a.typ !== 'detektiv' && !a.bonus && (g[a.thema] || 0) > 0 && erlaubt(a));
     const gens = ne.gens.filter(x => G.GENERATOREN[x.generator] && !LP.baukastenGrenze(x.generator, grenzen()).gesperrt);
-    const ausPool = () => (pool.length ? L.waehleAufgabe(pool, { kategorie: 'alle', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key }) : null);
+    const ausPool = () => (pool.length ? L.waehleAufgabe(pool, { kategorie: 'alle', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key, gesperrt: loesungGesperrt() }) : null);
     const ausGen = () => { if (!gens.length) return null; const x = wahl(gens); const b = erzeuge(x.generator, x.stufe); if (b) b.etappeMindest = true; return b; };
     const a = Math.random() < 0.5 ? ausPool() || ausGen() : ausGen() || ausPool();
     if (a && erlaubt(a) && heuteOk(a) && (!nur || nur.themen.includes(a.thema))) { if (!nur) protokoll(S, 'etappe_mindest', { paket: p.id, etappe: ne.etappe, id: a.id, seit: z - zul[k] }); return { aufgabe: a, wdh: 0, paket: p.id }; }
@@ -1717,7 +1751,7 @@ function waehleIn(kategorie, g, ersatz, ohneDetektiv = false) {
   // Nur Aufgaben aus Themen, die im Paket an sind und deren Etappe erlaubt ist
   const pool = alleAufgaben().filter(a => (g[a.thema] || 0) > 0 && erlaubt(a) && heuteOk(a));
   const ausPool = (k, thema) => {
-    const a = L.waehleAufgabe(pool, { kategorie: k, thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
+    const a = L.waehleAufgabe(pool, { kategorie: k, thema, statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key, gesperrt: loesungGesperrt() });
     return a && L.passtKategorie(a, k, thema) && (g[a.thema] || 0) > 0 ? a : null;
   };
   const poolGewicht = (k) => {
@@ -1737,7 +1771,7 @@ function waehleIn(kategorie, g, ersatz, ohneDetektiv = false) {
   // Fehler-Detektiv (Auftrag 17): höchstens 1 pro 10 Aufgaben, auf dem Platz „Schritte“ oder „Abschluss“
   if (!ohneDetektiv && ['struktur', 'abschluss'].includes(kategorie) && S.verlauf.zaehler - (S.verlauf.detektivZuletzt ?? -100) >= 10 && Math.random() < 0.5) {
     const d = pool.filter(x => x.typ === 'detektiv' && detektivHeute(x.id) < 2);
-    if (d.length) a = L.waehleAufgabe(d, { kategorie: 'detektiv', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key });
+    if (d.length) a = L.waehleAufgabe(d, { kategorie: 'detektiv', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key, gesperrt: loesungGesperrt() });
     if (a) return { aufgabe: a, wdh: 0 };
   }
   switch (kategorie) {
@@ -1797,7 +1831,7 @@ function waehleIn(kategorie, g, ersatz, ohneDetektiv = false) {
   if (a && !erlaubt(a)) a = null;
   if (!a && !ersatz) return { aufgabe: null, wdh: 0 };
   if (!a) a = kurzeAufgabe(g, fokus);
-  if (!a) { const rest = pool.filter(x => !x.bonus); a = rest.length ? L.waehleAufgabe(rest, { kategorie: 'alle', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key }) : null; }
+  if (!a) { const rest = pool.filter(x => !x.bonus); a = rest.length ? L.waehleAufgabe(rest, { kategorie: 'alle', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key, gesperrt: loesungGesperrt() }) : null; }
   if (!a) a = einmaleinsBlock(1);
   return { aufgabe: a, wdh: 0 };
 }
@@ -1811,7 +1845,7 @@ function serieWeiter() {
 
 function startInfoVon(A, extra = {}) {
   const aufgabe = A.aufgabe;
-  const startInfo = { id: aufgabe.id, thema: aufgabe.thema, stufe: aufgabe.stufe, aufgabenTyp: aufgabe.typ, kategorie: A.kategorie, serienPos: A.serienPos, bonus: !!aufgabe.bonus, wiederholung: A.wdh || 0,
+  const startInfo = { id: aufgabe.id, thema: aufgabe.thema, stufe: aufgabe.stufe, aufgabenTyp: aufgabe.typ, kategorie: A.kategorie, serienPos: A.serienPos, bonus: !!aufgabe.bonus, wiederholung: A.wdh || 0, ...(A.nachLoesung ? { nach_loesung: A.nachLoesung } : {}),
     ...(A.paket ? { paket: A.paket } : {}), ...(A.etappe != null ? { etappe: A.etappe } : {}), ...(A.ausgleich ? { ausgleich: true } : {}), ...(A.wp ? { wochenplan: A.wp.grund, ...(A.wp.art ? { wp_art: A.wp.art } : {}) } : {}), ...extra };
   if (aufgabe.generator) Object.assign(startInfo, {
     generator: aufgabe.generator, parameter: aufgabe.parameter, rechnung: aufgabe.rechnung, geschichte: aufgabe.geschichte,
@@ -1861,7 +1895,7 @@ function neueAufgabe() {
     return;
   }
   const fokus = testFokus();
-  let kategorie, aufgabe, wdh = 0, bonusWdh = false, ausgleich = false, wpInfo = null;
+  let kategorie, aufgabe, wdh = 0, bonusWdh = false, ausgleich = false, wpInfo = null, nachLoesung = null;
   if (!fokus) { wpEingriffeMelden(); wpPlanIst('tag'); }
   if (fokus) {
     kategorie = 'test';
@@ -1871,7 +1905,7 @@ function neueAufgabe() {
   if (!aufgabe) {
     etappenAktualisieren();
     kategorie = MUSTER[S.verlauf.musterIndex % MUSTER.length];
-    ({ aufgabe, wdh, paket: paketId, bonus: bonusWdh = false, ausgleich = false, wp: wpInfo = null } = waehleBegrenzt(kategorie));
+    ({ aufgabe, wdh, paket: paketId, bonus: bonusWdh = false, ausgleich = false, wp: wpInfo = null, nachLoesung = null } = waehleBegrenzt(kategorie));
     S.verlauf.musterIndex++;
   }
   A = {
@@ -1879,6 +1913,9 @@ function neueAufgabe() {
     teile: teileVon(aufgabe), idx: 0, phase: 'eingabe', hinweise: [], verlassen: 0, strafe: 'keine',
     fertig: false, meldung: null, feld: 'z', wdh, test: !!fokus, ...paketInfo(paketId), ...(bonusWdh ? { bonusWdh: true } : {}), ...(ausgleich ? { ausgleich: true } : {}), ...(wpInfo ? { wp: wpInfo } : {})
   };
+  // Nach „Zeig mir die Lösung“: neue Aufgabe derselben Art (nachLoesung) oder dieselbe Aufgabe wieder (gleich)
+  if (!A.test && (S.verlauf.loesung || {})[aufgabe.id] != null) { A.gleich = true; A.nachLoesung = aufgabe.id; }
+  else if (nachLoesung) A.nachLoesung = nachLoesung;
   // Geschichten Satz für Satz zeigen (weniger Text auf einmal)
   if (aufgabe.geschichte && L.saetzeVon(aufgabe.geschichte).length > 1 && bed('satzweise')) A.satz = 1;
   teileStarten(A.teile);
@@ -3154,10 +3191,14 @@ function abschliessen() {
     A.sz = { voll: BS.szRestSek(S.szRegeln, S.tag.key, S.tag.verdient) <= 0, gekappt: plus < spielSek };
   }
   S.tag.aufgaben++;
-  if (ergebnis === 'erst') S.tag.ersterVersuch++;
+  if (ergebnis === 'erst' && !A.gleich) S.tag.ersterVersuch++;
   if (!a.generator) {
     const st = S.statistik[a.id] || (S.statistik[a.id] = { gesehen: 0 });
-    st.gesehen++; st.zuletzt = S.verlauf.zaehler; st.letztesErgebnis = ergebnis; st.letzterTag = S.tag.key;
+    st.gesehen++; st.zuletzt = S.verlauf.zaehler; st.letztesErgebnis = ergebnis; st.letzterTag = S.tag.key; delete st.ersetzt;
+    if (ergebnis === 'loesung' && !A.test && !A.durchklick && (A.wdh || 0) < 2) {
+      S.verlauf.loesung = { ...(S.verlauf.loesung || {}), [a.id]: uebMs() };
+      S.wiederholen = [...S.wiederholen, { ab: S.verlauf.zaehler + 3, aufgabe: a, wdh: (A.wdh || 0) + 1, nachLoesung: a.id, feste: true }].slice(-10);
+    }
   } else {
     // Einmaleins-Dreierblöcke (außer auf dem Einstiegsplatz) zählen für die Stufe des Einmaleins
     const g = a.generator === 'block-einmaleins' && a.stufeZaehlt ? 'einmaleins' : a.generator;
@@ -3168,11 +3209,12 @@ function abschliessen() {
       else if (ergebnis === 'zweit') st.folge = 0;
       else { if (st.stufe > 1) { st.stufe--; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } st.folge = 0; }
     }
-    if (ergebnis === 'loesung' && !A.test && !A.durchklick && (A.wdh || 0) < 2) S.wiederholen = [...S.wiederholen, { ab: S.verlauf.zaehler + 3, aufgabe: a, wdh: (A.wdh || 0) + 1 }].slice(-10);
+    if (ergebnis === 'loesung' && !A.test && !A.durchklick && (A.wdh || 0) < 2) S.wiederholen = [...S.wiederholen, { ab: S.verlauf.zaehler + 3, aufgabe: a, wdh: (A.wdh || 0) + 1, nachLoesung: a.id }].slice(-10);
   }
   // Nach dem Hinweis gegen Durchklicken kommt diese oder eine ähnliche Aufgabe wieder, mit Bonuszeit
   if (A.durchklick && !A.test) S.wiederholen = [...S.wiederholen, { ab: S.verlauf.zaehler + 3, aufgabe: a, wdh: (A.wdh || 0) + 1, bonus: true }].slice(-10);
-  if (!A.test) { paketZeitBuchen(A.paket, Date.now() - A.start); wpBuchen(a, Date.now() - A.start); }
+  if (!A.test) { paketZeitBuchen(A.paket, Date.now() - A.start); wpBuchen(a, Date.now() - A.start); S.verlauf.uebMs = uebMs() + Math.min(Date.now() - A.start, 10 * 60 * 1000); }
+  if (A.gleich && ergebnis !== 'loesung' && S.verlauf.loesung) { const m = { ...S.verlauf.loesung }; delete m[a.id]; S.verlauf.loesung = m; }
   S.verlauf.zaehler++;
   if (a.form && !A.test) { const fz = S.verlauf.formZaehler || (S.verlauf.formZaehler = {}); fz[a.form] = (fz[a.form] || 0) + 1; }
   S.verlauf.themaZuletzt[a.thema] = { ergebnis, stufe: a.stufe };
@@ -3186,7 +3228,7 @@ function abschliessen() {
     ...(A.paket ? { paket: A.paket } : {}), ...(A.etappe != null ? { etappe: A.etappe } : {}),
     strafe: A.strafe, rechnerOptional: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, verlassen: A.verlassen, ms: Date.now() - A.start, hinweise: A.hinweise.slice(), hinweiseLang: (A.hinweiseLang || []).slice(), langHalb: !!A.langHalb,
     bonusTeile: A.teile.filter(t => t.bonus).map(t => t.status), merkTeile: A.teile.filter(t => t.merk).map(t => t.status),
-    generator: a.generator || null,
+    generator: a.generator || null, ...(A.gleich ? { gleiche_aufgabe: true } : {}),
     muehe: A.muehe, muehGruppe: A.muehGruppe, bonus_wiederholung: !!A.bonusZeit, ...(A.extra != null ? { extra: A.extra } : {}),
     ...(schnell ? { zuSchnell: pflicht.reduce((n, t) => n + (t.schnell || 0), 0) } : {}), ...(A.durchklick ? { durchklick: true } : {}),
     ...(a.modus === 'knobeln' ? { knobeln: true, schritte: !!A.schritteAn } : {}), ...(a.fach ? { fach: a.fach } : {}), ...(A.wp ? { wp: A.wp } : {})
@@ -4259,7 +4301,7 @@ function zusammenfassung(tage = 7) {
     const th = e.thema && (proThema[e.thema] || (proThema[e.thema] = { aufgaben: 0, erst: 0, zweit: 0, loesung: 0, hinweise: 0 }));
     if (e.typ === 'aufgabe_ende') {
       aufgaben++; th.aufgaben++; th[e.ergebnis]++;
-      if (e.ergebnis === 'erst') erst++;
+      if (L.erstZaehlt(e)) erst++;
       if (e.ergebnis === 'loesung') loesung++;
       if (e.hinweise && e.hinweise.length) th.hinweise++;
     }
