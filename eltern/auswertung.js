@@ -675,6 +675,7 @@ export function bogenFeedbackDatei(kind, id, e, jetzt = new Date()) {
     format: 'bogen-feedback-1', kind, bogen: id,
     ...(e.von ? { von: e.von } : {}), gemacht: e.gemacht || tagKey(jetzt), gespeichert: lokal,
     ...(e.anfang ? { anfang: e.anfang } : {}), ...(e.stimmung ? { stimmung: e.stimmung } : {}), ...(e.hinweisblatt ? { hinweisblatt: e.hinweisblatt } : {}), ...(e.dauer ? { dauer: e.dauer } : {}),
+    ...(e.zeit && e.zeit.minuten > 0 ? { zeit: { quelle: e.zeit.quelle === 'knopf' ? 'knopf' : 'hand', ...(e.zeit.start ? { start: e.zeit.start } : {}), ...(e.zeit.ende ? { ende: e.zeit.ende } : {}), ...(e.zeit.pausen && e.zeit.pausen.length ? { pausen: e.zeit.pausen } : {}), minuten: e.zeit.minuten } } : {}),
     uebungen, ...(String(e.sonst || '').trim() ? { sonst: String(e.sonst).trim() } : {}), ...(e.frei ? { ohne_bogen: true } : {})
   };
 }
@@ -683,7 +684,7 @@ export function bogenFeedbackEntwurf(f) {
   if (!f || f.format !== 'bogen-feedback-1') return null;
   const uebungen = {};
   for (const [nr, x] of Object.entries(f.uebungen || {})) uebungen[nr] = { ergebnis: x.ergebnis || 'klappt', chips: x.chips || [], notiz: x.notiz || '', fotos: (x.fotos || []).map(name => ({ name })), ...(x.bonus && x.bonus.ergebnis ? { bonus: { ergebnis: x.bonus.ergebnis, notiz: x.bonus.notiz || '' } } : {}) };
-  return { von: f.von || '', gemacht: f.gemacht, anfang: f.anfang || '', stimmung: f.stimmung || '', hinweisblatt: f.hinweisblatt || '', dauer: f.dauer || null, uebungen, sonst: f.sonst || '', gesehen: Object.keys(uebungen), frei: !!f.ohne_bogen };
+  return { von: f.von || '', gemacht: f.gemacht, anfang: f.anfang || '', stimmung: f.stimmung || '', hinweisblatt: f.hinweisblatt || '', dauer: f.dauer || null, ...(f.zeit ? { zeit: f.zeit } : {}), uebungen, sonst: f.sonst || '', gesehen: Object.keys(uebungen), frei: !!f.ohne_bogen };
 }
 
 // ---------- Hinweisblatt zum Ausdrucken (Auftrag 26) ----------
@@ -856,4 +857,98 @@ export function liveStand(live, eintraege = [], jetzt = Date.now(), grenzeMin = 
     spiel: live.spiel || null, zweck: live.zweck || null,
     heute: { aufgaben: ende.length, erst: ende.filter(e => erstZ(e)).length },
     seitStart: nach.filter(e => e.typ === 'aufgabe_ende').length };
+}
+
+// ---------- Bögen auf der Übersicht, Übungszeit App/Bogen, Zeit messen (Auftrag 34) ----------
+// Zeilen des Lernplans (bogen.json → uebungen[].row) → Themen der App
+export const ROW_THEMEN = {
+  einmal: ['einmaleins'], minus: ['minus-zahlen'], mal10: ['mal-10'], prozent: ['prozent'], rabatt: ['rabatt', 'neuer-preis'],
+  zyl: ['zylinder'], z1: ['zylinder'], z2: ['zylinder'], z3: ['zylinder'], z4: ['zylinder'], zw: ['zylinder'],
+  runden: ['runden'], potenz: ['potenzen'], reihen: ['reihenfolge'], bruch: ['bruch-bild', 'zuordnung'], bw: ['bruch-bild'], kugel: ['kugel'],
+  kreis: ['kreisdiagramm'], formel: ['prozent-formel'], bauk: ['prozent-baukasten'], kp: ['kegel', 'pyramide'], k1: ['kegel', 'pyramide'], k2: ['kegel', 'pyramide']
+};
+export const PAPIER_FAKTOR_START = 2.0;
+const AUFGABE_MAX_MS = 10 * 60 * 1000;
+// Montag bis Sonntag der Woche von tag
+export function wocheVon(tag) {
+  const d = new Date(tag + 'T12:00:00'), wt = (d.getDay() + 6) % 7;
+  return Array.from({ length: 7 }, (_, i) => { const x = new Date(d); x.setDate(d.getDate() - wt + i); return tagKey(x); });
+}
+// App-Zeit je Tag in Minuten (je Aufgabe höchstens 10 Min.)
+export function appMinutenJeTag(aufgaben) {
+  const t = {};
+  for (const r of aufgaben || []) if (r.ende) t[r.tag] = (t[r.tag] || 0) + Math.min(r.ende.ms || 0, AUFGABE_MAX_MS) / 60000;
+  return t;
+}
+// Teilaufgaben einer App-Aufgabe (Zahl der Felder)
+export function teileVon(r, a) {
+  if (r && r.start && Array.isArray(r.start.teile) && r.start.teile.length) return r.start.teile.filter(Boolean).length || 1;
+  if (a) {
+    if (Array.isArray(a.fragen)) return a.fragen.length || 1;
+    if (Array.isArray(a.schritte)) return a.schritte.filter(s => s && s.wert != null).length || 1;
+    if (Array.isArray(a.gruppen)) return a.gruppen.length || 1;
+  }
+  return 1;
+}
+const median = (l) => { if (!l.length) return null; const s = l.slice().sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+// App-Minuten je Teilaufgabe: Median der letzten 14 Tage je Thema und über alle (ohne „Lösung gezeigt“ und gleiche Aufgabe)
+export function appJeTeil(aufgaben, pool, bis, tage = 14) {
+  const ab = (() => { const d = new Date(bis + 'T12:00:00'); d.setDate(d.getDate() - (tage - 1)); return tagKey(d); })();
+  const je = {}, alle = [];
+  for (const r of aufgaben || []) {
+    if (!r.ende || r.tag < ab || r.tag > bis || r.ende.ergebnis === 'loesung' || r.ende.gleiche_aufgabe) continue;
+    const v = Math.min(r.ende.ms || 0, AUFGABE_MAX_MS) / 60000 / teileVon(r, aufgabeVon(r, pool));
+    if (!(v > 0)) continue;
+    (je[r.thema] || (je[r.thema] = [])).push(v); alle.push(v);
+  }
+  return { je: Object.fromEntries(Object.entries(je).map(([k, l]) => [k, median(l)])), alle: median(alle) };
+}
+// Schätzung eines Bogens ohne Papier-Faktor (Minuten): je Übung Teilaufgaben × App-Minuten je Teilaufgabe des Themas
+export function bogenRoh(b, fb, jt) {
+  if (!b) return null;
+  let s = 0;
+  for (const u of b.uebungen || []) {
+    const erg = fb && fb.uebungen && fb.uebungen[u.nr] && fb.uebungen[u.nr].ergebnis;
+    if (erg === 'ausgelassen') continue;
+    const teile = Array.isArray(u.teile) && u.teile.length ? u.teile.length : 1;
+    const th = [...new Set((Array.isArray(u.row) ? u.row : u.row ? [u.row] : []).flatMap(r => ROW_THEMEN[r] || []))];
+    const werte = th.map(t => jt.je[t]).filter(v => v > 0);
+    const m = werte.length ? werte.reduce((x, y) => x + y, 0) / werte.length : jt.alle;
+    if (m > 0) s += teile * m;
+  }
+  return s;
+}
+// Papier-Faktor: Mittel aus gemessen : Schätzung über Bögen mit gemessener oder eingetragener Zeit, ab 2 Bögen, sonst 2,0
+export function papierFaktor(paare) {
+  const l = (paare || []).filter(p => p.gemessen > 0 && p.roh > 0).map(p => p.gemessen / p.roh);
+  return l.length >= 2 ? Math.round(l.reduce((x, y) => x + y, 0) / l.length * 10) / 10 : PAPIER_FAKTOR_START;
+}
+export const auf5 = (m) => Math.max(5, Math.round(m / 5) * 5);
+// Zeitmessung (bogen-feedback/<id>.zeit.json, Format bogen-zeit-1): Minuten ohne Pausen
+const ms = (t) => new Date(t).getTime();
+export function zeitMinuten(z, jetzt = Date.now()) {
+  if (!z || !z.start) return null;
+  const ende = z.ende ? ms(z.ende) : jetzt;
+  const pause = (z.pausen || []).reduce((s, [a, b]) => s + Math.max(0, (b ? ms(b) : ende) - ms(a)), 0);
+  return Math.max(0, Math.round((ende - ms(z.start) - pause) / 60000));
+}
+export const zeitPausiert = (z) => !!(z && z.laeuft && (z.pausen || []).some(p => !p[1]));
+export function zeitNorm(z) {
+  if (!z || z.format !== 'bogen-zeit-1' || !z.start) return null;
+  return { ...z, pausen: Array.isArray(z.pausen) ? z.pausen.filter(p => Array.isArray(p) && p[0]) : [] };
+}
+// Gemessene oder eingetragene Bogen-Zeit aus dem Feedback: { minuten, quelle } oder null
+export function bogenZeitAusFeedback(fb) {
+  if (!fb) return null;
+  if (fb.zeit && fb.zeit.minuten > 0) return { minuten: fb.zeit.minuten, quelle: fb.zeit.quelle === 'knopf' ? 'knopf' : 'hand' };
+  if (fb.dauer > 0) return { minuten: fb.dauer, quelle: 'hand' };
+  return null;
+}
+// Ampel je Übung aus dem Feedback (Übungen ohne Eintrag: klappt)
+export const AMPEL = { 'klappt': 'gruen', 'mit Hilfe': 'gelb', 'nicht verstanden': 'rot', 'ausgelassen': 'grau', 'nicht versucht': 'grau' };
+export function bogenAmpel(b, fb) {
+  return (b ? b.uebungen : []).map(u => {
+    const x = fb && fb.uebungen && fb.uebungen[u.nr];
+    return { nr: u.nr, titel: u.titel || '', ergebnis: fb ? (x && x.ergebnis) || 'klappt' : null, bonus: x && x.bonus ? x.bonus.ergebnis : (u.bonusTeile ? (fb ? 'offen' : null) : null), notiz: (x && x.notiz) || '' };
+  });
 }

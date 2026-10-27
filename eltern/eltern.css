@@ -604,3 +604,55 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .fo-seiten { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .fo-seiten .hb-platz, .fo-seiten img { aspect-ratio: 794 / 1123; }
 .hb-warn a.hb-warn-knopf { display: flex; align-items: center; justify-content: center; text-decoration: none; }
+
+/* Auftrag 34: Bögen auf der Übersicht, Übungszeit, Zeit messen */
+.bgk { display: flex; flex-direction: column; gap: 8px; }
+.bgk .karte-kopf a { margin-left: auto; }
+.bgk-heute { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+.bgk-titel { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.bgk-ampel { display: flex; flex-wrap: wrap; gap: 5px; }
+.bgk-p { position: relative; display: inline-block; width: 16px; height: 16px; border-radius: 50%; background: #E8EBEA; border: 1.5px solid rgba(0,0,0,.15); vertical-align: middle; }
+.bgk-p.a-gruen { background: #4E9A55; } .bgk-p.a-gelb { background: #E3A62B; } .bgk-p.a-rot { background: #C4513A; } .bgk-p.a-grau { background: #B9C0BF; } .bgk-p.a-offen { background: #fff; border-style: dashed; }
+.bgk-bonus { position: absolute; right: -5px; top: -5px; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #fff; background: #B9C0BF; }
+.bgk-bonus.a-gruen { background: #4E9A55; } .bgk-bonus.a-gelb { background: #E3A62B; } .bgk-bonus.a-rot { background: #C4513A; }
+.bgk-meta { margin: 0; }
+.bgk-probleme { display: flex; flex-direction: column; gap: 4px; }
+.bgk-pz { display: flex; align-items: flex-start; gap: 8px; padding: 6px 4px; border-top: 1px solid var(--linie-hell); text-decoration: none; color: inherit; }
+.bgk-pz > span:nth-child(2) { flex: 1; min-width: 0; }
+.bgk-h3 { font-size: 14px; margin: 6px 0 0; color: var(--gedaempft); }
+.bgk-woche { display: flex; flex-direction: column; }
+.bgk-w { display: grid; grid-template-columns: 30px minmax(70px, auto) 1fr auto; align-items: center; gap: 8px; padding: 7px 2px; border-top: 1px solid var(--linie-hell); text-decoration: none; color: inherit; font-size: 14px; }
+.bgk-w.offen { color: var(--gedaempft); }
+.bgk-w .bgk-p { width: 12px; height: 12px; }
+.bgk-w .bgk-ampel { gap: 3px; }
+.bgk-wt { font-weight: 700; }
+.bgk-wd { text-align: right; white-space: nowrap; }
+.gesch { border-bottom: 2px dashed var(--amber); }
+.bgk-leg { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 4px 0 0; }
+.bgk-leg .bgk-p { width: 10px; height: 10px; }
+.uz-tab { width: 100%; border-collapse: collapse; font-size: 14px; }
+.uz-tab th, .uz-tab td { padding: 6px 4px; text-align: right; border-bottom: 1px solid var(--linie-hell); }
+.uz-tab th:first-child { text-align: left; }
+.uz-tab thead th { font-size: 12px; color: var(--gedaempft); }
+.uz-tab td.gesch { border-bottom: 2px dashed var(--amber); }
+.uz-balken { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; height: 110px; margin: 10px 0 4px; align-items: end; }
+.uz-sp { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 2px; }
+.uz-sp.heute .uz-tag { font-weight: 700; color: var(--text); }
+.uz-zahl { font-size: 11px; color: var(--gedaempft); }
+.uz-stapel { width: 70%; max-width: 28px; display: flex; flex-direction: column; border-radius: 4px 4px 0 0; overflow: hidden; min-height: 0; }
+.uz-a { background: var(--teal); } .uz-b { background: var(--gold); } .uz-b.gesch { background: repeating-linear-gradient(45deg, var(--gold) 0 4px, #fff 4px 8px); }
+.uz-tag { font-size: 12px; color: var(--gedaempft); }
+.bgz { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1.5px solid var(--linie); border-radius: 14px; background: #fff; }
+.bgz-an { border-color: var(--teal); background: var(--teal-hell); }
+.bgz-an.pausiert { border-color: var(--amber); background: var(--amber-hell); }
+.bgz-kopf { display: flex; align-items: baseline; gap: 10px; }
+.bgz-uhr { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bgz-knoepfe { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.bgz-knoepfe .knopf { min-height: 46px; }
+.bgz-start { min-height: 48px; }
+.bgz-vergessen { display: flex; flex-direction: column; gap: 6px; }
+.bgz-ende { display: flex; gap: 8px; }
+.bgz-ende input { font-size: 16px; padding: 8px; border: 1.5px solid var(--linie); border-radius: 10px; }
+.bg-dauer-zeile { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.bg-dauer-feld { width: 110px; font-size: 18px; padding: 10px; border: 1.5px solid var(--linie); border-radius: 10px; }
+.bgk-bonus.a-offen, .bgk-bonus.a-grau { background: #fff; border-color: #8E9A9A; }

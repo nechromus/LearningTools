@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.46.0';
+export const ELTERN_VERSION = '1.47.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -432,7 +432,7 @@ function berichtKachel() {
 // ---------- Bögen und Bogen-Feedback (Auftrag 25) ----------
 // daten/<name>/boegen/<id>/ (bogen.json, aufgaben.pdf, loesungen.pdf, bilder/) legt der Kinder-Chat an.
 // Das Feedback schreibt die Eltern-App nach daten/<name>/bogen-feedback/<id>.json (Fotos unter fotos/). Zwischenstand auf dem Gerät.
-const BG = { kind: null, liste: null, laedt: false, fehler: null, boegen: {}, fb: {}, bilder: {}, pdf: {}, zeig: {}, meldung: null, speichert: false, hb: null, hbG: null, hbPdf: {}, hbAlt: {}, hbMeldung: null, hbSchreibt: false, fo: null, foG: null, foPdf: {}, foAlt: {}, foMeldung: null, foSchreibt: false, wochenAuf: {} };
+const BG = { kind: null, liste: null, laedt: false, fehler: null, boegen: {}, fb: {}, bilder: {}, pdf: {}, zeig: {}, meldung: null, speichert: false, hb: null, hbG: null, hbPdf: {}, hbAlt: {}, hbMeldung: null, hbSchreibt: false, fo: null, foG: null, foPdf: {}, foAlt: {}, foMeldung: null, foSchreibt: false, wochenAuf: {}, zeit: {}, zeitSchreibt: false, zeitMeldung: null };
 function boegenAn() { const w = D.daten && D.daten.einst && D.daten.einst.werte; return !!(w && w.boegen_feedback === true); }
 const bgKey = (id) => `bogen-fb:${C.nutzer}:${id}`;
 function bgEntwurf(id) {
@@ -453,15 +453,17 @@ function bgGesehen(id, nr) { const e = bgEntwurf(id); if (!e.gesehen.includes(nr
 async function bgLaden(neu = false) {
   const o = C.nutzer;
   if (BG.laedt || (BG.kind === o && BG.liste && !neu)) return;
-  if (BG.kind !== o) Object.assign(BG, { kind: o, liste: null, boegen: {}, fb: {}, bilder: {}, pdf: {}, zeig: {}, entwuerfe: {}, hb: null, hbG: null, hbPdf: {}, hbAlt: {}, hbMeldung: null, fo: null, foG: null, foPdf: {}, foAlt: {}, foMeldung: null });
+  if (BG.kind !== o) Object.assign(BG, { kind: o, liste: null, boegen: {}, fb: {}, bilder: {}, pdf: {}, zeig: {}, entwuerfe: {}, hb: null, hbG: null, hbPdf: {}, hbAlt: {}, hbMeldung: null, fo: null, foG: null, foPdf: {}, foAlt: {}, foMeldung: null, zeit: {} });
   BG.laedt = true; BG.fehler = null; zeichne();
   try {
     const [ordner, fbs] = await Promise.all([U.ordnerLesen(C, `daten/${o}/boegen`), U.ordnerLesen(C, `daten/${o}/bogen-feedback`)]);
     const ids = ordner.filter(x => x.type === 'dir').map(x => x.name);
-    const fbIds = fbs.filter(x => x.type === 'file' && x.name.endsWith('.json')).map(x => x.name.slice(0, -5));
+    const fbIds = fbs.filter(x => x.type === 'file' && x.name.endsWith('.json') && !x.name.endsWith('.zeit.json')).map(x => x.name.slice(0, -5));
+    const zeitIds = fbs.filter(x => x.type === 'file' && x.name.endsWith('.zeit.json')).map(x => x.name.slice(0, -10));
     await Promise.all([
       ...ids.filter(id => neu || !BG.boegen[id]).map(id => U.dateiLesen(C, `daten/${o}/boegen/${id}/bogen.json`).then(b => { BG.boegen[id] = A.bogenNorm(b); }).catch(() => { BG.boegen[id] = null; })),
       ...fbIds.map(id => U.dateiLesen(C, `daten/${o}/bogen-feedback/${id}.json`).then(x => { BG.fb[id] = x; }).catch(() => {})),
+      ...zeitIds.map(id => U.dateiLesen(C, ZEIT(o, id)).then(x => { BG.zeit[id] = A.zeitNorm(x); }).catch(() => {})),
       hbLaden(o), foLaden(o)
     ]);
     const lokal = [];
@@ -688,6 +690,139 @@ async function foHaken(id) {
   } catch (e) { BG.foMeldung = { art: 'fehler', text: e.message || 'Speichern hat nicht geklappt.' }; }
   BG.foSchreibt = false; zeichne();
 }
+// ---------- Zeit messen (Auftrag 34): bogen-feedback/<id>.zeit.json (bogen-zeit-1), für beide Eltern sichtbar ----------
+// Eigene Datei, damit eine laufende Messung nicht wie ein fertiges Feedback aussieht (Übungen ohne Eintrag gelten dort als „klappt“).
+const ZEIT = (o, id) => `daten/${o}/bogen-feedback/${id}.zeit.json`;
+const VERGESSEN_MS = 3 * 60 * 60 * 1000;
+function laufSek(z) {
+  if (!z || !z.start) return 0;
+  const ende = z.ende ? new Date(z.ende).getTime() : Date.now();
+  const pause = (z.pausen || []).reduce((s, [a, b]) => s + Math.max(0, (b ? new Date(b).getTime() : ende) - new Date(a).getTime()), 0);
+  return Math.max(0, Math.floor((ende - new Date(z.start).getTime() - pause) / 1000));
+}
+const uhrText = (sek) => `${Math.floor(sek / 60)}:${String(sek % 60).padStart(2, '0')}`;
+const uhrZeit = (iso) => new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+// In den Entwurf: gemessene Zeit, Dauer vorausgefüllt
+function zeitInsFeedback(id, z) {
+  const e = bgEntwurf(id), min = A.zeitMinuten(z);
+  e.zeit = { quelle: 'knopf', start: z.start, ende: z.ende, pausen: (z.pausen || []).filter(p => p[1]), minuten: min };
+  e.dauer = min || null;
+  bgSichern(id, e);
+}
+async function bgZeit(id, art, wert) {
+  const o = C.nutzer;
+  if (BG.zeitSchreibt) return;
+  BG.zeitSchreibt = true; BG.zeitMeldung = null; zeichne();
+  try {
+    let z = A.zeitNorm(await U.dateiLesen(C, ZEIT(o, id)).catch(() => null));
+    const jetzt = jetztLokal();
+    if (art === 'start') z = { format: 'bogen-zeit-1', kind: o, bogen: id, laeuft: true, start: jetzt, pausen: [], von: hbVon() };
+    else if (!z) throw new Error('Die Messung wurde nicht gefunden. Vielleicht hat das andere Handy sie beendet.');
+    else if (art === 'pause' && z.laeuft && !A.zeitPausiert(z)) z.pausen = [...z.pausen, [jetzt, null]];
+    else if (art === 'weiter' && A.zeitPausiert(z)) z.pausen = z.pausen.map(p => p[1] ? p : [p[0], jetzt]);
+    else if (art === 'fertig' || art === 'ende') {
+      let ende = jetzt;
+      if (art === 'ende') { const [h, m] = String(wert || '').split(':').map(Number); const d = new Date(z.start); d.setHours(h, m, 0, 0); if (!(d.getTime() > new Date(z.start).getTime())) throw new Error('Bitte eine Uhrzeit nach dem Start eingeben.'); ende = isoLokal(d); }
+      z.pausen = z.pausen.map(p => p[1] ? p : [p[0], ende]);
+      z.ende = ende; z.laeuft = false;
+    } else if (art === 'weg') z = null;
+    if (z) { z.geaendert = jetzt; await U.dateiSchreiben(C, ZEIT(o, id), JSON.stringify(z, null, 1), `${ordnerName(o)}: Bogen ${id} Zeit (${art})`); }
+    else await U.dateiLoeschen(C, ZEIT(o, id), `${ordnerName(o)}: Bogen ${id} Zeitmessung verworfen`).catch(() => {});
+    BG.zeit[id] = z;
+    if (z && !z.laeuft && z.ende) { zeitInsFeedback(id, z); if (art === 'fertig' || art === 'ende') { BG.zeitSchreibt = false; location.hash = '#boegen/' + encodeURIComponent(id); return; } }
+  } catch (e) { BG.zeitMeldung = { id, text: e.message || 'Speichern hat nicht geklappt.' }; }
+  BG.zeitSchreibt = false; zeichne();
+}
+const isoLokal = (d) => { const off = -d.getTimezoneOffset(), p = (n) => String(Math.floor(Math.abs(n))).padStart(2, '0'); return new Date(d.getTime() + off * 60000).toISOString().slice(0, 19) + (off >= 0 ? '+' : '-') + p(off / 60) + ':' + p(off % 60); };
+// Kasten mit Uhr und Knöpfen (beim Bogen und auf der Übersicht)
+function zeitBox(id, kompakt = false) {
+  const z = BG.zeit[id], fb = BG.fb[id], dis = BG.zeitSchreibt ? ' disabled' : '';
+  const meld = BG.zeitMeldung && BG.zeitMeldung.id === id ? `<p class="meldung fehler">${esc(BG.zeitMeldung.text)}</p>` : '';
+  if (!z) {
+    if (fb) return '';
+    return `<div class="bgz bgz-aus${kompakt ? ' kompakt' : ''}"><button class="knopf haupt bgz-start" data-act="bgZeit" data-w="start" data-id="${esc(id)}"${dis}>▶ Bogen beginnt</button>${kompakt ? '' : '<span class="klein gedaempft">Die Uhr misst die Zeit am Bogen. Pausen zählen nicht. Das andere Handy sieht die Messung auch.</span>'}${meld}</div>`;
+  }
+  if (!z.laeuft) return `<div class="bgz bgz-fertig${kompakt ? ' kompakt' : ''}"><span>⏱ Gemessen: <b>${A.zeitMinuten(z)} Min.</b> <span class="klein gedaempft">${uhrZeit(z.start)}–${uhrZeit(z.ende)}${z.pausen.length ? ` · ${z.pausen.length} ${z.pausen.length === 1 ? 'Pause' : 'Pausen'}` : ''}</span></span>${meld}</div>`;
+  const pausiert = A.zeitPausiert(z), alt = Date.now() - new Date(z.start).getTime() > VERGESSEN_MS;
+  const frage = alt ? `<div class="bgz-vergessen"><b>Bogen noch offen seit ${uhrZeit(z.start)}. Wann war Schluss?</b><span class="bgz-ende"><input type="time" id="bgz-ende-${esc(id)}" value="${uhrZeit(new Date(new Date(z.start).getTime() + 45 * 60000).toISOString())}"><button class="knopf" data-act="bgZeitEnde" data-id="${esc(id)}"${dis}>Speichern</button></span></div>` : '';
+  return `<div class="bgz bgz-an${pausiert ? ' pausiert' : ''}${kompakt ? ' kompakt' : ''}">
+    <div class="bgz-kopf"><span class="bgz-uhr" data-bgz="${esc(id)}">${uhrText(laufSek(z))}</span><span class="klein">${pausiert ? 'Pause' : 'läuft'} · seit ${uhrZeit(z.start)}${z.von ? ' · ' + esc(z.von) : ''}</span></div>
+    ${frage}
+    <div class="bgz-knoepfe">${pausiert ? `<button class="knopf" data-act="bgZeit" data-w="weiter" data-id="${esc(id)}"${dis}>▶ Weiter</button>` : `<button class="knopf" data-act="bgZeit" data-w="pause" data-id="${esc(id)}"${dis}>⏸ Pause</button>`}
+      <button class="knopf haupt" data-act="bgZeit" data-w="fertig" data-id="${esc(id)}"${dis}>■ Bogen fertig</button></div>${meld}</div>`;
+}
+setInterval(() => { document.querySelectorAll('[data-bgz]').forEach(el => { const z = BG.zeit[el.dataset.bgz]; if (z) el.textContent = uhrText(laufSek(z)); }); }, 1000);
+
+// ---------- Übersicht: Bögen und Übungszeit App / Bogen (Auftrag 34) ----------
+// Bogen-Zeit: gemessen oder eingetragen, sonst geschätzt aus App-Zeiten mal Papier-Faktor (nur Anzeige, wird nicht gespeichert)
+function bogenZeiten(heute) {
+  const jt = A.appJeTeil(D.daten.aufgaben, D.pool, heute);
+  const liste = Object.values(BG.boegen).filter(b => b && !b.archiv);
+  const paare = liste.map(b => { const g = A.bogenZeitAusFeedback(BG.fb[b.id]); return g ? { gemessen: g.minuten, roh: A.bogenRoh(b, BG.fb[b.id], jt) } : null; }).filter(Boolean);
+  const faktor = A.papierFaktor(paare);
+  const zeitVon = (b) => {
+    const fb = BG.fb[b.id], z = BG.zeit[b.id];
+    const g = A.bogenZeitAusFeedback(fb);
+    if (g) return { ...g, tag: fb.gemacht || b.datum };
+    if (z) return { minuten: A.zeitMinuten(z), quelle: z.laeuft ? 'laeuft' : 'knopf', tag: z.start.slice(0, 10) };
+    if (fb) { const roh = A.bogenRoh(b, fb, jt); return roh ? { minuten: A.auf5(roh * faktor), quelle: 'geschaetzt', tag: fb.gemacht || b.datum, roh } : null; }
+    return null;
+  };
+  return { faktor, jt, zeitVon, liste };
+}
+const QUELLE_TEXT = { knopf: 'gemessen', hand: 'eingetragen', geschaetzt: 'geschätzt', laeuft: 'läuft' };
+const minTxt = (m, ca) => `${ca ? 'ca. ' : ''}${Math.round(m)} Min.`;
+function ampelHtml(amp) {
+  return `<span class="bgk-ampel">${amp.map(u => `<i class="bgk-p a-${u.ergebnis ? A.AMPEL[u.ergebnis] || 'gruen' : 'offen'}" title="Übung ${esc(u.nr)}: ${esc(u.ergebnis || 'offen')}">${u.bonus ? `<b class="bgk-bonus a-${A.AMPEL[u.bonus] || 'offen'}"></b>` : ''}</i>`).join('')}</span>`;
+}
+function bogenKachel() {
+  if (!boegenAn()) return '';
+  if (BG.kind !== C.nutzer || (!BG.liste && !BG.laedt && !BG.fehler)) setTimeout(() => bgLaden(), 0);
+  if (!BG.liste) return `<section class="karte bgk"><div class="karte-kopf"><h2>Bögen</h2></div><p class="klein gedaempft pad">${BG.laedt ? 'Wird geladen …' : ''}</p></section>`;
+  const heute = L.tagKey(), woche = A.wocheVon(heute);
+  const { zeitVon, liste, faktor } = bogenZeiten(heute);
+  const sortiert = liste.slice().sort((a, b) => String(a.datum).localeCompare(String(b.datum)));
+  const b = sortiert.find(x => x.datum === heute) || sortiert.find(x => x.datum > heute && !BG.fb[x.id]);
+  let oben = '<p class="klein gedaempft">Heute ist kein Bogen geplant.</p>';
+  if (b) {
+    const fb = BG.fb[b.id], z = BG.zeit[b.id], t = zeitVon(b);
+    const status = fb ? '<span class="bg-pill fertig">erledigt</span>' : z && z.laeuft ? `<span class="bg-pill halb">${A.zeitPausiert(z) ? 'Pause' : 'läuft seit ' + uhrZeit(z.start)}</span>` : '<span class="bg-pill grau">offen</span>';
+    const amp = A.bogenAmpel(b, fb);
+    const probleme = fb ? amp.filter(u => u.ergebnis === 'mit Hilfe' || u.ergebnis === 'nicht verstanden') : [];
+    oben = `<a class="bgk-heute" href="#boegen/${encodeURIComponent(b.id)}"><span class="bgk-titel"><span class="kachel-label">${b.datum === heute ? 'Heute' : 'Als Nächstes · ' + wochentag(b.datum) + ' ' + datumKurz(b.datum)}</span><b>${esc(bgTitel(b.id))}</b><span class="klein gedaempft">${esc(String(b.titel || '').split(' · ').slice(2).join(' · '))}</span></span>${status}</a>
+      ${fb ? `${ampelHtml(amp)}
+        <p class="bgk-meta klein">${[fb.anfang ? 'Anfang: ' + fb.anfang : '', fb.stimmung ? 'Stimmung: ' + fb.stimmung : '', fb.hinweisblatt ? 'Hinweisblatt: ' + fb.hinweisblatt : '', t ? `Dauer: <span class="${t.quelle === 'geschaetzt' ? 'gesch' : ''}">${minTxt(t.minuten, t.quelle === 'geschaetzt')}</span> (${QUELLE_TEXT[t.quelle]})` : ''].filter(Boolean).join(' · ')}</p>
+        ${probleme.length ? `<div class="bgk-probleme">${probleme.map(u => `<a href="#boegen/${encodeURIComponent(b.id)}/${encodeURIComponent(u.nr)}" class="bgk-pz"><i class="bgk-p a-${A.AMPEL[u.ergebnis]}"></i><span><b>${esc(u.nr)} · ${esc(u.titel)}</b>${u.notiz ? `<span class="klein gedaempft block">${esc(u.notiz.split(/\s+/).slice(0, 10).join(' '))}${u.notiz.split(/\s+/).length > 10 ? ' …' : ''}</span>` : ''}</span><span class="klein">${esc(u.ergebnis)}</span></a>`).join('')}</div>` : ''}` : zeitBox(b.id, true)}`;
+  }
+  const wb = sortiert.filter(x => woche.includes(x.datum));
+  const wZeilen = wb.map(x => { const fb = BG.fb[x.id], t = zeitVon(x);
+    return `<a class="bgk-w${fb ? '' : ' offen'}" href="#boegen/${encodeURIComponent(x.id)}"><span class="bgk-wt">${wochentag(x.datum)}</span><span class="bgk-wn">${esc(bgTitel(x.id))}</span>${fb ? ampelHtml(A.bogenAmpel(x, fb)) : `<span class="klein gedaempft">${BG.zeit[x.id] && BG.zeit[x.id].laeuft ? 'läuft' : 'offen'}</span>`}<span class="bgk-wd${t && t.quelle === 'geschaetzt' ? ' gesch' : ''}">${t ? minTxt(t.minuten, t.quelle === 'geschaetzt') : ''}</span></a>`; }).join('');
+  return `<section class="karte bgk"><div class="karte-kopf"><h2>Bögen</h2><a class="klein" href="#boegen">Alle Bögen ›</a></div>
+    ${oben}
+    ${wb.length ? `<h3 class="bgk-h3">Diese Woche</h3><div class="bgk-woche">${wZeilen}</div>` : ''}
+    <p class="klein gedaempft bgk-leg"><i class="bgk-p a-gruen"></i> klappt <i class="bgk-p a-gelb"></i> mit Hilfe <i class="bgk-p a-rot"></i> nicht verstanden <i class="bgk-p a-grau"></i> ausgelassen</p></section>`;
+}
+function uebungszeitKarte() {
+  const heute = L.tagKey(), woche = A.wocheVon(heute);
+  const app = A.appMinutenJeTag(D.daten.aufgaben);
+  const bog = {}, gesch = {};
+  let faktor = A.PAPIER_FAKTOR_START;
+  if (boegenAn() && BG.liste) {
+    const z = bogenZeiten(heute); faktor = z.faktor;
+    for (const b of z.liste) { const t = z.zeitVon(b); if (!t || !woche.includes(t.tag)) continue; bog[t.tag] = (bog[t.tag] || 0) + t.minuten; if (t.quelle === 'geschaetzt') gesch[t.tag] = true; }
+  }
+  const sum = (o, tage) => tage.reduce((s, t) => s + (o[t] || 0), 0);
+  const ca = (tage) => tage.some(t => gesch[t]);
+  const zeile = (name, tage) => { const a = sum(app, tage), bo = sum(bog, tage), c = ca(tage);
+    return `<tr><th>${name}</th><td>${minTxt(a)}</td><td class="${c ? 'gesch' : ''}">${boegenAn() ? minTxt(bo, c) : '–'}</td><td class="${c ? 'gesch' : ''}"><b>${minTxt(a + bo, c)}</b></td></tr>`; };
+  const max = Math.max(1, ...woche.map(t => (app[t] || 0) + (bog[t] || 0)));
+  const balken = `<div class="uz-balken">${woche.map(t => { const a = app[t] || 0, bo = bog[t] || 0;
+    return `<span class="uz-sp${t === heute ? ' heute' : ''}" title="${tagLang(t)}: App ${Math.round(a)} Min., Bogen ${gesch[t] ? 'ca. ' : ''}${Math.round(bo)} Min."><span class="uz-zahl">${a + bo ? Math.round(a + bo) : ''}</span><span class="uz-stapel" style="height:${Math.round((a + bo) / max * 100)}%"><span class="uz-b${gesch[t] ? ' gesch' : ''}" style="flex-grow:${bo}"></span><span class="uz-a" style="flex-grow:${a}"></span></span><span class="uz-tag">${wochentag(t)}</span></span>`; }).join('')}</div>`;
+  return `<section class="karte uzk"><div class="karte-kopf"><h2>Übungszeit</h2><span class="legende"><i class="farbe-teal"></i>App</span>${boegenAn() ? '<span class="legende"><i class="farbe-amber"></i>Bogen</span>' : ''}</div>
+    <table class="uz-tab"><thead><tr><th></th><th>App</th><th>Bogen</th><th>Zusammen</th></tr></thead><tbody>${zeile('Heute', [heute])}${zeile('Diese Woche', woche)}</tbody></table>
+    ${balken}
+    ${Object.keys(gesch).length ? `<p class="klein gedaempft">ca. = geschätzt aus App-Zeiten (Faktor ${String(faktor).replace('.', ',')}). Gemessene oder eingetragene Zeiten gehen vor.</p>` : ''}</section>`;
+}
 function bgTitel(id) { const b = BG.boegen[id]; return b ? (b.woche && b.tag ? `W${b.woche} · Tag ${b.tag}` : b.titel || id) : id.toUpperCase(); }
 function bgUntertitel(id) {
   const b = BG.boegen[id], f = BG.fb[id];
@@ -793,8 +928,21 @@ function bgSeg(id, k, werte, aktuell, text = (v) => v, spalten = werte.length) {
 }
 // keys: welche allgemeinen Fragen (Anfang: von, anfang + Datum; Ende: stimmung, hinweisblatt, dauer)
 function bgAllgemeinFelder(id, e, keys = A.BOGEN_ANFANG, mitDatum = true) {
-  return A.BOGEN_ALLGEMEIN.filter(f => keys.includes(f.k)).map(f => `<div class="bg-gruppe"><span class="bg-lbl">${esc(f.titel)}${f.frei ? ' <span class="klein gedaempft">(optional)</span>' : ''}</span>${bgSeg(id, f.k, f.werte, e[f.k], f.text)}</div>`).join('') +
+  return A.BOGEN_ALLGEMEIN.filter(f => keys.includes(f.k)).map(f => f.k === 'dauer' ? dauerFeld(id, e) : `<div class="bg-gruppe"><span class="bg-lbl">${esc(f.titel)}${f.frei ? ' <span class="klein gedaempft">(optional)</span>' : ''}</span>${bgSeg(id, f.k, f.werte, e[f.k], f.text)}</div>`).join('') +
     (mitDatum ? `<div class="bg-gruppe"><span class="bg-lbl">Gemacht am</span><input type="date" id="bg-gemacht" data-id="${esc(id)}" value="${esc(e.gemacht || L.tagKey())}" max="${L.tagKey()}"></div>` : '');
+}
+// Dauer (Auftrag 34): gemessen vorausgefüllt, sonst Zahlenfeld in Minuten und die schnellen Stufen
+function dauerFeld(id, e) {
+  const f = A.BOGEN_ALLGEMEIN.find(x => x.k === 'dauer'), z = e.zeit;
+  const info = z && z.quelle === 'knopf' && z.start && z.ende ? `<span class="klein gedaempft">Gemessen ${uhrZeit(z.start)}–${uhrZeit(z.ende)}${(z.pausen || []).length ? ', ohne Pausen' : ''}. Du kannst die Minuten ändern.</span>` : '';
+  return `<div class="bg-gruppe bg-dauer"><span class="bg-lbl">Dauer <span class="klein gedaempft">(Minuten am Bogen, optional)</span></span>
+    <span class="bg-dauer-zeile"><input type="number" inputmode="numeric" min="1" max="300" class="bg-dauer-feld" data-id="${esc(id)}" value="${e.dauer || ''}" placeholder="z. B. 35"><span>Min.</span></span>
+    ${bgSeg(id, 'dauer', f.werte, e.dauer, f.text)}${info}</div>`;
+}
+function dauerSetzen(e, min) {
+  e.dauer = min > 0 ? Math.round(min) : null;
+  if (!e.dauer) e.zeit = null;
+  else if (!(e.zeit && e.zeit.quelle === 'knopf' && e.zeit.minuten === e.dauer)) e.zeit = { ...(e.zeit || {}), quelle: 'hand', minuten: e.dauer };
 }
 function bgUeInfo(id, nr) { const b = BG.boegen[id]; return b ? b.uebungen.find(u => u.nr === nr) : { nr, titel: '' }; }
 // Stand einer Übung für die Leiste: offen (noch nicht angesehen, nichts eingetragen) oder das Ergebnis
@@ -853,6 +1001,7 @@ function bogenArchiv(id) {
 function bogenAllgemein(id) {
   const e = bgEntwurf(id), nrn = bgNummern(id);
   return `<div class="seite schmal-inhalt bg-schritt"><a class="zurueck" href="#boegen">‹ Bögen</a><h1>${esc(bgTitel(id))}</h1><span class="klein gedaempft">${esc(bgUntertitel(id))}</span>
+    ${zeitBox(id)}
     ${bgPdfLeiste(id)}
     <p class="klein gedaempft">Schritt 1 von 3 · Allgemein</p>
     <section class="karte bg-allg">${bgAllgemeinFelder(id, e)}</section>
@@ -1181,10 +1330,11 @@ function uebersichtSeite() {
     ${breit.matches ? `<header class="kopf-breit"><h1>Übersicht · ${esc(name())}</h1>${nutzerWahl('nutzer-chip nur-hoch')}${zeitraumWahl()}</header>` : kopfSchmal('Übersicht') + zeitraumWahl()}
     ${liveKarte()}
     ${berichtKachel()}
+    ${bogenKachel()}
     <div class="kacheln">${kacheln}</div>
     ${leer}
     <div class="zwei-spalten">
-      <div class="spalte">${balken}${!breit.matches ? auff : ''}</div>
+      <div class="spalte">${uebungszeitKarte()}${balken}${!breit.matches ? auff : ''}</div>
       <div class="spalte">${wochenplanKarte(false)}${paketQuotenKarte(tage[0])}${uzKarte()}${wissenKarte()}${bzKarte()}${themen}${breit.matches ? auff : ''}</div>
     </div>
   </div>`;
@@ -2449,8 +2599,10 @@ document.addEventListener('click', (ev) => {
     case 'hbWarnDrucken': hbDrucken('neu'); if (route.arg !== 'hinweisblatt') location.hash = '#boegen/hinweisblatt'; break;
     case 'hbHaken': hbHaken(el.dataset.nr); break;
     case 'foHaken': foHaken(el.dataset.id); break;
+    case 'bgZeit': bgZeit(el.dataset.id, el.dataset.w); break;
+    case 'bgZeitEnde': { const f = document.getElementById('bgz-ende-' + el.dataset.id); bgZeit(el.dataset.id, 'ende', f && f.value); break; }
     case 'foDrucken': foDrucken(el.dataset.id); break;
-    case 'bgWert': { const e = bgEntwurf(el.dataset.id); const k = el.dataset.k; let v = el.dataset.v; if (k === 'dauer') v = Number(v); e[k] = e[k] === v && k === 'dauer' ? null : v; if (k === 'von') { try { localStorage.setItem('bogen-von', v); } catch (x) {} } bgSichern(el.dataset.id, e); zeichne(); break; }
+    case 'bgWert': { const e = bgEntwurf(el.dataset.id); const k = el.dataset.k; let v = el.dataset.v; if (k === 'dauer') { v = Number(v); dauerSetzen(e, e.dauer === v ? 0 : v); } else e[k] = v; if (k === 'von') { try { localStorage.setItem('bogen-von', v); } catch (x) {} } bgSichern(el.dataset.id, e); zeichne(); break; }
     case 'bgErg': { const e = bgEntwurf(el.dataset.id), u = bgUe(e, el.dataset.nr); u.ergebnis = el.dataset.v; bgSichern(el.dataset.id, e); zeichne(); break; }
     case 'bgChip': { const e = bgEntwurf(el.dataset.id), u = bgUe(e, el.dataset.nr), c = el.dataset.v; u.chips = u.chips.includes(c) ? u.chips.filter(x => x !== c) : [...u.chips, c]; bgSichern(el.dataset.id, e); zeichne(); break; }
     case 'bgZeig': { const k = el.dataset.id + '|' + el.dataset.nr; BG.zeig[k] = BG.zeig[k] === el.dataset.w ? null : el.dataset.w; zeichne(); break; }
@@ -2648,6 +2800,7 @@ document.addEventListener('input', (ev) => {
   if (paketEntwurf && el.id === 'p-beschr') paketEntwurf.beschreibung = el.value;
   if (el.id === 'p-text') paketText.text = el.value;
   if (el.classList && el.classList.contains('bg-text')) { const e = bgEntwurf(el.dataset.id); if (el.dataset.bonus) { const u = bgUe(e, el.dataset.nr); u.bonus = { ergebnis: (u.bonus && u.bonus.ergebnis) || '', notiz: el.value }; } else if (el.dataset.nr) bgUe(e, el.dataset.nr).notiz = el.value; else e.sonst = el.value; bgSichern(el.dataset.id, e); }
+  if (el.classList && el.classList.contains('bg-dauer-feld')) { const e = bgEntwurf(el.dataset.id); dauerSetzen(e, Number(el.value)); bgSichern(el.dataset.id, e); return; }
   if (el.id === 'bg-gemacht') { const e = bgEntwurf(el.dataset.id); e.gemacht = el.value; bgSichern(el.dataset.id, e); }
 });
 
