@@ -18,6 +18,7 @@ export function einrichtungsLink(basisUrl, { repo, token, name, art = 'kind' }) 
   const daten = { v: 1, r: repo, t: token };
   if (name) daten.n = name;
   if (art === 'eltern') daten.a = 'e';
+  if (art === 'boegen') daten.a = 'b'; // Großeltern: Eltern-App nur mit „Bögen“ (Auftrag 35)
   return `${basisUrl.split('#')[0]}#${SCHLUESSEL}${zuB64url(JSON.stringify(daten))}`;
 }
 
@@ -32,7 +33,7 @@ export function einrichtungLesen(text) {
     const repo = String(d.r || '').trim(), token = String(d.t || '').trim();
     const name = String(d.n || '').trim().replace(/\s+/g, ' ').slice(0, 20);
     if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || token.length < 20 || /\s/.test(token)) return null;
-    return { repo, token, name: name.length >= 2 ? name : '', art: d.a === 'e' ? 'eltern' : 'kind' };
+    return { repo, token, name: name.length >= 2 ? name : '', art: d.a === 'e' ? 'eltern' : d.a === 'b' ? 'boegen' : 'kind' };
   } catch (e) {
     return null;
   }

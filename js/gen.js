@@ -367,7 +367,7 @@ export function kugel(stufe, rng) {
   const g = stufe === 3 ? wahl(rng, KUGEL_GESCHICHTEN) : null;
   const art = g ? g.art : wahl(rng, ['V', 'O']);
   const schritte = [], weg = [];
-  if (g) { schritte.push({ text: 'Volumen oder Oberfläche?', optionen: ['Volumen', 'Oberfläche'], richtig: art === 'V' ? 0 : 1 }); weg.push(art === 'V' ? '„passt hinein" → Volumen' : '„außen" → Oberfläche'); }
+  if (g) { schritte.push({ text: 'Volumen oder Oberfläche?', optionen: ['Volumen', 'Oberfläche'], richtig: art === 'V' ? 0 : 1 }); weg.push(art === 'V' ? '„passt hinein" → V (Volumen)' : '„außen" → A_O (Oberfläche)'); }
   if (mitD) { schritte.push({ text: 'Radius r =', wert: r, einheit: 'cm' }); weg.push(`r = ${2 * r} : 2 = ${r} cm`); }
   let x;
   if (art === 'V') {
@@ -433,7 +433,7 @@ export function zylinder(stufe, rng, opts = {}) {
     const opt = art === 'M' ? ['Volumen', 'Mantel'] : ['Volumen', 'Oberfläche'];
     if (art === 'V' && rng() < 0.5) opt[1] = 'Mantel';
     schritte.push({ text: 'Was ist gesucht?', optionen: opt, richtig: art === 'V' ? 0 : 1 });
-    weg.push(art === 'V' ? 'passt hinein → Volumen' : art === 'M' ? 'außen herum → Mantel' : 'Boden, Deckel und Mantel → Oberfläche');
+    weg.push(art === 'V' ? 'passt hinein → V (Volumen)' : art === 'M' ? 'außen herum → A_M (Mantel)' : 'Boden, Deckel und Mantel → A_O (Oberfläche)');
   }
   if (mitD) { schritte.push({ text: 'Radius r =', wert: r, einheit: e }); weg.push(`r = ${2 * r} : 2 = ${r} ${e}`); }
   let x, erkl;
@@ -693,13 +693,13 @@ const ZYL_GESUCHT4 = [
   { art: 'M', text: 'Ein Papierstreifen geht einmal um die Rolle herum.', frage: 'Wie viel cm² Papier braucht man?' },
   { art: 'G', text: 'Ein Untersetzer soll genau so groß sein wie der Boden einer Vase.', frage: 'Wie groß ist die Fläche des Bodens?' }
 ];
-const GESUCHT4_OPT = ['Volumen V', 'Oberfläche A_O', 'Mantel A_M', 'Grundfläche A_G'];
+const GESUCHT4_OPT = ['V (Volumen)', 'A_O (Oberfläche)', 'A_M (Mantel)', 'A_G (Grundfläche)'];
 const GESUCHT4_IDX = { V: 0, O: 1, M: 2, G: 3 };
 function zylinderGesucht4(rng) {
   const g = wahl(rng, ZYL_GESUCHT4), r = zufall(rng, 2, 8), h = zufall(rng, 4, 20), mitD = rng() < 0.4, art = g.art;
   const ag = Math.PI * r * r, am = 2 * Math.PI * r * h, ao = 2 * ag + am, v = ag * h;
   const schritte = [{ text: 'Was wird gesucht?', optionen: GESUCHT4_OPT, richtig: GESUCHT4_IDX[art] }];
-  const weg = [art === 'V' ? '„passt hinein“ → Volumen' : art === 'M' ? '„rund herum“ → Mantel' : art === 'O' ? '„alles außen, mit Deckel und Boden“ → Oberfläche' : '„der runde Boden“ → Grundfläche'];
+  const weg = [art === 'V' ? '„passt hinein“ → V (Volumen)' : art === 'M' ? '„rund herum“ → A_M (Mantel)' : art === 'O' ? '„alles außen, mit Deckel und Boden“ → A_O (Oberfläche)' : '„der runde Boden“ → A_G (Grundfläche)'];
   if (mitD) { schritte.push({ text: 'Radius r =', wert: r, einheit: 'cm' }); weg.push(`r = ${2 * r} : 2 = ${r} cm`); }
   let x, n, e = 'cm²';
   if (art === 'V') {

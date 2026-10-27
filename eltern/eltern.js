@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.47.0';
+export const ELTERN_VERSION = '1.48.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -238,6 +238,7 @@ function nutzerWahl(klasse) {
 
 function navLinks(art) {
   const aktiv = route.seite === 'aufgabe' || route.seite === 'spiel' ? 'verlauf' : route.seite === 'ticket' ? 'tickets' : ['spielzeit', 'gewichte', 'pakete', 'paket', 'qr', 'einheit', 'splitter'].includes(route.seite) ? 'einstellungen' : route.seite;
+  if (C.nur === 'boegen') return `<a href="#boegen" class="${art} aktiv" aria-current="page">${svg('boegen', 24)}<span>Bögen</span></a>`;
   return [['uebersicht', 'Übersicht'], ['verlauf', 'Verlauf'], ['lernplan', 'Lernplan'], ...(boegenAn() ? [['boegen', 'Bögen']] : []), ...(berichteAn() ? [['berichte', 'Berichte']] : []), ['tickets', 'Tickets'], ['einstellungen', 'Einstellungen']].map(([k, t]) =>
     `<a href="#${k}" class="${art}${aktiv === k ? ' aktiv' : ''}"${aktiv === k ? ' aria-current="page"' : ''}>${svg(k, 24)}<span>${t}</span></a>`).join('');
 }
@@ -258,7 +259,7 @@ function zeichne() {
     app.innerHTML = `<div class="rahmen-breit">
       <aside class="seitenleiste">
         <div class="marke">${logo(36)}<div><div class="marke-titel">Schrein der Zahlen</div><div class="klein gedaempft">Eltern</div></div></div>
-        ${nutzerWahl('nutzer-feld')}
+        ${C.nur ? '' : nutzerWahl('nutzer-feld')}
         <nav class="seiten-nav">${navLinks('nav-link')}</nav>
         <div class="seitenleiste-fuss"><span class="klein gedaempft">${standZeile()}</span>${neuKnopf}</div>
       </aside>
@@ -267,7 +268,7 @@ function zeichne() {
   } else {
     app.innerHTML = `<div class="rahmen-schmal">
       <main class="inhalt-schmal">${inhalt}</main>
-      <nav class="tabs${boegenAn() && berichteAn() ? ' sieben' : boegenAn() || berichteAn() ? ' sechs' : ''}">${navLinks('tab')}</nav>
+      ${C.nur ? '' : `<nav class="tabs${boegenAn() && berichteAn() ? ' sieben' : boegenAn() || berichteAn() ? ' sechs' : ''}">${navLinks('tab')}</nav>`}
     </div>`;
   }
   if (route.seite === 'lernplan') lernplanEinhaengen();
@@ -301,6 +302,7 @@ function seiteHtml() {
   if (D.fehler && !D.daten) return `<div class="seite"><h1>Laden hat nicht geklappt</h1><p class="hinweis-box">${esc(D.fehler)}</p><button class="knopf haupt" data-act="neuLaden">Nochmal versuchen</button>${schluesselKarte()}</div>`;
   if (!D.daten) return `<div class="seite lade-seite">${logo(64)}<p>Lerndaten werden geladen …</p></div>`;
   if (D.daten.leer) return `<div class="seite"><h1>Noch keine Daten</h1><p>Im Daten-Repo gibt es noch keinen Ordner mit Namen. Sobald sich jemand in der Übungs-App mit Namen angemeldet hat und Daten übertragen wurden, erscheinen sie hier.</p><button class="knopf haupt" data-act="neuLaden">Neu laden</button>${schluesselKarte()}</div>`;
+  if (C.nur === 'boegen' && route.seite !== 'boegen') { history.replaceState(null, '', location.pathname + '#boegen'); route = { seite: 'boegen', arg: '' }; }
   switch (route.seite) {
     case 'verlauf': return breit.matches ? verlaufBreit() : (route.arg ? tagSeite(route.arg) : tageListe());
     case 'aufgabe': return breit.matches ? verlaufBreit() : aufgabeSeite(route.arg);
@@ -442,7 +444,7 @@ function bgEntwurf(id) {
   let e = null;
   try { e = JSON.parse(localStorage.getItem(k) || 'null'); } catch (x) {}
   if (!e && BG.fb[id]) e = A.bogenFeedbackEntwurf(BG.fb[id]);
-  if (!e) { let von = ''; try { von = localStorage.getItem('bogen-von') || ''; } catch (x) {} e = { von, gemacht: L.tagKey(), anfang: '', stimmung: '', hinweisblatt: '', dauer: null, uebungen: {}, sonst: '', gesehen: [] }; }
+  if (!e) { let von = ''; try { von = localStorage.getItem('bogen-von') || ''; } catch (x) {} e = { von, gemacht: A.gemachtStandard(BG.boegen[id], L.tagKey()), anfang: '', stimmung: '', hinweisblatt: '', dauer: null, uebungen: {}, sonst: '', gesehen: [] }; }
   e.uebungen = e.uebungen || {}; e.gesehen = e.gesehen || [];
   return (BG.entwuerfe[k] = e);
 }
@@ -477,7 +479,7 @@ async function bgLaden(neu = false) {
 // gedruckt.json schreibt nur die Eltern-App (Haken je Seite, gilt für beide Eltern).
 const HB = (o) => `daten/${o}/hinweisblatt`;
 const jetztLokal = () => { const d = new Date(), off = -d.getTimezoneOffset(), p = (n) => String(Math.floor(Math.abs(n))).padStart(2, '0'); return new Date(d.getTime() + off * 60000).toISOString().slice(0, 19) + (off >= 0 ? '+' : '-') + p(off / 60) + ':' + p(off % 60); };
-const hbVon = () => { try { return localStorage.getItem('bogen-von') || 'Eltern'; } catch (x) { return 'Eltern'; } };
+const hbVon = () => { const std = C.nur ? 'Großeltern' : 'Eltern'; try { return localStorage.getItem('bogen-von') || std; } catch (x) { return std; } };
 async function hbLaden(o) {
   try {
     BG.hb = A.hinweisNorm(await U.dateiLesen(C, `${HB(o)}/hinweisblatt.json`));
@@ -865,7 +867,8 @@ function bgListe(gewaehlt) {
       return `<details class="bg-woche" data-woche="${g.woche}"${auf ? ' open' : ''}><summary class="abschnitt bg-woche-kopf"><span>${g.woche ? 'Woche ' + g.woche : 'Ohne Woche'}</span><span class="klein gedaempft">${g.eintraege.length} ${g.eintraege.length === 1 ? 'Bogen' : 'Bögen'}</span></summary><section class="karte liste-karte">${g.eintraege.map(x => bgZeile(x, x.id === gewaehlt)).join('')}</section></details>`; }).join('')}
     <details class="bg-frei"><summary>Feedback ohne Bogen-Ordner</summary><p class="klein gedaempft">Für einen Bogen, den Claude nicht angelegt hat: Allgemein und je Übungsnummer Ergebnis und Notiz.</p>
       <div class="bg-frei-form"><input id="bg-frei-id" placeholder="Kürzel, z. B. w6t1" autocomplete="off"><button class="knopf" data-act="bgFrei">Anlegen</button></div></details>
-    <button class="knopf bg-neu-laden" data-act="bgNeuLaden">${BG.laedt ? 'Lädt …' : 'Neu laden'}</button>`;
+    <button class="knopf bg-neu-laden" data-act="bgNeuLaden">${BG.laedt ? 'Lädt …' : 'Neu laden'}</button>
+    ${C.nur ? `<section class="karte klein-karte nur-karte"><p class="klein">Dieses Gerät zeigt nur die Bögen von ${esc(name())}. Version ${ELTERN_VERSION}.</p><button class="knopf-text" data-act="abmelden">Zugang von diesem Gerät löschen</button></section>` : ''}`;
 }
 function boegenSeite() {
   if (!boegenAn()) return `<div class="seite">${breit.matches ? '<h1>Bögen</h1>' : kopfSchmal('Bögen')}<section class="karte"><p class="pad">Der Bereich „Bögen“ ist für ${esc(name())} aus. Einschalten unter Einstellungen → Gestaltung, Bedienung und Übungszeit.</p></section></div>`;
@@ -1281,7 +1284,7 @@ function kopfSchmal(titel) {
   return `<header class="kopf-schmal">
     ${logo(34)}
     <div class="kopf-titel"><span class="marke-titel">${esc(titel)}</span><span class="klein gedaempft">${standZeile()}</span></div>
-    ${nutzerWahl('nutzer-chip')}
+    ${C.nur ? '' : nutzerWahl('nutzer-chip')}
   </header>`;
 }
 
@@ -2238,7 +2241,7 @@ function spielzeitSeite() {
 
 function qrSeite() {
   if (!qr.name && D.daten && D.daten.name) qr.name = D.daten.name;
-  const eltern = qr.art === 'eltern';
+  const eltern = qr.art === 'eltern' || qr.art === 'boegen', gross = qr.art === 'boegen';
   const svgCode = qr.link ? (() => {
     const q = qrcode(0, 'M');
     q.addData(qr.link);
@@ -2250,9 +2253,12 @@ function qrSeite() {
     <h1>Per QR-Code einrichten</h1>
     <div class="segmente" role="group" aria-label="Was einrichten?">
       <button class="segment${eltern ? '' : ' an'}" data-act="qrArt" data-art="kind" aria-pressed="${!eltern}">Kinder-Handy</button>
-      <button class="segment${eltern ? ' an' : ''}" data-act="qrArt" data-art="eltern" aria-pressed="${eltern}">Weitere Eltern-App</button>
+      <button class="segment${eltern && !gross ? ' an' : ''}" data-act="qrArt" data-art="eltern" aria-pressed="${eltern && !gross}">Weitere Eltern-App</button>
+      <button class="segment${gross ? ' an' : ''}" data-act="qrArt" data-art="boegen" aria-pressed="${gross}">Nur Bögen</button>
     </div>
-    <p class="klein gedaempft">${eltern
+    <p class="klein gedaempft">${gross
+      ? `Für ein Gerät der Großeltern: Die Eltern-App zeigt dort nur die Bögen von ${esc(name())} (ansehen, drucken, Zeit messen, Feedback). Übersicht, Verlauf und Einstellungen fehlen.`
+      : eltern
       ? 'Für ein weiteres Eltern-Gerät (z. B. iPad oder das Handy der Mutter): Code zeigen und dort in der Eltern-App scannen.'
       : 'Nach dem Löschen der App vom Home-Bildschirm oder für ein neues Handy: Code zeigen und auf dem Kinder-Handy scannen. Danach kommen Spielzeit und Spielstände vom Server zurück.'}</p>
     ${qr.link ? `
@@ -2274,8 +2280,8 @@ function qrSeite() {
     </section>` : `
     <section class="karte">
       ${eltern ? '' : `<label class="feld">Name des Kindes<input id="qr-name" type="text" maxlength="20" value="${esc(qr.name)}" autocomplete="off"></label>`}
-      <label class="feld">Zugangsschlüssel für ${eltern ? 'das andere Eltern-Gerät' : 'das Kinder-Handy'}<input id="qr-token" type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(qr.token)}"></label>
-      <p class="klein gedaempft">Am besten ein eigener Schlüssel pro Gerät (nur Daten-Repo, „Contents: Read and write“). Er wird hier nicht gespeichert.</p>
+      <label class="feld">Zugangsschlüssel für ${gross ? 'das Gerät der Großeltern' : eltern ? 'das andere Eltern-Gerät' : 'das Kinder-Handy'}<input id="qr-token" type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(qr.token)}"></label>
+      <p class="klein gedaempft">Am besten ein eigener Schlüssel pro Gerät (nur Daten-Repo, „Contents: Read and write“)${gross ? ', mit Ablaufdatum kurz nach dem Besuch' : ''}. Er wird hier nicht gespeichert.</p>
       <button class="knopf-text" data-act="qrEigenerSchluessel">Schlüssel dieser Eltern-App verwenden</button>
       <p class="fehler-text" id="qr-fehler">${meldung && meldung.art === 'fehler' ? esc(meldung.text) : ''}</p>
       <button class="knopf haupt breit" data-act="qrZeigen">QR-Code zeigen</button>
@@ -2345,10 +2351,11 @@ async function elternEinrichten(d, fehlerFeld) {
     const info = await U.verbindungTesten({ repo: d.repo, token: d.token });
     if (!info.privat) throw new Error('Das Repo ist öffentlich. Bitte nur ein privates Repo verwenden.');
     C = { ...C, repo: d.repo, token: d.token };
+    if (d.art === 'boegen') C.nur = 'boegen'; else delete C.nur;
     konfigSichern();
     if (d.name) C.nutzer = d.name.toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     konfigSichern();
-    history.replaceState(null, '', location.pathname + '#uebersicht');
+    history.replaceState(null, '', location.pathname + (C.nur ? '#boegen' : '#uebersicht'));
     leseRoute();
     allesLaden({ nutzerliste: true });
   } catch (e) {
@@ -2705,7 +2712,7 @@ document.addEventListener('click', (ev) => {
       qr.token = C.token; meldung = null; zeichne(); break;
     }
     case 'qrZeigen': {
-      const eltern = qr.art === 'eltern';
+      const eltern = qr.art === 'eltern' || qr.art === 'boegen';
       const nEl = document.getElementById('qr-name');
       const name = nEl ? nEl.value.trim().replace(/\s+/g, ' ').slice(0, 20) : '';
       const token = document.getElementById('qr-token').value.trim();
@@ -2714,7 +2721,7 @@ document.addEventListener('click', (ev) => {
       if (token.length < 20) { meldung = { art: 'fehler', text: 'Bitte den ganzen Zugangsschlüssel einfügen.' }; zeichne(); break; }
       meldung = null;
       qr.link = eltern
-        ? einrichtungsLink(new URL('./', location.href).href, { repo: C.repo, token, art: 'eltern' })
+        ? einrichtungsLink(new URL('./', location.href).href, qr.art === 'boegen' ? { repo: C.repo, token, name: C.nutzer, art: 'boegen' } : { repo: C.repo, token, art: 'eltern' })
         : einrichtungsLink(new URL('../', location.href).href, { repo: C.repo, token, name });
       zeichne(); break;
     }

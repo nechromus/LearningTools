@@ -77,9 +77,9 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
   const o = String(teil.optionen[gewaehlt] || ''), frage = teil.text || '';
   if (aufgabe.thema === 'pyramide' && /Volumen/.test(frage) && /^hₛ/.test(o)) return { typ: 'pyramide-hs-statt-h', text: 'hₛ liegt außen auf der Seitenfläche. Für das Volumen brauchst du h: von der Spitze gerade nach unten.' };
   if (aufgabe.thema === 'pyramide' && /Seitenfl/.test(frage) && /^h\s*=/.test(o)) return { typ: 'pyramide-h-statt-hs', text: 'Die Seitenfläche ist ein Dreieck außen. Seine Höhe ist hₛ.' };
-  if (aufgabe.thema === 'kegel' && /Mantel/.test(frage) && /^h\s*=/.test(o)) return { typ: 'kegel-h-statt-s', text: aufgabe.generator === 'kegel' ? 'Mantel → s (schräg außen). h ist innen.' : 'Für den Mantel brauchst du s, die schräge Linie außen.' };
+  if (aufgabe.thema === 'kegel' && /Mantel/.test(frage) && /^h\s*=/.test(o)) return { typ: 'kegel-h-statt-s', text: aufgabe.generator === 'kegel' ? 'A_M (Mantel) → s (schräg außen). h ist innen.' : 'Für A_M (Mantel) brauchst du s, die schräge Linie außen.' };
   // Zylinder „Was wird gesucht?“ mit vier Möglichkeiten (Auftrag 30)
-  if (aufgabe.form === 'gesucht4' && /gesucht/.test(frage)) return { typ: 'zylinder-gesucht', text: '„passt hinein“ → Volumen. „rund herum“ → Mantel. „alles außen, mit Deckel und Boden“ → Oberfläche.' };
+  if (aufgabe.form === 'gesucht4' && /gesucht/.test(frage)) return { typ: 'zylinder-gesucht', text: '„passt hinein“ → V (Volumen). „rund herum“ → A_M (Mantel). „alles außen, mit Deckel und Boden“ → A_O (Oberfläche). „der Boden“ → A_G (Grundfläche).' };
   return null;
 }
 // Prozent mit Formel: G und p aus den Parametern (direkt|rabatt: [art, G, p, …], text: [art, k, G, p, …])
@@ -175,11 +175,11 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
     // Kegel/Pyramide: Drittel vergessen
     if (/Drittel/.test(ttext) && vorher && vorher.wert != null && nah(w, vorher.wert)) {
       if (aufgabe.generator === 'kegel') return { typ: 'kegel-drittel-vergessen', text: 'Das Drittel nicht vergessen! Erst wie Zylinder, dann durch 3.' };
-      if (aufgabe.generator === 'pyramide') return { typ: 'drittel-vergessen', text: 'Das Drittel nicht vergessen! Erst A_G · h, dann durch 3.' };
+      if (aufgabe.generator === 'pyramide') return { typ: 'drittel-vergessen', text: 'Das Drittel nicht vergessen! Erst A_G (Grundfläche) · h, dann durch 3.' };
       return { typ: 'drittel-vergessen', text: 'Hast du an das Drittel gedacht? Teile durch 3.' };
     }
     if ((aufgabe.generator === 'kegel' || aufgabe.generator === 'pyramide') && /≈\s*$/.test(ttext) && nah(w, teil.wert * 3)) {
-      return aufgabe.generator === 'kegel' ? { typ: 'kegel-drittel-vergessen', text: 'Das Drittel nicht vergessen! Erst wie Zylinder, dann durch 3.' } : { typ: 'drittel-vergessen', text: 'Das Drittel nicht vergessen! Erst A_G · h, dann durch 3.' };
+      return aufgabe.generator === 'kegel' ? { typ: 'kegel-drittel-vergessen', text: 'Das Drittel nicht vergessen! Erst wie Zylinder, dann durch 3.' } : { typ: 'drittel-vergessen', text: 'Das Drittel nicht vergessen! Erst A_G (Grundfläche) · h, dann durch 3.' };
     }
     if (aufgabe.thema !== 'zylinder' && /\bV\s*[=≈]\s*$/.test(ttext) && nah(w, teil.wert * 3)) {
       return { typ: 'drittel-vergessen', text: aufgabe.thema === 'kegel' ? 'Ein Kegel ist nur ein Drittel. Teile durch 3.' : 'Eine Pyramide ist nur ein Drittel. Teile durch 3.' };
@@ -192,7 +192,7 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
     if (r != null) {
       // Kegel: Mantel mit h statt s
       if (aufgabe.thema === 'kegel' && /A_M/.test(ttext) && bild.h != null && nah(w, Math.PI * r * bild.h)) {
-        return { typ: 'kegel-h-statt-s', text: 'Für den Mantel brauchst du s, die schräge Linie außen.' };
+        return { typ: 'kegel-h-statt-s', text: 'Für A_M (Mantel) brauchst du s, die schräge Linie außen.' };
       }
       // Oberfläche: Zahl der Kreise
       if (/A_O/.test(ttext) && aufgabe.thema === 'kegel' && nah(w, teil.wert + Math.PI * r * r)) {
@@ -807,6 +807,19 @@ export const BEDIENUNG = [
   { k: 'rechner_frei', f: 'rechnerFrei', std: false, titel: 'Taschenrechner immer ohne Abzug', text: 'An: Der Taschenrechner kostet nie Zeit.' },
   { k: 'umformen_sofort', f: 'umformenSofort', std: false, titel: 'Gleichungen gleich in Schritten umformen', text: 'An: Gleichungen starten direkt mit „In Schritten umformen“, ohne Abzug bei den Wissenspunkten.' }
 ];
+// Kürzel mit Namen (Auftrag 35): Auswahl bei Körpern zeigt „V (Volumen)“, „A_O (Oberfläche)“ …
+export const KOERPER_THEMEN = ['zylinder', 'kegel', 'pyramide', 'kugel'];
+const KUERZEL_VON = { 'Volumen': 'V', 'Oberfläche': 'A_O', 'Mantel': 'A_M', 'Grundfläche': 'A_G' };
+export function mitKuerzel(o) {
+  const m = String(o).match(/^(Volumen|Oberfläche|Mantel|Grundfläche)(?:\s+(?:V|A_[OMG]))?(?:\s*\((.+)\))?$/);
+  return m ? `${KUERZEL_VON[m[1]]} (${m[1]}${m[2] ? ', ' + m[2] : ''})` : String(o);
+}
+// Lösungsweg bei Körpern: „→ Volumen“ wird „→ V (Volumen)“
+export function kuerzelAufgabe(a) {
+  if (!a || !KOERPER_THEMEN.includes(a.thema) || !Array.isArray(a.loesungsweg)) return a;
+  const lw = a.loesungsweg.map(z => typeof z === 'string' ? z.replace(/→\s*(Volumen|Oberfläche|Mantel|Grundfläche)\b(?!\s*\()/g, (_, w) => `→ ${KUERZEL_VON[w]} (${w})`) : z);
+  return lw.some((z, i) => z !== a.loesungsweg[i]) ? { ...a, loesungsweg: lw } : a;
+}
 export const FREIGABEN = ['minusminus', 'prozent_formel'];
 // Themen, die erst ab ihrem Freigabedatum kommen (Auftrag 30). Steht so ein Thema im Wochenplan unter „gesperrt“, wird es ab dem Datum frei.
 export const FREIGABE_THEMEN = { 'prozent-formel': 'prozent_formel' };

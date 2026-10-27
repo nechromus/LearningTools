@@ -644,12 +644,14 @@ export const BOGEN_BONUS = ['klappt', 'mit Hilfe', 'nicht verstanden', 'ausgelas
 export const BOGEN_ANFANG = ['von', 'anfang'];
 export const BOGEN_ENDE = ['stimmung', 'hinweisblatt', 'dauer'];
 export const BOGEN_ALLGEMEIN = [
-  { k: 'von', titel: 'Wer trägt ein?', werte: ['Vater', 'Mutter'] },
+  { k: 'von', titel: 'Wer trägt ein?', werte: ['Vater', 'Mutter', 'Oma', 'Opa'] },
   { k: 'anfang', titel: 'Anfang', werte: ['direkt los', 'kurz überredet', 'stark überredet'] },
   { k: 'stimmung', titel: 'Stimmung', werte: ['gut', 'geht', 'schwierig'] },
   { k: 'hinweisblatt', titel: 'Hinweisblatt benutzt?', werte: ['ja', 'nein', 'weiß nicht'] },
   { k: 'dauer', titel: 'Dauer ungefähr', werte: [15, 30, 45, 60], text: (v) => v === 60 ? '60+' : String(v), frei: true }
 ];
+// „Gemacht am“ (Auftrag 35): Datum des Bogens, wenn es heute oder früher ist, sonst heute
+export const gemachtStandard = (b, heute) => b && /^\d{4}-\d{2}-\d{2}$/.test(b.datum || '') && b.datum <= heute ? b.datum : heute;
 export function bogenNorm(b) {
   if (!b || b.format !== 'bogen-1' || !b.id || !Array.isArray(b.uebungen)) return null;
   return { ...b, uebungen: b.uebungen.filter(u => u && u.nr != null).map(u => {

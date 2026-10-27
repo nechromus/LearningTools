@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.32.1';
+export const APP_VERSION = '2.33.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -148,7 +148,7 @@ export async function starten() {
   setInterval(() => { if (ansicht === 'start') zeigeStart(); }, 30000);
   // Einrichtungs-Link aus dem QR-Code (Kamera-App) geöffnet?
   const ausLinkRoh = einrichtungLesen(location.hash);
-  const ausLink = ausLinkRoh && ausLinkRoh.art !== 'eltern' ? ausLinkRoh : null;
+  const ausLink = ausLinkRoh && ausLinkRoh.art === 'kind' ? ausLinkRoh : null;
   if (location.hash.includes('einrichten=')) history.replaceState(null, '', location.pathname + location.search);
   zeigeStart();
   if (ausLink) einrichten(ausLink, 'link');
@@ -242,7 +242,7 @@ async function qrScannen() {
         const code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height, { inversionAttempts: 'dontInvert' });
         if (code && code.data) {
           const d = einrichtungLesen(code.data);
-          if (d && d.art === 'eltern') { if (info()) info().textContent = 'Das ist ein Code für die Eltern-App, nicht für dieses Handy.'; }
+          if (d && d.art !== 'kind') { if (info()) info().textContent = 'Das ist ein Code für die Eltern-App, nicht für dieses Handy.'; }
           else if (d) { scannerStoppen(); schliesseModal(); einrichten(d, 'kamera'); return; }
           else if (info()) info().textContent = 'Das ist kein Einrichtungs-Code aus der Eltern-App.';
         }
@@ -1194,14 +1194,14 @@ function ergebnisTeil(a, knobel = false) {
 }
 // Teile mit Schritten (nach „In Schritten rechnen“): Merkzettel, Schritte und, wenn nötig, das Ergebnisfeld
 function schritteTeile(a) {
-  const st = schritteVon(a.schritte || []);
+  const st = schritteVon(a.schritte || [], a.thema);
   const w = a.antwort || {};
   const ziel = typeof w.mantisse === 'number' ? w.mantisse * 10 ** w.exponent : w.wert;
   const letzte = (a.schritte || [])[(a.schritte || []).length - 1];
   const fertig = a.typ !== 'zehnerpotenz' && !!(letzte && typeof letzte.wert === 'number' && typeof ziel === 'number' && Math.abs(letzte.wert - ziel) <= 1e-9 * Math.max(1, Math.abs(ziel)));
   return [...merkTeile(a), ...st, ...(fertig ? [] : [ergebnisTeil(a)])];
 }
-function schritteVon(liste) {
+function schritteVon(liste, thema) {
   return liste.map(s => s.linien_waehlen
     ? { art: 'linien', label: s.text, richtig: s.linien_waehlen.richtig.slice(), linien: [], quelle: s }
     : s.bruch
@@ -1209,7 +1209,7 @@ function schritteVon(liste) {
     : s.karten
     ? { art: 'legen', label: s.text, karten: s.karten, wahl: s.karten.map(() => null), quelle: s }
     : s.optionen
-    ? { art: 'wahl', label: s.text, optionen: s.optionen, richtig: s.richtig, quelle: s, formel: s.optionen.every(o => /=/.test(o)) }
+    ? { art: 'wahl', label: s.text, optionen: L.KOERPER_THEMEN.includes(thema) ? s.optionen.map(L.mitKuerzel) : s.optionen, richtig: s.richtig, quelle: s, formel: s.optionen.every(o => /=/.test(o)) }
     : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden, gueltige: s.gueltige_ziffern || undefined, genau: s.genau, varianten: s.varianten, abgeschnitten: s.abgeschnitten, auch: s.auch }, einheit: s.einheit || '', quelle: s });
 }
 
@@ -1225,7 +1225,7 @@ function hauptTeile(a) {
       teile.push({ art: 'wahl', label: a.frage, optionen: a.optionen, richtig: a.antwort.richtig });
       return teile;
     }
-    case 'schritte': return schritteVon(a.schritte);
+    case 'schritte': return schritteVon(a.schritte, a.thema);
     case 'detektiv': {
       // Fehler-Detektiv (Auftrag 17): Stimmt / Stimmt nicht → Was ist falsch? → richtig rechnen
       const teile = [{ art: 'wahl', detektiv: true, label: a.frage, optionen: ['Stimmt', 'Stimmt nicht'], richtig: a.stimmt ? 0 : 1 }];
@@ -1910,6 +1910,7 @@ function neueAufgabe() {
     ({ aufgabe, wdh, paket: paketId, bonus: bonusWdh = false, ausgleich = false, wp: wpInfo = null, nachLoesung = null } = waehleBegrenzt(kategorie));
     S.verlauf.musterIndex++;
   }
+  aufgabe = L.kuerzelAufgabe(aufgabe);
   A = {
     aufgabe, kategorie, serienPos: serieWeiter(), start: Date.now(),
     teile: teileVon(aufgabe), idx: 0, phase: 'eingabe', hinweise: [], verlassen: 0, strafe: 'keine',
@@ -4921,7 +4922,7 @@ function klick(e) {
     case 'qrScannen': qrScannen(); break;
     case 'scanText': {
       const d = einrichtungLesen(document.getElementById('scan-text').value);
-      if (!d || d.art === 'eltern') { const i = document.getElementById('scan-info'); if (i) i.textContent = 'Der Link ist nicht richtig. Bitte den ganzen Link aus der Eltern-App einfügen.'; break; }
+      if (!d || d.art !== 'kind') { const i = document.getElementById('scan-info'); if (i) i.textContent = 'Der Link ist nicht richtig. Bitte den ganzen Link aus der Eltern-App einfügen.'; break; }
       scannerStoppen(); schliesseModal(); einrichten(d, 'text'); break;
     }
     case 'einrichtenNameJa': { const d = einrichtenWartet; einrichtenWartet = null; schliesseModal(); if (d) einrichten(d, 'bestaetigt'); break; }
