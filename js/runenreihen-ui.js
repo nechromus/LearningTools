@@ -55,6 +55,7 @@ export function runenreihenStarten(wurzel, opt = {}) {
     </div>
     <div class="leiste">
       <button class="knopf" id="rr-tipp">Tipp</button>
+      <label class="rr-auto"><input type="checkbox" id="rr-auto"> Tipps von selbst</label>
       <span class="rr-rekord">Rekord <b id="rr-rekord">0</b></span>
     </div>
     <p class="hinweis">Wische einen Stein zum Nachbarn oder tippe zwei Nachbarn an. Drei gleiche in einer Reihe verschwinden.${opt.hinweisZusatz ? ' · ' + opt.hinweisZusatz : ''}</p>
@@ -315,7 +316,8 @@ export function runenreihenStarten(wurzel, opt = {}) {
     if (!z) return;
     for (const i of z) { const d = sprites.get(s.feld[i].id); if (d) d.classList.add('tipp'); }
   }
-  function tippPlanen() { tippWeg(); tippTimer = setTimeout(tippZeigen, TIPP_MS); }
+  // Tipps von selbst nach 6 s ohne Zug: abschaltbar (Wunsch Tobias 28.10.), der Knopf „Tipp“ geht immer
+  function tippPlanen() { tippWeg(); if (!s.tippAus) tippTimer = setTimeout(tippZeigen, TIPP_MS); }
 
   // ---------- Stufen und Tafeln ----------
 
@@ -335,7 +337,9 @@ export function runenreihenStarten(wurzel, opt = {}) {
 
   function neuesSpiel() {
     if (s.zuege > 0) melden('rr_neu', { punkte: s.punkte, stufe: s.stufe, zuege: s.zuege });
+    const tippAus = s.tippAus;
     s = R.neuStarten(s);
+    if (tippAus) s.tippAus = true;
     sichern();
     aufbauen();
     tippPlanen();
@@ -380,6 +384,8 @@ export function runenreihenStarten(wurzel, opt = {}) {
   an(rahmen, 'touchmove', (e) => e.preventDefault(), { passive: false });
 
   an($('tipp'), 'click', () => { tippWeg(); tippZeigen(); });
+  $('auto').checked = !s.tippAus;
+  an($('auto'), 'change', (e) => { if (e.target.checked) delete s.tippAus; else s.tippAus = true; sichern(); tippPlanen(); });
   an($('neu'), 'click', () => {
     if (beschaeftigt) return;
     tafel(`<div class="tafel"><h2>Neues Spiel?</h2><p>Das jetzige Spiel ist dann weg. Dein Rekord bleibt.</p>

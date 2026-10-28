@@ -14,6 +14,8 @@
 .rr .rr-leiste-platz { flex: 1; }
 .rr .leiste { align-items: center; }
 .rr .leiste .knopf { flex: 0 0 auto; padding: 0 22px; }
+.rr .rr-auto { display: inline-flex; align-items: center; gap: 6px; color: var(--matt); font-size: 15px; cursor: pointer; user-select: none; }
+.rr .rr-auto input { width: 20px; height: 20px; accent-color: #5FE8B4; margin: 0; }
 .rr .rr-rekord { margin-left: auto; color: var(--matt); font-size: 15px; }
 .rr .rr-rekord b { color: var(--gold-hell); font-family: Cinzel, serif; margin-left: 4px; }
 
