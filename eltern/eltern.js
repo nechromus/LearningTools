@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.48.0';
+export const ELTERN_VERSION = '1.48.1';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -273,6 +273,11 @@ function zeichne() {
   }
   if (route.seite === 'lernplan') lernplanEinhaengen();
   bgScrollZurueck(scroll);
+  // Abgeschickter Bogen: Felder nur ansehen
+  if (route.seite === 'boegen' && route.arg) {
+    const id = route.arg.split('/')[0], el = document.querySelector('.bg-schritt');
+    if (el && BG.fb[id] && bgGesperrt(id)) { el.classList.add('bg-lesen'); el.querySelectorAll('input, textarea').forEach(x => { x.disabled = true; }); }
+  }
 }
 // Bögen auf dem iPad: Liste und Bogen scrollen getrennt. Beim Neuzeichnen bleibt die Liste stehen;
 // der Bogen bleibt stehen, solange derselbe Bogen offen ist, sonst geht er nach oben.
@@ -449,9 +454,28 @@ function bgEntwurf(id) {
   return (BG.entwuerfe[k] = e);
 }
 function bgSichern(id, e) { e.geaendert = true; try { localStorage.setItem(bgKey(id), JSON.stringify(e)); } catch (x) { BG.meldung = { art: 'fehler', text: 'Der Zwischenstand passt nicht mehr in den Speicher dieses Geräts (zu viele Fotos?). Bitte speichern.' }; } }
-function bgHatEntwurf(id) { try { return !!localStorage.getItem(bgKey(id)); } catch (x) { return false; } }
+function bgHatEntwurf(id) {
+  try { const r = localStorage.getItem(bgKey(id)); if (!r) return false; if (!BG.fb[id]) return true; const e = JSON.parse(r); if (e && e.geaendert) return true; localStorage.removeItem(bgKey(id)); return false; } catch (x) { return false; }
+}
 function bgUe(e, nr) { return e.uebungen[nr] || (e.uebungen[nr] = { ergebnis: 'klappt', chips: [], notiz: '', fotos: [] }); }
-function bgGesehen(id, nr) { const e = bgEntwurf(id); if (!e.gesehen.includes(nr)) { e.gesehen.push(nr); try { localStorage.setItem(bgKey(id), JSON.stringify(e)); } catch (x) {} } }
+// Nur Ansehen legt keinen Zwischenstand an: „gesehen“ kommt erst mit der ersten Änderung auf das Gerät
+function bgGesehen(id, nr) { const e = bgEntwurf(id); if (!e.gesehen.includes(nr)) { e.gesehen.push(nr); if (e.geaendert) { try { localStorage.setItem(bgKey(id), JSON.stringify(e)); } catch (x) {} } } }
+// Abgeschickter Bogen: nur ansehen, bis jemand „Bearbeiten“ tippt (Wunsch Vater 28.10.)
+function bgGesperrt(id) { return !!BG.fb[id] && !bgHatEntwurf(id) && !(BG.bearbeiten || {})[id]; }
+function bgVerwerfen(id) {
+  if (!confirm('Änderungen auf diesem Gerät verwerfen? Das abgeschickte Feedback bleibt.')) return;
+  try { localStorage.removeItem(bgKey(id)); } catch (x) {}
+  if (BG.entwuerfe) delete BG.entwuerfe[bgKey(id)];
+  if (BG.bearbeiten) delete BG.bearbeiten[id];
+  BG.meldung = null; zeichne();
+}
+function bgAbgeschickt(id) {
+  const f = BG.fb[id];
+  if (!f) return '';
+  const wann = f.gespeichert ? `${datumKurz(String(f.gespeichert).slice(0, 10))}, ${String(f.gespeichert).slice(11, 16)}` : '';
+  if (bgGesperrt(id)) return `<section class="karte bg-abgeschickt"><p><b>Abgeschickt</b>${wann ? ' am ' + esc(wann) : ''}${f.von ? ' von ' + esc(f.von) : ''}.</p><p class="klein gedaempft">Nur zum Ansehen. Zum Ändern „Bearbeiten“ tippen.</p><button class="knopf" data-act="bgBearbeiten" data-id="${esc(id)}">Bearbeiten</button></section>`;
+  return `<section class="karte bg-abgeschickt offen"><p><b>Wird bearbeitet.</b> Abgeschickt${wann ? ' am ' + esc(wann) : ''}${f.von ? ' von ' + esc(f.von) : ''}.</p><p class="klein gedaempft">Änderungen gelten erst nach „Speichern“.</p><button class="knopf" data-act="bgVerwerfen" data-id="${esc(id)}">Änderungen verwerfen</button></section>`;
+}
 async function bgLaden(neu = false) {
   const o = C.nutzer;
   if (BG.laedt || (BG.kind === o && BG.liste && !neu)) return;
@@ -1004,7 +1028,8 @@ function bogenArchiv(id) {
 function bogenAllgemein(id) {
   const e = bgEntwurf(id), nrn = bgNummern(id);
   return `<div class="seite schmal-inhalt bg-schritt"><a class="zurueck" href="#boegen">‹ Bögen</a><h1>${esc(bgTitel(id))}</h1><span class="klein gedaempft">${esc(bgUntertitel(id))}</span>
-    ${zeitBox(id)}
+    ${bgAbgeschickt(id)}
+    ${bgGesperrt(id) ? '' : zeitBox(id)}
     ${bgPdfLeiste(id)}
     <p class="klein gedaempft">Schritt 1 von 3 · Allgemein</p>
     <section class="karte bg-allg">${bgAllgemeinFelder(id, e)}</section>
@@ -1020,7 +1045,7 @@ function bogenKarte(id, nr) {
   const nach = i < nrn.length - 1 ? `#boegen/${encodeURIComponent(id)}/${encodeURIComponent(nrn[i + 1])}` : `#boegen/${encodeURIComponent(id)}/ende`;
   return `<div class="seite schmal-inhalt bg-schritt bg-wisch" data-vor="${vor}" data-nach="${nach}">
     <div class="bg-oben"><a class="knopf bg-pfeil" href="${vor}" aria-label="Zurück">‹</a><span class="bg-oben-mitte"><b>Übung ${esc(nr)}</b><span class="klein gedaempft">${i + 1} von ${nrn.length}</span></span><a class="knopf bg-pfeil" href="${nach}" aria-label="Weiter">›</a><a class="knopf bg-zum-ende" href="#boegen/${encodeURIComponent(id)}/ende">Überblick</a></div>
-    ${bgLeiste(id, nr)}
+    ${bgLeiste(id, nr)}${bgAbgeschickt(id)}
     <h1 class="bg-h">${x.titel ? esc(x.titel) : 'Übung ' + esc(nr)}</h1>
     <section class="karte bg-karte${x.neu ? ' neu' : ''}">${ueKarte(id, nr, false)}</section>
     <div class="bg-weiter"><a class="knopf" href="${vor}">‹ ${i > 0 ? 'Übung ' + esc(nrn[i - 1]) : 'Allgemein'}</a><a class="knopf haupt" href="${nach}">${i < nrn.length - 1 ? 'Übung ' + esc(nrn[i + 1]) + ' ›' : 'Überblick ›'}</a></div>
@@ -1029,11 +1054,11 @@ function bogenKarte(id, nr) {
 function bogenEnde(id) {
   const e = bgEntwurf(id), nrn = bgNummern(id);
   const zurueck = `#boegen/${encodeURIComponent(id)}/${nrn.length ? encodeURIComponent(nrn[nrn.length - 1]) : ''}`;
-  return `<div class="seite schmal-inhalt bg-schritt bg-wisch" data-vor="${zurueck}"><a class="zurueck" href="${zurueck}">‹ ${nrn.length ? 'Übung ' + esc(nrn[nrn.length - 1]) : 'Allgemein'}</a><h1>Fertig?</h1><p class="klein gedaempft">Schritt 3 von 3 · Überblick</p>
-    ${bgLeiste(id, 'ende')}
+  return `<div class="seite schmal-inhalt bg-schritt bg-wisch" data-vor="${zurueck}"><a class="zurueck" href="${zurueck}">‹ ${nrn.length ? 'Übung ' + esc(nrn[nrn.length - 1]) : 'Allgemein'}</a><h1>${bgGesperrt(id) ? 'Überblick' : 'Fertig?'}</h1><p class="klein gedaempft">Schritt 3 von 3 · Überblick</p>
+    ${bgLeiste(id, 'ende')}${bgAbgeschickt(id)}
     <section class="karte liste-karte">${nrn.map(nr => { const u = e.uebungen[nr] || { ergebnis: 'klappt', chips: [], notiz: '' }, x = bgUeInfo(id, nr) || {}; return `<a class="zeile bg-ueb" href="#boegen/${encodeURIComponent(id)}/${encodeURIComponent(nr)}"><span class="zeile-haupt">${esc(nr)}${x.titel ? ' · ' + esc(x.titel) : ''}<span class="klein gedaempft block">${[u.bonus ? 'Bonus: ' + u.bonus.ergebnis : '', u.chips.length ? u.chips.join(', ') : '', u.notiz ? 'Notiz' : '', u.fotos && u.fotos.length ? u.fotos.length + ' Foto' + (u.fotos.length > 1 ? 's' : '') : ''].filter(Boolean).join(' · ')}</span></span><span class="bg-pill" data-erg="${esc(u.ergebnis)}">${esc(u.ergebnis)}</span></a>`; }).join('')}</section>
     <section class="karte bg-allg"><h3 class="bg-h3">Zum Schluss</h3>${bgAllgemeinFelder(id, e, A.BOGEN_ENDE, false)}${bgSonst(id, e)}</section>
-    ${bgSpeichernKnopf(id)}<p class="klein gedaempft mitte">Danach im Chat: „Bogen ${esc(bgTitel(id).replace(' · ', ' '))} erledigt“</p></div>`;
+    ${bgGesperrt(id) ? (BG.meldung ? `<p class="meldung ${BG.meldung.art}">${esc(BG.meldung.text)}</p>` : '') : `${bgSpeichernKnopf(id)}<p class="klein gedaempft mitte">Danach im Chat: „Bogen ${esc(bgTitel(id).replace(' · ', ' '))} erledigt“</p>`}</div>`;
 }
 // Bogen in der App ansehen (Auftrag 27): alle Übungen als Bilder untereinander, antippen zoomt
 function bgAnsichtOverlay(id) {
@@ -1086,6 +1111,7 @@ async function bgSpeichern(id) {
     BG.fb[id] = datei;
     try { localStorage.removeItem(bgKey(id)); } catch (x) {}
     delete BG.entwuerfe[bgKey(id)];
+    if (BG.bearbeiten) delete BG.bearbeiten[id];
     if (BG.liste && !BG.liste.some(x => x.id === id)) BG.liste.push({ id, ordner: !!BG.boegen[id], fertig: true });
     for (const x of BG.liste || []) if (x.id === id) x.fertig = true;
     BG.meldung = { art: 'ok', text: `Gespeichert. Sag im Chat für ${esc(name())}: „Bogen ${bgTitel(id).replace(' · ', ' ')} erledigt“.` };
@@ -2514,11 +2540,15 @@ async function updateLaden() {
   location.reload();
 }
 
+const BG_AENDERN = ['bgWert', 'bgErg', 'bgChip', 'bgBonus', 'bgFotoWeg', 'bgUeNeu', 'bgSpeichern', 'bgZeit', 'bgZeitEnde'];
 document.addEventListener('click', (ev) => {
   const el = ev.target.closest('[data-act]');
   if (!el) return;
   const act = el.dataset.act;
+  if (BG_AENDERN.includes(act) && el.dataset.id && bgGesperrt(el.dataset.id)) return;
   switch (act) {
+    case 'bgBearbeiten': BG.bearbeiten = { ...(BG.bearbeiten || {}), [el.dataset.id]: true }; zeichne(); break;
+    case 'bgVerwerfen': bgVerwerfen(el.dataset.id); break;
     case 'verbinden': verbinden(); break;
     case 'neuLaden': allesLaden({ nutzerliste: true }); break;
     case 'updateLaden': updateLaden(); break;

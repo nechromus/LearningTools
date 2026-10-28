@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.33.0';
+export const APP_VERSION = '2.33.1';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -2049,7 +2049,7 @@ function umformHtml(t, aktiv) {
     inhalt = `<div class="uf-weg">${weg}${ufZeile(u.gl, '', 'neu')}</div>${zurueck}
       <p class="uf-frage">Was machst du auf beiden Seiten?</p>
       <div class="uf-bausteine">${ops}<span class="uf-trenner"></span>${terme}<span class="uf-trenner"></span>${fest}</div>
-      <div class="uf-auswahl"><span>${auswahl}</span><button class="btn btn-haupt btn-klein" data-act="ufAnwenden" ${u.op && !UF.istLeer(u.term) ? '' : 'disabled'}>Anwenden</button></div>
+      <div class="uf-auswahl"><span>${auswahl}</span>${u.op || !UF.istLeer(u.term) ? '<button class="uf-leeren" data-act="ufLeeren" aria-label="Auswahl löschen">⌫</button>' : ''}<button class="btn btn-haupt btn-klein" data-act="ufAnwenden" ${u.op && !UF.istLeer(u.term) ? '' : 'disabled'}>Anwenden</button></div>
       ${A.meldung && A.phase === 'eingabe' ? `<div class="meldung uf-meldung">${esc(A.meldung)}</div>` : ''}
       ${u.tippen ? '' : `<button class="btn-text klein uf-tippen" data-act="ufTippen">⌨ Eigene Zahl oder Term tippen</button>`}
       ${u.vorschlag ? `<div class="uf-hilfe-box"><b>Vorschlag für den nächsten Schritt:</b> ${esc(u.vorschlag)}</div>` : ''}`;
@@ -4842,9 +4842,11 @@ function klick(e) {
     case 'hilfeGesperrt': hilfeGesperrtGetippt(); break;
     case 'ufAn': ufAn(); break;
     case 'ufOp': if (A && A.uf) { A.uf.op = el.dataset.o; A.meldung = null; zeigeAufgabe(); } break;
-    case 'ufTerm': if (A && A.uf) { const ed = A.uf.term; for (const z of UF.setzen(el.dataset.t).t) UF.tippen(ed, z); A.meldung = null; zeigeAufgabe(); } break;
+    case 'ufTerm': if (A && A.uf) { if (!A.uf.tippen) A.uf.term = UF.leer(); const ed = A.uf.term; for (const z of UF.setzen(el.dataset.t).t) UF.tippen(ed, z); A.meldung = null; zeigeAufgabe(); } break;
     case 'ufFest': ufAnwenden(el.dataset.f); break;
     case 'ufAnwenden': ufAnwenden('op'); break;
+    // Auswahl korrigieren: erst den Term löschen, dann das Rechenzeichen
+    case 'ufLeeren': if (A && A.uf) { if (!UF.istLeer(A.uf.term)) A.uf.term = UF.leer(); else A.uf.op = null; A.meldung = null; zeigeAufgabe(); } break;
     case 'ufTaste': ufTaste(el.dataset.k); break;
     case 'ufTippen': if (A && A.uf) { A.uf.tippen = true; zeigeAufgabe(); } break;
     case 'ufTippenZu': if (A && A.uf) { A.uf.tippen = false; zeigeAufgabe(); } break;
