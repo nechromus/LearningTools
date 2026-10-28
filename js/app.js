@@ -3,7 +3,7 @@ import * as L from './logic.js';
 import * as G from './gen.js';
 import * as U from './sync.js';
 import * as FU from './formeluebersicht.js';
-import { esc, mathe, bruchHtml, bildSvg, linienSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck } from './render.js';
+import { esc, mathe, bruchHtml, bildSvg, linienSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck, stellentafelHtml } from './render.js';
 import * as GF from './gefaerbt.js';
 import { THEMA_NAMEN, GEN_NAMEN, FEHLER_NAMEN } from './namen.js';
 import * as P from './paket.js';
@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.33.2';
+export const APP_VERSION = '2.34.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1253,7 +1253,12 @@ const MUSTER = ['leicht', 'thema', 'thema', 'text', 'mix', 'thema', 'struktur', 
 const wahl = arr => arr[Math.floor(Math.random() * arr.length)];
 // Stufe eines Baukastens, höchstens bis zur Grenze der aktuellen Etappe
 const stufeGrenze = g => LP.baukastenGrenze(g, grenzen()).stufeMax;
-const genStufe = g => Math.min((S.genStufen[g] || { stufe: 1 }).stufe, stufeGrenze(g));
+// Befristete Grenzen (Auftrag 36): einstellungen.json → werte.befristet, gilt bis einschließlich „bis“
+const BEF = () => L.befristetAktiv(S, S.tag.key);
+const befStufe = (g, st) => { const b = BEF(), m = b && b.stufe_max && b.stufe_max[g]; return m ? Math.min(st, m) : st; };
+const befOpts = (g) => { const b = BEF(); return b && b.prozent && ['prozent', 'rabatt-geschichte'].includes(g) ? { saetze: b.prozent } : {}; };
+const befGeteilt = () => { const b = BEF(); return b && b.einmaleins_geteilt != null ? { geteilt: b.einmaleins_geteilt } : {}; };
+const genStufe = g => befStufe(g, Math.min((S.genStufen[g] || { stufe: 1 }).stufe, stufeGrenze(g)));
 
 function fokusOptionen() {
   const n = S.log.slice(-300).filter(e => e.typ === 'versuch' && e.fehler === 'vorzeichen').length;
@@ -1269,12 +1274,14 @@ function erzeuge(g, stufe, opts = {}) {
   if (bgOhne.includes('auswahl')) opts = { ...opts, ohneAuswahl: true };
   // Varianten, die die Etappe nicht erlaubt (Dichte: vergleich, verhaeltnis, gewichtskraft)
   if (bgOhne.length) opts = { ...opts, ohne: bgOhne };
-  opts = { ...opts, ...formOpts(g) };
+  opts = { ...opts, ...formOpts(g), ...befOpts(g) };
+  stufe = befStufe(g, stufe);
   let a;
   for (let i = 0; i < 8; i++) {
     a = G.GENERATOREN[g](stufe, Math.random, opts);
     if (a && !letzte.includes(a.id) && heuteOk(a)) break;
   }
+  if (a && BEF() && (befOpts(g).saetze || (BEF().stufe_max || {})[g])) a = { ...a, grenze_bis: BEF().bis };
   // Kreisdiagramm (Auftrag 33): ab der Freigabe von Prozent mit Formel auch Hinweis 23
   if (a && g === 'kreisdiagramm' && L.themaFreigegeben(S, 'prozent-formel', L.tagKey()) && !a.hinweise.includes('formel')) a = { ...a, hinweise: [...a.hinweise, 'formel'] };
   return a;
@@ -1296,7 +1303,7 @@ function grenzen() {
   grenzenCache = { k: schluessel, g };
   return g;
 }
-const erlaubt = (a) => LP.aufgabeErlaubt(a, grenzen()) && !(a && wpGesperrt().includes(a.thema)) && !(a && !L.themaFreigegeben(S, a.thema, L.tagKey()));
+const erlaubt = (a) => L.befristetErlaubt(a, BEF()) && LP.aufgabeErlaubt(a, grenzen()) && !(a && wpGesperrt().includes(a.thema)) && !(a && !L.themaFreigegeben(S, a.thema, L.tagKey()));
 // Nächste Etappe wird ab ihrem Datum wirksam (Gerätezeit)
 function etappenAktualisieren() {
   if (!pakete()) return;
@@ -1390,7 +1397,7 @@ function testAufgabe(thema, stufe) {
     const g = wahl(gens);
     let a;
     for (let i = 0; i < 8; i++) {
-      a = g === 'einmaleins' ? G.block('einmaleins', Math.random, stufe) : G.GENERATOREN[g](stufe, Math.random, formOpts(g));
+      a = g === 'einmaleins' ? G.block('einmaleins', Math.random, stufe, befGeteilt()) : G.GENERATOREN[g](stufe, Math.random, { ...formOpts(g), ...befOpts(g) });
       if (a && !letzte.includes(a.id)) break;
     }
     return a;
@@ -1404,10 +1411,12 @@ function testAuswahl(thema) {
   return [1, 2, 3].map(st => ({ st, pool: alleAufgaben().filter(a => a.thema === thema && a.stufe === st).length, gen: gens.length > 0 }));
 }
 
-function einmaleinsBlock(stufe) {
+function einmaleinsBlock(stufe, leicht = false) {
   const letzte = S.verlauf.letzteIds.slice(-15);
+  const o = leicht ? {} : befGeteilt();
   let b;
-  for (let i = 0; i < 8; i++) { b = G.block('einmaleins', Math.random, stufe); if (!letzte.includes(b.id)) break; }
+  for (let i = 0; i < 8; i++) { b = G.block('einmaleins', Math.random, stufe, o); if (!letzte.includes(b.id)) break; }
+  if (b && o.geteilt != null) b.grenze_bis = BEF().bis;
   return b;
 }
 
@@ -1423,7 +1432,7 @@ function kurzeAufgabe(g, fokus, { leicht = false } = {}) {
   S.verlauf.kopfZuletzt = thema;
   // Einmaleins immer als Dreierblock (Wunsch Vater), mit der Stufe des Baukastens
   if (thema === 'einmaleins') {
-    const b = einmaleinsBlock(leicht ? 1 : genStufe('einmaleins'));
+    const b = einmaleinsBlock(leicht ? 1 : genStufe('einmaleins'), leicht);
     if (!leicht) b.stufeZaehlt = true; // zählt für die Stufe des Baukastens (Einstieg nicht)
     return b;
   }
@@ -1848,7 +1857,7 @@ function serieWeiter() {
 function startInfoVon(A, extra = {}) {
   const aufgabe = A.aufgabe;
   const startInfo = { id: aufgabe.id, thema: aufgabe.thema, stufe: aufgabe.stufe, aufgabenTyp: aufgabe.typ, kategorie: A.kategorie, serienPos: A.serienPos, bonus: !!aufgabe.bonus, wiederholung: A.wdh || 0, ...(A.nachLoesung ? { nach_loesung: A.nachLoesung } : {}),
-    ...(A.paket ? { paket: A.paket } : {}), ...(A.etappe != null ? { etappe: A.etappe } : {}), ...(A.ausgleich ? { ausgleich: true } : {}), ...(A.wp ? { wochenplan: A.wp.grund, ...(A.wp.art ? { wp_art: A.wp.art } : {}) } : {}), ...extra };
+    ...(A.paket ? { paket: A.paket } : {}), ...(A.etappe != null ? { etappe: A.etappe } : {}), ...(A.ausgleich ? { ausgleich: true } : {}), ...(A.wp ? { wochenplan: A.wp.grund, ...(A.wp.art ? { wp_art: A.wp.art } : {}) } : {}), ...(aufgabe.grenze_bis ? { grenze_bis: aufgabe.grenze_bis } : {}), ...extra };
   if (aufgabe.generator) Object.assign(startInfo, {
     generator: aufgabe.generator, parameter: aufgabe.parameter, rechnung: aufgabe.rechnung, geschichte: aufgabe.geschichte,
     teile: A.teile.map(t => t.art === 'zahl' ? [t.label || null, t.ziel.wert] : t.art === 'bruch' ? [t.antwort.zaehler, t.antwort.nenner] : t.art === 'wahl' ? [t.label, t.richtig] : null)
@@ -2409,7 +2418,7 @@ function zeigeAufgabe() {
   hilfeTicken();
 }
 
-const meldungHtml = () => (A.meldung === SCHNELL_TIPP ? `<b>Zu schnell.</b> ${esc(SCHNELL_TIPP)} <span class="gedaempft">Das zählt nicht als Versuch.</span>` : esc(A.meldung));
+const meldungHtml = () => { if (A.meldung === SCHNELL_TIPP) return `<b>Zu schnell.</b> ${esc(SCHNELL_TIPP)} <span class="gedaempft">Das zählt nicht als Versuch.</span>`; const t = A.teile && A.teile[A.idx]; return esc(A.meldung) + (t && t.tafel && A.meldung === t.tipp ? stellentafelHtml(t.tafel) : ''); };
 
 // ---------- Textaufgaben: Satz für Satz, Vorlesen, Zahlen markieren ----------
 const liestNoch = () => !!(A && !A.fertig && A.aufgabe.geschichte && A.satz != null && A.satz < L.saetzeVon(A.aufgabe.geschichte).length);
@@ -2700,9 +2709,9 @@ function teileHtml() {
       inhalt = legenHtml(t, aktiv, nr);
     }
     let zusatz = '';
-    if (aktiv && A.phase === 'tipp') zusatz = `<div class="tipp"><b>Noch nicht.</b> ${esc(t.tipp)}</div>`;
+    if (aktiv && A.phase === 'tipp') zusatz = `<div class="tipp"><b>Noch nicht.</b> ${esc(t.tipp)}${t.tafel ? stellentafelHtml(t.tafel) : ''}</div>`;
     if (aktiv && t.hilfe && A.phase !== 'tipp') zusatz += hilfeBox(t);
-    if (i === A.idx && A.phase === 'aufgeloest') zusatz = `<div class="aufloesung">So ist es richtig: <b>${loesungText(t)}</b>${t.loesungTipp ? `<br>${mathe(t.loesungTipp)}` : ''}</div>`;
+    if (i === A.idx && A.phase === 'aufgeloest') zusatz = `<div class="aufloesung">So ist es richtig: <b>${loesungText(t)}</b>${t.loesungTipp ? `<br>${mathe(t.loesungTipp)}` : ''}${t.tafel ? stellentafelHtml(t.tafel, true) : ''}</div>`;
     if (t.merk && i > A.idx && !A.fertig) {
       inhalt = `<div class="teil-label"><span>${mathe(t.label)}</span></div><div class="feld-zeile"><button class="feld leer tippbar" data-act="springe" data-i="${i}" aria-label="Zu diesem Feld springen">?</button>${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}</div>`;
     }
@@ -3121,13 +3130,15 @@ function versuchMerken(t, eingabe, richtig, fehler) {
   const maxVersuche = t.art === 'wahl' && !t.detektiv ? 1 : 2; // Detektiv Schritt 1: 2 Versuche (Auftrag 18)
   if (t.versuche.length < maxVersuche) {
     t.tipp = fehler ? fehler.text : 'Schau dir den Hinweis an und rechne noch einmal.';
+    t.tafel = fehler && fehler.tafel ? fehler.tafel : null; // Stellentafel bei Mal 10 (Auftrag 36)
     // Ohne „Verstanden“ (Schalter pro Kind): der Tipp bleibt stehen, bis weitergetippt wird
     A.phase = bed('verstanden') ? 'tipp' : 'eingabe';
     A.meldung = t.tipp;
     t.eingabe = ''; t.z = ''; t.n = t.nennerFest ? String(t.antwort.nenner) : ''; t.e = ''; t.tokens = []; t.gelegt = [];
   } else {
     t.status = 'loesung';
-    t.loesungTipp = fehler ? fehler.text : null;
+    t.loesungTipp = fehler ? fehler.loesung || fehler.text : null;
+    t.tafel = fehler && fehler.tafel ? fehler.tafel : t.tafel || null;
     A.phase = 'aufgeloest';
     protokoll(S, 'loesung_gezeigt', { id: a.id, teil: A.idx });
   }

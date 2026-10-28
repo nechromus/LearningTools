@@ -132,6 +132,17 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
     }
   }
 
+  // Mal 10 / durch 10 (Auftrag 36), auch im Dreierblock und bei festen Aufgaben
+  if (aufgabe.thema === 'mal-10' || /block-mal10/.test(aufgabe.generator || '')) {
+    const f = mal10Fehler(aufgabe.rechnung, w, ziel);
+    if (f) return f;
+  }
+  // Einmaleins geteilt (Auftrag 36): über die Malfolge, ohne das Ergebnis zu verraten
+  if (aufgabe.thema === 'einmaleins') {
+    const g = /^\s*(\d+)\s*:\s*(\d+)\s*=?\s*$/.exec(String(aufgabe.rechnung || ''));
+    if (g) { const p = Number(g[1]), a = Number(g[2]); return { typ: 'einmaleins-geteilt', text: `Welche Zahl mal ${a} gibt ${p}? Zähl in ${a}er-Schritten: ${[a, 2 * a, 3 * a].filter(x => x < p).slice(0, 3).join(', ')}, … bis ${p}. Wie viele Schritte?`, loesung: `${a} · ${p / a} = ${p} → ${p} : ${a} = ${p / a}` }; }
+  }
+
   // Radius aus Durchmesser: Rechenweg steht nicht in der Frage, Tipp erst nach einem Fehler
   if (teil && /^Radius\b/.test(teil.text || '')) {
     if (gleich(w, 2 * ziel)) return { typ: 'kugel-d-statt-r', text: 'Das ist der Durchmesser. Der Radius ist halb so lang.' };
@@ -821,6 +832,52 @@ export function kuerzelAufgabe(a) {
   return lw.some((z, i) => z !== a.loesungsweg[i]) ? { ...a, loesungsweg: lw } : a;
 }
 export const FREIGABEN = ['minusminus', 'prozent_formel'];
+// Befristete Grenzen pro Kind (Auftrag 36), aus einstellungen.json → werte.befristet:
+// { bis: 'JJJJ-MM-TT', stufe_max: { <generator>: 1–3 }, einmaleins_geteilt: 0–3 (von 3 im Block), prozent: [Prozentsätze] }
+export function befristetNorm(b) {
+  if (!b || typeof b !== 'object' || !/^\d{4}-\d{2}-\d{2}$/.test(b.bis || '')) return null;
+  const n = { bis: b.bis };
+  if (b.stufe_max && typeof b.stufe_max === 'object') {
+    const sm = Object.fromEntries(Object.entries(b.stufe_max).filter(([k, v]) => /^[a-z0-9-]+$/.test(k) && [1, 2, 3].includes(v)));
+    if (Object.keys(sm).length) n.stufe_max = sm;
+  }
+  if ([0, 1, 2, 3].includes(b.einmaleins_geteilt)) n.einmaleins_geteilt = b.einmaleins_geteilt;
+  if (Array.isArray(b.prozent)) { const l = [...new Set(b.prozent.filter(x => Number.isInteger(x) && x > 0 && x < 100))].sort((x, y) => x - y); if (l.length) n.prozent = l; }
+  return n;
+}
+export const befristetAktiv = (z, heute) => (z && z.befristet && heute <= z.befristet.bis ? z.befristet : null);
+// Feste Aufgabe in der befristeten Zeit erlaubt? Prozent/Rabatt nur mit den erlaubten Sätzen, Mal 10 ohne Zahlen mit zwei Nachkommastellen
+export function befristetErlaubt(a, bef) {
+  if (!bef || !a) return true;
+  const PT = ['prozent', 'rabatt', 'neuer-preis', 'prozent-baukasten'];
+  if (a.generator) {
+    if (bef.prozent && PT.includes(a.thema) && typeof (a.parameter || [])[0] === 'number' && !bef.prozent.includes(a.parameter[0])) return false;
+    const sm = bef.stufe_max && bef.stufe_max[String(a.generator).replace(/^block-/, '')];
+    if (sm && (a.stufe || 1) > sm) return false;
+    return true;
+  }
+  const txt = [a.rechnung, a.frage, a.geschichte, a.fremde_rechnung].filter(x => typeof x === 'string').join(' ');
+  if (bef.prozent && PT.includes(a.thema)) {
+    const saetze = [...txt.matchAll(/(\d+)\s*%/g)].map(m => Number(m[1]));
+    if (saetze.some(x => !bef.prozent.includes(x))) return false;
+  }
+  if (bef.stufe_max && bef.stufe_max.mal10 && bef.stufe_max.mal10 < 3 && a.thema === 'mal-10' && /\d,\d\d/.test(txt)) return false;
+  return true;
+}
+// Mal 10 / durch 10 (Auftrag 36): Fehler erkennen und Stellentafel zeigen
+const ziffern = (v) => String(Math.round(Math.abs(v) * 1000) / 1000).replace('.', '').replace(/^0+/, '').replace(/0+$/, '');
+export function mal10Fehler(rechnung, w, ziel) {
+  const m = /^\s*(\d+(?:,\d+)?)\s*([·:])\s*10\s*=?\s*$/.exec(String(rechnung || ''));
+  if (!m) return null;
+  const x = Number(m[1].replace(',', '.')), mal = m[2] === '·';
+  const tafel = { x, mal };
+  if (gleich(w, x)) return { typ: 'mal10-nicht-verschoben', text: `Die Zahl muss sich ändern. Mal 10 wird größer, durch 10 wird kleiner.`, tafel };
+  if (ziffern(w) === ziffern(ziel)) {
+    if (mal ? w < x : w > x) return { typ: 'mal10-falsche-richtung', text: mal ? 'Mal 10 wird die Zahl größer.' : 'Durch 10 wird die Zahl kleiner.', tafel };
+    return { typ: 'mal10-stellen', text: 'Das Komma rutscht genau eine Stelle. Nicht mehr.', tafel };
+  }
+  return { typ: 'mal10-ziffer-weg', text: 'Alle Ziffern bleiben. Nur das Komma rutscht.', tafel };
+}
 // Themen, die erst ab ihrem Freigabedatum kommen (Auftrag 30). Steht so ein Thema im Wochenplan unter „gesperrt“, wird es ab dem Datum frei.
 export const FREIGABE_THEMEN = { 'prozent-formel': 'prozent_formel' };
 export const themaFreigegeben = (z, thema, heute) => !FREIGABE_THEMEN[thema] || freigegeben(z, FREIGABE_THEMEN[thema], heute);
@@ -885,6 +942,12 @@ export function fernAnwenden(z, datei) {
     for (const k of FREIGABEN) if (/^\d{4}-\d{2}-\d{2}$/.test(w.freigaben[k] || '')) neu[k] = w.freigaben[k];
     if (JSON.stringify(neu) !== JSON.stringify(z.freigaben || {})) geaendert.push('freigaben');
     z.freigaben = neu;
+  }
+  // Befristete Grenzen (Auftrag 36): bis einschließlich „bis“, danach wie vorher
+  {
+    const neu = befristetNorm(w.befristet);
+    if (JSON.stringify(neu) !== JSON.stringify(z.befristet || null)) geaendert.push('befristet');
+    if (neu) z.befristet = neu; else delete z.befristet;
   }
   // Wochenplan und Eingriffe der Eltern (Auftrag 24): unverändert übernehmen, geprüft wird in js/wochenplan.js.
   // Fehlt der Abschnitt, ist kein Plan da (die App arbeitet wie bisher).

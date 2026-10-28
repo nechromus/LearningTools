@@ -260,9 +260,13 @@ export function mal10(stufe, rng) {
 
 const PROZENT_REGEL = { 50: 2, 25: 4, 10: 10, 20: 5 };
 
-export function prozent(stufe, rng) {
-  for (let v = 0; v < 200; v++) {
-    const p = stufe === 1 ? wahl(rng, [50, 10, 25]) : wahl(rng, [50, 25, 10, 20, 75]);
+export function prozent(stufe, rng, opts = {}) {
+  // opts.saetze (Auftrag 36): nur diese Prozentsätze, Ergebnis glatt in Euro
+  const liste = stufe === 1 ? [50, 10, 25] : [50, 25, 10, 20, 75];
+  const erlaubt = opts.saetze ? liste.filter(x => opts.saetze.includes(x)) : liste;
+  const fest = opts.saetze ? wahl(rng, erlaubt.length ? erlaubt : liste) : null; // gleich verteilt, dann passenden Grundwert suchen
+  for (let v = 0; v < 400; v++) {
+    const p = fest || wahl(rng, liste);
     let g;
     if (p === 50) g = stufe === 1 ? zufall(rng, 5, 100) * 2 : zufall(rng, 5, 150) * (stufe === 2 ? 1 : 2);
     if (p === 10) g = stufe === 1 ? zufall(rng, 2, 50) * 10 : zufall(rng, 11, 300);
@@ -270,7 +274,7 @@ export function prozent(stufe, rng) {
     if (p === 20) g = zufall(rng, 2, 60) * 5;
     if (p === 75) g = zufall(rng, 2, 40) * 4;
     const wert = Math.round(g * p) / 100;
-    if (stufe === 1 && !Number.isInteger(wert)) continue;
+    if ((stufe === 1 || opts.saetze) && !Number.isInteger(wert)) continue;
     if (!Number.isInteger(wert * 100) || wert * 100 % 10 !== 0 && wert * 100 % 50 !== 0 && wert * 100 % 25 !== 0) continue;
     const weg = p === 75 ? [`${g} : 4 = ${geld(g / 4)}`, `${geld(g / 4)} · 3 = ${geld(wert)}`] : [`${g} : ${PROZENT_REGEL[p]} = ${geld(wert)}`];
     const erkl = p === 75 ? 'Erst ein Viertel, dann mal 3.' : `${p} % heißt: durch ${PROZENT_REGEL[p]}.`;
@@ -593,14 +597,15 @@ const LAEDEN = [
   { laden: 'Im Handyladen', nom: 'Eine Handyhülle', verb: 'kostet', akk: 'die Handyhülle', preise: [20, 30, 40, 50] }
 ];
 
-export function rabattGeschichte(stufe, rng) {
+export function rabattGeschichte(stufe, rng, opts = {}) {
   const l = wahl(rng, LAEDEN);
   const [name] = wahl(rng, NAMEN);
   for (let v = 0; v < 100; v++) {
-    const q = stufe >= 3 ? wahl(rng, [30, 40, 20, 25]) : wahl(rng, [10, 20, 25, 50]);
+    const qs = (stufe >= 3 ? [30, 40, 20, 25] : [10, 20, 25, 50]).filter(x => !opts.saetze || opts.saetze.includes(x));
+    const q = wahl(rng, qs.length ? qs : [10, 20, 25, 50]);
     const preis = wahl(rng, l.preise);
     const spar = preis * q / 100;
-    if (!Number.isInteger(spar * 100) || (stufe < 3 && !Number.isInteger(spar))) continue;
+    if (!Number.isInteger(spar * 100) || ((stufe < 3 || opts.saetze) && !Number.isInteger(spar))) continue;
     const neuP = preis - spar;
     const saetze = [`${l.laden} gibt es diese Woche ${q} % Rabatt.`, `${l.nom} ${l.verb} normalerweise ${preis} €.`, `${name} kauft ${l.akk}.`];
     const regel = [30, 40].includes(q) ? `10 % = ${geld(preis / 10)} €, mal ${q / 10} = ${geld(spar)} €` : `${q} % von ${preis} € → ${preis} : ${PROZENT_REGEL[q]} = ${geld(spar)} €`;
@@ -865,11 +870,16 @@ export function kreisdiagramm(stufe, rng) {
 
 // ---------- Dreierblock ----------
 
-export function block(gen, rng, stufe = 1) {
+export function block(gen, rng, stufe = 1, opts = {}) {
   const teile = [];
   const ids = new Set();
   // Einmaleins ab Stufe 2: mal und geteilt gemischt (mindestens eine von beiden Arten)
-  const arten = gen === 'einmaleins' && stufe >= 2 ? (rng() < 0.5 ? ['mal', 'geteilt', 'mal'] : ['geteilt', 'mal', 'geteilt']) : null;
+  let arten = gen === 'einmaleins' && stufe >= 2 ? (rng() < 0.5 ? ['mal', 'geteilt', 'mal'] : ['geteilt', 'mal', 'geteilt']) : null;
+  // Befristet (Auftrag 36): feste Zahl von Geteilt-Aufgaben im Block, Reihenfolge gemischt
+  if (gen === 'einmaleins' && opts.geteilt != null) {
+    arten = ['mal', 'mal', 'mal'].map((x, i) => (i < opts.geteilt ? 'geteilt' : 'mal'));
+    for (let i = arten.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [arten[i], arten[j]] = [arten[j], arten[i]]; }
+  }
   for (let v = 0; v < 80 && teile.length < 3; v++) {
     const t = arten ? GENERATOREN[gen](stufe, rng, { art: arten[teile.length] }) : GENERATOREN[gen](stufe, rng);
     if (t.typ !== 'zahl' || ids.has(t.id)) continue;

@@ -1036,3 +1036,15 @@ button.uf-seite { font: inherit; font-size: 22px; font-weight: 700; color: inher
 .bonus-zeit span { float: right; font-weight: 700; }
 .muehe-chip, .extra-chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--teal-hell); color: var(--teal-dunkel); font-weight: 700; }
 .extra-chip { background: #EEE8F5; color: #5B3F7A; }
+
+/* Komma-Sprung bei Mal 10 / durch 10 (Auftrag 36) */
+.komma-tipp { margin-top: 6px; font-weight: 400; }
+.komma-tipp p { margin: 4px 0 0; }
+.komma-sprung { display: block; max-width: 100%; height: auto; margin: 6px auto; overflow: visible; }
+.komma-sprung .kt-z { font-size: 44px; font-weight: 700; fill: currentColor; font-variant-numeric: tabular-nums; }
+.komma-sprung .kt-z.grau { opacity: .35; }
+.komma-sprung .kt-komma { font-size: 50px; font-weight: 700; }
+.komma-sprung .kt-komma.alt { fill: currentColor; opacity: .3; }
+.komma-sprung .kt-komma.neu { fill: #C2410C; }
+.komma-sprung .kt-pfeil { fill: none; stroke: #C2410C; stroke-width: 3; stroke-linecap: round; }
+.komma-sprung .kt-spitze { fill: #C2410C; }

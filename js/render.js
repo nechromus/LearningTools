@@ -270,3 +270,27 @@ export function linienSvg(bild, { gewaehlt = [], fest = [], tippbar = false, all
   });
   return svg(w, h, s, `${bild.form === 'kreis' ? 'Kreis' : bild.form === 'streifen' ? 'Streifen' : 'Rechteck'} mit ${bild.gefaerbt} gefärbten Teilen${tippbar ? '. Linien zum Antippen' : ''}`);
 }
+
+// Mal 10 / durch 10 (Auftrag 36): Ziffern mit dem Komma und einem Pfeil, wie das Komma rutscht
+export function stellentafelHtml({ x, mal }, mitErgebnis = false) {
+  const res = Math.round((mal ? x * 10 : x / 10) * 1000) / 1000;
+  const z = (v) => String(v).replace('.', ',');
+  const [g0, k0 = ''] = String(x).split('.');
+  // Ziffern, die nur zum Rutschen dazukommen, sind grau: ,0 bei ganzen Zahlen, eine 0 vorne bzw. hinten
+  const dig = [...g0].map(d => [d, false]).concat((k0 || '0').split('').map(d => [d, !k0]));
+  let alt = g0.length;
+  if (!mal && alt === 1) { dig.unshift(['0', true]); alt = 2; }
+  if (mal) dig.push(['0', true]);
+  const neu = mal ? alt + 1 : alt - 1;
+  const W = 40, L = 10, yZ = 48, H = 98;
+  const kx = (pos) => L + pos * W;
+  const zif = dig.map(([d, grau], i) => `<text x="${L + i * W + W / 2}" y="${yZ}" text-anchor="middle" class="kt-z${grau ? ' grau' : ''}">${d}</text>`).join('');
+  const x1 = kx(alt), x2 = kx(neu), ym = yZ + 30, tief = yZ + 46; // Pfeil unter der Zeile, flacher Bogen
+  const pfeil = `<path d="M ${x1} ${ym} Q ${(x1 + x2) / 2} ${tief}, ${x2} ${ym}" class="kt-pfeil" marker-end="url(#kt-spitze)"/>`;
+  const breite = L * 2 + dig.length * W;
+  const svg = `<svg class="komma-sprung" viewBox="0 0 ${breite} ${H}" width="${breite}" height="${H}" role="img" aria-label="${z(x)} ${mal ? 'mal' : 'durch'} 10: Das Komma rutscht eine Stelle nach ${mal ? 'rechts' : 'links'}.">
+    <defs><marker id="kt-spitze" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="kt-spitze"/></marker></defs>
+    ${zif}<text x="${x1}" y="${yZ + 6}" text-anchor="middle" class="kt-komma alt">,</text><text x="${x2}" y="${yZ + 6}" text-anchor="middle" class="kt-komma neu">,</text>${pfeil}</svg>`;
+  const ganzX = Number.isInteger(x) ? `<p>${z(x)} ist ${z(x)},0. Das Komma steht hinter der ${String(x).slice(-1)}.</p>` : '';
+  return `<div class="komma-tipp">${ganzX}${svg}<p>${mal ? 'Mal 10' : 'Durch 10'}: Das Komma rutscht eine Stelle nach ${mal ? 'rechts' : 'links'}. Die Ziffern bleiben.</p>${mitErgebnis ? `<p><b>${z(x)} ${mal ? '·' : ':'} 10 = ${z(res)}</b></p>` : ''}</div>`;
+}
