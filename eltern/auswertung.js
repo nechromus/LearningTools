@@ -552,6 +552,8 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
       ...(werte.freigaben && Object.keys(werte.freigaben).length ? { freigaben: { ...werte.freigaben } } : {}),
       // Wochenplan (Auftrag 24): schreibt nur der Kinder-Chat, darum immer aus der frisch gelesenen Datei übernehmen
       ...(alt && alt.werte && alt.werte.wochenplan ? { wochenplan: alt.werte.wochenplan } : {}),
+      // Befristete Grenzen (Auftrag 36): setzt der App-Chat, die Eltern-App übernimmt sie unverändert
+      ...(alt && alt.werte && alt.werte.befristet ? { befristet: alt.werte.befristet } : {}),
       ...(eingriffeDatei(werte.eingriffe, jetzt).length ? { eingriffe: eingriffeDatei(werte.eingriffe, jetzt) } : {}),
       ...(werte.splitter ? { splitter: { preise: werte.splitter.preise, boni: werte.splitter.boni.slice(-50), frei: werte.splitter.frei } } : {}) }
   };
