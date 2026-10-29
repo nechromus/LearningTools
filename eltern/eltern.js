@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.49.0';
+export const ELTERN_VERSION = '1.50.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -154,12 +154,16 @@ async function datenLaden() {
   }
   const einst = await U.dateiLesen(C, `daten/${n.ordner}/einstellungen.json`);
   staende.sort((a, b) => (a.stand.stand || '') < (b.stand.stand || '') ? 1 : -1);
+  // Teil-Lösung rückwirkend ab 17.10. (Auftrag 37): nur im Speicher, nur mit Schalter „Teil-Lösung getrennt werten“
+  const aufgaben = A.alleAufgaben(proGeraet);
+  const teilNeu = einst && einst.werte && einst.werte.teil_loesung === true ? A.teilRueckwirkend(aufgaben) : new Map();
   const eintraege = Object.entries(proGeraet).flatMap(([g, l]) => l.map(e => ({ ...e, g }))).sort((a, b) => a.t < b.t ? -1 : 1);
+  if (teilNeu.size) for (const e of eintraege) if (e.typ === 'aufgabe_ende' && teilNeu.has(`${e.g}|${e.t}`)) Object.assign(e, teilNeu.get(`${e.g}|${e.t}`));
   D.daten = {
     ordner: n.ordner,
     name: (staende[0] && staende[0].stand.nutzer) || n.name,
     staende, proGeraet, eintraege,
-    aufgaben: A.alleAufgaben(proGeraet),
+    aufgaben,
     spiele: A.alleSpiele(proGeraet),
     einst, geladen: Date.now(), kennung: kennung.sort().join('|')
   };
@@ -1333,20 +1337,20 @@ function uebersichtSeite() {
 
   const max = Math.max(1, ...tage.map(t => (k.tage[t] || {}).anzahl || 0));
   const balken = C.zeitraum === 1 ? '' : `<section class="karte">
-    <div class="karte-kopf"><h2>Aufgaben pro Tag</h2><span class="legende"><i class="farbe-teal"></i>1. Versuch</span>${Object.values(k.tage).some(d => d.teil) ? '<span class="legende"><i class="farbe-teil"></i>Teil-Lösung</span>' : ''}<span class="legende"><i class="farbe-amber"></i>später</span></div>
+    <div class="karte-kopf"><h2>Aufgaben pro Tag</h2>${ergLegende()}</div>
     <div class="balken${C.zeitraum > 7 ? ' viele' : ''}">${tage.map(t => {
       const d = k.tage[t] || { anzahl: 0, erst: 0 };
       return `<a class="balken-spalte" href="#verlauf/${t}" aria-label="${tagLang(t)}: ${d.anzahl} Aufgaben">
         <span class="balken-zahl">${d.anzahl || ''}</span>
-        <span class="balken-stapel" style="height:${Math.round(d.anzahl / max * 100)}%"><span class="b-spaet" style="flex-grow:${d.anzahl - d.erst - (d.teil || 0)}"></span><span class="b-teil" style="flex-grow:${d.teil || 0}"></span><span class="b-erst" style="flex-grow:${d.erst}"></span></span>
+        <span class="balken-stapel" style="height:${Math.round(d.anzahl / max * 100)}%">${['loesung', 'teil', 'zweit', 'erst'].map(x => d.v && d.v[x] ? `<span class="eb-${x}" style="flex-grow:${d.v[x]}"></span>` : '').join('')}</span>
         <span class="balken-tag">${C.zeitraum > 7 ? t.slice(8) : wochentag(t)}</span></a>`;
     }).join('')}</div></section>`;
 
   const themen = k.themen.length ? `<section class="karte liste-karte">
-    <div class="karte-kopf"><h2>Themen</h2></div>
+    <div class="karte-kopf"><h2>Themen</h2>${ergLegende()}</div>
     ${k.themen.map(t => `<div class="themen-zeile">
       <span class="themen-name">${esc(t.name)}</span>
-      <span class="themen-balken"><span style="width:${t.quote}%" class="${t.quote >= 75 ? 'gut' : 'mittel'}"></span></span>
+      <span class="themen-balken erg">${ergBalken(t.v, { zahlen: false })}</span>
       <span class="themen-quote">${t.quote} %</span>
       <span class="themen-info">${t.anzahl} · St. ${t.stufe || '–'}${t.teil ? ` · <span class="teil-text">${t.teil} Teil-Lösung</span>` : ''}</span>
       ${t.kurz ? `<span class="themen-kurz">Kommt mit der Formelübersicht aus: ${t.kurzOk} von ${t.kurz}${t.lang ? ` · ${t.lang}-mal „Mehr Hilfe“` : ''}</span>` : ''}
@@ -1363,20 +1367,29 @@ function uebersichtSeite() {
     <div class="kacheln">${kacheln}</div>
     ${leer}
     <div class="zwei-spalten">
-      <div class="spalte">${uebungszeitKarte()}${balken}${!breit.matches ? auff : ''}</div>
+      <div class="spalte">${k.v && k.v.n ? `<section class="karte"><div class="karte-kopf"><h2>Ergebnisse</h2><span class="klein gedaempft">${k.v.n} Aufgaben</span></div>${ergBalken(k.v)}</section>` : ''}${uebungszeitKarte()}${balken}${!breit.matches ? auff : ''}</div>
       <div class="spalte">${wochenplanKarte(false)}${paketQuotenKarte(tage[0])}${uzKarte()}${wissenKarte()}${bzKarte()}${themen}${breit.matches ? auff : ''}</div>
     </div>
   </div>`;
 }
 
+// ---------- Vier Ergebnis-Arten (Auftrag 37): überall dieselbe Reihenfolge, Farbe und Legende ----------
+function ergBalken(v, { zahlen = true, schmal = false } = {}) {
+  if (!v || !v.n) return '';
+  const teile = A.ERG_ARTEN.map(a => v[a.k] ? `<span class="eb-${a.k}" style="flex-grow:${v[a.k]}" title="${a.name}: ${v[a.k]}"></span>` : '').join('');
+  const txt = zahlen ? `<span class="eb-zahlen">${A.ERG_ARTEN.filter(a => v[a.k]).map(a => `<span><i class="eb-${a.k}"></i>${v[a.k]} ${a.name}</span>`).join('')}</span>` : '';
+  return `<span class="erg-balken${schmal ? ' schmal' : ''}" role="img" aria-label="${A.ERG_ARTEN.map(a => `${a.name} ${v[a.k]}`).join(', ')}">${teile}</span>${txt}`;
+}
+const ergLegende = () => `<span class="erg-legende">${A.ERG_ARTEN.map(a => `<span><i class="eb-${a.k}"></i>${a.name}</span>`).join('')}</span>`;
+
 // ---------- Verlauf ----------
 
 function tageMitAufgaben() {
   const map = {};
-  const tagVon = (k) => map[k] || (map[k] = { tag: k, anzahl: 0, erst: 0, ms: 0, spiele: 0, spielSek: 0 });
+  const tagVon = (k) => map[k] || (map[k] = { tag: k, anzahl: 0, erst: 0, ms: 0, spiele: 0, spielSek: 0, v: A.verteilung([]) });
   for (const r of D.daten.aufgaben) {
     const d = tagVon(r.tag);
-    if (r.ende) { d.anzahl++; if (A.erstZ(r.ende)) d.erst++; d.ms += r.ende.ms || 0; }
+    if (r.ende) { d.anzahl++; if (A.erstZ(r.ende)) d.erst++; d.ms += r.ende.ms || 0; d.v[A.ergKat(r.ende)]++; d.v.n++; }
   }
   for (const sp of D.daten.spiele || []) { const d = tagVon(sp.tag); d.spiele++; d.spielSek += sp.sekunden || 0; }
   return Object.values(map).filter(d => d.anzahl || d.spiele).sort((a, b) => a.tag < b.tag ? 1 : -1);
@@ -1395,8 +1408,8 @@ function tageListe() {
   const tage = tageMitAufgaben();
   return `<div class="seite">
     ${kopfSchmal('Verlauf')}
-    ${tage.length ? `<section class="karte liste-karte">${tage.map(d => `<a class="zeile" href="#verlauf/${d.tag}">
-      <span class="zeile-haupt"><b>${tagLang(d.tag)}</b><span class="klein gedaempft">${tagKurzText(d)}</span></span>
+    ${tage.length ? `<p class="pad">${ergLegende()}</p><section class="karte liste-karte">${tage.map(d => `<a class="zeile" href="#verlauf/${d.tag}">
+      <span class="zeile-haupt"><b>${tagLang(d.tag)}</b><span class="klein gedaempft">${tagKurzText(d)}</span>${ergBalken(d.v, { zahlen: false, schmal: true })}</span>
       ${svg('weiter', 18)}</a>`).join('')}</section>` : '<p class="gedaempft">Noch keine Aufgaben in den letzten 30 Tagen.</p>'}
   </div>`;
 }
@@ -1473,7 +1486,8 @@ function tagZusammenfassung(liste, spiele = []) {
   const ms = fertig.reduce((s, r) => s + (r.ende.ms || 0), 0);
   const sek = fertig.reduce((s, r) => s + (r.ende.sekunden || 0), 0);
   const gespielt = spiele.reduce((s, sp) => s + (sp.sekunden || 0), 0);
-  return `${fertig.length} Aufgaben · ${erst} im 1. Versuch · ${A.minutenText(ms / 1000)} geübt · ${A.minutenText(sek)} Spielzeit verdient${spiele.length ? ` · ${A.minutenText(gespielt)} gespielt (${spiele.length}-mal)` : ''}`;
+  const v = A.verteilung(fertig);
+  return `${fertig.length} Aufgaben · ${erst} im 1. Versuch${v.zweit ? ` · ${v.zweit} im 2. Versuch` : ''}${v.teil ? ` · ${v.teil} Teil-Lösung` : ''}${v.loesung ? ` · ${v.loesung} Lösung` : ''} · ${A.minutenText(ms / 1000)} geübt · ${A.minutenText(sek)} Spielzeit verdient${spiele.length ? ` · ${A.minutenText(gespielt)} gespielt (${spiele.length}-mal)` : ''}`;
 }
 
 function tagSeite(tag) {
@@ -1703,7 +1717,7 @@ function wochenplanKarte(bearbeiten) {
     <div class="wp-zeile${a.b ? ' ' + a.b.st : ''}">
       <span class="wp-name">${esc(a.motiv ? 'Motivation' : a.name === a.art ? themaName(a.art) : a.name)}${a.themen.length > 1 || a.motiv ? `<span class="klein gedaempft block">${esc(a.themen.map(themaName).join(', '))}</span>` : ''}${st.eingriffeAktiv.filter(e => e.art === a.art && e.typ === 'plus').map(e => `<span class="klein amber block">Eingriff ${e.wert > 0 ? '+' : '−'}${Math.abs(e.wert)} % bis ${datumKurz(e.bis)}</span>`).join('')}</span>
       <span class="wp-balken" title="Plan ${pzt(a.soll)}, Ist ${pzt(a.ist)} der Übungszeit, ${pzt(a.istN)} der Aufgaben"><span class="wp-n" style="width:${sk(a.istN)}%"></span><span class="wp-z" style="width:${sk(a.ist)}%"></span><span class="wp-s" style="left:calc(${sk(a.soll)}% - 1.5px)"></span></span>
-      <span class="wp-werte">Plan <b>${pzt(a.soll)}</b> · Ist <b class="iz">${pzt(a.ist)}</b> <span class="klein gedaempft">${A.minutenText(a.ms / 1000)}</span>${a.b ? ` <span class="abw ${a.b.st}">${esc(a.b.wort)}</span>` : ''}</span>
+      ${a.v && a.v.n ? `<span class="wp-erg">${ergBalken(a.v, { zahlen: false, schmal: true })}</span>` : ''}<span class="wp-werte">Plan <b>${pzt(a.soll)}</b> · Ist <b class="iz">${pzt(a.ist)}</b> <span class="klein gedaempft">${A.minutenText(a.ms / 1000)}</span>${a.b ? ` <span class="abw ${a.b.st}">${esc(a.b.wort)}</span>` : ''}</span>
     </div>`).join('');
   const mo = wp.motivation;
   const ein = st.eingriffe;
@@ -1845,11 +1859,11 @@ function paketQuotenKarte(vonTag) {
   if (!ids.length) return '';
   const pct = (x) => x.anzahl ? Math.round(x.erst / x.anzahl * 100) : 0;
   return `<section class="karte liste-karte">
-    <div class="karte-kopf"><h2>Pakete</h2><span class="klein gedaempft">richtig im 1. Versuch</span></div>
+    <div class="karte-kopf"><h2>Pakete</h2>${ergLegende()}</div>
     ${ids.map(id => { const x = q[id]; const n = (paketVon(id) || {}).name || id; return `<div class="themen-zeile">
-      <span class="themen-name">${esc(n)}</span><span class="themen-balken"><span style="width:${pct(x)}%" class="${pct(x) >= 75 ? 'gut' : 'mittel'}"></span></span>
+      <span class="themen-name">${esc(n)}</span><span class="themen-balken erg">${ergBalken(x.v, { zahlen: false })}</span>
       <span class="themen-quote">${pct(x)} %</span><span class="themen-info">${x.anzahl}</span>
-      ${Object.keys(x.etappen).length ? `<span class="themen-kurz">${Object.entries(x.etappen).map(([e, y]) => `Etappe ${e}: ${y.erst} von ${y.anzahl}`).join(' · ')}</span>` : ''}
+      ${Object.keys(x.etappen).length ? `<span class="themen-kurz">${Object.entries(x.etappen).map(([e, y]) => `Etappe ${e}: ${y.erst} von ${y.anzahl}${y.v.teil ? ` (${y.v.teil} Teil-Lösung)` : ''}`).join(' · ')}</span>` : ''}
     </div>`; }).join('')}
   </section>`;
 }
@@ -2007,7 +2021,7 @@ function paketeKarte(w, gewaehlt = null) {
 function einheitDetail(w, p) {
   const et = p.paket.etappen;
   const quoten = (A.paketQuoten(D.daten.aufgaben, '0000-00-00')[p.id] || { etappen: {} }).etappen;
-  const qText = (n) => { const q = quoten[n]; return q ? ` · ${q.erst} von ${q.anzahl} im 1. Versuch` : ''; };
+  const qText = (n) => { const q = quoten[n]; return q ? ` · ${q.erst} von ${q.anzahl} im 1. Versuch${q.v.teil ? `, ${q.v.teil} Teil-Lösung` : ''}${ergBalken(q.v, { zahlen: false, schmal: true })}` : ''; };
   const sitzt = et && p.etappe > 0 ? LP.etappeSitzt(A.etappenAufgaben(D.daten.aufgaben, p.id, p.etappe)) : null;
   const n = et ? et.length : 0;
   return `<section class="karte liste-karte einheit-karte">
@@ -2017,7 +2031,7 @@ function einheitDetail(w, p) {
     ${et ? `<p class="klein gedaempft pad">Weiter: ${{ hand: 'von Hand', vorschlag: 'Vorschlag', automatisch: 'automatisch' }[p.paket.weiter]}${p.naechste ? ` · Etappe ${p.naechste.etappe} ab ${p.naechste.ab === morgen() ? 'morgen' : ''} (${tagKurz(p.naechste.ab)})`.replace('ab  (', 'ab (') : ''}</p>
     ${et.map(e => `<div class="et${e.nr < p.etappe ? ' fertig' : ''}${e.nr === p.etappe ? ' aktuell' : ''}"><span class="nr">${e.nr}</span><div class="txt"><b>${mathe(e.name)}</b><span class="klein gedaempft">${esc(e.bogen || '')}${qText(e.nr)}</span>${e.nr === p.etappe ? '<span class="marke">aktuell</span>' : ''}${!LP.etappeOffen(p.paket, e.nr, D.logbuch || []) ? '<span class="marke bald">kommt bald</span>' : ''}${p.naechste && p.naechste.etappe === e.nr ? `<span class="marke">${p.naechste.ab === morgen() ? 'ab morgen' : 'ab ' + tagKurz(p.naechste.ab)}</span>` : ''}</div></div>`).join('')}
     ${p.rolle === 'einheit' ? `<div class="einstell-block mind"><span>Neue Etappe mindestens<span class="klein gedaempft block">So viele von 10 Aufgaben kommen aus der aktuellen Etappe${p.etappe > 0 && et[p.etappe - 1] ? ` (Etappe ${p.etappe}: ${mathe(et[p.etappe - 1].name)})` : ''}, auch auf anderen Plätzen. Detektive zählen nicht.</span></span><div class="segmente" role="group">${LP.ETAPPE_MINDEST.map(v => `<button class="segment${(p.etappe_mindest ?? 2) === v ? ' an' : ''}" data-act="etMindest" data-pk="${esc(p.id)}" data-v="${v}" aria-pressed="${(p.etappe_mindest ?? 2) === v}">${v || 'aus'}</button>`).join('')}</div><span class="klein gedaempft">von 10 Aufgaben</span></div>` : ''}
-    ${sitzt && sitzt.anzahl ? `<p class="${sitzt.sitzt ? 'sitzt' : 'sitzt-noch'}">Etappe ${p.etappe}${sitzt.sitzt ? ' sitzt' : ''}: ${sitzt.gut} von ${sitzt.anzahl} im 1. Versuch${sitzt.anzahl < 10 ? ' (letzte Aufgaben der Etappe)' : ''}</p>` : ''}
+    ${sitzt && sitzt.anzahl ? `<p class="${sitzt.sitzt ? 'sitzt' : 'sitzt-noch'}">Etappe ${p.etappe}${sitzt.sitzt ? ' sitzt' : ''}: ${sitzt.gut} von ${sitzt.anzahl} im 1. Versuch${sitzt.anzahl < 10 ? ' (letzte Aufgaben der Etappe)' : ''}. Teil-Lösung zählt nicht dazu.</p>` : ''}
     ${LP.wartetAufStart(p) ? '' : `<div class="knopf-spalte">
       <button class="knopf haupt" data-act="etBogen" data-pk="${esc(p.id)}"${(p.naechste ? p.naechste.etappe : p.etappe) >= n ? ' disabled' : ''}>Bogen erledigt – nächste Etappe ab morgen</button>
       <div class="knopf-reihe"><button class="knopf" data-act="etSofort" data-pk="${esc(p.id)}"${!p.naechste && p.etappe >= n ? ' disabled' : ''}>Sofort</button><button class="knopf" data-act="etZurueck" data-pk="${esc(p.id)}"${!p.naechste && p.etappe <= 0 ? ' disabled' : ''}>Eine Etappe zurück</button></div>

@@ -670,3 +670,15 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .farbe-teil { background: #D9945A; }
 .teil-text { color: #8A4B1C; }
 .loesung-bei { margin: 6px 0 2px; padding: 6px 10px; border-radius: 8px; background: #F6E3D3; color: #6b3a14; }
+
+/* Vier Ergebnis-Arten (Auftrag 37): 1. Versuch, 2. Versuch, Teil-Lösung, Lösung */
+.eb-erst { background: var(--teal); } .eb-zweit { background: var(--gold); } .eb-teil { background: #D9945A; } .eb-loesung { background: #A9B4B3; }
+.erg-balken { display: flex !important; width: 100%; height: 12px; border-radius: 6px; overflow: hidden; background: var(--linie-hell); margin: 6px 0 4px; }
+.erg-balken.schmal { height: 6px; margin: 4px 0 0; }
+.erg-balken > span { display: block !important; height: 100%; min-width: 2px; }
+.eb-zahlen, .erg-legende { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--text-2, inherit); }
+.eb-zahlen i, .erg-legende i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.themen-balken.erg { background: none; }
+.themen-balken.erg .erg-balken { display: flex; height: 100%; width: 100%; margin: 0; }
+.wp-erg { grid-column: 1 / -1; display: block; }
+.zeile-haupt .erg-balken { max-width: 220px; }

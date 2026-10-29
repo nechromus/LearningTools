@@ -1,10 +1,10 @@
-/* Gebaut aus lernplan/lernplan.js (Version 1.7.0). Nicht hier ändern. */
+/* Gebaut aus lernplan/lernplan.js (Version 1.8.0). Nicht hier ändern. */
 /* Lernplan-Darstellung: gemeinsame Quelle für die Lernplan-Seite in claude.ai und die Eltern-App.
    Quelle: LearningToolsCode/lernplan/lernplan.js (+ lernplan.css). Daraus baut `npm run lernplan`
    die Vorlage (wissensbasis/15-lernplan-seite-vorlage.html, alles eingebettet) und app/eltern/lernplan.mjs.
    Nur hier ändern. Datenformat und Regeln: wissensbasis/15-lernplan-seite.md. */
 var Lernplan = (function(){
-var VERSION = '1.7.0';
+var VERSION = '1.8.0';
 function esc0(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 // Export (Format lernplan-1, daten/<name>/lernplan.json) in die Form der Seite: Sammlungen als Listen mit _id
 // Nummern einer Erkenntnis-Gruppe als Text (auch für Tests): lückenlos „3–7“, bis 4 Einträge „3, 5, 7“, sonst „3–5, 8, 11–14“
@@ -262,7 +262,7 @@ function hatVollbild(e){ return !!(e && (e.stand || (e.rows || []).some(function
 function verlaufSumme(r, bis, letzte){
   var l = ((r && r.verlauf) || []).filter(function(x){ return !bis || dn(x[0]) <= dn(bis); }).sort(function(a, b){ return dn(a[0]) - dn(b[0]); });
   if (letzte) l = l.slice(-letzte);
-  return l.reduce(function(s, x){ return { r: s.r + (+x[1] || 0), n: s.n + (+x[2] || 0) }; }, { r: 0, n: 0 });
+  return l.reduce(function(s, x){ return { r: s.r + (+x[1] || 0), n: s.n + (+x[2] || 0), t: s.t + (+x[4] || 0) }; }, { r: 0, n: 0, t: 0 });
 }
 // App-Kurve (Anteil der Aufgaben im 1. Versuch je Tag): bis zum Datum kräftig, danach blass bis heute
 function kurve(r, bis, breit){
@@ -271,12 +271,14 @@ function kurve(r, bis, breit){
   var W = breit || 170, H = 40, P = 4, von = Math.min(dn(l[0][0]), bis ? dn(bis) : Infinity) - 1, ende = Math.max(dn(todayIso()), dn(l[l.length - 1][0])) + 1;
   function xx(n){ return P + (n - von) / Math.max(1, ende - von) * (W - 2 * P); }
   function yy(q){ return H - P - q * (H - 2 * P); }
-  var pts = l.map(function(x){ return { x: xx(dn(x[0])), y: yy(x[1] / x[2]), fruh: !bis || dn(x[0]) <= dn(bis), n: x[2], t: de(x[0]) + ': ' + x[1] + ' von ' + x[2] }; });
+  var pts = l.map(function(x){ var tl = +x[4] || 0; return { x: xx(dn(x[0])), y: yy(x[1] / x[2]), yt: tl ? yy(Math.min(1, (x[1] + tl) / x[2])) : null, fruh: !bis || dn(x[0]) <= dn(bis), n: x[2], t: de(x[0]) + ': ' + x[1] + ' von ' + x[2] + ' im 1. Versuch' + (tl ? ', ' + tl + ' Teil-Lösung' : '') }; });
   var a = pts.filter(function(p){ return p.fruh; }), b2 = pts.filter(function(p, i){ return !p.fruh || (pts[i + 1] && !pts[i + 1].fruh && p.fruh); });
   function linie(ps){ return ps.length > 1 ? '<polyline points="' + ps.map(function(p){ return p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' ') + '"/>' : ''; }
   var h = '<svg class="kurve" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="App-Aufgaben im 1. Versuch je Tag">';
   h += '<line class="k-achse" x1="' + P + '" x2="' + (W - P) + '" y1="' + yy(0.8) + '" y2="' + yy(0.8) + '"/>';
   h += '<g class="k-spaet">' + linie(b2) + '</g><g class="k-frueh">' + linie(a) + '</g>';
+  // Teil-Lösungen (5. Wert, ab 1.8.0): Strich vom Punkt nach oben in eigener Farbe
+  pts.forEach(function(p){ if (p.yt != null) h += '<line class="k-teil' + (p.fruh ? '' : ' k-blass') + '" x1="' + p.x.toFixed(1) + '" x2="' + p.x.toFixed(1) + '" y1="' + p.y.toFixed(1) + '" y2="' + p.yt.toFixed(1) + '"><title>' + esc(p.t) + '</title></line>'; });
   pts.forEach(function(p){ h += '<circle class="' + (p.fruh ? 'k-frueh' : 'k-spaet') + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + (p.n >= 5 ? 3 : 2.2) + '"><title>' + esc(p.t) + '</title></circle>'; });
   if (bis) h += '<line class="k-tag" x1="' + xx(dn(bis)) + '" x2="' + xx(dn(bis)) + '" y1="1" y2="' + (H - 1) + '"/>';
   return h + '</svg>';
@@ -293,7 +295,7 @@ function themaZeile(t, e){
   return '<tr><th scope="row"><button type="button" class="vthema" data-vthema="' + esc(t.row) + '" title="Nur Erkenntnisse zu diesem Thema">' + esc(rowName(t.row)) + '</button></th>' +
     '<td data-k="Stand">' + kaestchen(t.niveau) + '<span class="nwort">' + esc(t.niveau == null ? 'keine Daten' : NIVEAU[t.niveau]) + '</span></td>' +
     '<td data-k="Tendenz">' + (tendenzHtml(t.tendenz) || '<span class="hint">–</span>') + '</td>' +
-    '<td data-k="App">' + kurve(r, e.date) + (sum.n ? '<div class="ksum">bis hier ' + sum.r + '/' + sum.n + ' · letzte 3 Tage ' + drei.r + '/' + drei.n + '</div>' : '') + '</td>' +
+    '<td data-k="App">' + kurve(r, e.date) + (sum.n ? '<div class="ksum">bis hier ' + sum.r + '/' + sum.n + (sum.t ? ' <span class="kteil">+' + sum.t + ' Teil-Lösung</span>' : '') + ' · letzte 3 Tage ' + drei.r + '/' + drei.n + (drei.t ? ' <span class="kteil">+' + drei.t + '</span>' : '') + '</div>' : '') + '</td>' +
     '<td data-k="Heute">' + heuteHtml + '</td>' +
     '<td data-k="Notiz">' + esc(t.notiz || '') + '</td></tr>';
 }
@@ -309,9 +311,9 @@ function renderVoll(){
     var ids = []; insSortN().forEach(function(e){ ((e.stand && e.stand.themen) || []).forEach(function(t){ if (ids.indexOf(t.row) < 0) ids.push(t.row); }); });
     var ord = { ab: 0, gleich: 1, neu: 2, auf: 3 };
     var zeilen = ids.map(function(id){ return letzteEinschaetzung(id); }).filter(Boolean).sort(function(a, b){ return ((ord[a.t.tendenz] ?? 4) - (ord[b.t.tendenz] ?? 4)) || ((a.t.niveau ?? -1) - (b.t.niveau ?? -1)); });
-    h = '<header class="vkopf"><div class="vtitel"><div class="src">Übersicht</div><h2>Tendenzen</h2><p class="hint">Jedes Thema mit seiner letzten Einschätzung. Fallende Tendenz zuerst. Die App-Kurve zeigt die Aufgaben im 1. Versuch je Tag bis heute.</p></div><div class="vknoepfe">' + kopfKnoepfe + '</div></header>' +
+    h = '<header class="vkopf"><div class="vtitel"><div class="src">Übersicht</div><h2>Tendenzen</h2><p class="hint">Jedes Thema mit seiner letzten Einschätzung. Fallende Tendenz zuerst. Die App-Kurve zeigt die Aufgaben im 1. Versuch je Tag bis heute, Teil-Lösungen als oranger Strich nach oben.</p></div><div class="vknoepfe">' + kopfKnoepfe + '</div></header>' +
       '<table class="vtab"><thead><tr><th>Thema</th><th>Stand</th><th>Tendenz</th><th>App-Aufgaben im 1. Versuch</th><th>Seit</th><th>Notiz</th></tr></thead><tbody>' +
-      zeilen.map(function(z){ var r = rowById(z.t.row), sum = verlaufSumme(r); return '<tr><th scope="row"><button type="button" class="vthema" data-vthema="' + esc(z.t.row) + '">' + esc(rowName(z.t.row)) + '</button></th><td data-k="Stand">' + kaestchen(z.t.niveau) + '<span class="nwort">' + esc(z.t.niveau == null ? 'keine Daten' : NIVEAU[z.t.niveau]) + '</span></td><td data-k="Tendenz">' + (tendenzHtml(z.t.tendenz) || '–') + '</td><td data-k="App">' + kurve(r, null) + (sum.n ? '<div class="ksum">gesamt ' + sum.r + '/' + sum.n + '</div>' : '') + '</td><td data-k="Seit"><button type="button" class="vlink" data-vgehe="' + esc(z.e._id) + '">Erkenntnis ' + esc(z.e.n) + ', ' + esc(de(z.e.date)) + '</button></td><td data-k="Notiz">' + esc(z.t.notiz || '') + '</td></tr>'; }).join('') +
+      zeilen.map(function(z){ var r = rowById(z.t.row), sum = verlaufSumme(r); return '<tr><th scope="row"><button type="button" class="vthema" data-vthema="' + esc(z.t.row) + '">' + esc(rowName(z.t.row)) + '</button></th><td data-k="Stand">' + kaestchen(z.t.niveau) + '<span class="nwort">' + esc(z.t.niveau == null ? 'keine Daten' : NIVEAU[z.t.niveau]) + '</span></td><td data-k="Tendenz">' + (tendenzHtml(z.t.tendenz) || '–') + '</td><td data-k="App">' + kurve(r, null) + (sum.n ? '<div class="ksum">gesamt ' + sum.r + '/' + sum.n + (sum.t ? ' <span class="kteil">+' + sum.t + ' Teil-Lösung</span>' : '') + '</div>' : '') + '</td><td data-k="Seit"><button type="button" class="vlink" data-vgehe="' + esc(z.e._id) + '">Erkenntnis ' + esc(z.e.n) + ', ' + esc(de(z.e.date)) + '</button></td><td data-k="Notiz">' + esc(z.t.notiz || '') + '</td></tr>'; }).join('') +
       '</tbody></table>';
   } else {
     var e = S.ins.filter(function(x){ return x._id === S.voll.id; })[0];
@@ -323,7 +325,7 @@ function renderVoll(){
     h = '<header class="vkopf">' + nav + '<div class="num">' + esc(e.n) + '</div><div class="vtitel"><div class="src"><span class="chip ' + srcClass(e.src) + '">' + esc(e.src) + '</span> ' + esc(de(e.date)) + '</div><h2>' + esc(e.kurz || ('Erkenntnis ' + e.n)) + '</h2></div><div class="vknoepfe">' + kopfKnoepfe + '</div></header>' + filter +
       '<div class="three"><div><div class="k">Gesehen</div>' + esc(e.obs) + '</div><div><div class="k ch">Geändert</div>' + esc(e.eff) + '</div><div><div class="k wa">Wirkt ab</div>' + esc(e.when) + '</div></div>' +
       (st.text ? '<section><h3>Entwicklung bis hier</h3><p>' + esc(st.text) + '</p></section>' : '') +
-      '<section><h3>Stand an diesem Tag</h3>' + (vollThemen(e).length ? '<table class="vtab"><thead><tr><th>Thema</th><th>Stand</th><th>Tendenz</th><th>App-Aufgaben im 1. Versuch</th><th>Heute</th><th>Notiz</th></tr></thead><tbody>' + vollThemen(e).map(function(t){ return themaZeile(t, e); }).join('') + '</tbody></table><p class="hint">App-Kurve: Anteil der Aufgaben im 1. Versuch je Tag, bis zu diesem Tag kräftig, danach blass bis heute. Die Linie zeigt 80 %. Ein Tipp auf ein Thema zeigt nur Erkenntnisse zu diesem Thema.</p>' : '<p class="hint">Zu dieser Erkenntnis gibt es noch keine Einschätzung je Thema.</p>') + '</section>' +
+      '<section><h3>Stand an diesem Tag</h3>' + (vollThemen(e).length ? '<table class="vtab"><thead><tr><th>Thema</th><th>Stand</th><th>Tendenz</th><th>App-Aufgaben im 1. Versuch</th><th>Heute</th><th>Notiz</th></tr></thead><tbody>' + vollThemen(e).map(function(t){ return themaZeile(t, e); }).join('') + '</tbody></table><p class="hint">App-Kurve: Anteil der Aufgaben im 1. Versuch je Tag, bis zu diesem Tag kräftig, danach blass bis heute. Die Linie zeigt 80 %. Ein oranger Strich nach oben zeigt Teil-Lösungen (Lösung bei einem Zwischenschritt, Rest selbst gerechnet). Ein Tipp auf ein Thema zeigt nur Erkenntnisse zu diesem Thema.</p>' : '<p class="hint">Zu dieser Erkenntnis gibt es noch keine Einschätzung je Thema.</p>') + '</section>' +
       (st.naechstes ? '<section><h3>Als Nächstes</h3><p>' + esc(st.naechstes) + '</p></section>' : '');
   }
   box.innerHTML = '<div class="voll-box" role="dialog" aria-modal="true" aria-label="Erkenntnis im Vollbild">' + h + '</div>';

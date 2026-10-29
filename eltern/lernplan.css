@@ -1,4 +1,4 @@
-/* Gebaut aus lernplan/lernplan.css (Version 1.7.0). Nicht hier ändern. */
+/* Gebaut aus lernplan/lernplan.css (Version 1.8.0). Nicht hier ändern. */
 
 /* Layout: Kopfzeile mit Ansichts-Umschalter, darunter eine waagerecht scrollbare Zeitleiste mit fester Namensspalte, darunter die Erkenntnis-Karte. */
 .lp{
@@ -254,6 +254,8 @@
 .lp .kurve .k-achse{stroke:var(--line);stroke-dasharray:3 3}
 .lp .kurve .k-tag{stroke:var(--amber-line);stroke-width:1.5}
 .lp .ksum{font-size:12px;color:var(--muted);margin-top:2px}
+.lp .kurve line.k-teil{stroke:#D9945A;stroke-width:3;stroke-linecap:round} .lp .kurve line.k-teil.k-blass{opacity:.35}
+.lp .kteil{color:#A0582A;font-weight:700}
 .lp .heute{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
 .lp .heute .sw{width:12px;height:12px}
 .lp .heute small{color:var(--muted);font-size:11.5px;width:100%}

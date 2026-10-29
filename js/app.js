@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
 
-export const APP_VERSION = '2.35.0';
+export const APP_VERSION = '2.35.1';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1061,7 +1061,7 @@ function zeigeStartSternzeit({ bz, slot, serieAktiv }) {
     ${slot && spz ? `<div class="sz-panel orange sz-bz"><div><b>${minText(R().basisMin)} Spielzeit sind da!</b></div><button class="sz-knopf klein" data-act="basis">Abholen</button></div>` : ''}
     ${spz ? `<button class="sz-knopf matt klein" data-act="spielauswahl">Spiele <small>${sp.stand} Runensplitter</small></button>` : ''}
     <div class="sz-panel"><div class="sz-label">Heute</div>
-      <div>${S.tag.aufgaben} ${S.tag.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'} · ${S.tag.ersterVersuch} im 1. Versuch${serieAktiv ? ` · Serie ${S.serie.pos}` : ''}</div>
+      <div>${S.tag.aufgaben} ${S.tag.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'} · ${S.tag.ersterVersuch} im 1. Versuch${S.tag.teil ? ` · ${S.tag.teil} mit Tipp geschafft` : ''}${serieAktiv ? ` · Serie ${S.serie.pos}` : ''}</div>
       ${spz || UZ().an ? `<div class="sz-matt klein">${[spz ? `Spielzeit verdient: ${L.formatMinuten(S.tag.verdient)} von ${BS.minText(BS.szGrenzeSek(S.szRegeln, S.tag.key))}` : '', UZ().an ? `Übungszeit: ${Math.floor(uzKonto().sek / 60)} Min.` : ''].filter(Boolean).join(' · ')}</div>` : ''}</div>
     <p class="version-zeile">Version ${APP_VERSION}</p>
     ${hatSpeicherFehler() ? '<p class="warnung">Der Speicher ist voll oder gesperrt. Bitte einem Erwachsenen Bescheid geben.</p>' : ''}
@@ -2871,7 +2871,7 @@ function ergebnisHtml() {
   const nm = S.einstellungen.name ? `, ${esc(S.einstellungen.name)}` : '';
   if (A.ergebnis === 'erst') kopf = `<div class="erfolg-titel">${A.serienPos % 3 === 0 ? `Stark${nm}!` : `Richtig${nm}!`}</div>`;
   else if (A.ergebnis === 'zweit') kopf = `<div class="erfolg-titel">Geschafft – im 2. Versuch!</div>`;
-  else if (A.ergebnis === 'teil') kopf = `<div class="erfolg-titel teil">Den Rest hast du selbst gerechnet!</div><p>Ein Schritt kam mit Lösung. Für die anderen ${Math.round((A.anteil || 0) * 100)} % gibt es Zeit.</p>`;
+  else if (A.ergebnis === 'teil') kopf = `<div class="erfolg-titel teil">Mit Tipp geschafft!</div><p>Ein Schritt kam mit Lösung. Den Rest hast du selbst gerechnet. Dafür gibt es ${Math.round((A.anteil || 0) * 100)} % der Zeit.</p>`;
   else kopf = `<div class="erfolg-titel neutral">Jetzt weißt du, wie es geht.</div><p>Die Aufgabe kommt später noch einmal.</p>`;
   if (A.bonusZeit && zeitZeigen()) kopf += `<div class="bonus-zeit">✦ <b>Bonuszeit:</b> Diesmal hast du es geschafft! <span>×${faktorText(A.bonusZeit)}</span></div>`;
   // Chips unter der verdienten Zeit: Mühe-Faktor (wenn nicht ×1) und Extra-Zeit
@@ -3239,6 +3239,7 @@ function abschliessen() {
   }
   S.tag.aufgaben++;
   if (ergebnis === 'erst' && !A.gleich) S.tag.ersterVersuch++;
+  if (ergebnis === 'teil') S.tag.teil = (S.tag.teil || 0) + 1;
   const lsg = ergebnis === 'loesung' || ergebnis === 'teil';
   const lsgSchritt = lsgTeile.length && lsgTeile[0][0].label ? { nachLoesungSchritt: lsgTeile[0][0].label } : {};
   if (!a.generator) {
@@ -4345,7 +4346,7 @@ function elternZugang() {
 function zusammenfassung(tage = 7) {
   const grenze = Date.now() - tage * 86400000;
   const proThema = {};
-  let aufgaben = 0, erst = 0, loesung = 0, verlassen = 0, hinweise = 0, spielSek = 0, rechnerNutzung = 0, schnell = 0;
+  let aufgaben = 0, erst = 0, loesung = 0, teil = 0, verlassen = 0, hinweise = 0, spielSek = 0, rechnerNutzung = 0, schnell = 0;
   const fehler = {};
   for (const e of S.log) {
     if (new Date(e.t).getTime() < grenze) continue;
@@ -4354,6 +4355,7 @@ function zusammenfassung(tage = 7) {
       aufgaben++; th.aufgaben++; th[e.ergebnis]++;
       if (L.erstZaehlt(e)) erst++;
       if (e.ergebnis === 'loesung') loesung++;
+      if (e.ergebnis === 'teil') teil++;
       if (e.hinweise && e.hinweise.length) th.hinweise++;
     }
     if (e.typ === 'versuch' && e.fehler) fehler[e.fehler] = (fehler[e.fehler] || 0) + 1;
@@ -4363,7 +4365,7 @@ function zusammenfassung(tage = 7) {
     if (e.typ === 'spiel_ende') spielSek += e.sekunden || 0;
     if (e.typ === 'rechner') rechnerNutzung++;
   }
-  return { tage, aufgaben, erst, loesung, verlassen, hinweise, spielSek, rechnerNutzung, schnellFalsch: schnell, fehler, proThema };
+  return { tage, aufgaben, erst, loesung, teil, verlassen, hinweise, spielSek, rechnerNutzung, schnellFalsch: schnell, fehler, proThema };
 }
 
 
@@ -4395,7 +4397,7 @@ function zeigeEltern(meldung = '') {
     `<tr><td>${esc(THEMA_NAMEN[k] || k)}</td><td>${v.aufgaben}</td><td>${Math.round(v.erst / v.aufgaben * 100)} %</td><td>${v.loesung}</td><td>${v.hinweise}</td></tr>`).join('');
   const fehlerZeilen = Object.entries(z.fehler).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<li>${esc(FEHLER_NAMEN[k] || k)}: <b>${v}</b></li>`).join('');
   const letzte = S.log.filter(e => e.typ === 'aufgabe_ende').slice(-8).reverse().map(e =>
-    `<li><span class="erg erg-${e.ergebnis}">${e.ergebnis === 'erst' ? '1. Versuch' : e.ergebnis === 'zweit' ? '2. Versuch' : 'Lösungsweg'}</span> ${esc(THEMA_NAMEN[e.thema] || e.thema)} · ${esc(e.id)}${e.verlassen ? ' · App verlassen' : ''}</li>`).join('');
+    `<li><span class="erg erg-${e.ergebnis}">${e.ergebnis === 'erst' ? '1. Versuch' : e.ergebnis === 'zweit' ? '2. Versuch' : e.ergebnis === 'teil' ? 'Teil-Lösung' : 'Lösungsweg'}</span> ${esc(THEMA_NAMEN[e.thema] || e.thema)} · ${esc(e.id)}${e.verlassen ? ' · App verlassen' : ''}</li>`).join('');
   const optThema = L.THEMEN.map(t => `<option value="${t}"${t === S.einstellungen.thema ? ' selected' : ''}>${esc(THEMA_NAMEN[t])}</option>`).join('');
   const stunden = (sel) => Array.from({ length: 25 }, (_, h) => `<option value="${h}"${h === sel ? ' selected' : ''}>${h}:00</option>`).join('');
   const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
@@ -4408,6 +4410,7 @@ function zeigeEltern(meldung = '') {
       <div class="kennzahlen">
         <div><b>${z.aufgaben}</b><span>Aufgaben</span></div>
         <div><b>${quote} %</b><span>im 1. Versuch</span></div>
+        ${z.teil ? `<div><b>${z.teil}</b><span>Teil-Lösung</span></div>` : ''}
         <div><b>${z.loesung}</b><span>Lösungsweg nötig</span></div>
         <div><b>${L.formatMinuten(z.spielSek).replace(' Min.', '')}</b><span>Min. gespielt</span></div>
         <div><b>${z.hinweise}</b><span>Hinweise geöffnet</span></div>

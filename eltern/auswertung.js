@@ -197,6 +197,46 @@ function optionenVon(a, teil) {
 
 const ERGEBNIS = { erst: '1. Versuch', zweit: '2. Versuch', teil: 'Teil-Lösung', loesung: 'Lösung gezeigt' };
 const ohneGleich = (e) => e.ergebnis === 'loesung' || e.ergebnis === 'teil';
+// ---------- Vier Ergebnis-Arten überall gleich (Auftrag 37, 3b) ----------
+// Reihenfolge, Name und Farbe: 1. Versuch, 2. Versuch, Teil-Lösung, Lösung. „Gleiche Aufgabe“ im 1. Versuch zählt zum 2. Versuch.
+export const ERG_ARTEN = [
+  { k: 'erst', name: '1. Versuch' }, { k: 'zweit', name: '2. Versuch' }, { k: 'teil', name: 'Teil-Lösung' }, { k: 'loesung', name: 'Lösung' }
+];
+export const ergKat = (ende) => !ende ? null : ende.ergebnis === 'teil' ? 'teil' : ende.ergebnis === 'loesung' ? 'loesung' : erstZ(ende) ? 'erst' : 'zweit';
+export function verteilung(liste) {
+  const v = { erst: 0, zweit: 0, teil: 0, loesung: 0, n: 0 };
+  for (const x of liste || []) { const k = ergKat(x && x.ende !== undefined ? x.ende : x); if (k) { v[k]++; v.n++; } }
+  return v;
+}
+// Rückwirkend (ab 17.10.): Lösung bei genau einem Zwischenschritt, alle späteren Schritte richtig → Teil-Lösung.
+// Nur im Speicher: Das Ereignis aufgabe_ende bekommt ergebnis „teil“ und abgeleitet: true. Die Dateien bleiben unverändert.
+export const TEIL_AB = '2026-10-17';
+export function teilAbleiten(rec, ab = TEIL_AB) {
+  const e = rec && rec.ende;
+  if (!e || e.ergebnis !== 'loesung' || rec.tag < ab || e.anteil != null) return null;
+  if (rec.start && rec.start.aufgabenTyp && !['schritte', 'detektiv'].includes(rec.start.aufgabenTyp)) return null;
+  if (e.knobeln) return null;
+  const ev = rec.events || [];
+  const lsg = ev.filter(x => x.typ === 'loesung_gezeigt');
+  if (lsg.length !== 1) return null;
+  const i = lsg[0].teil;
+  const vs = ev.filter(x => x.typ === 'versuch' && !x.merk);
+  const teile = {};
+  for (const v of vs) (teile[v.teil] || (teile[v.teil] = [])).push(v);
+  const nachher = Object.keys(teile).map(Number).filter(t => t > i);
+  if (!nachher.length) return null;
+  const bonus = (e.bonusTeile || []).length, max = Math.max(...Object.keys(teile).map(Number));
+  for (const t of nachher) { if (bonus && t > max - bonus) continue; const l = teile[t]; if (!l[l.length - 1].richtig) return null; }
+  const pflicht = Object.keys(teile).map(Number).filter(t => !(bonus && t > max - bonus)).length;
+  const label = (teile[i] && teile[i][0] && teile[i][0].label) || null;
+  return { ergebnis: 'teil', abgeleitet: true, anteil: Math.round((pflicht - 1) / Math.max(1, pflicht) * 100) / 100, loesung_schritt: i, ...(label ? { loesung_label: label } : {}) };
+}
+// Auf alle Aufgaben anwenden (verändert die Ereignis-Objekte im Speicher). Gibt die Schlüssel g|t der geänderten Enden zurück.
+export function teilRueckwirkend(aufgaben, ab = TEIL_AB) {
+  const neu = new Map();
+  for (const r of aufgaben || []) { const t = teilAbleiten(r, ab); if (t) { Object.assign(r.ende, t); neu.set(`${r.geraet}|${r.ende.t}`, t); } }
+  return neu;
+}
 // „Lösung bei: …“ (Auftrag 37), Labels aus loesung_label (Text oder Liste)
 export const loesungBei = (e) => { const l = e && e.loesung_label; if (!l) return ''; return (Array.isArray(l) ? l : [l]).filter(Boolean).join(' · '); };
 export const ergebnisText = (rec) => rec.ende ? (rec.ende.gleiche_aufgabe && !ohneGleich(rec.ende) ? 'Gleiche Aufgabe' : ERGEBNIS[rec.ende.ergebnis]) : rec.status === 'uebersprungen' ? 'Übersprungen' : rec.status === 'abgebrochen' ? 'Abgebrochen' : 'Nicht beendet';
@@ -297,9 +337,10 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
   const auf = aufgaben.filter(r => r.tag >= vonTag && r.ende);
   const ein = eintraege.filter(e => tagKey(new Date(e.t)) >= vonTag);
   const erst = auf.filter(r => erstZ(r.ende)).length;
+  const vGesamt = verteilung(auf);
   const proThema = {};
   for (const r of auf) {
-    const t = proThema[r.thema] || (proThema[r.thema] = { thema: r.thema, name: THEMA_NAMEN[r.thema] || r.thema, anzahl: 0, erst: 0, teil: 0, loesung: 0, stufe: 0, kurz: 0, kurzOk: 0, lang: 0 });
+    const t = proThema[r.thema] || (proThema[r.thema] = { thema: r.thema, name: THEMA_NAMEN[r.thema] || r.thema, anzahl: 0, erst: 0, teil: 0, loesung: 0, v: verteilung([]), stufe: 0, kurz: 0, kurzOk: 0, lang: 0 });
     t.anzahl++;
     // Kurz-Hinweise: Kommt das Kind mit der Formelübersicht aus (gelöst ohne „Mehr Hilfe“)?
     const k = kurzErgebnis(r);
@@ -307,6 +348,7 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
     if (erstZ(r.ende)) t.erst++;
     if (r.ende.ergebnis === 'loesung') t.loesung++;
     if (r.ende.ergebnis === 'teil') t.teil++;
+    t.v[ergKat(r.ende)]++; t.v.n++;
     t.stufe = r.stufe || t.stufe;
   }
   const fehler = {};
@@ -323,8 +365,8 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
   for (const e of weg) { const th = e.thema || (aufgaben.find(r => r.id === e.id) || {}).thema; if (th) wegThemen[th] = (wegThemen[th] || 0) + 1; }
   const tage = {};
   for (const r of auf) {
-    const d = tage[r.tag] || (tage[r.tag] = { tag: r.tag, anzahl: 0, erst: 0, teil: 0, ms: 0, sekunden: 0 });
-    d.anzahl++; if (erstZ(r.ende)) d.erst++; if (r.ende.ergebnis === 'teil') d.teil++; d.ms += r.ende.ms || 0; d.sekunden += r.ende.sekunden || 0;
+    const d = tage[r.tag] || (tage[r.tag] = { tag: r.tag, anzahl: 0, erst: 0, teil: 0, ms: 0, sekunden: 0, v: verteilung([]) });
+    d.anzahl++; if (erstZ(r.ende)) d.erst++; if (r.ende.ergebnis === 'teil') d.teil++; d.v[ergKat(r.ende)]++; d.v.n++; d.ms += r.ende.ms || 0; d.sekunden += r.ende.sekunden || 0;
   }
   const auffaellig = Object.entries(fehler).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${FEHLER_NAMEN[k] || k}: ${n}-mal`);
   if (verlassen) auffaellig.push(`App ${verlassen}-mal verlassen während einer Aufgabe`);
@@ -343,7 +385,7 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
   return {
     aufgaben: auf.length,
     erst,
-    quote: auf.length ? Math.round(erst / auf.length * 100) : null,
+    quote: auf.length ? Math.round(erst / auf.length * 100) : null, v: vGesamt,
     uebungMs: auf.reduce((s, r) => s + (r.ende.ms || 0), 0),
     verdientSek: auf.reduce((s, r) => s + (r.ende.sekunden || 0), 0),
     gespieltSek: ein.filter(e => e.typ === 'spiel_ende').reduce((s, e) => s + (e.sekunden || 0), 0),
@@ -479,11 +521,11 @@ export function paketQuoten(aufgaben, vonTag) {
   const out = {};
   for (const r of aufgaben) {
     if (!r.ende || !r.start || !r.start.paket || r.tag < vonTag) continue;
-    const q = out[r.start.paket] || (out[r.start.paket] = { anzahl: 0, erst: 0, etappen: {} });
-    q.anzahl++; if (erstZ(r.ende)) q.erst++;
+    const q = out[r.start.paket] || (out[r.start.paket] = { anzahl: 0, erst: 0, v: verteilung([]), etappen: {} });
+    q.anzahl++; if (erstZ(r.ende)) q.erst++; q.v[ergKat(r.ende)]++; q.v.n++;
     if (r.start.etappe != null) {
-      const e = q.etappen[r.start.etappe] || (q.etappen[r.start.etappe] = { anzahl: 0, erst: 0 });
-      e.anzahl++; if (erstZ(r.ende)) e.erst++;
+      const e = q.etappen[r.start.etappe] || (q.etappen[r.start.etappe] = { anzahl: 0, erst: 0, v: verteilung([]) });
+      e.anzahl++; if (erstZ(r.ende)) e.erst++; e.v[ergKat(r.ende)]++; e.v.n++;
     }
   }
   return out;
@@ -612,17 +654,21 @@ export function wochenplanStand(werte, eintraege, heute = tagKey()) {
   if (!wp) return null;
   const pakete = (werte.pakete || []).filter(p => p && p.paket);
   const status = heute < wp.ab ? 'kommt' : heute > wp.bis ? 'abgelaufen' : 'laeuft';
-  const ms = {}, n = {}, zuletzt = {};
+  const ms = {}, n = {}, zuletzt = {}, vT = {};
   for (const e of eintraege || []) {
     if (e.typ !== 'aufgabe_ende' || !e.thema || !e.t) continue;
     const tag = tagKey(new Date(e.t));
     if (!zuletzt[e.thema] || zuletzt[e.thema] < tag) zuletzt[e.thema] = tag;
-    if (tag >= wp.ab && tag <= wp.bis && e.ms > 0) { ms[e.thema] = (ms[e.thema] || 0) + Math.min(e.ms, 10 * 60000); n[e.thema] = (n[e.thema] || 0) + 1; }
+    if (tag >= wp.ab && tag <= wp.bis && e.ms > 0) {
+      ms[e.thema] = (ms[e.thema] || 0) + Math.min(e.ms, 10 * 60000); n[e.thema] = (n[e.thema] || 0) + 1;
+      const v = vT[e.thema] || (vT[e.thema] = verteilung([])); v[ergKat(e)]++; v.n++;
+    }
   }
   const stichtag = status === 'abgelaufen' ? wp.bis : heute;
   const arten = W.wpArten(wp, pakete, werte.eingriffe, stichtag, werte.freigaben || {});
   const nGesamt = Object.values(n).reduce((s, v) => s + v, 0);
-  const ist = W.wpIst(arten, ms).map(a => ({ ...a, n: a.themen.reduce((s, t) => s + (n[t] || 0), 0), istN: nGesamt ? a.themen.reduce((s, t) => s + (n[t] || 0), 0) / nGesamt * 100 : 0 }));
+  const vArt = (themen) => themen.reduce((v, t) => { const x = vT[t]; if (x) for (const k of ['erst', 'zweit', 'teil', 'loesung', 'n']) v[k] += x[k]; return v; }, verteilung([]));
+  const ist = W.wpIst(arten, ms).map(a => ({ ...a, v: vArt(a.themen), n: a.themen.reduce((s, t) => s + (n[t] || 0), 0), istN: nGesamt ? a.themen.reduce((s, t) => s + (n[t] || 0), 0) / nGesamt * 100 : 0 }));
   const imPlan = new Set(arten.flatMap(a => a.themen));
   const sonstMs = Object.keys(ms).filter(t => !imPlan.has(t)).reduce((s, t) => s + ms[t], 0);
   const gesperrt = W.gesperrteThemen(wp, pakete, werte.eingriffe, stichtag, werte.freigaben || {});
