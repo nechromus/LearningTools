@@ -425,7 +425,7 @@ export function zylinder(stufe, rng, opts = {}) {
   } else if (stufe === 3 && opts.ohneAuswahl) {
     // Etappe „Oberfläche und Mantel“: ohne „Was ist gesucht?“, die Frage nennt, was gesucht ist
     art = rng() < 0.5 ? 'O' : 'M';
-  } else if (stufe === 3 && !opts.ohneGesucht4 && rng() < 0.25) {
+  } else if (stufe === 3 && !opts.ohneGesucht4 && (opts.gesucht4 || rng() < 0.25)) {
     return zylinderGesucht4(rng);
   } else if (stufe === 3) {
     if (rng() < 0.35) art = 'O';

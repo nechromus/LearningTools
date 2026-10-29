@@ -1048,3 +1048,8 @@ button.uf-seite { font: inherit; font-size: 22px; font-weight: 700; color: inher
 .komma-sprung .kt-komma.neu { fill: #C2410C; }
 .komma-sprung .kt-pfeil { fill: none; stroke: #C2410C; stroke-width: 3; stroke-linecap: round; }
 .komma-sprung .kt-spitze { fill: #C2410C; }
+
+/* Auftrag 37: Signalwörter nach zu schneller Auswahl, Teil-Lösung */
+mark.signal { background: rgba(245, 180, 60, .35); color: inherit; border-radius: 4px; padding: 0 2px; font-weight: 700; }
+.erfolg-titel.teil { color: var(--amber-dunkel, #8a5a00); }
+.lese-tipp { margin: 6px 0 8px; padding: 8px 12px; border-radius: 10px; background: rgba(245, 180, 60, .18); border-left: 4px solid rgba(214, 140, 30, .8); }

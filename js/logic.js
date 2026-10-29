@@ -448,7 +448,7 @@ export function waehleAufgabe(aufgaben, { kategorie, thema, statistik = {}, verl
     const s = statistik[a.id];
     if (!s) return 1000 + rng();                         // noch nie gesehen
     let p = 0;
-    if (s.letztesErgebnis === 'loesung' && !s.ersetzt && zaehler - s.zuletzt >= 3) p += 2000; // fällig zur Wiederholung (nicht, wenn schon eine andere Aufgabe derselben Art kam)
+    if ((s.letztesErgebnis === 'loesung' || s.letztesErgebnis === 'teil') && !s.ersetzt && zaehler - s.zuletzt >= 3) p += 2000; // fällig zur Wiederholung (nicht, wenn schon eine andere Aufgabe derselben Art kam)
     if (s.letzterTag !== heute) p += 500;
     p += Math.min(zaehler - s.zuletzt, 400);              // lange nicht gesehen
     if (s.letztesErgebnis === 'erst') p -= 50;
@@ -816,7 +816,8 @@ export const BEDIENUNG = [
   { k: 'verstanden', f: 'verstandenKnopf', std: true, titel: '„Verstanden“ nach einem Fehler', text: 'Nach einer falschen Antwort muss der Tipp mit „Verstanden“ bestätigt werden. Aus: der Tipp bleibt stehen, weitertippen genügt.' },
   { k: 'spielzeit_zeigen', f: 'spielzeitZeigen', std: true, titel: 'Spielzeit und Spiele zeigen', text: 'Aus: keine Spielzeit, kein „Abholen“, keine Spiele und keine Minuten in der Aufgabe. Bildschirmzeit bleibt, wenn sie an ist.' },
   { k: 'rechner_frei', f: 'rechnerFrei', std: false, titel: 'Taschenrechner immer ohne Abzug', text: 'An: Der Taschenrechner kostet nie Zeit.' },
-  { k: 'umformen_sofort', f: 'umformenSofort', std: false, titel: 'Gleichungen gleich in Schritten umformen', text: 'An: Gleichungen starten direkt mit „In Schritten umformen“, ohne Abzug bei den Wissenspunkten.' }
+  { k: 'umformen_sofort', f: 'umformenSofort', std: false, titel: 'Gleichungen gleich in Schritten umformen', text: 'An: Gleichungen starten direkt mit „In Schritten umformen“, ohne Abzug bei den Wissenspunkten.' },
+  { k: 'teil_loesung', f: 'teilLoesung', std: false, titel: 'Teil-Lösung getrennt werten', text: 'An: Kam die Lösung bei einem Zwischenschritt und der Rest wurde selbst gerechnet, zählt die Aufgabe als „Teil-Lösung“ mit anteiliger Zeit. Bei Körpern zählt eine Auswahl in den ersten 3 Sekunden nicht.' }
 ];
 // Kürzel mit Namen (Auftrag 35): Auswahl bei Körpern zeigt „V (Volumen)“, „A_O (Oberfläche)“ …
 export const KOERPER_THEMEN = ['zylinder', 'kegel', 'pyramide', 'kugel'];
@@ -832,6 +833,35 @@ export function kuerzelAufgabe(a) {
   return lw.some((z, i) => z !== a.loesungsweg[i]) ? { ...a, loesungsweg: lw } : a;
 }
 export const FREIGABEN = ['minusminus', 'prozent_formel'];
+// ---------- Teil-Lösung und Lesezeit bei Auswahl (Auftrag 37) ----------
+// Teil-Lösung: genau eine gezeigte Lösung bei einem Zwischenschritt, alle Schritte danach selbst richtig.
+// teile: Pflicht-Teile (ohne Bonus und Merkzettel) mit status. Gibt { anteil } oder null.
+export function teilLoesung(teile) {
+  const st = (teile || []).map(t => t.status);
+  const l = st.map((x, i) => (x === 'loesung' ? i : -1)).filter(i => i >= 0);
+  if (l.length !== 1 || l[0] >= st.length - 1) return null;
+  if (st.slice(l[0] + 1).some(x => x !== 'erst' && x !== 'zweit')) return null;
+  return { anteil: Math.round((st.length - 1) / st.length * 100) / 100, zweit: st.some(x => x === 'zweit') };
+}
+// Gleiche Art von Schritt (für „neue Aufgabe, in der dieser Schritt früh kommt“)
+export function schrittSchluessel(label) {
+  const l = String(label || '');
+  if (/gesucht/i.test(l)) return 'gesucht';
+  if (/^Welche (Höhe|Länge)/.test(l)) return 'hoehe';
+  if (/^Volumen oder/.test(l)) return 'gesucht';
+  if (/^Runde/.test(l)) return 'runden';
+  return l.replace(/\s*[=≈].*$/, '').trim();
+}
+// Auswahl-Schritte bei Körpern, die man nur nach dem Lesen beantworten kann: 3 Sekunden Lesezeit
+export const LESEZEIT_MS = 3000;
+export const leseAuswahl = (a, label) => !!a && ['zylinder', 'kegel', 'pyramide', 'kugel'].includes(a.thema) && /gesucht|^Welche (Höhe|Länge)|^Volumen oder/i.test(String(label || ''));
+// Signalwörter im Text markieren (nach mathe(), nur im Text außerhalb von Tags)
+const SIGNAL = ['auch Boden und Deckel', 'mit Deckel und Boden', 'Deckel und Boden', 'Boden und Deckel', 'ohne Boden', 'ohne Deckel', 'passt hinein', 'passen hinein', 'rund herum', 'rundherum',
+  'gerade nach unten', 'hinein', 'herum', 'füllt', 'gefüllt', 'füllen', 'Inhalt', 'fasst', 'außen', 'ganze', 'Boden', 'Deckel', 'beklebt', 'bekleben', 'bemalt', 'bemalen', 'anmalen', 'angemalt', 'streicht', 'Papier', 'Stoff', 'Pappe', 'Blech', 'Farbe', 'Wasser', 'Sand', 'Luft', 'schräg'];
+const SIGNAL_RE = new RegExp(`(^|[^\\wäöüÄÖÜß])(${SIGNAL.map(w => w.replace(/ /g, '\\s+')).join('|')})(?=[^\\wäöüÄÖÜß]|$)`, 'g');
+export function signalMarkieren(html) {
+  return String(html).split(/(<[^>]*>)/).map(t => (t.startsWith('<') ? t : t.replace(SIGNAL_RE, (m, v, w) => `${v}<mark class="signal">${w}</mark>`))).join('');
+}
 // Befristete Grenzen pro Kind (Auftrag 36), aus einstellungen.json → werte.befristet:
 // { bis: 'JJJJ-MM-TT', stufe_max: { <generator>: 1–3 }, einmaleins_geteilt: 0–3 (von 3 im Block), prozent: [Prozentsätze] }
 export function befristetNorm(b) {

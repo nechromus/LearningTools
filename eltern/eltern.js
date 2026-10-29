@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.48.2';
+export const ELTERN_VERSION = '1.49.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -1333,12 +1333,12 @@ function uebersichtSeite() {
 
   const max = Math.max(1, ...tage.map(t => (k.tage[t] || {}).anzahl || 0));
   const balken = C.zeitraum === 1 ? '' : `<section class="karte">
-    <div class="karte-kopf"><h2>Aufgaben pro Tag</h2><span class="legende"><i class="farbe-teal"></i>1. Versuch</span><span class="legende"><i class="farbe-amber"></i>später</span></div>
+    <div class="karte-kopf"><h2>Aufgaben pro Tag</h2><span class="legende"><i class="farbe-teal"></i>1. Versuch</span>${Object.values(k.tage).some(d => d.teil) ? '<span class="legende"><i class="farbe-teil"></i>Teil-Lösung</span>' : ''}<span class="legende"><i class="farbe-amber"></i>später</span></div>
     <div class="balken${C.zeitraum > 7 ? ' viele' : ''}">${tage.map(t => {
       const d = k.tage[t] || { anzahl: 0, erst: 0 };
       return `<a class="balken-spalte" href="#verlauf/${t}" aria-label="${tagLang(t)}: ${d.anzahl} Aufgaben">
         <span class="balken-zahl">${d.anzahl || ''}</span>
-        <span class="balken-stapel" style="height:${Math.round(d.anzahl / max * 100)}%"><span class="b-spaet" style="flex-grow:${d.anzahl - d.erst}"></span><span class="b-erst" style="flex-grow:${d.erst}"></span></span>
+        <span class="balken-stapel" style="height:${Math.round(d.anzahl / max * 100)}%"><span class="b-spaet" style="flex-grow:${d.anzahl - d.erst - (d.teil || 0)}"></span><span class="b-teil" style="flex-grow:${d.teil || 0}"></span><span class="b-erst" style="flex-grow:${d.erst}"></span></span>
         <span class="balken-tag">${C.zeitraum > 7 ? t.slice(8) : wochentag(t)}</span></a>`;
     }).join('')}</div></section>`;
 
@@ -1348,7 +1348,7 @@ function uebersichtSeite() {
       <span class="themen-name">${esc(t.name)}</span>
       <span class="themen-balken"><span style="width:${t.quote}%" class="${t.quote >= 75 ? 'gut' : 'mittel'}"></span></span>
       <span class="themen-quote">${t.quote} %</span>
-      <span class="themen-info">${t.anzahl} · St. ${t.stufe || '–'}</span>
+      <span class="themen-info">${t.anzahl} · St. ${t.stufe || '–'}${t.teil ? ` · <span class="teil-text">${t.teil} Teil-Lösung</span>` : ''}</span>
       ${t.kurz ? `<span class="themen-kurz">Kommt mit der Formelübersicht aus: ${t.kurzOk} von ${t.kurz}${t.lang ? ` · ${t.lang}-mal „Mehr Hilfe“` : ''}</span>` : ''}
     </div>`).join('')}</section>` : '';
 
@@ -1577,6 +1577,7 @@ function aufgabeDetail(rec) {
         ${teile}
         ${a && a.frage ? `<p><b>${mathe(a.frage)}</b></p>` : ''}
         ${!a ? `<p>${esc(A.kurztext(rec, null))}</p>` : ''}
+        ${rec.ende && A.loesungBei(rec.ende) ? `<p class="loesung-bei">Lösung bei: <b>${mathe(A.loesungBei(rec.ende))}</b>${rec.ende.ergebnis === 'teil' ? ` · danach selbst gerechnet, Zeit ${Math.round((rec.ende.anteil || 0) * 100)} %` : ''}</p>` : ''}
         <p class="klein gedaempft">Ergebnis: <b>${A.ergebnisText(rec)}</b>${rec.ende ? ` · Dauer ${A.dauerText(rec.ende.ms)} · Spielzeit +${A.minutenText(rec.ende.sekunden)}` : ''}</p>
       </div>
     </section>

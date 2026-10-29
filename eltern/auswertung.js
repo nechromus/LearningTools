@@ -195,9 +195,12 @@ function optionenVon(a, teil) {
   return null;
 }
 
-const ERGEBNIS = { erst: '1. Versuch', zweit: '2. Versuch', loesung: 'Lösung gezeigt' };
-export const ergebnisText = (rec) => rec.ende ? (rec.ende.gleiche_aufgabe && rec.ende.ergebnis !== 'loesung' ? 'Gleiche Aufgabe' : ERGEBNIS[rec.ende.ergebnis]) : rec.status === 'uebersprungen' ? 'Übersprungen' : rec.status === 'abgebrochen' ? 'Abgebrochen' : 'Nicht beendet';
-export const ergebnisArt = (rec) => rec.ende ? (rec.ende.gleiche_aufgabe && rec.ende.ergebnis !== 'loesung' ? 'gleich' : rec.ende.ergebnis) : 'offen';
+const ERGEBNIS = { erst: '1. Versuch', zweit: '2. Versuch', teil: 'Teil-Lösung', loesung: 'Lösung gezeigt' };
+const ohneGleich = (e) => e.ergebnis === 'loesung' || e.ergebnis === 'teil';
+// „Lösung bei: …“ (Auftrag 37), Labels aus loesung_label (Text oder Liste)
+export const loesungBei = (e) => { const l = e && e.loesung_label; if (!l) return ''; return (Array.isArray(l) ? l : [l]).filter(Boolean).join(' · '); };
+export const ergebnisText = (rec) => rec.ende ? (rec.ende.gleiche_aufgabe && !ohneGleich(rec.ende) ? 'Gleiche Aufgabe' : ERGEBNIS[rec.ende.ergebnis]) : rec.status === 'uebersprungen' ? 'Übersprungen' : rec.status === 'abgebrochen' ? 'Abgebrochen' : 'Nicht beendet';
+export const ergebnisArt = (rec) => rec.ende ? (rec.ende.gleiche_aufgabe && !ohneGleich(rec.ende) ? 'gleich' : rec.ende.ergebnis) : 'offen';
 
 const sek = (ms) => Math.max(0, Math.round((ms || 0) / 1000));
 export function dauerText(ms) {
@@ -250,7 +253,7 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
       case 'rechner': p.titel = `Rechner: ${e.ausdruck}${e.ohneGleich ? '' : ' ='}${e.ergebnis != null ? ' ' + zahl(Math.round(e.ergebnis * 1000) / 1000) : ''}`; p.text = e.ohneGleich ? 'ohne „=“ eingetragen' : ''; break;
       case 'verlassen': p.titel = `App verlassen (${sek(e.ms)} s)`; p.text = e.strafe === 'null' ? 'keine Spielzeit für diese Aufgabe' : e.strafe === 'halb' ? 'halbe Spielzeit' : ''; p.art = 'fehler'; break;
       case 'sprung': p.titel = 'Auf ein späteres Feld getippt'; p.text = e.abgegeben ? 'Antwort damit abgegeben' : 'Feld war noch leer, hat geblinkt'; break;
-      case 'loesung_gezeigt': p.titel = 'Lösung gezeigt'; p.text = 'nach 2 Versuchen'; p.art = 'fehler'; break;
+      case 'loesung_gezeigt': p.titel = 'Lösung gezeigt'; p.text = e.loesung_label ? `bei: ${e.loesung_label}` : 'nach den Versuchen'; p.art = 'fehler'; break;
       case 'bonus_teil_uebersprungen': p.titel = 'Bonus-Teil übersprungen'; break;
       case 'aufgabe_ende':
         p.titel = `Fertig: ${ERGEBNIS[e.ergebnis]}`;
@@ -258,8 +261,9 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
           e.bildschirm == null || e.sekunden ? `Spielzeit +${minutenText(e.sekunden)}${e.spielzeitVoll ? ' (Tagesgrenze erreicht)' : ''}` : '',
           e.kopf ? 'im Kopf gerechnet (Bonus)' : '', e.knobeln ? (e.schritte ? 'Knobeln: in Schritten gelöst' : 'Knobeln: ohne Schritte gelöst') : '',
           e.wp ? `+${e.wp} Wissenspunkte` : '', `Dauer ${dauerText(e.ms)}`].filter(Boolean).join(' · ');
-        p.art = e.ergebnis === 'erst' ? 'ok' : e.ergebnis === 'zweit' ? 'info' : 'fehler';
-        if (e.gleiche_aufgabe && e.ergebnis !== 'loesung') { p.text = ['Gleiche Aufgabe nach gezeigter Lösung: zählt nicht als 1. Versuch', p.text].join(' · '); p.art = 'info'; }
+        p.art = e.ergebnis === 'erst' ? 'ok' : e.ergebnis === 'zweit' || e.ergebnis === 'teil' ? 'info' : 'fehler';
+        if (loesungBei(e)) p.text = [`Lösung bei: ${loesungBei(e)}`, e.ergebnis === 'teil' ? `Rest selbst gerechnet, Zeit anteilig (${Math.round((e.anteil || 0) * 100)} %)` : '', p.text].filter(Boolean).join(' · ');
+        if (e.gleiche_aufgabe && !ohneGleich(e)) { p.text = ['Gleiche Aufgabe nach gezeigter Lösung: zählt nicht als 1. Versuch', p.text].join(' · '); p.art = 'info'; }
         break;
       case 'aufgabe_abgebrochen': p.titel = 'Mit „Fertig“ verlassen'; p.text = [e.ohneEingabe ? 'ohne Eingabe' : '', e.wartet ? 'kommt beim nächsten Mal wieder' : ''].filter(Boolean).join(' · '); p.art = 'fehler'; break;
       case 'hilfe': p.titel = `„Hilf mir“ (${e.stufe}. Schritt)`; p.text = (e.zeilen || []).join(' · ') + ' · weniger Spielzeit'; p.art = 'fehler'; break;
@@ -276,7 +280,7 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
       case 'hinweis_kurz': p.titel = `Formelübersicht „${hinweisTitel[e.hinweis] || e.hinweis}“ geöffnet`; p.text = (e.abschnitte || []).length ? 'Kurzversion' : 'steht nicht in der Formelübersicht'; break;
       case 'hinweis_lang': p.titel = `Mehr Hilfe: langer Hinweis „${hinweisTitel[e.hinweis] || e.hinweis}“`; p.text = e.stufe === 0 ? 'gleich lang (ohne Formelübersicht)' : `Stufe ${e.stufe}${e.kosten === 'halb' ? ' · halbe Spielzeit' : ''}`; p.art = e.kosten === 'halb' ? 'fehler' : 'info'; break;
       case 'formeluebersicht': p.titel = 'Ganze Formelübersicht geöffnet'; p.text = `Seite ${e.seite}`; break;
-      case 'zu_schnell': p.titel = `Zu schnell geantwortet: ${e.eingabe}`; p.text = `nach ${sek(e.ms)} s · zählt nicht, „Lies noch einmal“`; p.art = 'fehler'; break;
+      case 'zu_schnell': p.titel = e.art === 'auswahl' ? 'Auswahl zu schnell' : `Zu schnell geantwortet: ${e.eingabe}`; p.text = e.art === 'auswahl' ? `nach ${sek(e.ms)} s · zählt nicht, Signalwörter markiert` : `nach ${sek(e.ms)} s · zählt nicht, „Lies noch einmal“`; p.art = e.art === 'auswahl' ? 'info' : 'fehler'; break;
       case 'vorlesen': p.titel = 'Geschichte vorlesen lassen'; break;
       case 'erinnerung': p.titel = 'Erinnerung aus dem Wochenplan'; p.text = e.tage > 90 ? `kam in der App noch nie, Frist ${e.frist} Tage` : `zuletzt vor ${e.tage} Tagen geübt, Frist ${e.frist} Tage`; p.art = 'info'; break;
       case 'gelesen': p.titel = 'Geschichte Satz für Satz gelesen'; p.text = `${sek(e.ms)} s`; break;
@@ -295,13 +299,14 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
   const erst = auf.filter(r => erstZ(r.ende)).length;
   const proThema = {};
   for (const r of auf) {
-    const t = proThema[r.thema] || (proThema[r.thema] = { thema: r.thema, name: THEMA_NAMEN[r.thema] || r.thema, anzahl: 0, erst: 0, loesung: 0, stufe: 0, kurz: 0, kurzOk: 0, lang: 0 });
+    const t = proThema[r.thema] || (proThema[r.thema] = { thema: r.thema, name: THEMA_NAMEN[r.thema] || r.thema, anzahl: 0, erst: 0, teil: 0, loesung: 0, stufe: 0, kurz: 0, kurzOk: 0, lang: 0 });
     t.anzahl++;
     // Kurz-Hinweise: Kommt das Kind mit der Formelübersicht aus (gelöst ohne „Mehr Hilfe“)?
     const k = kurzErgebnis(r);
     if (k) { t.kurz++; if (k === 'ok') t.kurzOk++; if (k === 'lang') t.lang++; }
     if (erstZ(r.ende)) t.erst++;
     if (r.ende.ergebnis === 'loesung') t.loesung++;
+    if (r.ende.ergebnis === 'teil') t.teil++;
     t.stufe = r.stufe || t.stufe;
   }
   const fehler = {};
@@ -318,8 +323,8 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
   for (const e of weg) { const th = e.thema || (aufgaben.find(r => r.id === e.id) || {}).thema; if (th) wegThemen[th] = (wegThemen[th] || 0) + 1; }
   const tage = {};
   for (const r of auf) {
-    const d = tage[r.tag] || (tage[r.tag] = { tag: r.tag, anzahl: 0, erst: 0, ms: 0, sekunden: 0 });
-    d.anzahl++; if (erstZ(r.ende)) d.erst++; d.ms += r.ende.ms || 0; d.sekunden += r.ende.sekunden || 0;
+    const d = tage[r.tag] || (tage[r.tag] = { tag: r.tag, anzahl: 0, erst: 0, teil: 0, ms: 0, sekunden: 0 });
+    d.anzahl++; if (erstZ(r.ende)) d.erst++; if (r.ende.ergebnis === 'teil') d.teil++; d.ms += r.ende.ms || 0; d.sekunden += r.ende.sekunden || 0;
   }
   const auffaellig = Object.entries(fehler).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${FEHLER_NAMEN[k] || k}: ${n}-mal`);
   if (verlassen) auffaellig.push(`App ${verlassen}-mal verlassen während einer Aufgabe`);
@@ -900,7 +905,7 @@ export function appJeTeil(aufgaben, pool, bis, tage = 14) {
   const ab = (() => { const d = new Date(bis + 'T12:00:00'); d.setDate(d.getDate() - (tage - 1)); return tagKey(d); })();
   const je = {}, alle = [];
   for (const r of aufgaben || []) {
-    if (!r.ende || r.tag < ab || r.tag > bis || r.ende.ergebnis === 'loesung' || r.ende.gleiche_aufgabe) continue;
+    if (!r.ende || r.tag < ab || r.tag > bis || r.ende.ergebnis === 'loesung' || r.ende.ergebnis === 'teil' || r.ende.gleiche_aufgabe) continue;
     const v = Math.min(r.ende.ms || 0, AUFGABE_MAX_MS) / 60000 / teileVon(r, aufgabeVon(r, pool));
     if (!(v > 0)) continue;
     (je[r.thema] || (je[r.thema] = [])).push(v); alle.push(v);

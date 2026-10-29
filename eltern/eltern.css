@@ -663,3 +663,10 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .bg-abgeschickt.offen { border-color: var(--amber, #b7791f); }
 .bg-lesen .bg-allg, .bg-lesen .bg-karte .bg-seg, .bg-lesen .bg-karte [data-act="bgChip"], .bg-lesen .bg-karte [data-act="bgFotoWeg"], .bg-lesen .bg-karte label:has(.bg-foto), .bg-lesen .bg-frei-form { pointer-events: none; }
 .bg-lesen .bg-allg, .bg-lesen .bg-karte .bg-seg, .bg-lesen .bg-karte textarea { opacity: .75; }
+
+/* Teil-Lösung (Auftrag 37): zwischen „2. Versuch“ (amber) und „Lösung“ (grau) */
+.badge.b-teil { background: #F6E3D3; color: #8A4B1C; border: 1.5px solid #E2B48E; }
+.b-teil { background: #D9945A; }
+.farbe-teil { background: #D9945A; }
+.teil-text { color: #8A4B1C; }
+.loesung-bei { margin: 6px 0 2px; padding: 6px 10px; border-radius: 8px; background: #F6E3D3; color: #6b3a14; }
