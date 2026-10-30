@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.50.0';
+export const ELTERN_VERSION = '1.50.1';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -452,7 +452,7 @@ function bgEntwurf(id) {
   if (BG.entwuerfe[k]) return BG.entwuerfe[k];
   let e = null;
   try { e = JSON.parse(localStorage.getItem(k) || 'null'); } catch (x) {}
-  if (!e && BG.fb[id]) e = A.bogenFeedbackEntwurf(BG.fb[id]);
+  if (!e && BG.fb[id]) { e = A.bogenFeedbackEntwurf(BG.fb[id]); if (e) e.gemachtHand = true; }
   if (!e) { let von = ''; try { von = localStorage.getItem('bogen-von') || ''; } catch (x) {} e = { von, gemacht: A.gemachtStandard(BG.boegen[id], L.tagKey()), anfang: '', stimmung: '', hinweisblatt: '', dauer: null, uebungen: {}, sonst: '', gesehen: [] }; }
   e.uebungen = e.uebungen || {}; e.gesehen = e.gesehen || [];
   return (BG.entwuerfe[k] = e);
@@ -499,6 +499,8 @@ async function bgLaden(neu = false) {
     const lokal = [];
     try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(`bogen-fb:${o}:`)) lokal.push(k.split(':').slice(2).join(':')); } } catch (x) {}
     BG.liste = [...new Set([...ids, ...fbIds, ...lokal])].map(id => ({ id, ordner: ids.includes(id), fertig: fbIds.includes(id) }));
+    // Liegengebliebene Zeitdateien (Auftrag 38): Messung beendet und die Zeit steht schon im Feedback → Datei löschen
+    for (const id of zeitIds) { const z = BG.zeit[id], f = BG.fb[id]; if (z && !z.laeuft && f && f.zeit && f.zeit.start === z.start) { U.dateiLoeschen(C, ZEIT(o, id), `${ordnerName(o)}: Bogen ${id} Zeit aufgeräumt`).catch(() => {}); delete BG.zeit[id]; } }
   } catch (e) { BG.fehler = e.message || 'Laden hat nicht geklappt.'; }
   BG.laedt = false; zeichne();
 }
@@ -723,6 +725,9 @@ async function foHaken(id) {
 // ---------- Zeit messen (Auftrag 34): bogen-feedback/<id>.zeit.json (bogen-zeit-1), für beide Eltern sichtbar ----------
 // Eigene Datei, damit eine laufende Messung nicht wie ein fertiges Feedback aussieht (Übungen ohne Eintrag gelten dort als „klappt“).
 const ZEIT = (o, id) => `daten/${o}/bogen-feedback/${id}.zeit.json`;
+// „Gemacht am“ (Auftrag 38): Ohne eigene Eingabe gilt das Datum des Bogens, berechnet am Tag des Ansehens bzw. Speicherns.
+// Vorher stand der Tag fest, an dem der Entwurf entstand (W6 T4 am Vorabend geöffnet → 28.10. statt 29.10.).
+const gemachtVon = (id, e) => (e.gemachtHand && e.gemacht ? e.gemacht : A.gemachtStandard(BG.boegen[id], L.tagKey()));
 const VERGESSEN_MS = 3 * 60 * 60 * 1000;
 function laufSek(z) {
   if (!z || !z.start) return 0;
@@ -960,7 +965,7 @@ function bgSeg(id, k, werte, aktuell, text = (v) => v, spalten = werte.length) {
 // keys: welche allgemeinen Fragen (Anfang: von, anfang + Datum; Ende: stimmung, hinweisblatt, dauer)
 function bgAllgemeinFelder(id, e, keys = A.BOGEN_ANFANG, mitDatum = true) {
   return A.BOGEN_ALLGEMEIN.filter(f => keys.includes(f.k)).map(f => f.k === 'dauer' ? dauerFeld(id, e) : `<div class="bg-gruppe"><span class="bg-lbl">${esc(f.titel)}${f.frei ? ' <span class="klein gedaempft">(optional)</span>' : ''}</span>${bgSeg(id, f.k, f.werte, e[f.k], f.text)}</div>`).join('') +
-    (mitDatum ? `<div class="bg-gruppe"><span class="bg-lbl">Gemacht am</span><input type="date" id="bg-gemacht" data-id="${esc(id)}" value="${esc(e.gemacht || L.tagKey())}" max="${L.tagKey()}"></div>` : '');
+    (mitDatum ? `<div class="bg-gruppe"><span class="bg-lbl">Gemacht am</span><input type="date" id="bg-gemacht" data-id="${esc(id)}" value="${esc(gemachtVon(id, e))}" max="${L.tagKey()}"></div>` : '');
 }
 // Dauer (Auftrag 34): gemessen vorausgefüllt, sonst Zahlenfeld in Minuten und die schnellen Stufen
 function dauerFeld(id, e) {
@@ -1110,9 +1115,12 @@ async function bgSpeichern(id) {
         bgSichern(id, e);
       }
     }
+    e.gemacht = gemachtVon(id, e);
     const datei = A.bogenFeedbackDatei(o, id, e);
     await U.dateiSchreiben(C, `daten/${o}/bogen-feedback/${id}.json`, JSON.stringify(datei, null, 1), `${ordnerName(o)}: Bogen-Feedback ${id}`);
     BG.fb[id] = datei;
+    // Zeitmessung (Auftrag 34/38): Nach dem Speichern steht die Zeit im Feedback, die Datei <id>.zeit.json wird gelöscht
+    if (BG.zeit[id] && !BG.zeit[id].laeuft) { await U.dateiLoeschen(C, ZEIT(o, id), `${ordnerName(o)}: Bogen ${id} Zeit ins Feedback übernommen`).catch(() => {}); delete BG.zeit[id]; }
     try { localStorage.removeItem(bgKey(id)); } catch (x) {}
     delete BG.entwuerfe[bgKey(id)];
     if (BG.bearbeiten) delete BG.bearbeiten[id];
@@ -2853,7 +2861,7 @@ document.addEventListener('input', (ev) => {
   if (el.id === 'p-text') paketText.text = el.value;
   if (el.classList && el.classList.contains('bg-text')) { const e = bgEntwurf(el.dataset.id); if (el.dataset.bonus) { const u = bgUe(e, el.dataset.nr); u.bonus = { ergebnis: (u.bonus && u.bonus.ergebnis) || '', notiz: el.value }; } else if (el.dataset.nr) bgUe(e, el.dataset.nr).notiz = el.value; else e.sonst = el.value; bgSichern(el.dataset.id, e); }
   if (el.classList && el.classList.contains('bg-dauer-feld')) { const e = bgEntwurf(el.dataset.id); dauerSetzen(e, Number(el.value)); bgSichern(el.dataset.id, e); return; }
-  if (el.id === 'bg-gemacht') { const e = bgEntwurf(el.dataset.id); e.gemacht = el.value; bgSichern(el.dataset.id, e); }
+  if (el.id === 'bg-gemacht') { const e = bgEntwurf(el.dataset.id); e.gemacht = el.value; e.gemachtHand = true; bgSichern(el.dataset.id, e); }
 });
 
 // Bögen: auf- und zugeklappte Wochen merken (toggle steigt nicht auf, darum capture)
