@@ -109,6 +109,16 @@ export async function dateiLoeschen(cfg, pfad, nachricht) {
   return true;
 }
 
+// Einträge vom Server und vom Gerät zusammenführen: nichts geht verloren, nichts doppelt, nach Zeit sortiert.
+export function eintraegeZusammen(server, lokal) {
+  if (!Array.isArray(server) || !server.length) return lokal;
+  const schluessel = (e) => JSON.stringify(e);
+  const da = new Set(lokal.map(schluessel));
+  const fehlt = server.filter(e => e && e.t && !da.has(schluessel(e)));
+  if (!fehlt.length) return lokal;
+  return [...fehlt, ...lokal].map((e, i) => [e, i]).sort((a, b) => a[0].t < b[0].t ? -1 : a[0].t > b[0].t ? 1 : a[1] - b[1]).map(x => x[0]);
+}
+
 // Teilt das Protokoll nach lokalen Tagen auf.
 export function nachTagen(log, tagKey) {
   const tage = {};

@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.52.0';
+export const ELTERN_VERSION = '1.53.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -1447,6 +1447,14 @@ function zeitraumWahl() {
     `<button class="segment${C.zeitraum === n ? ' an' : ''}" data-act="zeitraum" data-n="${n}" aria-pressed="${C.zeitraum === n}">${t}</button>`).join('')}</div>`;
 }
 
+// Speicher auf dem Handy voll (stand.json → speicher, ab App 2.36.0): dann können Lerndaten fehlen
+function speicherKarte() {
+  const voll = ((D.daten && D.daten.staende) || []).filter(({ stand }) => stand && stand.speicher && stand.speicher.fehler && Date.now() - new Date(stand.stand).getTime() < 3 * 864e5);
+  if (!voll.length) return '';
+  return `<section class="hinweis-box"><h2>Speicher auf dem Handy voll</h2>${voll.map(({ geraet, stand }) => `<p><b>Handy ${esc(geraet.slice(0, 4))}…</b>: Seit ${wann(stand.speicher.seit || stand.stand)} kann die App nicht alles speichern.</p>`).join('')}
+    <p>Die Lerndaten auf dem Server bleiben erhalten. Was noch nicht übertragen ist, kann fehlen. Bitte die App einmal ganz schließen und neu öffnen. Bleibt die Meldung, bitte im App-Chat Bescheid geben.</p></section>`;
+}
+
 function uebersichtSeite() {
   const tage = A.letzteTage(C.zeitraum);
   const k = A.kennzahlen(D.daten.aufgaben, D.daten.eintraege, tage[0]);
@@ -1485,6 +1493,7 @@ function uebersichtSeite() {
 
   return `<div class="seite">
     ${breit.matches ? `<header class="kopf-breit"><h1>Übersicht · ${esc(name())}</h1>${nutzerWahl('nutzer-chip nur-hoch')}${zeitraumWahl()}</header>` : kopfSchmal('Übersicht') + zeitraumWahl()}
+    ${speicherKarte()}
     ${liveKarte()}
     ${berichtKachel()}
     ${bogenKachel()}

@@ -79,19 +79,67 @@ export function laden() {
 }
 
 // Zustand und Protokoll getrennt speichern, damit Spielzüge schnell bleiben.
-let speicherFehler = false;
+// Safari erlaubt nur etwa 5 MB. Deshalb bleiben auf dem Gerät nur die Tage, die noch gebraucht werden:
+// übertragene Tage höchstens LOG_TAGE, nie übertragene höchstens 60 Tage. Ist der Speicher trotzdem voll,
+// fallen die ältesten Tage weg (zuerst übertragene), bis es passt; heute und gestern bleiben immer.
+export const LOG_TAGE = 7;
+let speicherFehler = false, speicherFehlerSeit = null, logZeichen = 0;
 let logGeaendert = true;
-export function speichern(s) {
-  try {
-    const { log, ...rest } = s;
-    localStorage.setItem(KEY, JSON.stringify(rest));
-    if (logGeaendert) { localStorage.setItem(LOG_KEY, JSON.stringify(log)); logGeaendert = false; }
-    speicherFehler = false;
-  } catch (e) {
-    speicherFehler = true;
-  }
-  return !speicherFehler;
+const tagVon = (e) => tagKey(new Date(e.t));
+const tagMinus = (n, jetzt = new Date()) => tagKey(new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate() - n));
+
+// Tage mit ihrer Anzahl Einträge (älteste zuerst)
+function logTage(log) {
+  const n = {};
+  for (const e of log) { const k = tagVon(e); n[k] = (n[k] || 0) + 1; }
+  return Object.keys(n).sort().map(k => ({ tag: k, n: n[k] }));
 }
+const uebertragen = (s, t) => !!(s.upload && s.upload.tage && (s.upload.tage[t.tag] || 0) >= t.n);
+function tageEntfernen(s, weg) {
+  if (!weg.size) return false;
+  s.log = s.log.filter(e => !weg.has(tagVon(e)));
+  logGeaendert = true;
+  return true;
+}
+
+// Regelmäßig aufräumen (beim Laden und beim Speichern, höchstens einmal am Tag wirksam)
+export function logAufraeumen(s, jetzt = new Date()) {
+  const grenzeUe = tagMinus(LOG_TAGE - 1, jetzt), grenzeAlle = tagMinus(59, jetzt);
+  const weg = new Set(logTage(s.log).filter(t => t.tag < grenzeAlle || (t.tag < grenzeUe && uebertragen(s, t))).map(t => t.tag));
+  return tageEntfernen(s, weg);
+}
+// Speicher voll: den ältesten Tag entfernen (zuerst übertragene). Heute und gestern bleiben.
+export function logNotKuerzen(s, jetzt = new Date()) {
+  const schutz = tagMinus(1, jetzt);
+  const tage = logTage(s.log).filter(t => t.tag < schutz);
+  const t = tage.find(x => uebertragen(s, x)) || tage[0];
+  return t ? tageEntfernen(s, new Set([t.tag])) : false;
+}
+
+function schreiben(s) {
+  const { log, ...rest } = s;
+  if (logGeaendert) { const roh = JSON.stringify(log); localStorage.setItem(LOG_KEY, roh); logZeichen = roh.length; logGeaendert = false; }
+  localStorage.setItem(KEY, JSON.stringify(rest));
+}
+let aufgeraeumtAm = null;
+export function speichern(s) {
+  if (aufgeraeumtAm !== tagKey()) { logAufraeumen(s); aufgeraeumtAm = tagKey(); }
+  for (let runde = 0; runde < 60; runde++) {
+    try {
+      schreiben(s);
+      speicherFehler = false; speicherFehlerSeit = null;
+      return true;
+    } catch (e) {
+      logGeaendert = true;
+      if (!logNotKuerzen(s)) break;
+    }
+  }
+  speicherFehler = true;
+  if (!speicherFehlerSeit) speicherFehlerSeit = new Date().toISOString();
+  return false;
+}
+// Für stand.json: damit die Eltern-App einen vollen Speicher sieht
+export const speicherInfo = (s) => ({ fehler: speicherFehler, ...(speicherFehlerSeit ? { seit: speicherFehlerSeit } : {}), tage: logTage(s.log).length, eintraege: s.log.length, zeichen: logZeichen });
 export const hatSpeicherFehler = () => speicherFehler;
 
 // Live-Anzeige (Eltern-App): die App meldet ausgewählte Ereignisse zusätzlich an einen Beobachter

@@ -29,9 +29,9 @@ import * as FB from './feedback.js';
 import { ANLEITUNGEN } from './anleitungen.js';
 import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
-import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler } from './store.js';
+import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.35.4';
+export const APP_VERSION = '2.36.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -340,7 +340,8 @@ function standDaten() {
     etappeAnzeigen: !!S.etappeAnzeigen, gestaltung: S.gestaltung || 'schrein',
     ...(S.wissen ? { wissen: { stand: SZ.wissenVon(S.wissen).stand, archiv: SZ.archivVon(S.archiv).gekauft } } : {}),
     ...(UZ().an ? { uebung: uzKonto() } : {}),
-    ...(BZ().an ? { bildschirm: (k => ({ stand: k.stand, tag: k.tag, heute: k.heute }))(bzKonto()) } : {}), statistik: S.statistik, zusammenfassung7Tage: zusammenfassung(7), letzterExport: S.letzterExport
+    ...(BZ().an ? { bildschirm: (k => ({ stand: k.stand, tag: k.tag, heute: k.heute }))(bzKonto()) } : {}), statistik: S.statistik, zusammenfassung7Tage: zusammenfassung(7), letzterExport: S.letzterExport,
+    speicher: speicherInfo(S)
   };
 }
 
@@ -542,8 +543,12 @@ async function syncen(erzwingen = false) {
     const tage = U.nachTagen(U.ohneTestphasen(S.log), d => L.tagKey(d));
     const offen = Object.keys(tage).sort().filter(k => tage[k].length > (u.tage[k] || 0)).slice(-14);
     for (const tag of offen) {
-      const inhalt = JSON.stringify({ app: 'lernapp-2048', version: APP_VERSION, nutzer: S.einstellungen.name, geraetId: S.geraetId, tag, hochgeladen: new Date().toISOString(), eintraege: tage[tag] });
-      await U.dateiSchreiben(u, `daten/${nutzerOrdner()}/${S.geraetId}/${tag}.json`, inhalt, `Lerndaten ${tag}`);
+      // Nie mit weniger überschreiben: Was schon auf dem Server liegt, bleibt (z. B. nach vollem Speicher auf dem Handy).
+      const pfad = `daten/${nutzerOrdner()}/${S.geraetId}/${tag}.json`;
+      const server = await U.dateiLesen(u, pfad);
+      const eintraege = U.eintraegeZusammen(server && server.eintraege, tage[tag]);
+      const inhalt = JSON.stringify({ app: 'lernapp-2048', version: APP_VERSION, nutzer: S.einstellungen.name, geraetId: S.geraetId, tag, hochgeladen: new Date().toISOString(), eintraege });
+      await U.dateiSchreiben(u, pfad, inhalt, `Lerndaten ${tag}`);
       u.tage[tag] = tage[tag].length;
       anzahl++;
     }
