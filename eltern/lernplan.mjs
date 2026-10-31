@@ -884,6 +884,7 @@ function editRow(id){
       if (r.verlauf) out.verlauf = r.verlauf;
       if (r.bogen) out.bogen = r.bogen;
       if (r.ziel) out.ziel = r.ziel;
+      ['ergebnisse', 'bogen_erg', 'schritte'].forEach(function(k){ if (r[k]) out[k] = r[k]; }); // Trend (ab 1.9.0)
       return S.db.doc('rows/' + (id || slug(out.label))).set(out);
     }, id ? function(){ return S.db.doc('rows/' + id).delete(); } : null);
     wire();
