@@ -35,6 +35,11 @@ button, select, input { font: inherit; color: inherit; }
 .chip { min-height: 38px; padding: 0 14px; border-radius: 19px; border: 1.5px solid #8A9696; background: var(--karte); font-weight: 700; cursor: pointer; }
 .chip.an { background: var(--teal); border-color: var(--teal); color: #fff; }
 .filter { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.vl-leiste { margin-top: 0; align-items: center; flex-wrap: nowrap; }
+.vl-art { flex: 1; min-width: 0; max-width: 260px; }
+.vl-art select { width: 100%; min-height: 38px; padding: 0 10px; border-radius: 19px; border: 1.5px solid #8A9696; background: var(--karte); font: inherit; font-weight: 700; color: inherit; }
+.vl-art.an select { border-color: var(--teal); background: var(--teal-hell, #E3F1EF); color: var(--teal-dunkel); }
+.vl-sort { padding: 0 12px; flex: none; white-space: nowrap; }
 
 /* Karten */
 .karte { background: var(--karte); border: 1px solid var(--linie); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; }

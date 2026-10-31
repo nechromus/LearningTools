@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.50.1';
+export const ELTERN_VERSION = '1.51.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -34,6 +34,9 @@ let scanStopp = null;
 let geaenderteStufen = new Set();
 let meldung = null;
 let filter = 'alle';
+// Verlauf: Sortierung und Art (Thema) merkt sich das Gerät
+const VL = (() => { let v = {}; try { v = JSON.parse(localStorage.getItem('eltern-verlauf') || '{}'); } catch (e) {} return { neu: !!v.neu, art: v.art || '' }; })();
+function vlSichern() { try { localStorage.setItem('eltern-verlauf', JSON.stringify(VL)); } catch (e) { /* privat: nur für diese Sitzung */ } }
 let laedt = false;
 
 function konfigLaden() {
@@ -258,6 +261,7 @@ function zeichne() {
   if (!C.token) return zeichneEinrichten();
   const inhalt = seiteHtml();
   const scroll = bgScrollMerken();
+  vlScrollMerken();
   const neuKnopf = `<button class="knopf-icon" data-act="neuLaden" aria-label="Neu laden">${svg('neu', 22)}</button>`;
   if (breit.matches) {
     app.innerHTML = `<div class="rahmen-breit">
@@ -277,6 +281,7 @@ function zeichne() {
   }
   if (route.seite === 'lernplan') lernplanEinhaengen();
   bgScrollZurueck(scroll);
+  vlScrollZurueck();
   // Abgeschickter Bogen: Felder nur ansehen
   if (route.seite === 'boegen' && route.arg) {
     const id = route.arg.split('/')[0], el = document.querySelector('.bg-schritt');
@@ -306,6 +311,37 @@ function bgScrollZurueck() {
   h.scrollTop = BGS.arg === route.arg ? BGS.haupt : 0;
   BGS.arg = route.arg; BGS.liste = l.scrollTop;
 }
+
+// Verlauf: Beim Antippen einer Aufgabe bleibt die Liste stehen.
+// iPad: Spalten scrollen selbst. iPhone: Stelle der Tagesliste je Tag merken, beim Zurückkommen wieder hin.
+const VS = { tag: null, liste: 0, tage: null, seite: {}, gezeigt: null, oben: false, vorher: null, zuletzt: null };
+function vlScrollMerken() {
+  const l = document.querySelector('.spalte-aufgaben'), t = document.querySelector('.spalte-tage');
+  if (l) VS.liste = l.scrollTop;
+  if (t) VS.tage = t.scrollTop;
+}
+function vlScrollZurueck() {
+  const l = document.querySelector('.spalte-aufgaben'), t = document.querySelector('.spalte-tage');
+  if (!l) { VS.tag = null; VS.oben = false; return; }
+  const tag = l.dataset.tag;
+  if (t && VS.tage != null) t.scrollTop = VS.tage;
+  l.scrollTop = VS.tag === tag && !VS.oben ? VS.liste : 0;
+  VS.oben = false;
+  // Von außen geöffnet (Übersicht, Link): gewählte Aufgabe einmal zeigen, wenn sie nicht zu sehen ist
+  const g = l.querySelector('.zeile.gewaehlt');
+  if (g && VS.gezeigt !== route.arg && VS.tag !== tag) {
+    const r = g.getBoundingClientRect(), lr = l.getBoundingClientRect();
+    if (r.top < lr.top || r.bottom > lr.bottom) l.scrollTop += r.top - lr.top - (lr.height - r.height) / 2;
+  }
+  VS.gezeigt = route.arg; VS.tag = tag; VS.liste = l.scrollTop;
+}
+// iPhone: vor dem Seitenwechsel die Stelle der Tagesliste merken
+function vlSeiteMerken() {
+  VS.vorher = route.seite;
+  if ((route.seite === 'aufgabe' || route.seite === 'spiel') && route.arg) VS.zuletzt = route.arg;
+  if (!breit.matches && route.seite === 'verlauf' && route.arg) VS.seite[route.arg] = window.scrollY;
+}
+function vlSeiteZiel() { return !breit.matches && route.seite === 'verlauf' && route.arg && ['aufgabe', 'spiel'].includes(VS.vorher) ? (VS.seite[route.arg] || 0) : 0; }
 
 function seiteHtml() {
   if (D.fehler && !D.daten) return `<div class="seite"><h1>Laden hat nicht geklappt</h1><p class="hinweis-box">${esc(D.fehler)}</p><button class="knopf haupt" data-act="neuLaden">Nochmal versuchen</button>${schluesselKarte()}</div>`;
@@ -1432,10 +1468,15 @@ function spieleVonTag(tag) {
 
 // Aufgaben und Spiele eines Tages in zeitlicher Reihenfolge (je nach Filter)
 function gefiltert(liste, spiele = []) {
-  if (filter === 'fehler') return liste.filter(r => r.ende && r.ende.ergebnis !== 'erst');
-  if (filter === 'hinweis') return liste.filter(r => r.events.some(e => ['hinweis', 'hinweis_kurz', 'hinweis_lang'].includes(e.typ)));
-  if (filter === 'spiele') return spiele;
-  return [...liste, ...spiele].sort((a, b) => a.start.t < b.start.t ? -1 : 1);
+  let l;
+  if (filter === 'spiele') l = [...spiele];
+  else {
+    l = VL.art ? liste.filter(r => r.thema === VL.art) : liste;
+    if (filter === 'fehler') l = l.filter(r => r.ende && r.ende.ergebnis !== 'erst');
+    else if (filter === 'hinweis') l = l.filter(r => r.events.some(e => ['hinweis', 'hinweis_kurz', 'hinweis_lang'].includes(e.typ)));
+    else if (!VL.art) l = [...l, ...spiele];
+  }
+  return l.sort((a, b) => (a.start.t < b.start.t ? -1 : 1) * (VL.neu ? -1 : 1));
 }
 
 function spielZeile(sp, gewaehlt) {
@@ -1483,9 +1524,19 @@ function aufgabenZeilen(liste, gewaehlt) {
   }).join('');
 }
 
-function filterLeiste() {
+function filterLeiste(liste = []) {
+  const zahl = {};
+  liste.forEach(r => { zahl[r.thema] = (zahl[r.thema] || 0) + 1; });
+  if (VL.art && !zahl[VL.art]) zahl[VL.art] = 0;
+  const arten = Object.keys(zahl).sort((a, b) => (THEMA_NAMEN[a] || a).localeCompare(THEMA_NAMEN[b] || b, 'de'));
   return `<div class="filter">${[['alle', 'Alle'], ['fehler', 'Mit Fehler'], ['hinweis', 'Mit Hinweis'], ['spiele', 'Spiele']].map(([k, t]) =>
-    `<button class="chip${filter === k ? ' an' : ''}" data-act="filter" data-f="${k}" aria-pressed="${filter === k}">${t}</button>`).join('')}</div>`;
+    `<button class="chip${filter === k ? ' an' : ''}" data-act="filter" data-f="${k}" aria-pressed="${filter === k}">${t}</button>`).join('')}</div>
+    <div class="filter vl-leiste">
+      <label class="vl-art${VL.art ? ' an' : ''}"><span class="unsichtbar">Art der Aufgabe</span><select name="vl-art"${filter === 'spiele' ? ' disabled' : ''}>
+        <option value="">Alle Arten</option>${arten.map(k => `<option value="${esc(k)}"${k === VL.art ? ' selected' : ''}>${esc(THEMA_NAMEN[k] || k)} (${zahl[k]})</option>`).join('')}
+      </select></label>
+      <button class="chip vl-sort" data-act="vlSort" aria-label="Sortierung umschalten">${VL.neu ? 'Neueste zuerst ↓' : 'Älteste zuerst ↑'}</button>
+    </div>`;
 }
 
 function tagZusammenfassung(liste, spiele = []) {
@@ -1504,8 +1555,8 @@ function tagSeite(tag) {
     <a class="zurueck" href="#verlauf">${svg('zurueck', 20)}Alle Tage</a>
     <h1>${tagLang(tag)}</h1>
     <p class="klein gedaempft">${tagZusammenfassung(liste, spiele)}</p>
-    ${filterLeiste()}
-    <section class="karte liste-karte">${aufgabenZeilen(gefiltert(liste, spiele)) || '<p class="leer">Nichts Passendes an diesem Tag.</p>'}</section>
+    ${filterLeiste(liste)}
+    <section class="karte liste-karte">${aufgabenZeilen(gefiltert(liste, spiele), VS.zuletzt) || '<p class="leer">Nichts Passendes an diesem Tag.</p>'}</section>
   </div>`;
 }
 
@@ -1520,8 +1571,8 @@ function verlaufBreit() {
       <h2 class="spalten-titel">${esc(name())}</h2>
       ${tage.map(d => `<a class="tag-knopf${d.tag === tag ? ' gewaehlt' : ''}" href="#verlauf/${d.tag}"><b>${tagKurz(d.tag)}</b><span class="klein gedaempft">${tagKurzText(d, false)}</span></a>`).join('') || '<p class="leer">Noch keine Aufgaben.</p>'}
     </section>
-    <section class="spalte-aufgaben">
-      <div class="spalten-kopf"><label class="nur-hoch tag-feld"><span class="unsichtbar">Tag auswählen</span><select name="tag-wahl">${tage.map(d => `<option value="${d.tag}"${d.tag === tag ? ' selected' : ''}>${tagKurz(d.tag)} · ${d.anzahl} Aufgaben</option>`).join('')}</select></label><b>${tagLang(tag)}</b><span class="klein gedaempft">${tagZusammenfassung(liste, spiele)}</span>${filterLeiste()}</div>
+    <section class="spalte-aufgaben" data-tag="${tag}">
+      <div class="spalten-kopf"><label class="nur-hoch tag-feld"><span class="unsichtbar">Tag auswählen</span><select name="tag-wahl">${tage.map(d => `<option value="${d.tag}"${d.tag === tag ? ' selected' : ''}>${tagKurz(d.tag)} · ${d.anzahl} Aufgaben</option>`).join('')}</select></label><b>${tagLang(tag)}</b><span class="klein gedaempft">${tagZusammenfassung(liste, spiele)}</span>${filterLeiste(liste)}</div>
       ${aufgabenZeilen(gefiltert(liste, spiele), rec && rec.key) || '<p class="leer">Nichts Passendes an diesem Tag.</p>'}
     </section>
     <section class="spalte-detail">${rec ? (rec.spiel ? spielDetail(rec) : aufgabeDetail(rec)) : '<div class="leer-detail">Tippe links auf eine Aufgabe oder ein Spiel.<br>Dann siehst du, was genau passiert ist.</div>'}</section>
@@ -2580,6 +2631,7 @@ document.addEventListener('click', (ev) => {
     case 'updateSpaeter': updateSpaeter = true; document.getElementById('update-leiste')?.remove(); break;
     case 'zeitraum': C.zeitraum = Number(el.dataset.n); konfigSichern(); zeichne(); break;
     case 'filter': filter = el.dataset.f; zeichne(); break;
+    case 'vlSort': VL.neu = !VL.neu; vlSichern(); VS.oben = true; zeichne(); if (!breit.matches) window.scrollTo(0, 0); break;
     case 'stufe': {
       const g = el.dataset.g;
       entwurf.genStufen[g] = Math.max(1, Math.min(3, entwurf.genStufen[g] + Number(el.dataset.d)));
@@ -2805,6 +2857,7 @@ document.addEventListener('click', (ev) => {
 document.addEventListener('change', (ev) => {
   const el = ev.target;
   if (el.classList && el.classList.contains('bg-foto') && el.files && el.files.length) { bgFotoNeu(el.dataset.id, el.dataset.nr, el.files); return; }
+  if (el.name === 'vl-art') { VL.art = el.value; vlSichern(); VS.oben = true; zeichne(); return; }
   if (el.name === 'nutzer-wahl' || el.name === 'tag-wahl') {
     if (el.name === 'tag-wahl') { location.hash = '#verlauf/' + el.value; return; }
     C.nutzer = el.value; konfigSichern();
@@ -2871,7 +2924,7 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Enter' && ev.target.classList && ev.target.classList.contains('min-feld')) ev.target.blur();
 });
 
-window.addEventListener('hashchange', () => { if (location.hash.includes('einrichten=')) return linkPruefen(); if (bogenLinkPruefen() && C.token) { allesLaden(); return; } leseRoute(); if (route.seite !== 'qr') qr = { name: '', token: '', link: '', art: 'kind' }; meldung = ['einstellungen', 'spielzeit', 'gewichte', 'pakete', 'splitter', 'einheit'].includes(route.seite) ? meldung : null; zeichne(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', () => { if (location.hash.includes('einrichten=')) return linkPruefen(); if (bogenLinkPruefen() && C.token) { allesLaden(); return; } vlSeiteMerken(); leseRoute(); if (route.seite !== 'qr') qr = { name: '', token: '', link: '', art: 'kind' }; meldung = ['einstellungen', 'spielzeit', 'gewichte', 'pakete', 'splitter', 'einheit'].includes(route.seite) ? meldung : null; zeichne(); window.scrollTo(0, vlSeiteZiel()); VS.oben = false; });
 breit.addEventListener('change', zeichne);
 // Bogen-Feedback (iPhone): waagerecht wischen wechselt die Übung (nicht in Textfeldern, der Leiste oder groß angezeigten Bildern)
 (() => {
