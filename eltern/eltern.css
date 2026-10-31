@@ -348,6 +348,13 @@ textarea { width: 100%; border-radius: 10px; border: 1.5px solid #8A9696; backgr
 .info-zeile b { text-align: right; overflow-wrap: anywhere; }
 
 /* Lernplan (gleicher Code wie die Seite in claude.ai, lernplan.css) */
+/* Trend je Aufgabenart (Auftrag 39, Darstellung aus lernplan.css) */
+.tr-wurzel.lp { background: transparent; font-size: 15px; }
+.tr-seite .tr { margin-top: 4px; }
+@media (min-width: 900px) { .inhalt-breit .tr-seite { max-width: 1100px; } }
+.themen-name.tr-link { color: var(--teal-dunkel); text-decoration: none; font-weight: 700; }
+.tabs.acht .tab { font-size: 8.6px; letter-spacing: -0.35px; }
+.tabs.acht .tab svg { width: 20px; height: 20px; }
 .lp-seite .lp { background: transparent; }
 .lp.lp-eingebettet .ins { left: calc(var(--lp-links, 0px) + 16px); }
 .lp-neu { margin-top: 8px; }

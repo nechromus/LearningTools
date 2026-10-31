@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.51.0';
+export const ELTERN_VERSION = '1.52.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -50,6 +50,7 @@ function konfigSichern() { try { localStorage.setItem(KEY, JSON.stringify(C)); }
 const icon = {
   uebersicht: '<path d="M4 19V10M10 19V5M16 19v-7M21 19H3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
   verlauf: '<path d="M5 6h14M5 12h14M5 18h9" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
+  trend: '<path d="M4 20h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6 17v-3M10 17v-6M14 17v-4M18 17V9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" opacity=".45"/><path d="M5 11l5-4 4 3 6-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
   lernplan: '<rect x="3" y="5" width="18" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4M7 14h5M7 17h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   berichte: '<path d="M4 5h16v14H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 15v-3M12 15V9M16 15v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   boegen: '<path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M15 3v4h4M9 12h7M9 16h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
@@ -173,6 +174,7 @@ async function datenLaden() {
   datenHinweisWeg();
   berichteLaden(n.ordner);
   liveLaden(n.ordner);
+  lernplanLaden(n.ordner); // für den Reiter „Trend“ (meta.trend)
 }
 
 // ---------- Neue Daten melden ----------
@@ -246,7 +248,7 @@ function nutzerWahl(klasse) {
 function navLinks(art) {
   const aktiv = route.seite === 'aufgabe' || route.seite === 'spiel' ? 'verlauf' : route.seite === 'ticket' ? 'tickets' : ['spielzeit', 'gewichte', 'pakete', 'paket', 'qr', 'einheit', 'splitter'].includes(route.seite) ? 'einstellungen' : route.seite;
   if (C.nur === 'boegen') return `<a href="#boegen" class="${art} aktiv" aria-current="page">${svg('boegen', 24)}<span>Bögen</span></a>`;
-  return [['uebersicht', 'Übersicht'], ['verlauf', 'Verlauf'], ['lernplan', 'Lernplan'], ...(boegenAn() ? [['boegen', 'Bögen']] : []), ...(berichteAn() ? [['berichte', 'Berichte']] : []), ['tickets', 'Tickets'], ['einstellungen', 'Einstellungen']].map(([k, t]) =>
+  return [['uebersicht', 'Übersicht'], ...(trendAn() ? [['trend', 'Trend']] : []), ['verlauf', 'Verlauf'], ['lernplan', 'Lernplan'], ...(boegenAn() ? [['boegen', 'Bögen']] : []), ...(berichteAn() ? [['berichte', 'Berichte']] : []), ['tickets', 'Tickets'], ['einstellungen', 'Einstellungen']].map(([k, t]) =>
     `<a href="#${k}" class="${art}${aktiv === k ? ' aktiv' : ''}"${aktiv === k ? ' aria-current="page"' : ''}>${svg(k, 24)}<span>${t}</span></a>`).join('');
 }
 
@@ -271,15 +273,16 @@ function zeichne() {
         <nav class="seiten-nav">${navLinks('nav-link')}</nav>
         <div class="seitenleiste-fuss"><span class="klein gedaempft">${standZeile()}</span>${neuKnopf}</div>
       </aside>
-      <main class="inhalt-breit${route.seite === 'verlauf' || route.seite === 'aufgabe' || route.seite === 'boegen' || route.seite === 'berichte' ? ' ohne-rand' : ''}">${inhalt}</main>
+      <main class="inhalt-breit${route.seite === 'trend' ? ' tr-breit' : ''}${route.seite === 'verlauf' || route.seite === 'aufgabe' || route.seite === 'boegen' || route.seite === 'berichte' ? ' ohne-rand' : ''}">${inhalt}</main>
     </div>`;
   } else {
     app.innerHTML = `<div class="rahmen-schmal">
       <main class="inhalt-schmal">${inhalt}</main>
-      ${C.nur ? '' : `<nav class="tabs${boegenAn() && berichteAn() ? ' sieben' : boegenAn() || berichteAn() ? ' sechs' : ''}">${navLinks('tab')}</nav>`}
+      ${C.nur ? '' : `<nav class="tabs${['', ' sechs', ' sieben', ' acht'][(boegenAn() ? 1 : 0) + (berichteAn() ? 1 : 0) + (trendAn() ? 1 : 0)]}">${navLinks('tab')}</nav>`}
     </div>`;
   }
   if (route.seite === 'lernplan') lernplanEinhaengen();
+  if (route.seite === 'trend') trendEinhaengen();
   bgScrollZurueck(scroll);
   vlScrollZurueck();
   // Abgeschickter Bogen: Felder nur ansehen
@@ -361,6 +364,7 @@ function seiteHtml() {
     case 'einheit': return einheitSeite(route.arg);
     case 'qr': return qrSeite();
     case 'lernplan': return lernplanSeite();
+    case 'trend': return trendSeite();
     case 'tickets': return ticketsSeite();
     case 'boegen': return boegenSeite();
     case 'berichte': return berichteSeite();
@@ -1237,6 +1241,82 @@ function lernplanSeite() {
   if (!z.daten) return `<div class="seite lp-seite">${kopf}<section class="karte"><p class="pad">${z.laedt || !z.geholt ? 'Der Lernplan wird geladen …' : `Für ${esc(name())} gibt es noch keinen Lernplan in der Eltern-App. Die Kinder-Chats legen ihn an, sobald sie die Lernplan-Seite ändern.`}</p></section></div>`;
   return `<div class="seite lp-seite">${kopf}<div id="lp-platz"></div><button class="knopf knopf-klein lp-neu" data-act="lernplanNeu">${z.laedt ? 'Lädt …' : 'Neu laden'}</button></div>`;
 }
+// ---------- Trend je Aufgabenart (Auftrag 39) ----------
+// Gleiche Darstellung wie der Reiter „Trend“ im Lernplan. Zuordnung (Themen, Bogen-Zeilen, Wertung) aus lernplan.json → meta.trend,
+// die Zahlen rechnet die Eltern-App selbst aus den Tagesdateien (geladen: 31 Tage) und dem Bogen-Feedback.
+const TRE = { kind: null, el: null, inst: null, schluessel: null };
+function trendDaten() { const z = LPL[C.nutzer]; return z && z.daten && z.daten.meta && z.daten.meta.trend && Array.isArray(z.daten.meta.trend.reihenfolge) ? z.daten : null; }
+function trendZeile(thema) { const d = trendAn() && trendDaten(), t = d && d.meta.trend; const r = t && t.app_themen && t.app_themen[thema]; return r && t.reihenfolge.includes(r) ? r : null; }
+function trendAn() { return !C.nur && !!trendDaten() && !!(D.daten && D.daten.aufgaben); }
+const TR_ERG = { klappt: 0, 'mit Hilfe': 1, 'nicht verstanden': 2, ausgelassen: 3, 'nicht versucht': 3 };
+function trendLive(t) {
+  const AT = t.app_themen || {}, BR_ = t.bogen_rows || {}, R = new Set(t.reihenfolge), ab = t.ab || '';
+  const app = {}, schritte = {}, bogen = {}, notizen = {};
+  const plus = (o, a, tag, n, i) => { const x = o[a] || (o[a] = {}); (x[tag] || (x[tag] = new Array(n).fill(0)))[i]++; };
+  for (const r of D.daten.aufgaben || []) {
+    if (!r.ende || r.tag < ab) continue;
+    const row = AT[r.thema];
+    if (row && R.has(row)) plus(app, row, r.tag, 4, ['erst', 'zweit', 'teil', 'loesung'].indexOf(A.ergKat(r.ende)));
+    // Je Schritt: 1. Versuch richtig, später richtig, Lösung bei diesem Schritt
+    const teile = {};
+    for (const e of r.events || []) {
+      if (e.typ === 'versuch') { const x = teile[e.teil] || (teile[e.teil] = { l: e.label || (r.start && r.start.rechnung) || '', th: e.thema || r.thema, v: [], loes: false }); x.v.push(!!e.richtig); }
+      else if (e.typ === 'loesung_gezeigt') { const x = teile[e.teil] || (teile[e.teil] = { l: '', th: r.thema, v: [], loes: false }); x.loes = true; }
+    }
+    for (const x of Object.values(teile)) {
+      const kl = Lernplan.trend.schrittKlasse(x.th, x.l), rs = AT[x.th];
+      if (!kl || !rs || !R.has(rs)) continue;
+      const i = x.loes ? 2 : x.v[0] ? 0 : x.v.some(Boolean) ? 1 : -1;
+      if (i >= 0) plus(schritte[rs] || (schritte[rs] = {}), kl, r.tag, 3, i);
+    }
+  }
+  // Bogen: je Teilaufgabe, Datum des Bogens; Übung mit mehreren Zeilen zählt bei jeder (je Trend-Zeile einmal)
+  if (BG.kind === C.nutzer) for (const [id, b] of Object.entries(BG.boegen || {})) {
+    const f = BG.fb[id];
+    if (!b || b.archiv || !f || f.ohne_bogen || !b.datum) continue;
+    for (const u of b.uebungen || []) {
+      const zeilen = [];
+      for (const z of [].concat(u.row || [])) { const x = BR_[z] || z; if (R.has(x) && !zeilen.includes(x)) zeilen.push(x); }
+      if (!zeilen.length) continue;
+      const fu = (f.uebungen || {})[u.nr] || {};
+      for (const tl of u.teile || []) {
+        const erg = (tl && tl.bonus && fu.bonus && fu.bonus.ergebnis) || fu.ergebnis || 'klappt';
+        for (const z of zeilen) plus(bogen, z, b.datum, 4, TR_ERG[erg] != null ? TR_ERG[erg] : 0);
+      }
+      if (['mit Hilfe', 'nicht verstanden'].includes(fu.ergebnis)) {
+        const text = `${/^w\d+t\d+/i.test(id) ? id.toUpperCase() : id} Ü${u.nr} ${u.titel || ''}: ${String(fu.notiz || '').trim() || fu.ergebnis}`;
+        for (const z of zeilen) { const o = notizen[z] || (notizen[z] = {}); (o[b.datum] || (o[b.datum] = [])).push(text); }
+      }
+    }
+  }
+  return { app, bogen, notizen, schritte };
+}
+function trendSeite() {
+  const lp = LPL[C.nutzer] || {};
+  if (!lp.geholt && !lp.laedt && !lp.fehler) setTimeout(() => lernplanLaden(C.nutzer), 0);
+  if (boegenAn() && (BG.kind !== C.nutzer || !BG.liste) && !BG.laedt) setTimeout(() => bgLaden(), 0);
+  const kopf = breit.matches ? `<header class="kopf-breit"><h1>Trend · ${esc(name())}</h1>${nutzerWahl('nutzer-chip nur-hoch')}</header>` : kopfSchmal('Trend');
+  if (!trendDaten()) return `<div class="seite tr-seite">${kopf}<section class="karte"><p class="pad">${lp.laedt || !lp.geholt ? 'Wird geladen …' : `Für ${esc(name())} gibt es noch keinen Trend. Er kommt mit dem Lernplan.`}</p></section></div>`;
+  const wartet = boegenAn() && (BG.kind !== C.nutzer || !BG.liste);
+  return `<div class="seite tr-seite">${kopf}${wartet ? '<p class="klein gedaempft">Bögen werden geladen …</p>' : ''}<div id="tr-platz"></div></div>`;
+}
+function trendEinhaengen() {
+  const platz = document.getElementById('tr-platz'), lp = trendDaten();
+  if (!platz || !lp) return;
+  if (TRE.kind !== C.nutzer || !TRE.el) {
+    TRE.kind = C.nutzer; TRE.schluessel = null;
+    TRE.el = document.createElement('div'); TRE.el.className = 'lp lp-eingebettet tr-wurzel'; TRE.el.setAttribute('data-theme', 'light');
+    TRE.inst = Lernplan.trend.ansicht(TRE.el, { speicher: 'eltern-trend' });
+  }
+  platz.appendChild(TRE.el);
+  const fb = BG.kind === C.nutzer ? Object.entries(BG.fb).map(([id, f]) => `${id}:${(f && (f.gespeichert || f.geaendert)) || ''}`).join(',') : '';
+  const key = [D.daten.geladen, lp.exportiert || '', BG.kind === C.nutzer && BG.liste ? BG.liste.length : -1, fb, A.letzteTage(1)[0]].join('|');
+  const ziel = route.arg && route.arg !== TRE.ziel ? route.arg : null;
+  TRE.ziel = route.arg || null;
+  if (ziel) TRE.inst.springe(ziel);
+  if (key !== TRE.schluessel || ziel) { TRE.schluessel = key; TRE.inst.render(Lernplan.trend.modell(lp.meta, Lernplan.ausExport(lp).rows, trendLive(lp.meta.trend))); }
+}
+
 // Nach dem Zeichnen: den Lernplan des Kindes einhängen. Das Element bleibt bestehen, damit Ansicht, Auswahl und Aufklappen erhalten bleiben.
 function lernplanEinhaengen() {
   const platz = document.getElementById('lp-platz');
@@ -1393,7 +1473,7 @@ function uebersichtSeite() {
   const themen = k.themen.length ? `<section class="karte liste-karte">
     <div class="karte-kopf"><h2>Themen</h2>${ergLegende()}</div>
     ${k.themen.map(t => `<div class="themen-zeile">
-      <span class="themen-name">${esc(t.name)}</span>
+      ${trendZeile(t.thema) ? `<a class="themen-name tr-link" href="#trend/${encodeURIComponent(trendZeile(t.thema))}" title="Trend ansehen">${esc(t.name)} ›</a>` : `<span class="themen-name">${esc(t.name)}</span>`}
       <span class="themen-balken erg">${ergBalken(t.v, { zahlen: false })}</span>
       <span class="themen-quote">${t.quote} %</span>
       <span class="themen-info">${t.anzahl} · St. ${t.stufe || '–'}${t.teil ? ` · <span class="teil-text">${t.teil} Teil-Lösung</span>` : ''}</span>

@@ -1,4 +1,4 @@
-/* Gebaut aus lernplan/lernplan.css (Version 1.8.0). Nicht hier ändern. */
+/* Gebaut aus lernplan/lernplan.css (Version 1.9.0). Nicht hier ändern. */
 
 /* Layout: Kopfzeile mit Ansichts-Umschalter, darunter eine waagerecht scrollbare Zeitleiste mit fester Namensspalte, darunter die Erkenntnis-Karte. */
 .lp{
@@ -352,3 +352,72 @@ html.lp-voll-offen, html.lp-voll-offen body{overflow:hidden}
 .lp .zc-k-knoepfe{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .lp .zc-k-knoepfe .btn{width:auto;flex:0 0 auto;min-height:38px;padding:6px 12px;font-size:14.5px}
 .lp a.btn { display: inline-flex; align-items: center; text-decoration: none; color: inherit; }
+
+/* Trend je Aufgabenart (ab 1.9.0): Leiste mit vier Schaltern, Erklärung, eine Karte je Aufgabenart mit Balken und Linie */
+.lp{--tr-erst:#1F6F75;--tr-zweit:#E9B65A;--tr-teil:#D9945A;--tr-loes:#A9B4B3;--tr-klappt:#4E9A55;--tr-hilfe:#E3A62B;--tr-nv:#C4513A;--tr-aus:#E8EBEA;--tr-linie:#1C2726;--tr-lapp:#1F6F75;--tr-lbogen:#9A5B06;--tr-gut:#2F7D45;--tr-schlecht:#B8402F}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .lp:not([data-theme="light"]){--tr-erst:#4FAEB3;--tr-zweit:#E0B23A;--tr-teil:#E9955A;--tr-loes:#6C7678;--tr-klappt:#55B366;--tr-hilfe:#E2C44F;--tr-nv:#E06352;--tr-aus:#34413F;--tr-linie:#F2F6F6;--tr-lapp:#6FD0CA;--tr-lbogen:#F0CF6A;--tr-gut:#5CC172;--tr-schlecht:#EC6D5C}}
+:root[data-theme="dark"] .lp:not([data-theme="light"]), .lp[data-theme="dark"]{--tr-erst:#4FAEB3;--tr-zweit:#E0B23A;--tr-teil:#E9955A;--tr-loes:#6C7678;--tr-klappt:#55B366;--tr-hilfe:#E2C44F;--tr-nv:#E06352;--tr-aus:#34413F;--tr-linie:#F2F6F6;--tr-lapp:#6FD0CA;--tr-lbogen:#F0CF6A;--tr-gut:#5CC172;--tr-schlecht:#EC6D5C}
+.lp .tr{display:grid;gap:12px}
+.lp .tr-leiste{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:10px 12px}
+.lp .tr-gruppe{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lp .tr-gruppe>span{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.lp .tr-leiste .seg.klein button{padding:4px 11px}
+.lp .tr-zeitraum{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.lp .tr-zeitraum .btn{min-height:34px;padding:2px 12px}
+.lp .tr-zeitraum .btn:disabled{opacity:.35;cursor:default}
+.lp .tr-kurz{margin:0;font-size:14px;color:var(--muted)} .lp .tr-kurz b{color:var(--fg)} .lp .tr-kurz b.auf{color:var(--tr-gut)}
+.lp .tr-erkl{padding:12px 14px}
+.lp .tr-erkl summary{cursor:pointer;font-weight:700}
+.lp .tr-spalten{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px 22px;margin-top:12px}
+.lp .tr-erkl h3{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.lp .tr-erkl ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.lp .tr-erkl li{display:flex;gap:8px;align-items:center;font-size:14px}
+.lp .tr-erkl li b{margin-left:auto;font-variant-numeric:tabular-nums}
+.lp .tr-erkl p{margin:0 0 6px;font-size:14px}
+.lp .tr-sw{width:12px;height:12px;border-radius:3px;flex:none;display:inline-block}
+.lp .tr-sw.tr-erst{background:var(--tr-erst)} .lp .tr-sw.tr-zweit{background:var(--tr-zweit)} .lp .tr-sw.tr-teil{background:var(--tr-teil)} .lp .tr-sw.tr-loes{background:var(--tr-loes)}
+.lp .tr-sw.tr-klappt{background:var(--tr-klappt)} .lp .tr-sw.tr-hilfe{background:var(--tr-hilfe)} .lp .tr-sw.tr-nv{background:var(--tr-nv)} .lp .tr-sw.tr-aus{background:var(--tr-aus);border:1px solid var(--line)}
+.lp .tr-lsw{width:22px;height:0;border-top:3px solid var(--tr-linie);flex:none;display:inline-block}
+.lp .tr-lsw.app{border-top:2px dashed var(--tr-lapp)} .lp .tr-lsw.bogen{border-top:2px dashed var(--tr-lbogen)}
+.lp .tr-liste{display:grid;gap:10px}
+.lp .tr-karte{padding:12px 14px 8px;scroll-margin-top:12px}
+.lp .tr-karte.tr-ziel{border-color:var(--teal);box-shadow:0 0 0 2px var(--teal-soft)}
+.lp .tr-kopf{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap}
+.lp .tr-kopf h2{font-size:17px;margin:0}
+.lp .tr-stand{font-size:12px;border-radius:999px;padding:2px 8px;font-weight:700;color:var(--n-ink)}
+.lp .tr-wert{margin-left:auto;display:flex;align-items:baseline;gap:8px;font-variant-numeric:tabular-nums}
+.lp .tr-wert strong{font-size:20px}
+.lp .tr-pfeil{font-weight:700;font-size:14px;white-space:nowrap}
+.lp .tr-pfeil.auf{color:var(--tr-gut)} .lp .tr-pfeil.ab{color:var(--tr-schlecht)} .lp .tr-pfeil.gleich{color:var(--muted)}
+.lp .tr-mini{font-size:13px;color:var(--muted)}
+.lp .tr-chart{margin-top:6px;width:100%}
+.lp .tr-chart svg{display:block;width:100%;height:auto;overflow:visible}
+.lp .tr-chart text{fill:var(--muted);font-family:var(--f-body);font-size:11px}
+.lp .tr-chart .tr-gitter{stroke:var(--line);stroke-width:1}
+.lp .tr-chart rect.tr-erst{fill:var(--tr-erst)} .lp .tr-chart rect.tr-zweit{fill:var(--tr-zweit)} .lp .tr-chart rect.tr-teil{fill:var(--tr-teil)} .lp .tr-chart rect.tr-loes{fill:var(--tr-loes)}
+.lp .tr-chart rect.tr-klappt{fill:var(--tr-klappt)} .lp .tr-chart rect.tr-hilfe{fill:var(--tr-hilfe)} .lp .tr-chart rect.tr-nv{fill:var(--tr-nv)} .lp .tr-chart rect.tr-aus{fill:var(--tr-aus)}
+.lp .tr-chart path{fill:none;stroke-linejoin:round;stroke-linecap:round}
+.lp .tr-chart .tr-halo{stroke:var(--surface)} .lp .tr-chart .tr-l{stroke:var(--tr-linie)} .lp .tr-chart .tr-l-app{stroke:var(--tr-lapp)} .lp .tr-chart .tr-l-bogen{stroke:var(--tr-lbogen)}
+.lp .tr-chart .tr-punkt{fill:var(--tr-linie);stroke:var(--surface);stroke-width:1.5} .lp .tr-chart .tr-punkt.klein{opacity:.45}
+.lp .tr-chart .tr-hit{fill:transparent;cursor:pointer}
+.lp .tr-leg{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;font-size:13px;color:var(--muted);margin:2px 0 4px}
+.lp .tr-leg span{display:inline-flex;align-items:center;gap:5px}
+.lp .tr-leg .tr-lt{font-weight:700;color:var(--fg)}
+.lp .tr-leg .tr-trenn{width:1px;height:14px;background:var(--line)}
+.lp .tr-details{border-top:1px solid var(--line-soft);margin-top:6px;padding-top:6px}
+.lp .tr-details summary{cursor:pointer;font-size:14px;color:var(--teal);font-weight:700;padding:4px 0}
+.lp .tr-unter{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin:8px 0}
+.lp .tr-u{background:var(--surface-2);border:1px solid var(--line-soft);border-radius:8px;padding:8px 10px}
+.lp .tr-u>div:first-child{display:flex;justify-content:space-between;gap:8px;font-size:14px}
+.lp .tr-notizen{margin:6px 0 4px;padding-left:18px;font-size:14px;color:var(--muted)}
+.lp .tr-notizen li{white-space:pre-line;margin-bottom:4px}
+.lp .tr-leer{color:var(--muted);font-size:14px;margin:0}
+.lp .tr-tip{position:fixed;pointer-events:none;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;box-shadow:var(--shadow);z-index:60;max-width:270px;font-variant-numeric:tabular-nums}
+.lp .tr-tip b{display:block;margin-bottom:2px}
+.lp .tr-tip .tr-tz b{display:inline;margin:0}
+.lp .tr-tip .tr-th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:6px}
+.lp .tr-tip .tr-tz{display:flex;align-items:center;gap:7px;min-width:190px}
+.lp .tr-tip .tr-tz span{margin-left:auto;padding-left:12px}
+.lp .top .seg.vier button{padding:8px 13px}
+@media (max-width:480px){ .lp .top .seg.vier button{padding:8px 10px} }
+@media (max-width:640px){ .lp .tr-wert strong{font-size:18px} .lp .tr-leiste{gap:8px 12px} .lp .tr-leiste .seg.klein button{padding:4px 9px;font-size:13px} }
