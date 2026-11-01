@@ -1052,4 +1052,12 @@ button.uf-seite { font: inherit; font-size: 22px; font-weight: 700; color: inher
 /* Auftrag 37: Signalwörter nach zu schneller Auswahl, Teil-Lösung */
 mark.signal { background: rgba(245, 180, 60, .35); color: inherit; border-radius: 4px; padding: 0 2px; font-weight: 700; }
 .erfolg-titel.teil { color: var(--amber-dunkel, #8a5a00); }
+.lese-frage { margin-top: 6px; font-weight: 700; }
+.wahl-reihe.lesen { position: relative; }
+.wahl-reihe.lesen .wahl-btn { opacity: .55; }
+.wahl-reihe.lesen::after { content: ''; position: absolute; left: 0; right: 0; bottom: -8px; height: 4px; border-radius: 2px; background: rgba(214, 140, 30, .8); transform-origin: left; animation: lese-balken var(--lese-ms, 3000ms) linear forwards; }
+@keyframes lese-balken { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.wahl-reihe.wackeln { animation: lese-wackeln .3s; }
+@keyframes lese-wackeln { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) { .wahl-reihe.lesen::after { animation: none; } .wahl-reihe.wackeln { animation: none; } }
 .lese-tipp { margin: 6px 0 8px; padding: 8px 12px; border-radius: 10px; background: rgba(245, 180, 60, .18); border-left: 4px solid rgba(214, 140, 30, .8); }

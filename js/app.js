@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.36.0';
+export const APP_VERSION = '2.36.1';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -2435,7 +2435,16 @@ function zeigeAufgabe() {
     if (box && getComputedStyle(box).overflowY === 'auto') { window.scrollTo(0, 0); if (altScroll != null) box.scrollTop = altScroll; }
     ufSichtbar();
   }
-  else if (aktiv && !A.fertig) aktiv.scrollIntoView({ block: 'nearest' });
+  else if (aktiv && !A.fertig) {
+    // Die Tastatur klebt unten: der aktive Schritt soll über ihr stehen, nicht dahinter
+    aktiv.scrollIntoView({ block: 'nearest' });
+    const fuss = document.querySelector('.aufgabe-screen > .eingabe-bereich');
+    if (fuss && fuss.offsetHeight && getComputedStyle(fuss).position === 'sticky') {
+      const r = aktiv.getBoundingClientRect(), oben = fuss.getBoundingClientRect().top;
+      const mehr = Math.min(r.bottom + 12 - oben, r.top - 12);
+      if (mehr > 0) window.scrollBy(0, mehr);
+    }
+  }
   hilfeTicken();
 }
 
@@ -2543,6 +2552,7 @@ function naechsterSatz() {
   A.satz++;
   if (!liestNoch()) {
     protokoll(S, 'gelesen', { id: A.aufgabe.id, ms: Date.now() - A.start });
+    A.textSeit = Date.now();
     const t = aktuellerTeil(); if (t) t.seit = Date.now();
     if (ufSofort()) { sichern(); return ufAn(true); }
   }
@@ -2561,7 +2571,7 @@ function textHilfeAnbieten() {
 function textHilfeJa() {
   schliesseModal();
   A.textHilfe = true;
-  if (A.satz != null) A.satz = L.saetzeVon(A.aufgabe.geschichte).length;
+  if (A.satz != null) { A.satz = L.saetzeVon(A.aufgabe.geschichte).length; A.textSeit = A.textSeit || Date.now(); }
   protokoll(S, 'text_hilfe', { id: A.aufgabe.id, angenommen: true });
   sichern();
   zeigeAufgabe();
@@ -2622,8 +2632,10 @@ function zuSchnellMelden(t, eingabe, art = 'text') {
   // Auswahl zu schnell (Auftrag 37): Signalwörter markieren, keine Strafe, zählt nicht für den Hinweis gegen Durchklicken
   if (art === 'auswahl') {
     A.meldung = null; t.leseSchnell = (t.leseSchnell || 0) + 1; A.signal = true; t.gewaehlt = null; t.seit = Date.now();
+    t.lesenBis = Date.now() + L.LESEZEIT_MS;
     protokoll(S, 'zu_schnell', { id: A.aufgabe.id, teil: A.idx, eingabe, ms, art }); sichern(); zeigeAufgabe();
-    const g = document.querySelector('.geschichte-box, .frage'); if (g) g.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    const teil = t;
+    setTimeout(() => { if (A && !A.fertig && aktuellerTeil() === teil && ansicht === 'aufgabe') zeigeAufgabe(); }, L.LESEZEIT_MS + 50);
     return;
   }
   t.schnell = (t.schnell || 0) + 1;
@@ -2637,6 +2649,14 @@ function zuSchnellMelden(t, eingabe, art = 'text') {
   sichern();
   zeigeAufgabe();
   if (hinweis) durchklickHinweis();
+}
+// Ab wann der ganze Text der Aufgabe zu sehen ist (Geschichte Satz für Satz: nach dem letzten Satz)
+const textSeit = () => A.textSeit || (A.satz == null ? A.start : Date.now());
+// Tippen während der Lese-Sperre: Knöpfe kurz wackeln lassen, sonst nichts
+function leseSperreZeigen() {
+  const r = document.querySelector('.wahl-reihe.lesen');
+  if (!r) return;
+  r.classList.remove('wackeln'); void r.offsetWidth; r.classList.add('wackeln');
 }
 function durchklickHinweis() {
   oeffneModal(`<div class="hinweis-text durchklick"><div class="dk-symbol" aria-hidden="true">⏸</div><h2 class="modal-titel">Kurz anhalten</h2>
@@ -2732,7 +2752,11 @@ function teileHtml() {
         if (!aktiv) { if (k === t.richtig) kl += ' wahl-richtig'; else if (t.gewaehlt === k) kl += ' wahl-falsch'; }
         return `<button class="${kl}${t.formel ? ' formel-wahl' : ''}" data-act="wahl" data-k="${k}" ${aktiv && A.phase === 'eingabe' ? '' : 'disabled'}>${t.formel ? formelText(o) : mathe(o)}</button>`;
       }).join('');
-      inhalt = `<div class="teil-label">${nr}<span><b>${mathe(t.label)}</b></span></div>${aktiv && t.leseSchnell && A.phase === 'eingabe' ? `<div class="lese-tipp">${esc(LESE_TIPP)} Die wichtigen Wörter sind oben markiert.</div>` : ''}<div class="wahl-reihe${t.spalte || /wahl-text lang/.test(knoepfe) ? ' wahl-spalte' : ''}">${knoepfe}</div>`;
+      const rest = aktiv && A.phase === 'eingabe' && t.lesenBis ? t.lesenBis - Date.now() : 0;
+      const frageMarkiert = a.frage && L.signalMarkieren(mathe(a.frage));
+      const leseTipp = aktiv && t.leseSchnell && A.phase === 'eingabe'
+        ? `<div class="lese-tipp">${esc(LESE_TIPP)}${frageMarkiert && frageMarkiert.includes('<mark') ? `<div class="lese-frage">${frageMarkiert}</div>` : ' Die wichtigen Wörter sind oben markiert.'}</div>` : '';
+      inhalt = `<div class="teil-label">${nr}<span><b>${mathe(t.label)}</b></span></div>${leseTipp}<div class="wahl-reihe${t.spalte || /wahl-text lang/.test(knoepfe) ? ' wahl-spalte' : ''}${rest > 0 ? ' lesen' : ''}"${rest > 0 ? ` style="--lese-ms:${Math.round(rest)}ms"` : ''}>${knoepfe}</div>`;
     } else if (t.art === 'zuordnung') {
       inhalt = zuordnungHtml(aktiv);
     } else if (t.art === 'legen') {
@@ -4867,8 +4891,12 @@ function klick(e) {
       const t = aktuellerTeil();
       if (!t || A.phase !== 'eingabe') break;
       const k = Number(el.dataset.k);
-      // 3-Sekunden-Regel bei „Was ist gesucht?“ und ähnlichen Auswahl-Schritten (Auftrag 37)
-      if (bed('teil_loesung') && L.leseAuswahl(A.aufgabe, t.label) && Date.now() - t.seit < L.LESEZEIT_MS) { zuSchnellMelden(t, String(k), 'auswahl'); break; }
+      // 3-Sekunden-Regel bei „Was ist gesucht?“ und ähnlichen Auswahl-Schritten (Auftrag 37).
+      // Die Lesezeit zählt ab dem Moment, in dem der ganze Text zu sehen ist (auch während des Merkzettels).
+      // Falsch und zu schnell: Knöpfe 3 s gesperrt, die Seite bleibt stehen; Tippen in der Sperre zählt nicht und verlängert sie nicht.
+      // Eine richtige Wahl zählt immer (Wunsch Vater: „zu schnell“ gibt es bei einer richtigen Antwort nicht).
+      if (k !== t.richtig && t.lesenBis && Date.now() < t.lesenBis) { leseSperreZeigen(); break; }
+      if (k !== t.richtig && bed('teil_loesung') && L.leseAuswahl(A.aufgabe, t.label) && !t.lesenBis && Date.now() - Math.min(t.seit, textSeit()) < L.LESEZEIT_MS) { zuSchnellMelden(t, String(k), 'auswahl'); break; }
       t.gewaehlt = k;
       const dFehler = t.detektiv ? { typ: 'detektiv_urteil', text: A.aufgabe.stimmt ? 'Rechne selbst nach. Kommt dasselbe heraus?' : 'Schau genau hin. Rechne selbst nach.' } : null;
       let wf = k === t.richtig ? null : dFehler || L.erkenneWahlFehler(A.aufgabe, t.quelle, k);
