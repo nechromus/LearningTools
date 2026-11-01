@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.53.0';
+export const ELTERN_VERSION = '1.53.1';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -2376,7 +2376,7 @@ const MUEHE_TEXTE = {
   sternzeit: { kurz: 'Zehnerpotenzen schreiben, Einheiten umrechnen, Gleichungen Stufe 1', normal: 'Zehnerpotenzen rechnen, Formeln umstellen, Dichte ρ und Umrechnen, Auswahl', lang: 'Geschichten, In Schritten umformen, Dichte mit mehreren Schritten', schwer: 'Knobeln, Physik-Geschichten, Dichte und Gewichtskraft' }
 };
 const MUEHE_TITEL = { kurz: 'Kurze Kopfaufgaben', normal: 'Normale Aufgaben', lang: 'Text und Schritte', schwer: 'Körper und Knobeln' };
-const faktorKurz = (x) => ({ 0.5: '½', 1.25: '1¼', 1.5: '1½' })[x] || String(x).replace('.', ',');
+const faktorKurz = (x) => ({ 0.25: '¼', 0.5: '½', 0.75: '¾', 1.25: '1¼', 1.5: '1½' })[x] || String(x).replace('.', ',');
 function muehAbschnitt(w, r) {
   const texte = MUEHE_TEXTE[w.gestaltung === 'sternzeit' ? 'sternzeit' : 'schrein'];
   const std = L.SPIELZEIT_STANDARD.muehe;

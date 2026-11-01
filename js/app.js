@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.36.1';
+export const APP_VERSION = '2.36.2';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -2892,7 +2892,7 @@ function fussHtml() {
 
 const MUEHE_NAMEN = { kurz: 'Kurze Aufgabe', normal: 'Aufgabe', lang: 'Lange Aufgabe', schwer: 'Schwere Aufgabe' };
 const EXTRA_TEXT = { 0.5: '½', 0.75: '¾', 1: 'voll' };
-const faktorText = (x) => ({ 0.5: '½', 0.75: '¾', 1.25: '1¼', 1.5: '1½' })[x] || String(x).replace('.', ',');
+const faktorText = (x) => ({ 0.25: '¼', 0.5: '½', 0.75: '¾', 1.25: '1¼', 1.5: '1½' })[x] || String(x).replace('.', ',');
 function ergebnisHtml() {
   const a = A.aufgabe;
   const sek = A.sekunden;

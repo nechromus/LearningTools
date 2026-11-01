@@ -282,7 +282,7 @@ export const SPIELZEIT_STANDARD = Object.freeze({ staffel: Object.freeze([1, 1.5
 // Lohn nach Mühe (Auftrag 18): Faktor je Aufgabenart, Bonus bei der Wiederholung nach dem Durchklick-Hinweis,
 // Sperre für „Hilf mir“ am Anfang jedes Schritts (Sekunden)
 export const MUEHE_GRUPPEN = ['kurz', 'normal', 'lang', 'schwer'];
-export const MUEHE_FAKTOREN = [0.5, 1, 1.5, 2, 3];
+export const MUEHE_FAKTOREN = [0.25, 0.5, 0.75, 1, 1.5, 2, 3];
 export const BONUS_FAKTOREN = [1, 1.25, 1.5, 2];
 export const HILFE_AB = [0, 10, 20, 30];
 const ANTEILE = [0, 0.5, 1];
