@@ -14,9 +14,10 @@ import { pdfsZusammen } from './pdfzusammen.js';
 import * as W from '../js/wochenplan.js';
 import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import qrcode from './vendor/qrcode.mjs';
+import * as FB from '../js/feedback.js';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.54.0';
+export const ELTERN_VERSION = '1.55.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -259,6 +260,74 @@ function standZeile() {
   return `Daten vom Handy: ${st ? wann(st.stand) : 'noch keine'}`;
 }
 
+// ---------- Feedback-Knopf (wie in der Übungs-App): Bild der Eltern-App, Text, Foto → Ticket in feedback/ ----------
+let FBE = null;
+const FB_SYMBOL = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+function fbKnopf() {
+  if (!C.token || document.querySelector('.fb-knopf')) return;
+  const k = document.createElement('button');
+  k.className = 'fb-knopf'; k.setAttribute('aria-label', 'Feedback geben'); k.innerHTML = FB_SYMBOL;
+  k.addEventListener('click', fbStart);
+  document.body.appendChild(k);
+}
+function fbKontext() {
+  const st = typeof neuesterStand === 'function' ? neuesterStand() : null;
+  return {
+    app: `Eltern-App ${ELTERN_VERSION}`, eltern: ELTERN_VERSION, zeit: new Date().toISOString(), ansicht: location.hash || '#uebersicht',
+    kind: C.nutzer || null, nurBoegen: C.nur === 'boegen', kindApp: st ? st.version || null : null,
+    geraet: {
+      ua: navigator.userAgent, breite: window.innerWidth, hoehe: window.innerHeight, dpr: window.devicePixelRatio || 1,
+      homeBildschirm: !!(window.navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches))
+    }
+  };
+}
+async function fbStart() {
+  if (FBE && FBE.sendet) return;
+  const k = document.querySelector('.fb-knopf');
+  if (k) k.classList.add('laedt');
+  const kontext = fbKontext();
+  const bild = await FB.appBild();
+  if (k) k.classList.remove('laedt');
+  FBE = { bild, foto: null, kontext, sendet: false, text: '' };
+  fbZeigen();
+}
+function fbZu() { const o = document.getElementById('fb-overlay'); if (o) o.remove(); if (FBE && !FBE.sendet) FBE = null; }
+function fbZeigen(fehler = '', danke = false) {
+  let o = document.getElementById('fb-overlay');
+  if (!o) { o = document.createElement('div'); o.id = 'fb-overlay'; o.className = 'fb-overlay'; document.body.appendChild(o); }
+  const e = FBE || {};
+  o.innerHTML = danke
+    ? `<div class="fb-box" role="dialog" aria-modal="true"><h2>Danke!</h2><p>Das Feedback ist angekommen. Du findest es unter „Tickets“.</p><div class="knopf-reihe"><button class="knopf haupt" data-fb="zu">Schließen</button></div></div>`
+    : `<div class="fb-box" role="dialog" aria-modal="true" aria-label="Feedback">
+      <h2>Feedback zur Eltern-App</h2>
+      ${e.bild ? `<img class="fb-bild" src="data:image/jpeg;base64,${e.bild}" alt="Bild der Eltern-App">` : '<p class="klein gedaempft">Das Bild hat nicht geklappt. Du kannst ein eigenes Foto anhängen.</p>'}
+      <label class="fb-label" for="fb-text">Was ist dir aufgefallen?</label>
+      <textarea id="fb-text" class="fb-text" rows="4" maxlength="4000" placeholder="Zum Beispiel: Die Zahl in der Kachel stimmt nicht.">${esc(e.text || '')}</textarea>
+      <label class="knopf fb-foto-knopf">${e.foto ? '✓ Foto angehängt · ändern' : '+ Eigenes Foto anhängen'}<input type="file" id="fb-foto" accept="image/*" hidden></label>
+      ${fehler ? `<p class="meldung fehler">${esc(fehler)}</p>` : ''}
+      <p class="klein gedaempft">Mit dem Text gehen das Bild, die Ansicht, das gewählte Kind und das Gerät mit.</p>
+      <div class="knopf-reihe"><button class="knopf" data-fb="zu">Abbrechen</button><button class="knopf haupt" data-fb="senden"${e.sendet ? ' disabled' : ''}>${e.sendet ? 'Wird gesendet …' : 'Senden'}</button></div>
+    </div>`;
+  o.onclick = (ev) => { const b = ev.target.closest('[data-fb]'); if (ev.target === o || (b && b.dataset.fb === 'zu')) fbZu(); else if (b && b.dataset.fb === 'senden') fbSenden(); };
+  const f = o.querySelector('#fb-foto');
+  if (f) f.onchange = async () => { if (!FBE || !f.files || !f.files[0]) return; FBE.text = (o.querySelector('#fb-text') || {}).value || FBE.text; FBE.foto = await FB.fotoVerkleinern(f.files[0]); fbZeigen(FBE.foto ? '' : 'Das Foto konnte nicht gelesen werden.'); };
+}
+async function fbSenden() {
+  if (!FBE || FBE.sendet) return;
+  FBE.text = ((document.getElementById('fb-text') || {}).value || '').trim();
+  if (!FBE.text) return fbZeigen('Schreib kurz, was dir aufgefallen ist.');
+  FBE.sendet = true; fbZeigen();
+  try {
+    await FB.senden({ repo: C.repo, token: C.token }, { text: FBE.text, bild: FBE.bild, foto: FBE.foto, kontext: FBE.kontext, von: 'eltern' });
+    FBE = null;
+    if (typeof T === 'object' && T) T.liste = null; // Ticket-Liste beim nächsten Öffnen neu laden
+    fbZeigen('', true);
+  } catch (err) {
+    FBE.sendet = false;
+    fbZeigen(`Senden hat nicht geklappt: ${err.message || 'Fehler'}. Versuch es gleich noch einmal.`);
+  }
+}
+
 function zeichne() {
   if (!C.token) return zeichneEinrichten();
   const inhalt = seiteHtml();
@@ -283,6 +352,7 @@ function zeichne() {
   }
   if (route.seite === 'lernplan') lernplanEinhaengen();
   if (route.seite === 'trend') trendEinhaengen();
+  fbKnopf();
   bgScrollZurueck(scroll);
   vlScrollZurueck();
   // Abgeschickter Bogen: Felder nur ansehen
@@ -1397,7 +1467,7 @@ function ticketSeite(id) {
     </section>
     <h2 class="abschnitt">Stand der App</h2>
     <section class="karte liste-karte">
-      ${zeile('Version', k.app)}${zeile('Ansicht', k.ansicht)}${zeile('Gestaltung', k.gestaltung)}
+      ${zeile('Version', k.app)}${zeile('Ansicht', k.ansicht)}${zeile('Gestaltung', k.gestaltung)}${zeile('Kind', k.kind)}${zeile('Übungs-App des Kindes', k.kindApp)}
       ${zeile('Pakete', (k.pakete || []).map(p => `${p.id} ${p.anteil} %${p.etappe != null ? ' E' + p.etappe : ''}${p.start ? ' (wartet)' : ''}`).join(' · '))}
       ${zeile('Gezielt testen', k.testFokus ? `${k.testFokus.thema} · Stufe ${k.testFokus.stufe}` : '')}
       ${a ? zeile('Aufgabe', `${a.id} (${a.thema}, ${a.typ})`) + zeile('Stand', `Teil ${a.idx + 1}, ${a.phase}${a.uf ? ', Umformen: ' + a.uf.phase + ', Stufe ' + a.uf.stufe : ''}${a.fertig ? ', fertig' : ''}`) + zeile('Meldung', a.meldung) : ''}

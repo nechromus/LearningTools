@@ -8,7 +8,7 @@ function html2canvasLaden() {
   if (!h2cLaden) {
     h2cLaden = new Promise((ok, nein) => {
       const s = document.createElement('script');
-      s.src = 'vendor/html2canvas.min.js';
+      s.src = new URL('../vendor/html2canvas.min.js', import.meta.url).href; // gilt für Übungs-App und Eltern-App
       s.onload = () => ok(window.html2canvas);
       s.onerror = () => { h2cLaden = null; nein(new Error('Das Bild-Werkzeug konnte nicht geladen werden.')); };
       document.head.appendChild(s);
@@ -27,7 +27,7 @@ export async function appBild(maxBreite = 900) {
       x: window.scrollX, y: window.scrollY, width: window.innerWidth, height: window.innerHeight,
       windowWidth: document.documentElement.clientWidth, windowHeight: window.innerHeight,
       scale, logging: false, useCORS: true, backgroundColor: getComputedStyle(b).backgroundColor || '#000',
-      ignoreElements: (el) => el.classList && (el.classList.contains('fb-knopf') || el.id === 'modal')
+      ignoreElements: (el) => el.classList && (el.classList.contains('fb-knopf') || el.id === 'modal' || el.id === 'fb-overlay')
     });
     return canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
   } catch (e) {

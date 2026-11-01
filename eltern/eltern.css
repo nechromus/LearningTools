@@ -694,3 +694,17 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .themen-balken.erg .erg-balken { display: flex; height: 100%; width: 100%; margin: 0; }
 .wp-erg { grid-column: 1 / -1; display: block; }
 .zeile-haupt .erg-balken { max-width: 220px; }
+
+/* Feedback-Knopf (wie in der Übungs-App) */
+.fb-knopf { position: fixed; right: 0; top: 46%; z-index: 60; width: 30px; height: 44px; border: 0; border-radius: 10px 0 0 10px;
+  background: rgba(31, 111, 117, .55); color: #fff; display: flex; align-items: center; justify-content: center; padding: 0 0 0 4px; cursor: pointer; }
+.fb-knopf.laedt { opacity: .4; }
+.fb-overlay { position: fixed; inset: 0; z-index: 80; background: rgba(20, 30, 31, .45); display: flex; align-items: flex-end; justify-content: center; }
+.fb-overlay .fb-box { width: 100%; max-width: 560px; max-height: 92dvh; overflow: auto; background: var(--flaeche, #fff); border-radius: 16px 16px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; }
+@media (min-width: 700px) { .fb-overlay { align-items: center; } .fb-overlay .fb-box { border-radius: 16px; } }
+.fb-overlay h2 { margin: 0; }
+.fb-bild { max-height: 36vh; max-width: 100%; align-self: center; border-radius: 10px; border: 1px solid var(--linie, #D3DCDC); }
+.fb-label { font-weight: 700; }
+.fb-text { width: 100%; font: inherit; font-size: 16px; padding: 10px; border-radius: 10px; border: 2px solid var(--linie, #D3DCDC); box-sizing: border-box; }
+.fb-foto-knopf { align-self: flex-start; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; }
