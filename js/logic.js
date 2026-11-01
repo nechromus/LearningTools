@@ -232,7 +232,7 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
   }
 
   // Kugel-Volumen ohne 4/3
-  if (aufgabe.thema === 'kugel' && teil && /4\s*÷\s*3/.test(teil.text || '')) {
+  if (aufgabe.thema === 'kugel' && teil && /4\s*[÷/]\s*3/.test(teil.text || '')) {
     const nah = (a, b) => Math.abs(a - b) <= Math.abs(b) * 0.01;
     if (nah(w, teil.wert * 3 / 4) || nah(w, teil.wert * 3)) {
       return { typ: 'kugel-ohne-4-3', text: 'Hast du an 4 ÷ 3 gedacht?' };
@@ -333,6 +333,7 @@ export function muehGruppe(a, { umformen = false } = {}) {
   if (!a) return 'normal';
   const g = String(a.generator || '');
   if (a.thema === 'dichte' && DICHTE_GRUPPE[a.variante]) return DICHTE_GRUPPE[a.variante];
+  if (a.thema === 'formelsammlung') return 'kurz';                         // „Finde es“ (Auftrag 40)
   if (KOERPER.includes(a.thema) || a.typ === 'detektiv' || a.modus === 'knobeln') return 'schwer';
   if (a.typ === 'auswahl') return 'normal';
   if (a.fach === 'physik' && a.geschichte) return 'schwer';                 // Physik-Geschichten
@@ -468,7 +469,7 @@ export function mischen(arr, rng = Math.random) {
 }
 
 // ---------- Taschenrechner ----------
-// Ausdruck mit × ÷ − + ( ) π ² ³ und Komma. Gibt Zahl oder null zurück.
+// Ausdruck mit × ÷ − + ( ) π ² ³ √ und Komma. Gibt Zahl oder null zurück.
 
 export function rechne(ausdruck) {
   const s = (ausdruck || '').replace(/\s+/g, '');
@@ -485,6 +486,7 @@ export function rechne(ausdruck) {
       i = j;
     } else if (c === 'π') { tokens.push({ t: 'n', v: Math.PI }); i++; }
     else if (c === '²' || c === '³') { tokens.push({ t: 'post', v: c === '²' ? 2 : 3 }); i++; }
+    else if (c === '√') { tokens.push({ t: 'wurzel' }); i++; }
     else if ('+−-×÷*/·:'.includes(c)) {
       const op = { '−': '-', '×': '*', '÷': '/', '·': '*', ':': '/' }[c] || c;
       tokens.push({ t: 'op', v: op }); i++;
@@ -495,7 +497,7 @@ export function rechne(ausdruck) {
   const mit = [];
   for (const tk of tokens) {
     const prev = mit[mit.length - 1];
-    if (prev && (prev.t === 'n' || prev.t === ')' || prev.t === 'post') && (tk.t === 'n' || tk.t === '(')) {
+    if (prev && (prev.t === 'n' || prev.t === ')' || prev.t === 'post') && (tk.t === 'n' || tk.t === '(' || tk.t === 'wurzel')) {
       mit.push({ t: 'op', v: '*' });
     }
     mit.push(tk);
@@ -511,6 +513,7 @@ export function rechne(ausdruck) {
     else if (tk.t === '(') { v = summe(); if (!next() || mit[pos - 1].t !== ')') throw 0; }
     else if (tk.t === 'op' && tk.v === '-') return -primaer();
     else if (tk.t === 'op' && tk.v === '+') return primaer();
+    else if (tk.t === 'wurzel') { const w = primaer(); if (w < 0) throw 0; return Math.sqrt(w); }
     else throw 0;
     while (peek() && peek().t === 'post') v = v ** next().v;
     return v;
@@ -786,7 +789,7 @@ export function rechnerZulaessig(a) {
 export const rechnerFrei = (a) => !!(a && (a.taschenrechner || fachVon(a) === 'physik'));
 // Freiwilliger Rechner wird bei jeder Aufgabe angeboten (kostet Spielzeit), außer dort, wo er ohnehin erlaubt ist
 export function rechnerAnbieten(a) {
-  return !rechnerFrei(a) && !['auswahl', 'zuordnung', 'formel'].includes(a.typ);
+  return !rechnerFrei(a) && !['auswahl', 'zuordnung', 'formel'].includes(a.typ) && a.thema !== 'formelsammlung';
 }
 // Kopf-Bonus: Rechner erlaubt, nicht geöffnet, App nicht verlassen, Aufgabe gelöst
 export function kopfBonus({ aufgabe, rechnerGenutzt, verlassen, ergebnis }) {
@@ -832,7 +835,7 @@ export function kuerzelAufgabe(a) {
   const lw = a.loesungsweg.map(z => typeof z === 'string' ? z.replace(/→\s*(Volumen|Oberfläche|Mantel|Grundfläche)\b(?!\s*\()/g, (_, w) => `→ ${KUERZEL_VON[w]} (${w})`) : z);
   return lw.some((z, i) => z !== a.loesungsweg[i]) ? { ...a, loesungsweg: lw } : a;
 }
-export const FREIGABEN = ['minusminus', 'prozent_formel'];
+export const FREIGABEN = ['minusminus', 'prozent_formel', 'halbkugel', 'fs_suchen', 'zusammengesetzt'];
 // ---------- Teil-Lösung und Lesezeit bei Auswahl (Auftrag 37) ----------
 // Teil-Lösung: genau eine gezeigte Lösung bei einem Zwischenschritt, alle Schritte danach selbst richtig.
 // teile: Pflicht-Teile (ohne Bonus und Merkzettel) mit status. Gibt { anteil } oder null.
@@ -857,8 +860,14 @@ export const LESEZEIT_MS = 3000;
 export const leseAuswahl = (a, label) => !!a && ['zylinder', 'kegel', 'pyramide', 'kugel'].includes(a.thema) && /gesucht|^Welche (Höhe|Länge)|^Volumen oder/i.test(String(label || ''));
 // Signalwörter im Text markieren (nach mathe(), nur im Text außerhalb von Tags)
 const SIGNAL = ['auch Boden und Deckel', 'mit Deckel und Boden', 'Deckel und Boden', 'Boden und Deckel', 'ohne Boden', 'ohne Deckel', 'passt hinein', 'passen hinein', 'rund herum', 'rundherum',
-  'gerade nach unten', 'hinein', 'herum', 'füllt', 'gefüllt', 'füllen', 'Inhalt', 'fasst', 'außen', 'ganze', 'Boden', 'Deckel', 'beklebt', 'bekleben', 'bemalt', 'bemalen', 'anmalen', 'angemalt', 'streicht', 'Papier', 'Stoff', 'Pappe', 'Blech', 'Farbe', 'Wasser', 'Sand', 'Luft', 'schräg'];
+  'gerade nach unten', 'hinein', 'herum', 'füllt', 'gefüllt', 'füllen', 'Inhalt', 'fasst', 'außen', 'ganze', 'ganz', 'Folie', 'Etikett', 'Leder', 'Holz', 'Wachs', 'Boden', 'Deckel', 'beklebt', 'bekleben', 'bemalt', 'bemalen', 'anmalen', 'angemalt', 'streicht', 'Papier', 'Stoff', 'Pappe', 'Blech', 'Farbe', 'Wasser', 'Sand', 'Luft', 'schräg'];
 const SIGNAL_RE = new RegExp(`(^|[^\\wäöüÄÖÜß])(${SIGNAL.map(w => w.replace(/ /g, '\\s+')).join('|')})(?=[^\\wäöüÄÖÜß]|$)`, 'g');
+// Signalwörter in einem Text (für den Tipp bei „Was ist gesucht?“, Auftrag 40)
+export function signalWoerter(text) {
+  const out = [];
+  for (const m of String(text || '').matchAll(SIGNAL_RE)) if (!out.includes(m[2])) out.push(m[2]);
+  return out;
+}
 export function signalMarkieren(html) {
   return String(html).split(/(<[^>]*>)/).map(t => (t.startsWith('<') ? t : t.replace(SIGNAL_RE, (m, v, w) => `${v}<mark class="signal">${w}</mark>`))).join('');
 }

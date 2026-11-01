@@ -7,7 +7,8 @@ export const THEMA_NAMEN = {
   'kreisdiagramm': 'Kreisdiagramm', 'runden': 'Runden', 'kugel': 'Kugel',
   'einmaleins': 'Einmaleins', 'mal-10': 'Mal 10 und durch 10',
   'zylinder': 'Zylinder', 'kegel': 'Kegel', 'pyramide': 'Pyramide',
-  'zehnerpotenzen': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Masse und Gewichtskraft', 'umstellen': 'Gleichungen umstellen', 'dichte': 'Dichte'
+  'zehnerpotenzen': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Masse und Gewichtskraft', 'umstellen': 'Gleichungen umstellen', 'dichte': 'Dichte',
+  'formelsammlung': 'Formelsammlung: Finde es'
 };
 
 export const GEN_NAMEN = {

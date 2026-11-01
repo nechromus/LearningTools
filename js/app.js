@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.36.2';
+export const APP_VERSION = '2.37.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -412,6 +412,7 @@ async function fernHolen(erzwingen = false) {
     S.fern = { ...S.fern, geholt: new Date().toISOString(), fehler: null };
     geaendert = L.fernAnwenden(S, datei);
     if (geaendert) protokoll(S, 'fern_einstellungen', { version: S.fern.version, geaendert });
+    fsLaden();
   } catch (e) {
     S.fern = { ...S.fern, fehler: e.message || 'Unbekannter Fehler' };
   } finally {
@@ -1214,7 +1215,7 @@ function schritteVon(liste, thema) {
     : s.karten
     ? { art: 'legen', label: s.text, karten: s.karten, wahl: s.karten.map(() => null), quelle: s }
     : s.optionen
-    ? { art: 'wahl', label: s.text, optionen: L.KOERPER_THEMEN.includes(thema) ? s.optionen.map(L.mitKuerzel) : s.optionen, richtig: s.richtig, quelle: s, formel: s.optionen.every(o => /=/.test(o)) }
+    ? { art: 'wahl', label: s.text, optionen: L.KOERPER_THEMEN.includes(thema) ? s.optionen.map(L.mitKuerzel) : s.optionen, richtig: s.richtig, quelle: s, formel: !s.fs_html && s.optionen.every(o => /=/.test(o)), ...(s.fs_html ? { fsHtml: s.fs_html } : {}) }
     : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden, gueltige: s.gueltige_ziffern || undefined, genau: s.genau, varianten: s.varianten, abgeschnitten: s.abgeschnitten, auch: s.auch }, einheit: s.einheit || '', quelle: s });
 }
 
@@ -1279,7 +1280,7 @@ function erzeuge(g, stufe, opts = {}) {
   if (bgOhne.includes('auswahl')) opts = { ...opts, ohneAuswahl: true };
   // Varianten, die die Etappe nicht erlaubt (Dichte: vergleich, verhaeltnis, gewichtskraft)
   if (bgOhne.length) opts = { ...opts, ohne: bgOhne };
-  opts = { ...opts, ...formOpts(g), ...befOpts(g) };
+  opts = { ...opts, ...formOpts(g), ...befOpts(g), ...(g === 'kugel' && L.freigegeben(S, 'halbkugel', S.tag.key) ? { halbkugel: true } : {}) };
   stufe = befStufe(g, stufe);
   let a;
   for (let i = 0; i < 8; i++) {
@@ -1390,9 +1391,10 @@ const TEST_GEN = {
   'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'],
   'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
 };
-const testFokus = () => (S.upload.testgeraet && S.testFokus && L.THEMEN.includes(S.testFokus.thema) ? S.testFokus : null);
+const testFokus = () => (S.upload.testgeraet && S.testFokus && (L.THEMEN.includes(S.testFokus.thema) || S.testFokus.thema === 'formelsammlung') ? S.testFokus : null);
 
 function testAufgabe(thema, stufe) {
+  if (thema === 'formelsammlung') return findeEsAufgabe();
   const letzte = S.verlauf.letzteIds.slice(-10);
   const pool = alleAufgaben().filter(a => a.thema === thema && a.stufe === stufe && !letzte.includes(a.id));
   const gens = TEST_GEN[thema] || [];
@@ -1402,7 +1404,7 @@ function testAufgabe(thema, stufe) {
     const g = wahl(gens);
     let a;
     for (let i = 0; i < 8; i++) {
-      a = g === 'einmaleins' ? G.block('einmaleins', Math.random, stufe, befGeteilt()) : G.GENERATOREN[g](stufe, Math.random, { ...formOpts(g), ...befOpts(g) });
+      a = g === 'einmaleins' ? G.block('einmaleins', Math.random, stufe, befGeteilt()) : G.GENERATOREN[g](stufe, Math.random, { ...formOpts(g), ...befOpts(g), ...(g === 'kugel' && L.freigegeben(S, 'halbkugel', S.tag.key) ? { halbkugel: true } : {}) });
       if (a && !letzte.includes(a.id)) break;
     }
     return a;
@@ -1413,7 +1415,7 @@ function testAufgabe(thema, stufe) {
 
 function testAuswahl(thema) {
   const gens = TEST_GEN[thema] || [];
-  return [1, 2, 3].map(st => ({ st, pool: alleAufgaben().filter(a => a.thema === thema && a.stufe === st).length, gen: gens.length > 0 }));
+  return [1, 2, 3].map(st => ({ st, pool: alleAufgaben().filter(a => a.thema === thema && a.stufe === st).length, gen: gens.length > 0 || thema === 'formelsammlung' }));
 }
 
 function einmaleinsBlock(stufe, leicht = false) {
@@ -1678,6 +1680,8 @@ function wpAufgabe(wp, kategorie) {
   let r = null;
   // Art mit laufender Etappe (z. B. Zylinder): etwa jede zweite Aufgabe aus der Etappe, damit der Mindestanteil im Plan steckt
   if (ent && ent.art && !ent.art.motiv && Math.random() < 0.5) r = etappeMindestAufgabe({ themen: ent.art.themen });
+  // Formelsammlung (Auftrag 40): etwa jede 4. motivierende Aufgabe ist „Finde es“
+  if (!r && ent && ent.art && ent.art.motiv && fsDa() && Math.random() < 0.25) { const fe = findeEsAufgabe(); if (fe) r = { aufgabe: fe }; }
   if (!r) r = ent && aufgabeAusThemen(ent.grund === 'erinnerung' ? [ent.thema] : ent.art.themen, ent.grund === 'einstieg' ? 'leicht' : kategorie, !!(ent.art && ent.art.motiv));
   if (!r && ent && ent.grund === 'erinnerung') { st.erinnert.push({ thema: ent.thema, tag: heute, ohne: true }); } // keine Aufgabe möglich: heute nicht mehr versuchen
   if (!r) { ent = W.naechsteArt(arten, ist, {}); r = ent && aufgabeAusThemen(ent.art.themen, kategorie, ent.art.motiv); }
@@ -1690,7 +1694,7 @@ function wpMotivationDran(wp) { const st = wpZustand(wp); return wpSitzungsStart
 function wpGestartet(info, a) {
   const wp = wpJetzt(); if (!wp) return;
   const st = wpZustand(wp), arten = wpArtenJetzt(wp);
-  const motiv = !!(arten.find(x => x.motiv) || { themen: [] }).themen.includes(a.thema) && a.typ !== 'detektiv' && !a.geschichte;
+  const motiv = (a.thema === 'formelsammlung' || !!(arten.find(x => x.motiv) || { themen: [] }).themen.includes(a.thema)) && a.typ !== 'detektiv' && !a.geschichte;
   st.seitMotivation = motiv ? 0 : st.seitMotivation + 1;
   if (info && info.grund === 'erinnerung') {
     st.letzteErinnerung = S.verlauf.zaehler;
@@ -1952,6 +1956,9 @@ function neueAufgabe() {
   // Geschichten Satz für Satz zeigen (weniger Text auf einmal)
   if (aufgabe.geschichte && L.saetzeVon(aufgabe.geschichte).length > 1 && bed('satzweise')) A.satz = 1;
   teileStarten(A.teile);
+  if (A.serienPos === 1) { S.gesucht = { folge: 0 }; S.fsSitzung = false; } // neue Übungssitzung (wie beim Takt: Aufgabe 1 der Serie)
+  gesuchtUmbauen();
+  if (fsAufgabe(aufgabe) && !S.fsSitzung) { A.fsEinladung = true; S.fsSitzung = true; }
   if (aufgabe.modus === 'knobeln') A.knobeln = true;
   if (aufgabe.typ === 'zuordnung') zuordnungVorbereiten();
   protokoll(S, 'aufgabe_start', startInfoVon(A, bonusWdh ? { bonusWiederholung: true } : {}));
@@ -2385,7 +2392,8 @@ function zeigeAufgabe() {
   const altScroll = altBox ? altBox.scrollTop : null;
   const min = Math.round(L.minutenFuerPosition(A.serienPos, R()) * L.muehFaktor(a, R(), { umformen: !!A.uf }) * 100) / 100;
   const tz = String(min).replace('.', ',');
-  const icons = (a.hinweise || []).filter(id => HMAP[id]).map(id =>
+  const fsHier = fsAufgabe(a);
+  const icons = fsHier ? '' : (a.hinweise || []).filter(id => HMAP[id]).map(id =>
     `<button class="hw-btn${A.meldung && A.phase === 'tipp' ? ' pulsieren' : ''}" data-act="hinweis" data-id="${id}" aria-label="Hinweis ${esc(HMAP[id].titel)}">${hinweisIcon(HMAP[id], 42)}</button>`).join('');
 
   const wpMoeglich = sternzeit() && A.knobeln && !A.fertig && a.wissenspunkte ? a.wissenspunkte : null;
@@ -2416,7 +2424,8 @@ function zeigeAufgabe() {
         ${ufAngebot() ? `<button class="btn knobel-schritte" data-act="ufAn">In Schritten umformen${sternzeit() && !A.test ? ` <small>· dann ${wpMoeglich ? wpMoeglich.schritte : 1} WP</small>` : ''}</button>`
           : A.knobeln && !A.fertig && A.phase === 'eingabe' ? `<button class="btn knobel-schritte" data-act="schritteAn">In Schritten rechnen${wpMoeglich ? ` <small>· dann ${wpMoeglich.schritte} WP</small>` : ''}</button>` : ''}`}
         ${tippInKarte ? `<div class="meldung meldung-in-karte${A.meldung === SCHNELL_TIPP ? ' schnell' : ''}">${meldungHtml()}</div>` : ''}
-        <div class="hw-leiste"><span class="gedaempft">Hinweis:</span>${icons}
+        ${fsHier && !A.fertig ? fsKnopfHtml() : ''}
+        <div class="hw-leiste">${fsHier ? '' : '<span class="gedaempft">Hinweis:</span>'}${icons}
           ${wpMoeglich ? `<span class="sz-punkte wp-chip">◆ ${wpMoeglich.knobeln} WP</span>` : ''}
           ${L.rechnerFrei(a) && !A.fertig ? '<button class="btn btn-klein btn-rechner" data-act="rechner">Taschenrechner</button>' : ''}
           ${hilfeKnopf()}
@@ -2658,6 +2667,201 @@ function leseSperreZeigen() {
   if (!r) return;
   r.classList.remove('wackeln'); void r.offsetWidth; r.classList.add('wackeln');
 }
+
+// ---------- „Was ist gesucht?“ in zwei Schritten (Auftrag 40, Teil 1) ----------
+// Zu Beginn jeder Übungssitzung (Aufgabe 1 der Serie: nach einem Spiel oder 20 Min. Pause) zweistufig:
+// A „hinein oder Hülle?“, B (nur Hülle) „Welche Teile?“. Steht das Fragewort im Text: ein Schritt „Welches Zeichen gehört zu …?“.
+// Nach 3 richtigen hintereinander direkt mit vier Möglichkeiten (mit Lesezeit), nach einem Fehler wieder zweistufig.
+const GZ_OPT = { V: 'V (Volumen)', O: 'A_O (Oberfläche)', M: 'A_M (Mantel)', G: 'A_G (Grundfläche)' };
+const GZ_TEILE = { G: 'nur der Boden', M: 'nur rund herum', O: 'alles, auch Deckel und Boden' };
+const GZ_WORT = { V: /(Volumen|Rauminhalt)/i, O: /(Oberflächeninhalt|Oberfläche)/i, M: /(Mantelfläche|Mantel)/i, G: /(Grundfläche)/i };
+const gzZiel = (o) => /^V\b|Volumen/.test(o) ? 'V' : /A_O|Oberfläche/.test(o) ? 'O' : /A_M|Mantel/.test(o) ? 'M' : /A_G|Grundfläche/.test(o) ? 'G' : null;
+function gesuchtUmbauen() {
+  const a = A.aufgabe;
+  if (!L.KOERPER_THEMEN.includes(a.thema)) return;
+  const i = A.teile.findIndex(t => t.art === 'wahl' && !t.detektiv && L.schrittSchluessel(t.label) === 'gesucht');
+  if (i < 0) return;
+  const t = A.teile[i], ziel = gzZiel(t.optionen[t.richtig]);
+  if (!ziel) return;
+  const kugel = a.thema === 'kugel', vier = kugel ? ['V', 'O'] : ['V', 'O', 'M', 'G'];
+  const neu = (label, anzeige, optionen, richtig, modus, extra = {}) => ({ art: 'wahl', label, anzeige, optionen, richtig, quelle: t.quelle, gesuchtModus: modus, gesuchtZiel: ziel,
+    versuche: [], status: 'offen', seit: Date.now(), hilfeStart: Date.now(), ...extra });
+  const st = S.gesucht || (S.gesucht = { folge: 0 });
+  let ersatz;
+  if (st.folge >= 3) ersatz = [neu(t.label, null, vier.map(k => GZ_OPT[k]), vier.indexOf(ziel), 'direkt')];
+  else {
+    const m = `${a.geschichte || ''} ${a.frage || ''}`.match(GZ_WORT[ziel]);
+    if (m) ersatz = [neu(`Was ist gesucht? Zeichen zu „${m[1]}“`, `Welches Zeichen gehört zu „${m[1]}“?`, vier.map(k => GZ_OPT[k]), vier.indexOf(ziel), 'wort', { zweiVersuche: true, wort: m[1] })];
+    else {
+      ersatz = [neu('Was ist gesucht? Hinein oder Hülle', 'Geht es um das, was hineinpasst, oder um die Hülle?', ['hinein', 'Hülle'], ziel === 'V' ? 0 : 1, 'zwei_a', { zweiVersuche: true })];
+      if (ziel !== 'V' && !kugel) ersatz.push(neu('Was ist gesucht? Welche Teile', 'Welche Teile?', [GZ_TEILE.G, GZ_TEILE.M, GZ_TEILE.O], ['G', 'M', 'O'].indexOf(ziel), 'zwei_b', { zweiVersuche: true }));
+    }
+  }
+  ersatz[ersatz.length - 1].gesuchtEnde = true;
+  A.teile.splice(i, 1, ...ersatz);
+  A.gesuchtModus = ersatz[0].gesuchtModus;
+}
+// Tipp bei einem Fehler: mit dem Signalwort aus dem Text, ohne die volle Lösung
+function gesuchtFehler(t) {
+  A.signal = true;
+  const a = A.aufgabe, w = L.signalWoerter(`${a.geschichte || ''} ${a.frage || ''}`).slice(0, 2), zitat = w.length ? `„${w.join(' … ')}“` : null;
+  if (t.gesuchtModus === 'direkt') {
+    const txt = '„passt hinein“ → V (Volumen). „rund herum“ → A_M (Mantel). „alles außen, mit Deckel und Boden“ → A_O (Oberfläche). „der Boden“ → A_G (Grundfläche).';
+    return { typ: 'koerper-gesucht', text: txt, loesung: txt };
+  }
+  if (t.gesuchtModus === 'wort') return { typ: 'gesucht-wort', text: `„${t.wort}“: Schau in die Formelsammlung. In der Zeile ${FS_ZEILE[t.gesuchtZiel]} steht das Zeichen.` };
+  if (t.gesuchtModus === 'zwei_a') return { typ: 'gesucht-hinein-huelle', text: zitat ? `${zitat} ist ${t.gesuchtZiel === 'V' ? 'das, was hineinpasst' : 'die Hülle'}.` : 'Lies den Satz noch einmal. Was passiert mit dem Ding?' };
+  return { typ: 'gesucht-teile', text: zitat ? `${zitat} heißt: ${GZ_TEILE[t.gesuchtZiel]}.` : 'Lies den Satz noch einmal. Welche Teile bekommen etwas?' };
+}
+function gesuchtGezaehlt(t, richtig) {
+  const st = S.gesucht || (S.gesucht = { folge: 0 });
+  if (!richtig) { st.folge = 0; A.gesuchtFalsch = true; return; }
+  if (t.gesuchtEnde && !A.gesuchtFalsch && t.gesuchtModus !== 'direkt') st.folge++;
+}
+
+// ---------- Formelsammlung der Schule (Auftrag 40, Teil 5) ----------
+// Daten aus dem Daten-Repo (daten/<name>/formelblatt/schule-kaesten.json und bilder/schule-*.png), nicht in der öffentlichen App.
+const fsDa = () => !!(S.fs && S.fs.kaesten && S.fs.kaesten.zylinder);
+const fsAufgabe = (a = A && A.aufgabe) => !!a && fsDa() && (L.KOERPER_THEMEN.includes(a.thema) || a.thema === 'formelsammlung');
+let fsLaeuft = false;
+async function fsLaden() {
+  const u = S.upload;
+  if (fsLaeuft || !u.repo || !u.token || (S.fs && S.fs.tag === L.tagKey())) return;
+  fsLaeuft = true;
+  try {
+    const d = await U.dateiLesen(u, `daten/${fernOrdner()}/formelblatt/schule-kaesten.json`);
+    S.fs = { tag: L.tagKey(), kaesten: d && d.format === 'formelsammlung-kaesten-1' && d.kaesten ? d.kaesten : null };
+    sichern();
+  } catch (e) { /* später nochmal */ } finally { fsLaeuft = false; }
+}
+// Nur einfache Auszeichnung aus der Datei zulassen (span, sub, sup mit class)
+const fsHtml = (h) => String(h || '').replace(/<(?!\/?(?:span|sub|sup)(?:\s+class="[a-z ]*")?\s*>)[^>]*>/g, '');
+const FS_ZEILE = { V: 'Volumen', O: 'Oberfläche', M: 'Mantelfläche', G: 'Grundfläche' };
+// Welche Zeile der Formelsammlung braucht dieser Schritt?
+function fsZiel(t, a = A.aufgabe) {
+  if (!t || t.merk || t.art !== 'zahl' || !L.KOERPER_THEMEN.includes(a.thema)) return null;
+  const l = String(t.label || '');
+  if (/^Runde/.test(l)) return null;
+  if (/^Radius r/.test(l)) return { kasten: 'kreis', zeile: 'Durchmesser' };
+  if (/^s²|Mantellinie/.test(l)) return { kasten: 'kegel', zeile: 'Mantellinie' };
+  const m = l.match(/^(A_[GMO])\b/);
+  let k = m ? m[1].slice(2) : /^V\b|Volumen/.test(l) ? 'V' : null;
+  if (!k) { const z = A.teile.map(x => String(x.label || '').match(/(V|A_[GMO]) ≈/)).find(Boolean); k = z ? (z[1] === 'V' ? 'V' : z[1].slice(2)) : null; }
+  return k ? { kasten: a.thema, zeile: FS_ZEILE[k] } : null;
+}
+function fsZeile(z) {
+  const k = z && fsDa() && S.fs.kaesten[z.kasten], r = k && k.zeilen.find(x => x.zeile === z.zeile);
+  return r ? { kasten: z.kasten, titel: k.titel, zeile: r.zeile, html: r.html } : null;
+}
+const fsLoesungHtml = (z) => `<div class="fs-loesung">Formelsammlung · Kasten ${esc(z.titel)} · Zeile ${esc(z.zeile)}: <span class="fs-formel">${fsHtml(z.html)}</span></div>`;
+function fsKnopfHtml() {
+  const t = aktuellerTeil();
+  const leuchten = A.fsEinladung || (t && t.versuche && t.versuche.some(v => !v.richtig));
+  return `${A.fsEinladung ? '<div class="fs-einladung">Die Formelsammlung darfst du immer benutzen. Auch in der Schule.</div>' : ''}
+    <button class="btn fs-knopf${leuchten ? ' leuchten' : ''}" data-act="fsOeffnen"><span aria-hidden="true">▤</span> Formelsammlung</button>`;
+}
+function fsPinHtml() {
+  const p = A && A.fsPin;
+  if (!p || A.fertig) return '';
+  return `<div class="fs-pin"><span class="fs-pin-kopf">Formelsammlung · ${esc(p.titel)}${p.zeile ? ` · ${esc(p.zeile)}` : ''}</span><span class="fs-pin-formel">${fsHtml(p.html)}</span>
+    <button class="fs-pin-x" data-act="fsLoesen" aria-label="Formel entfernen">✕</button></div>`;
+}
+function fsOeffnen() {
+  if (!fsDa()) return;
+  const a = A && A.aufgabe;
+  const suchen = (a && a.thema === 'formelsammlung') || L.freigegeben(S, 'fs_suchen', L.tagKey());
+  const k = !suchen && a && L.KOERPER_THEMEN.includes(a.thema) ? a.thema : null;
+  if (A) A.fsEinladung = false;
+  protokoll(S, 'formelsammlung', { aktion: 'offen', kasten: k, aufgabe: a ? a.id : null, schritt: A ? A.idx : null });
+  sichern();
+  fsZeigen(k);
+}
+function fsZeigen(k) {
+  const K = S.fs.kaesten, x = k && K[k];
+  const kopf = `<div class="fs-kopf"><h2 class="modal-titel">Formelsammlung</h2>${x ? '<button class="btn-text" data-act="fsUebersicht">Alle Kästen</button>' : ''}</div>`;
+  const inhalt = !x
+    ? `<p class="fs-tipp">Welcher Kasten passt? Tippe ihn an.</p><div class="fs-liste">${Object.entries(K).map(([id, q]) => `<button class="fs-kasten-knopf" data-act="fsKasten" data-k="${esc(id)}"><b>${esc(q.titel)}</b> <span>${esc(q.zusatz || '')}</span></button>`).join('')}</div>`
+    : `<div class="fs-kasten"><div class="fs-titel"><b><u>${esc(x.titel)}</u></b> <span>${esc(x.zusatz || '')}</span></div>${x.zeilen.map((z, i) => {
+        const an = A && A.fsPin && A.fsPin.kasten === k && A.fsPin.html === z.html;
+        return `<button class="fs-zeile${an ? ' an' : ''}" data-act="fsAnheften" data-k="${esc(k)}" data-i="${i}"><span class="fs-z-name">${esc(z.zeile)}</span><span class="fs-z-formel">${fsHtml(z.html)}</span>${an ? '<em>angeheftet</em>' : ''}</button>`;
+      }).join('')}</div><p class="fs-tipp">Tippe die Formel an, die du brauchst. Sie erscheint über deinem Feld. Einsetzen musst du selbst.</p>`;
+  const seiten = `<div class="fs-seiten-kopf">Alle Seiten (antippen zum Vergrößern)</div><div class="fs-seiten">${[1, 2, 3, 4].map(n => `<button class="fs-seite" data-act="fsSeite" data-n="${n}"><img data-fs-bild="schule-${n}.png" alt=""><span>Seite ${n}</span></button>`).join('')}</div>`;
+  const notfall = A && L.KOERPER_THEMEN.includes(A.aufgabe.thema) && (A.aufgabe.hinweise || []).some(id => HMAP[id])
+    ? `<div class="fs-notfall">${(A.fehlerZahl || 0) >= 2 ? '<button class="btn-text" data-act="fsNotfall">Notfall-Hilfe (Hinweisblatt)</button>' : '<span>Notfall-Hilfe (Hinweisblatt) gibt es nach 2 Fehlern.</span>'}</div>` : '';
+  oeffneModal(`<div class="fs-blatt">${kopf}${inhalt}${seiten}${notfall}</div>`);
+  fsBilderLaden();
+}
+// Seitenbilder: einmal pro Sitzung aus dem Daten-Repo holen
+const FS_BILDER = {};
+async function fsBild(name) {
+  if (FS_BILDER[name]) return FS_BILDER[name];
+  const b = await U.dateiBlob(S.upload, `daten/${fernOrdner()}/formelblatt/bilder/${name}`);
+  return (FS_BILDER[name] = b ? URL.createObjectURL(b) : null);
+}
+function fsBilderLaden() {
+  document.querySelectorAll('img[data-fs-bild]').forEach(async img => { try { const u = await fsBild(img.dataset.fsBild); if (u) img.src = u; } catch (e) { /* ohne Bild */ } });
+}
+let fsZoomStufe = 1;
+function fsSeiteZeigen(n) {
+  fsZoomStufe = 1;
+  if (A) protokoll(S, 'formelsammlung', { aktion: 'seite', seite: n, aufgabe: A.aufgabe.id, schritt: A.idx });
+  oeffneModal(`<div class="fs-blatt fs-gross"><div class="fs-kopf"><h2 class="modal-titel">Seite ${n}</h2><span class="fs-zoom"><button class="btn btn-klein" data-act="fsZoom" data-d="-1" aria-label="kleiner">−</button><button class="btn btn-klein" data-act="fsZoom" data-d="1" aria-label="größer">+</button></span></div>
+    <div class="fs-seite-gross"><img data-fs-bild="schule-${n}.png" alt="Formelsammlung Seite ${n}" style="width:100%"></div><button class="btn-text" data-act="fsUebersicht">‹ Zurück</button></div>`);
+  fsBilderLaden();
+}
+function fsZoom(d) {
+  fsZoomStufe = Math.max(1, Math.min(3, fsZoomStufe + d * 0.5));
+  const img = document.querySelector('.fs-seite-gross img'); if (img) img.style.width = `${fsZoomStufe * 100}%`;
+}
+function fsAnheften(k, i) {
+  const x = S.fs.kaesten[k], z = x && x.zeilen[i];
+  if (!z || !A) return;
+  const ziel = fsZiel(aktuellerTeil());
+  A.fsPin = { kasten: k, titel: x.titel, zeile: z.zeile, html: z.html, teil: A.idx };
+  A.fsAnzahl = (A.fsAnzahl || 0) + 1;
+  protokoll(S, 'formelsammlung', { aktion: 'anheften', kasten: k, zeile: z.zeile, aufgabe: A.aufgabe.id, schritt: A.idx, ...(ziel ? { richtige_zeile: ziel.kasten === k && ziel.zeile === z.zeile } : {}) });
+  schliesseModal(); sichern(); zeigeAufgabe();
+}
+function fsLoesen() {
+  if (!A || !A.fsPin) return;
+  protokoll(S, 'formelsammlung', { aktion: 'entfernen', kasten: A.fsPin.kasten, zeile: A.fsPin.zeile, aufgabe: A.aufgabe.id, schritt: A.idx });
+  A.fsPin = null; sichern(); zeigeAufgabe();
+}
+// Hinweisblatt bei Körpern nur im Notfall (nach 2 Fehlern), zählt wie bisher als Hilfe
+function fsNotfall() {
+  const id = (A.aufgabe.hinweise || []).find(h => HMAP[h]);
+  if (!id) return;
+  A.notfall = true;
+  protokoll(S, 'formelsammlung', { aktion: 'notfall', kasten: A.aufgabe.thema, aufgabe: A.aufgabe.id, schritt: A.idx });
+  schliesseModal();
+  hinweisOeffnen(id);
+}
+// Motivierende Suchaufgabe „Finde es“: Kasten finden, dann die Formel
+const FS_FINDE = ['zylinder', 'kegel', 'pyramide', 'kugel', 'kreis'];
+const FS_IM = { zylinder: 'beim Zylinder', kegel: 'beim Kegel', pyramide: 'bei der Pyramide', kugel: 'bei der Kugel', kreis: 'beim Kreis' };
+const FS_ART = { Volumen: 'das Volumen', Durchmesser: 'den Durchmesser', Umfang: 'den Umfang', Flächeninhalt: 'den Flächeninhalt' };
+function findeEsAufgabe() {
+  if (!fsDa()) return null;
+  const K = S.fs.kaesten, da = FS_FINDE.filter(x => K[x] && K[x].zeilen && K[x].zeilen.length);
+  if (da.length < 3) return null;
+  const k = wahl(da), zs = K[k].zeilen.filter(z => z.zeile), z = wahl(zs);
+  if (!z) return null;
+  const kOpt = L.mischen([k, ...L.mischen(da.filter(x => x !== k)).slice(0, 2)]);
+  const ablenk = [];
+  for (const r of L.mischen([...da.filter(x => x !== k).map(x => K[x].zeilen.find(q => q.zeile === z.zeile)).filter(Boolean), ...zs.filter(q => q !== z)])) {
+    if (r.text !== z.text && !ablenk.some(q => q.text === r.text)) ablenk.push(r);
+    if (ablenk.length === 2) break;
+  }
+  if (ablenk.length < 2) return null;
+  const fOpt = L.mischen([z, ...ablenk]);
+  return { id: `fs-finde-${k}-${K[k].zeilen.indexOf(z)}`, quelle: 'Formelsammlung', generator: 'finde-es', parameter: [k, z.zeile], bonus: false,
+    thema: 'formelsammlung', typ: 'schritte', stufe: 1,
+    frage: `Wo steht die Formel für ${FS_ART[z.zeile] || `die ${z.zeile}`} ${FS_IM[k]}? Schau in die Formelsammlung.`,
+    schritte: [{ text: 'In welchem Kasten steht sie?', optionen: kOpt.map(x => K[x].titel), richtig: kOpt.indexOf(k) },
+      { text: 'Welche Formel steht dort?', optionen: fOpt.map(r => r.text), fs_html: fOpt.map(r => r.html), richtig: fOpt.indexOf(z) }],
+    hinweise: [], loesungsweg: [`Kasten ${K[k].titel}`, `Zeile ${z.zeile}: ${z.text}`],
+    erklaerung: 'Die Formelsammlung darfst du immer benutzen. Auch in der Schule.' };
+}
 function durchklickHinweis() {
   oeffneModal(`<div class="hinweis-text durchklick"><div class="dk-symbol" aria-hidden="true">⏸</div><h2 class="modal-titel">Kurz anhalten</h2>
     <p><b>Durchklicken bringt dir keine Zeit.</b></p><p>Diese oder eine ähnliche Aufgabe kommt wieder.</p>
@@ -2707,11 +2911,11 @@ function teileHtml() {
       if (aktiv && t.zp) {
         inhalt = `${label}${zpEingabeHtml(t)}`;
       } else if (aktiv) {
-        inhalt = `${label}<div class="feld-zeile"><div class="feld aktiv-feld${t.eingabe ? '' : ' leer'}" aria-live="polite">${esc(t.eingabe.replace('-', '−')) || '?'}</div>${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}</div>`;
+        inhalt = `${label}${fsPinHtml()}<div class="feld-zeile"><div class="feld aktiv-feld${t.eingabe ? '' : ' leer'}" aria-live="polite">${esc(t.eingabe.replace('-', '−')) || '?'}</div>${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}</div>`;
       } else {
         const ok = t.versuche.find(v => v.richtig);
         const zeigen = ok ? `${eingabeText(ok.eingabe)}${t.einheit ? ' ' + t.einheit : ''}` : formatWert(t.ziel.wert, t.einheit);
-        inhalt = `${label}<div class="feld-zeile">${erledigtWert(t, zeigen)}</div>`;
+        inhalt = `${label}<div class="feld-zeile">${erledigtWert(t, zeigen)}${t.fsLob ? '<span class="fs-lob">Gut nachgeschlagen!</span>' : ''}</div>`;
       }
     } else if (t.art === 'zp') {
       if (aktiv) inhalt = zpEingabeHtml(t);
@@ -2750,13 +2954,14 @@ function teileHtml() {
         // Wörter als Antwort: kleiner und mit Silbentrennung, damit lange Wörter („Federkraftmesser“) in den Knopf passen
         if (!t.formel && /[A-Za-zÄÖÜäöüß]{4}/.test(o)) kl += Math.max(...String(o).split(/\s+/).map(w => w.length)) >= 11 ? ' wahl-text lang' : ' wahl-text';
         if (!aktiv) { if (k === t.richtig) kl += ' wahl-richtig'; else if (t.gewaehlt === k) kl += ' wahl-falsch'; }
-        return `<button class="${kl}${t.formel ? ' formel-wahl' : ''}" data-act="wahl" data-k="${k}" ${aktiv && A.phase === 'eingabe' ? '' : 'disabled'}>${t.formel ? formelText(o) : mathe(o)}</button>`;
+        const aus = !(aktiv && A.phase === 'eingabe') || (t.zweiVersuche && t.versuche.some(v => v.eingabe === String(k)));
+        return `<button class="${kl}${t.formel ? ' formel-wahl' : ''}${t.fsHtml ? ' fs-wahl' : ''}" data-act="wahl" data-k="${k}" ${aus ? 'disabled' : ''}>${t.fsHtml ? fsHtml(t.fsHtml[k]) : t.formel ? formelText(o) : mathe(o)}</button>`;
       }).join('');
       const rest = aktiv && A.phase === 'eingabe' && t.lesenBis ? t.lesenBis - Date.now() : 0;
       const frageMarkiert = a.frage && L.signalMarkieren(mathe(a.frage));
       const leseTipp = aktiv && t.leseSchnell && A.phase === 'eingabe'
         ? `<div class="lese-tipp">${esc(LESE_TIPP)}${frageMarkiert && frageMarkiert.includes('<mark') ? `<div class="lese-frage">${frageMarkiert}</div>` : ' Die wichtigen Wörter sind oben markiert.'}</div>` : '';
-      inhalt = `<div class="teil-label">${nr}<span><b>${mathe(t.label)}</b></span></div>${leseTipp}<div class="wahl-reihe${t.spalte || /wahl-text lang/.test(knoepfe) ? ' wahl-spalte' : ''}${rest > 0 ? ' lesen' : ''}"${rest > 0 ? ` style="--lese-ms:${Math.round(rest)}ms"` : ''}>${knoepfe}</div>`;
+      inhalt = `<div class="teil-label">${nr}<span><b>${mathe(t.anzeige || t.label)}</b></span></div>${leseTipp}${aktiv ? fsPinHtml() : ''}<div class="wahl-reihe${t.spalte || /wahl-text lang/.test(knoepfe) || L.KOERPER_THEMEN.includes(a.thema) || a.thema === 'formelsammlung' ? ' wahl-spalte' : ''}${rest > 0 ? ' lesen' : ''}"${rest > 0 ? ` style="--lese-ms:${Math.round(rest)}ms"` : ''}>${knoepfe}</div>`;
     } else if (t.art === 'zuordnung') {
       inhalt = zuordnungHtml(aktiv);
     } else if (t.art === 'legen') {
@@ -2765,7 +2970,7 @@ function teileHtml() {
     let zusatz = '';
     if (aktiv && A.phase === 'tipp') zusatz = `<div class="tipp"><b>Noch nicht.</b> ${esc(t.tipp)}${t.tafel ? stellentafelHtml(t.tafel) : ''}</div>`;
     if (aktiv && t.hilfe && A.phase !== 'tipp') zusatz += hilfeBox(t);
-    if (i === A.idx && A.phase === 'aufgeloest') zusatz = `<div class="aufloesung">So ist es richtig: <b>${loesungText(t)}</b>${t.loesungTipp ? `<br>${mathe(t.loesungTipp)}` : ''}${t.tafel ? stellentafelHtml(t.tafel, true) : ''}</div>`;
+    if (i === A.idx && A.phase === 'aufgeloest') zusatz = `<div class="aufloesung">So ist es richtig: <b>${loesungText(t)}</b>${t.loesungTipp ? `<br>${mathe(t.loesungTipp)}` : ''}${t.fsZeile ? fsLoesungHtml(t.fsZeile) : ''}${t.tafel ? stellentafelHtml(t.tafel, true) : ''}</div>`;
     if (t.merk && i > A.idx && !A.fertig) {
       inhalt = `<div class="teil-label"><span>${mathe(t.label)}</span></div><div class="feld-zeile"><button class="feld leer tippbar" data-act="springe" data-i="${i}" aria-label="Zu diesem Feld springen">?</button>${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}</div>`;
     }
@@ -3172,19 +3377,25 @@ function versuchMerken(t, eingabe, richtig, fehler) {
   protokoll(S, 'versuch', {
     id: a.id, thema: a.thema, teil: A.idx, label: t.label || null, merk: !!t.merk, versuch: t.versuche.length, eingabe, richtig,
     fehler: fehler ? fehler.typ : null, ms, schnell: !!a.geschichte && ms < 4000,
-    hinweiseOffen: A.hinweise.slice(), ...(a.typ === 'detektiv' ? { detektiv_schritt: A.idx + 1 } : {})
+    hinweiseOffen: A.hinweise.slice(), ...(a.typ === 'detektiv' ? { detektiv_schritt: A.idx + 1 } : {}),
+    ...(t.gesuchtModus ? { gesucht_modus: t.gesuchtModus } : {}), ...(A.fsPin ? { fs_angeheftet: `${A.fsPin.kasten}|${A.fsPin.zeile}` } : {})
   });
+  if (t.gesuchtModus) gesuchtGezaehlt(t, richtig);
   t.seit = Date.now();
   A.schnellFolge = 0;
   if (richtig) {
     t.status = t.versuche.length === 1 ? 'erst' : 'zweit';
+    if (A.fsPin && A.fsPin.teil === A.idx) t.fsLob = true; // angeheftet und geschafft: „Gut nachgeschlagen!“
     return naechsterTeil();
   }
+  A.fehlerZahl = (A.fehlerZahl || 0) + 1;
   // Knobeln: nach dem zweiten Fehlversuch geht es in Schritten weiter (keine Lösung, kein Abbruch)
   if (t.knobel && t.versuche.length >= 2) return schritteAn(true);
-  const maxVersuche = t.art === 'wahl' && !t.detektiv ? 1 : 2; // Detektiv Schritt 1: 2 Versuche (Auftrag 18)
+  const maxVersuche = t.art === 'wahl' && !t.detektiv && !t.zweiVersuche ? 1 : 2; // Detektiv Schritt 1 und „Was ist gesucht?“ in zwei Schritten: 2 Versuche
+  const fz = fsAufgabe() && t.art === 'zahl' && !t.merk ? fsZiel(t) : null;
   if (t.versuche.length < maxVersuche) {
-    t.tipp = fehler ? fehler.text : 'Schau dir den Hinweis an und rechne noch einmal.';
+    t.tipp = fehler ? fehler.text : fz ? 'Rechne noch einmal.' : 'Schau dir den Hinweis an und rechne noch einmal.';
+    if (fz) t.tipp += ' Schau in die Formelsammlung.';
     t.tafel = fehler && fehler.tafel ? fehler.tafel : null; // Stellentafel bei Mal 10 (Auftrag 36)
     // Ohne „Verstanden“ (Schalter pro Kind): der Tipp bleibt stehen, bis weitergetippt wird
     A.phase = bed('verstanden') ? 'tipp' : 'eingabe';
@@ -3193,6 +3404,7 @@ function versuchMerken(t, eingabe, richtig, fehler) {
   } else {
     t.status = 'loesung';
     t.loesungTipp = fehler ? fehler.loesung || fehler.text : null;
+    if (fz) t.fsZeile = fsZeile(fz); // Formelsammlung: Kasten und Zeile mit der Lösung
     t.tafel = fehler && fehler.tafel ? fehler.tafel : t.tafel || null;
     A.phase = 'aufgeloest';
     protokoll(S, 'loesung_gezeigt', { id: a.id, teil: A.idx, loesung_schritt: A.idx, loesung_label: t.label || null });
@@ -3312,7 +3524,8 @@ function abschliessen() {
     ...(tl ? { anteil: tl.anteil } : {}),
     muehe: A.muehe, muehGruppe: A.muehGruppe, bonus_wiederholung: !!A.bonusZeit, ...(A.extra != null ? { extra: A.extra } : {}),
     ...(schnell ? { zuSchnell: pflicht.reduce((n, t) => n + (t.schnell || 0), 0) } : {}), ...(A.durchklick ? { durchklick: true } : {}),
-    ...(a.modus === 'knobeln' ? { knobeln: true, schritte: !!A.schritteAn } : {}), ...(a.fach ? { fach: a.fach } : {}), ...(A.wp ? { wp: A.wp } : {})
+    ...(a.modus === 'knobeln' ? { knobeln: true, schritte: !!A.schritteAn } : {}), ...(a.fach ? { fach: a.fach } : {}), ...(A.wp ? { wp: A.wp } : {}),
+    ...(A.gesuchtModus ? { gesucht_modus: A.gesuchtModus } : {}), ...(fsAufgabe(a) ? { formelsammlung: A.fsAnzahl || 0, ...(A.notfall ? { notfall: true } : {}) } : {})
   });
   if (A.wp > 0) {
     const grund = a.modus === 'knobeln' ? (A.schritteAn ? 'schritte' : 'knobeln') : 'aufgabe';
@@ -3492,7 +3705,7 @@ function rechnerOeffnen() {
   zeigeAufgabe();
 }
 
-const R_TASTEN = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', ',', 'π', '=', 'x²', 'x³', '⌫'];
+const R_TASTEN = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', ',', 'π', '=', 'x²', 'x³', '√', '⌫'];
 
 function rechnerPanelHtml(t) {
   const r = A.rechner;
@@ -4406,7 +4619,7 @@ function testFokusHtml() {
     <label class="schalter-zeile"><input type="checkbox" data-act="testFokusAn"><span><b>Gezielt testen</b><br><span class="gedaempft klein">Aus: Du bekommst die Aufgaben so, wie ${testAls() ? esc(ordnerName(testAls())) : 'mit deinen eigenen Einstellungen'} sie bekommt.</span></span></label>
   </div>`;
   const thema = f.thema;
-  const opt = L.THEMEN.map(t => `<option value="${t}"${t === thema ? ' selected' : ''}>${esc(THEMA_NAMEN[t] || t)}</option>`).join('');
+  const opt = [...L.THEMEN, ...(fsDa() ? ['formelsammlung'] : [])].map(t => `<option value="${t}"${t === thema ? ' selected' : ''}>${esc(THEMA_NAMEN[t] || t)}</option>`).join('');
   const quellen = testAuswahl(thema).map(q => `Stufe ${q.st}: ${q.gen ? 'Baukasten' : ''}${q.gen && q.pool ? ' + ' : ''}${q.pool ? `${q.pool} aus dem Pool` : ''}${!q.gen && !q.pool ? 'keine Aufgaben' : ''}`).join(' · ');
   return `<div class="fokus-box an">
     <label class="schalter-zeile"><input type="checkbox" checked data-act="testFokusAus"><span><b>Gezielt testen ist AN</b><br><span class="klein">Es kommen nur Aufgaben aus diesem Bereich und dieser Stufe. Ausschalten = wieder wie beim Schüler.</span></span></label>
@@ -4896,11 +5109,12 @@ function klick(e) {
       // Falsch und zu schnell: Knöpfe 3 s gesperrt, die Seite bleibt stehen; Tippen in der Sperre zählt nicht und verlängert sie nicht.
       // Eine richtige Wahl zählt immer (Wunsch Vater: „zu schnell“ gibt es bei einer richtigen Antwort nicht).
       if (k !== t.richtig && t.lesenBis && Date.now() < t.lesenBis) { leseSperreZeigen(); break; }
-      if (k !== t.richtig && bed('teil_loesung') && L.leseAuswahl(A.aufgabe, t.label) && !t.lesenBis && Date.now() - Math.min(t.seit, textSeit()) < L.LESEZEIT_MS) { zuSchnellMelden(t, String(k), 'auswahl'); break; }
+      if (k !== t.richtig && bed('teil_loesung') && L.leseAuswahl(A.aufgabe, t.label) && (!t.gesuchtModus || t.gesuchtModus === 'direkt') && !t.lesenBis && Date.now() - Math.min(t.seit, textSeit()) < L.LESEZEIT_MS) { zuSchnellMelden(t, String(k), 'auswahl'); break; }
       t.gewaehlt = k;
       const dFehler = t.detektiv ? { typ: 'detektiv_urteil', text: A.aufgabe.stimmt ? 'Rechne selbst nach. Kommt dasselbe heraus?' : 'Schau genau hin. Rechne selbst nach.' } : null;
       let wf = k === t.richtig ? null : dFehler || L.erkenneWahlFehler(A.aufgabe, t.quelle, k);
       if (wf && !t.detektiv && A.aufgabe.typ === 'detektiv') wf = { ...wf, typ: 'detektiv_fehlerwahl' };
+      if (k !== t.richtig && t.gesuchtModus) wf = gesuchtFehler(t);
       versuchMerken(t, t.spalte ? t.optionen[k] : String(k), k === t.richtig, wf);
       break;
     }
@@ -4912,6 +5126,14 @@ function klick(e) {
       A.phase = 'eingabe'; A.meldung = null; zeigeAufgabe(); break;
     case 'weiter': naechsterTeil(); break;
     case 'hinweis': hinweisOeffnen(el.dataset.id); break;
+    case 'fsOeffnen': fsOeffnen(); break;
+    case 'fsKasten': fsZeigen(el.dataset.k); break;
+    case 'fsUebersicht': fsZeigen(null); break;
+    case 'fsAnheften': fsAnheften(el.dataset.k, Number(el.dataset.i)); break;
+    case 'fsLoesen': fsLoesen(); break;
+    case 'fsSeite': fsSeiteZeigen(Number(el.dataset.n)); break;
+    case 'fsZoom': fsZoom(Number(el.dataset.d)); break;
+    case 'fsNotfall': fsNotfall(); break;
     case 'mehrHilfe': mehrHilfe(el.dataset.id); break;
     case 'formelSeite': formelSeite(Number(el.dataset.s)); break;
     case 'rechner': rechnerOeffnen(); break;

@@ -16,7 +16,7 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.53.1';
+export const ELTERN_VERSION = '1.54.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -2105,7 +2105,10 @@ const GEN_WIE = { 'geld-geschichte': ['minus-zahlen'], 'rabatt-geschichte': ['ra
 
 // Freigaben mit Datum (Auftrag 21): neue Aufgabenformen erst ab dem Tag, an dem der Bogen sie eingeführt hat
 const FREIGABE_TEXTE = { minusminus: ['Doppeltes Minus und Minus in Klammern', 'Minus-Zahlen: 6 − (−4). Reihenfolge: 10 − (3 − 8). Etwa jede 4. Aufgabe, die ersten 5 mit Zwischenschritt.'],
-  prozent_formel: ['Prozent mit Formel', 'W = G · p : 100: Formel direkt, im Text, Rabatt mit Formel. Steht die Art im Wochenplan unter „gesperrt“, wird sie ab diesem Tag frei.'] };
+  prozent_formel: ['Prozent mit Formel', 'W = G · p : 100: Formel direkt, im Text, Rabatt mit Formel. Steht die Art im Wochenplan unter „gesperrt“, wird sie ab diesem Tag frei.'],
+  halbkugel: ['Halbe Kugel', 'Kugel Stufe 1: auch eine halbe Kugel (Volumen der Kugel : 2).'],
+  fs_suchen: ['Formelsammlung: Kasten selbst finden', 'Die Formelsammlung öffnet bei der Übersicht aller Kästen statt beim Kasten des Körpers.'],
+  zusammengesetzt: ['Zusammengesetzte Körper', 'Zwei Teile, nur Volumen, zusammenzählen (Turm, Silo, Eistüte, Doppelkegel).'] };
 function freigabeKarte(w) {
   const f = w.freigaben || {}, heute = L.tagKey();
   return `<section class="karte liste-karte">${L.FREIGABEN.map(k => {

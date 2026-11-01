@@ -362,39 +362,65 @@ const KUGEL_GESCHICHTEN = [
   { ding: 'Eine Glaskugel', satz: 'Sie ist innen mit Wasser gefüllt.', frage: 'Wie viel cm³ Wasser passt hinein?', art: 'V' },
   { ding: 'Ein Basketball', satz: 'Er ist außen mit Leder überzogen.', frage: 'Wie viel cm² Leder braucht man?', art: 'O' },
   { ding: 'Ein Globus', satz: 'Die Weltkarte ist außen aufgeklebt.', frage: 'Wie viel cm² Papier hat die Weltkarte?', art: 'O' },
-  { ding: 'Eine Weihnachtskugel', satz: 'Sie wird außen bemalt.', frage: 'Wie viel cm² Fläche wird bemalt?', art: 'O' }
+  { ding: 'Eine Weihnachtskugel', satz: 'Sie wird außen bemalt.', frage: 'Wie viel cm² Fläche wird bemalt?', art: 'O' },
+  // Auftrag 40: Ball, Kugel aus Holz, Seifenblase, Globus
+  { ding: 'Eine Kugel aus Holz', satz: 'Sie ist ganz aus Holz.', frage: 'Wie viel cm³ Holz braucht man?', art: 'V' },
+  { ding: 'Eine Kugel aus Holz', satz: 'Sie wird ganz mit Farbe angemalt.', frage: 'Wie viel cm² muss man anmalen?', art: 'O' },
+  { ding: 'Eine Seifenblase', satz: 'Sie schwebt durch die Luft.', frage: 'Wie viel cm³ Luft ist in der Seifenblase?', art: 'V' },
+  { ding: 'Ein Ball', satz: 'Er wird außen mit Stoff bezogen.', frage: 'Wie viel cm² Stoff braucht man?', art: 'O' }
 ];
+// Halbe Kugel (Auftrag 40, ab Freigabe `halbkugel`): Volumen der Kugel : 2
+const HALBKUGEL = [
+  { text: 'Eine Schüssel hat die Form einer halben Kugel.', frage: 'Wie viel cm³ passen in die Schüssel?' },
+  { text: 'Eine Kuppel aus Glas hat die Form einer halben Kugel.', frage: 'Wie viel cm³ Luft ist unter der Kuppel?' },
+  { text: 'Eine Halbkugel ist aus Holz.', frage: 'Wie viel cm³ Holz braucht man?' }
+];
+const KUGEL_R1 = [1, 2, 3, 5, 10];
 
-export function kugel(stufe, rng) {
+export function kugel(stufe, rng, opts = {}) {
+  if (stufe === 1 && opts.halbkugel && rng() < 0.35) return halbkugel(rng);
   const mitD = stufe >= 2 && rng() < 0.6;
-  const r = zufall(rng, 5, 20);
-  const g = stufe === 3 ? wahl(rng, KUGEL_GESCHICHTEN) : null;
+  const r = stufe === 1 ? wahl(rng, KUGEL_R1) : zufall(rng, 3, 12);
+  const g = stufe >= 2 && rng() < (stufe === 3 ? 1 : 0.4) ? wahl(rng, KUGEL_GESCHICHTEN) : null;
   const art = g ? g.art : wahl(rng, ['V', 'O']);
   const schritte = [], weg = [];
-  if (g) { schritte.push({ text: 'Volumen oder Oberfläche?', optionen: ['Volumen', 'Oberfläche'], richtig: art === 'V' ? 0 : 1 }); weg.push(art === 'V' ? '„passt hinein" → V (Volumen)' : '„außen" → A_O (Oberfläche)'); }
+  if (g) { schritte.push({ text: 'Volumen oder Oberfläche?', optionen: ['Volumen', 'Oberfläche'], richtig: art === 'V' ? 0 : 1 }); weg.push(art === 'V' ? '„passt hinein“ → V (Volumen)' : '„außen“ → A_O (Oberfläche)'); }
   if (mitD) { schritte.push({ text: 'Radius r =', wert: r, einheit: 'cm' }); weg.push(`r = ${2 * r} : 2 = ${r} cm`); }
   let x;
   if (art === 'V') {
     x = 4 / 3 * Math.PI * r ** 3;
-    schritte.push({ text: 'Zwischenergebnis =', wert: r * r }, { text: 'r³ =', wert: r ** 3 }, gs({ text: `4 ÷ 3 × π × ${r ** 3} =`, wert: r3(x), toleranz: 0.01 }, x), { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(x), einheit: 'cm³', runden: 1 });
-    weg.push(`${r} · ${r} = ${r * r}`, `r³ = ${r * r} · ${r} = ${r ** 3}`, `4 ÷ 3 × π × ${r ** 3} = ${zahlText(r3(x))}…`, `V ≈ ${zahlText(r1(x), 1)} cm³`);
+    schritte.push({ text: 'r · r =', wert: r * r }, { text: 'r³ =', wert: r ** 3 }, gs({ text: `V = 4/3 · π · ${r ** 3} =`, wert: r3(x), toleranz: 0.01 }, x), { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(x), einheit: 'cm³', runden: 1 });
+    weg.push(`${r} · ${r} = ${r * r}`, `r³ = ${r * r} · ${r} = ${r ** 3}`, `V = 4/3 · π · r³: 4 ÷ 3 × π × ${r ** 3} = ${zahlText(r3(x))}…`, `V ≈ ${zahlText(r1(x), 1)} cm³`);
   } else {
     x = 4 * Math.PI * r ** 2;
-    schritte.push({ text: 'r² =', wert: r ** 2 }, gs({ text: `4 × π × ${r ** 2} =`, wert: r3(x), toleranz: 0.01 }, x), { text: 'Runde auf eine Stelle nach dem Komma. O ≈', wert: r1(x), einheit: 'cm²', runden: 1 });
-    weg.push(`r² = ${r} · ${r} = ${r ** 2}`, `4 × π × ${r ** 2} = ${zahlText(r3(x))}…`, `O ≈ ${zahlText(r1(x), 1)} cm²`);
+    schritte.push({ text: 'r² =', wert: r ** 2 }, gs({ text: `A_O = 4 · π · ${r ** 2} =`, wert: r3(x), toleranz: 0.01 }, x), { text: 'Runde auf eine Stelle nach dem Komma. A_O ≈', wert: r1(x), einheit: 'cm²', runden: 1 });
+    weg.push(`r² = ${r} · ${r} = ${r ** 2}`, `A_O = 4 · π · r²: 4 × π × ${r ** 2} = ${zahlText(r3(x))}…`, `A_O ≈ ${zahlText(r1(x), 1)} cm²`);
   }
   const mass = mitD ? `einen Durchmesser von ${2 * r} cm` : `einen Radius von ${r} cm`;
   const felder = {
     thema: 'kugel', typ: 'schritte', stufe, taschenrechner: true, bild: mitD ? { form: 'kugel', d: 2 * r } : { form: 'kugel', r },
     schritte, hinweise: g ? ['kugel', 'runden', 'lang'] : ['kugel', 'runden'], loesungsweg: weg,
     gegeben: [mitD ? { name: 'Durchmesser d', wert: 2 * r, einheit: 'cm' } : { name: 'Radius r', wert: r, einheit: 'cm' }],
-    erklaerung: (art === 'V' ? 'Formel V = 4/3 · π · r³.' : 'Formel O = 4 · π · r².') + (mitD ? ' In der Formel steht r, nicht d.' : '')
+    erklaerung: (art === 'V' ? 'Formelsammlung, Kasten Kugel, Zeile Volumen: V = 4/3 · π · r³.' : 'Formelsammlung, Kasten Kugel, Zeile Oberfläche: A_O = 4 · π · r².') + (mitD ? ' In der Formel steht r, nicht d.' : '')
   };
   if (g) { felder.geschichte = `${g.ding} hat ${mass}. ${g.satz}`; felder.frage = g.frage; }
   else felder.frage = mitD ? `Eine Kugel hat den Durchmesser d = ${2 * r} cm. Wie groß ist ${art === 'V' ? 'das Volumen' : 'die Oberfläche'}?` : `Kugel mit r = ${r} cm: Wie groß ist ${art === 'V' ? 'das Volumen' : 'die Oberfläche'}?`;
   return neu('kugel', [art, mitD ? 'd' : 'r', mitD ? 2 * r : r, g ? KUGEL_GESCHICHTEN.indexOf(g) : 'x'], felder);
 }
-
+function halbkugel(rng) {
+  const g = wahl(rng, HALBKUGEL), r = wahl(rng, KUGEL_R1.concat([4, 6]));
+  const vk = 4 / 3 * Math.PI * r ** 3, v = vk / 2;
+  const schritte = [{ text: 'r³ =', wert: r ** 3 }, gs({ text: 'Volumen der ganzen Kugel: V = 4/3 · π · r³ =', wert: r3(vk), toleranz: 0.01 }, vk),
+    gsAus({ text: 'Eine halbe Kugel: Volumen der Kugel : 2 =', wert: r3(v), toleranz: 0.01 }, [vk], (k) => k / 2), { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(v), einheit: 'cm³', runden: 1 }];
+  return neu('kugel', ['halb', r, HALBKUGEL.indexOf(g)], {
+    thema: 'kugel', typ: 'schritte', stufe: 1, form: 'halbkugel', taschenrechner: true, bild: { form: 'kugel', r },
+    geschichte: `${g.text} Der Radius ist ${r} cm.`, frage: g.frage,
+    gegeben: [{ name: 'Radius r', wert: r, einheit: 'cm' }],
+    schritte, hinweise: ['kugel', 'runden'],
+    loesungsweg: [`r³ = ${r} · ${r} · ${r} = ${r ** 3}`, `ganze Kugel: 4 ÷ 3 × π × ${r ** 3} = ${zahlText(r3(vk))}…`, `halbe Kugel: ${zahlText(r3(vk))}… : 2 = ${zahlText(r3(v))}…`, `V ≈ ${zahlText(r1(v), 1)} cm³`],
+    erklaerung: 'Formelsammlung, Kasten Kugel, Zeile Volumen: V = 4/3 · π · r³. Eine halbe Kugel: Volumen der Kugel : 2. Das steht nicht in der Formelsammlung.'
+  });
+}
 
 // ---------- Zylinder (03 Abschnitt 6.2) ----------
 // Stufe 1: Volumen mit r. Stufe 2: Volumen mit d („Radius r =“ ohne „d : 2“) und Geschichten.
@@ -445,7 +471,7 @@ export function zylinder(stufe, rng, opts = {}) {
     x = Math.PI * r * r * h;
     schritte.push({ text: 'r² =', wert: r * r }, gs({ text: `V = π × ${r * r} × ${h} =`, wert: r3(x), toleranz: 0.01 }, x), { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(x), einheit: `${e}³`, runden: 1 });
     weg.push(`r² = ${r} · ${r} = ${r * r}`, `π × ${r * r} × ${h} = ${zahlText(r3(x))}…`, `V ≈ ${zahlText(r1(x), 1)} ${e}³`);
-    erkl = 'Formel V = π · r² · h. Erst r², dann mal π und mal h.' + (mitD ? ' In der Formel steht r, nicht d.' : '');
+    erkl = 'Formelsammlung, Kasten Zylinder, Zeile Volumen: V = π · r² · h. Erst r², dann mal π und mal h.' + (mitD ? ' In der Formel steht r, nicht d.' : '');
   } else {
     const ag = Math.PI * r * r, am = 2 * Math.PI * r * h, ao = 2 * ag + am;
     const formel = !g; // ohne Geschichte: Formeln stehen in der Beschriftung (Einsetzen ist der Lerninhalt)
@@ -461,7 +487,7 @@ export function zylinder(stufe, rng, opts = {}) {
     if (art === 'O') weg.push(`A_O = 2 × ${zahlText(ag, 2)} + ${zahlText(am, 2)} = ${zahlText(2 * Math.round(ag * 100) / 100 + Math.round(am * 100) / 100, 2)} cm²`);
     schritte.push({ text: `Runde auf eine Stelle nach dem Komma. ${n} ≈`, wert: r1(x), einheit: 'cm²', runden: 1 });
     weg.push(`${n} ≈ ${zahlText(r1(x), 1)} cm²`);
-    erkl = art === 'O' ? 'Ein Zylinder hat zwei Kreise (Boden und Deckel) und den Mantel.' : 'Nur außen herum, also nur der Mantel.';
+    erkl = art === 'O' ? 'Ein Zylinder hat zwei Kreise (Boden und Deckel) und den Mantel. Formelsammlung, Kasten Zylinder, Zeile Oberfläche: A_O = 2 · A_G + A_M.' : 'Nur außen herum, also nur der Mantel. Formelsammlung, Kasten Zylinder, Zeile Mantelfläche: A_M = 2 · π · r · h.';
   }
   const mass = mitD ? `Der Durchmesser ist ${2 * r} ${e}.` : `Der Radius ist ${r} ${e}.`;
   const felder = {
@@ -737,7 +763,23 @@ function zylinderGesucht4(rng) {
 // Mehr Abwechslung bei viel Übungszeit; die festen Aufgaben app-kegel-*, app-pyramide-* bleiben.
 const KEGEL_TRIPEL = [[3, 4, 5], [6, 8, 10], [5, 12, 13], [9, 12, 15]];
 export function kegel(stufe, rng) {
-  const mantel = stufe >= 2 && rng() < (stufe === 3 ? 0.6 : 0.4);
+  const u = stufe >= 2 ? rng() : 1, pM = stufe === 3 ? 0.45 : 0.35;
+  // Auftrag 40: Oberfläche A_O = π · r · (r + s), s aus s² = r² + h² (Rechner-Wurzel)
+  if (u >= pM && u < pM + 0.3) {
+    const [r, h, sl] = wahl(rng, KEGEL_TRIPEL), ao = Math.PI * r * (r + sl);
+    return neu('kegel', ['oberflaeche', r, h], {
+      thema: 'kegel', typ: 'schritte', stufe, taschenrechner: true, form: 'oberflaeche', bild: { form: 'kegel', r, h },
+      frage: `Ein Kegel hat den Radius r = ${r} cm und die Höhe h = ${h} cm. Wie groß ist seine Oberfläche?`,
+      gegeben: [{ name: 'Radius r', wert: r, einheit: 'cm' }, { name: 'Höhe h', wert: h, einheit: 'cm' }],
+      schritte: [{ text: 's² = r² + h² =', wert: r * r + h * h }, { text: `Mantellinie s = √${r * r + h * h} =`, wert: sl, einheit: 'cm' },
+        gs({ text: 'A_O = π · r · (r + s) =', wert: r3(ao), toleranz: 0.01, einheit: 'cm²' }, ao),
+        { text: 'Runde auf eine Stelle nach dem Komma. A_O ≈', wert: r1(ao), einheit: 'cm²', runden: 1 }],
+      hinweise: ['kegel', 'runden'],
+      loesungsweg: [`s² = ${r}² + ${h}² = ${r * r} + ${h * h} = ${r * r + h * h}`, `s = √${r * r + h * h} = ${sl} cm (Rechner: √)`, `A_O = π × ${r} × (${r} + ${sl}) = ${zahlText(r3(ao))}… cm²`, `A_O ≈ ${zahlText(r1(ao), 1)} cm²`],
+      erklaerung: 'Formelsammlung, Kasten Kegel: Zeile Mantellinie s² = r² + h², Zeile Oberfläche A_O = π · r · (r + s).'
+    });
+  }
+  const mantel = u < pM;
   if (mantel) {
     const [r, h, sl] = wahl(rng, KEGEL_TRIPEL), am = Math.PI * r * sl;
     const opt = rng() < 0.5 ? [`h = ${h} cm`, `s = ${sl} cm`] : [`s = ${sl} cm`, `h = ${h} cm`];
@@ -749,7 +791,7 @@ export function kegel(stufe, rng) {
         gs({ text: 'A_M = π · r · s =', wert: r3(am), toleranz: 0.01, einheit: 'cm²' }, am),
         { text: 'Runde auf eine Stelle nach dem Komma. A_M ≈', wert: r1(am), einheit: 'cm²', runden: 1 }],
       hinweise: ['kegel', 'runden'], loesungsweg: ['Mantel → s (schräg außen)', `A_M = π × ${r} × ${sl} = ${zahlText(r3(am))}… cm²`, `A_M ≈ ${zahlText(r1(am), 1)} cm²`],
-      erklaerung: 'Für den Mantel brauchst du s, die schräge Linie außen. h ist innen.'
+      erklaerung: 'Für den Mantel brauchst du s, die schräge Linie außen. h ist innen. Formelsammlung, Kasten Kegel, Zeile Mantelfläche: A_M = π · r · s.'
     });
   }
   const mitD = stufe >= 2;
@@ -765,7 +807,7 @@ export function kegel(stufe, rng) {
     frage: `Ein Kegel hat ${mitD ? `den Durchmesser d = ${2 * r}` : `den Radius r = ${r}`} cm und die Höhe h = ${h} cm. Wie groß ist sein Volumen?`,
     gegeben: [mitD ? { name: 'Durchmesser d', wert: 2 * r, einheit: 'cm' } : { name: 'Radius r', wert: r, einheit: 'cm' }, { name: 'Höhe h', wert: h, einheit: 'cm' }],
     schritte, hinweise: ['kegel', 'runden'], loesungsweg: weg,
-    erklaerung: 'Erst wie beim Zylinder: π · r² · h. Dann durch 3.' + (mitD ? ' In der Formel steht r, nicht d.' : '')
+    erklaerung: 'Formelsammlung, Kasten Kegel, Zeile Volumen: V = 1/3 · π · r² · h. Erst π · r² · h, dann durch 3.' + (mitD ? ' In der Formel steht r, nicht d.' : '')
   });
 }
 export function pyramide(stufe, rng) {
@@ -774,7 +816,7 @@ export function pyramide(stufe, rng) {
     const a = inM ? zufall(rng, 2, 6) : zufall(rng, 3, 12), h = inM ? zufall(rng, 2, 5) : zufall(rng, 4, 15);
     const e = inM ? 'm' : 'cm', ag = a * a, ah = ag * h, vol = ah / 3, ganz = ah % 3 === 0;
     if (stufe === 1 && !ganz) continue;
-    const schritte = [{ text: 'A_G = a · a =', wert: ag, einheit: `${e}²` }, { text: 'A_G · h =', wert: ah }];
+    const schritte = [{ text: 'A_G = a² =', wert: ag, einheit: `${e}²` }, { text: 'A_G · h =', wert: ah }];
     const weg = [`A_G = ${a} · ${a} = ${ag} ${e}²`, `${ag} · ${h} = ${ah}`];
     if (ganz) { schritte.push({ text: 'Ein Drittel davon (: 3). V =', wert: vol, einheit: `${e}³` }); weg.push(`${ah} : 3 = ${vol} ${e}³`); }
     else {
@@ -787,7 +829,7 @@ export function pyramide(stufe, rng) {
         : { frage: `Eine Pyramide hat eine quadratische Grundfläche mit der Seite a = ${a} cm. Sie ist h = ${h} cm hoch. Wie groß ist ihr Volumen?` }),
       gegeben: [{ name: 'Seite a', wert: a, einheit: e }, { name: 'Höhe h', wert: h, einheit: e }],
       schritte, hinweise: ganz ? ['pyramide'] : ['pyramide', 'runden'], loesungsweg: weg,
-      erklaerung: 'Erst die Grundfläche a · a, dann mal h. Dann durch 3.'
+      erklaerung: 'Formelsammlung, Kasten Pyramide, Zeile Volumen: V = 1/3 · A_G · h. Erst A_G = a², dann mal h, dann durch 3.'
     });
   }
   return null;

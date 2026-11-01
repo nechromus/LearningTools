@@ -1061,3 +1061,47 @@ mark.signal { background: rgba(245, 180, 60, .35); color: inherit; border-radius
 @keyframes lese-wackeln { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 @media (prefers-reduced-motion: reduce) { .wahl-reihe.lesen::after { animation: none; } .wahl-reihe.wackeln { animation: none; } }
 .lese-tipp { margin: 6px 0 8px; padding: 8px 12px; border-radius: 10px; background: rgba(245, 180, 60, .18); border-left: 4px solid rgba(214, 140, 30, .8); }
+
+/* ---------- Formelsammlung der Schule (Auftrag 40) ---------- */
+.fs-knopf { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px; margin: 12px 0 4px; font-size: 18px; font-weight: 700;
+  background: #1F6F75; border-color: #1F6F75; color: #fff; border-radius: 12px; }
+.fs-knopf.leuchten { box-shadow: 0 0 0 5px rgba(31, 111, 117, .25); animation: fs-leuchten 1.6s ease-in-out infinite; }
+@keyframes fs-leuchten { 50% { box-shadow: 0 0 0 9px rgba(31, 111, 117, .12); } }
+@media (prefers-reduced-motion: reduce) { .fs-knopf.leuchten { animation: none; } }
+.fs-einladung { margin-top: 10px; padding: 9px 12px; border-radius: 10px; background: #E2F1F2; color: #1E2A2B; font-size: 15px; }
+.fs-pin { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 8px; margin: 6px 0 8px; padding: 7px 10px; border: 1.5px solid #1E2A2B; border-radius: 8px; background: #fff; color: #1E2A2B; font-family: "Liberation Sans", Arial, Helvetica, sans-serif; }
+.fs-pin-kopf { font-size: 12px; color: #5A6A6B; grid-column: 1; }
+.fs-pin-formel { font-size: 19px; grid-column: 1; }
+.fs-pin-x { grid-row: 1 / 3; grid-column: 2; border: 0; background: none; font-size: 18px; color: #5A6A6B; min-width: 36px; min-height: 36px; }
+.fs-lob { margin-left: 8px; padding: 3px 10px; border-radius: 999px; background: #FBF1DE; color: #6B4A12; font-size: 14px; font-weight: 700; }
+.fs-loesung { margin-top: 6px; font-size: 15px; }
+.fs-formel, .fs-z-formel, .fs-pin-formel, .fs-wahl { font-family: "Liberation Sans", Arial, Helvetica, sans-serif; }
+.fs-blatt { color: #1E2A2B; }
+.fs-kopf { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; padding-right: 40px; }
+.fs-kasten { border: 1.4px solid #1E2A2B; border-radius: 4px; background: #fff; font-family: "Liberation Sans", Arial, Helvetica, sans-serif; margin: 8px 0; }
+.fs-titel { padding: 8px 10px 4px; font-size: 16px; }
+.fs-titel span { font-size: 13px; color: #444; }
+.fs-zeile { display: grid; grid-template-columns: 104px minmax(0, 1fr); align-items: center; gap: 6px; width: 100%; min-height: 48px; padding: 7px 10px; border: 0; border-top: 1px solid #D3DCDC; background: #fff; color: #1E2A2B; text-align: left; position: relative; font: inherit; }
+.fs-zeile:active { background: #F2F6F6; }
+.fs-zeile.an { background: #FDF3DC; outline: 2px solid #E2A33A; }
+.fs-zeile em { position: absolute; right: 6px; top: -9px; font-style: normal; font-size: 11px; background: #E2A33A; color: #1E2A2B; border-radius: 6px; padding: 0 5px; }
+.fs-z-name { font-size: 13px; }
+.fs-z-formel { font-size: 18px; }
+.fs-tipp { font-size: 15px; margin: 6px 0; }
+.fs-liste { display: grid; gap: 6px; margin: 6px 0 10px; }
+.fs-kasten-knopf { text-align: left; min-height: 44px; padding: 8px 12px; border: 1.4px solid #1E2A2B; border-radius: 6px; background: #fff; color: #1E2A2B; font: 16px "Liberation Sans", Arial, sans-serif; }
+.fs-kasten-knopf span { font-size: 13px; color: #555; }
+.fs-seiten-kopf { margin-top: 10px; font-size: 13px; color: #5A6A6B; }
+.fs-seiten { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 4px; }
+.fs-seite { display: grid; gap: 3px; padding: 0; border: 0; background: none; font-size: 12px; color: #5A6A6B; }
+.fs-seite img { width: 100%; aspect-ratio: 1191 / 1685; border: 1px solid #D3DCDC; border-radius: 3px; background: #fff; }
+.fs-seite-gross { overflow: auto; max-height: 70vh; border: 1px solid #D3DCDC; background: #fff; margin: 8px 0; }
+.fs-seite-gross img { display: block; max-width: none; }
+.fs-zoom { display: flex; gap: 6px; }
+.fs-notfall { margin-top: 12px; padding-top: 8px; border-top: 1px dashed #D3DCDC; text-align: center; font-size: 14px; color: #5A6A6B; }
+.fs-notfall .btn-text { color: #B4472E; font-weight: 700; }
+/* Brüche und Wurzeln in der Formelsammlung */
+.fs-blatt .fr, .fs-pin .fr, .fs-wahl .fr, .fs-loesung .fr { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; font-size: .8em; line-height: 1.1; margin: 0 2px; }
+.fs-blatt .fr > span:first-child, .fs-pin .fr > span:first-child, .fs-wahl .fr > span:first-child, .fs-loesung .fr > span:first-child { border-bottom: 1px solid currentColor; padding: 0 2px; }
+.fs-blatt .sq .ov, .fs-pin .sq .ov, .fs-wahl .sq .ov, .fs-loesung .sq .ov { border-top: 1px solid currentColor; padding: 0 2px; }
+.fs-blatt .wi, .fs-pin .wi, .fs-wahl .wi, .fs-loesung .wi { font-size: .6em; margin-right: -3px; }
