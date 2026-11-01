@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.37.2';
+export const APP_VERSION = '2.38.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1956,7 +1956,7 @@ function neueAufgabe() {
   // Geschichten Satz für Satz zeigen (weniger Text auf einmal)
   if (aufgabe.geschichte && L.saetzeVon(aufgabe.geschichte).length > 1 && bed('satzweise')) A.satz = 1;
   teileStarten(A.teile);
-  if (A.serienPos === 1) { S.gesucht = { folge: 0 }; S.fsSitzung = false; } // neue Übungssitzung (wie beim Takt: Aufgabe 1 der Serie)
+  if (A.serienPos === 1) { S.gesucht = { folge: 0 }; S.fsSitzung = false; S.malSitzung = false; } // neue Übungssitzung (wie beim Takt: Aufgabe 1 der Serie)
   gesuchtUmbauen();
   if (fsAufgabe(aufgabe) && !S.fsSitzung) { A.fsEinladung = true; S.fsSitzung = true; }
   if (aufgabe.modus === 'knobeln') A.knobeln = true;
@@ -1970,6 +1970,7 @@ function neueAufgabe() {
   if (aufgabe.typ === 'detektiv') S.verlauf.detektivZuletzt = S.verlauf.zaehler;
   if (ufSofort()) return ufAn(true);
   zeigeAufgabe();
+  malMerkzettel();
   // Fehler-Detektiv: beim ersten Mal die Einführungskarte, danach nur über „?“
   if (aufgabe.typ === 'detektiv' && !S.detektivGesehen) { S.detektivGesehen = true; protokoll(S, 'detektiv_einfuehrung', { id: aufgabe.id }); sichern(); detektivEinfuehrung(); }
 }
@@ -2763,7 +2764,7 @@ function fsKnopfHtml() {
 function fsPinHtml() {
   const p = A && A.fsPin;
   if (!p || A.fertig) return '';
-  return `<div class="fs-pin"><span class="fs-pin-kopf">Formelsammlung · ${esc(p.titel)}${p.zeile ? ` · ${esc(p.zeile)}` : ''}</span><span class="fs-pin-formel">${fsHtml(p.html)}</span>
+  return `<div class="fs-pin"><span class="fs-pin-kopf">Formelsammlung · ${esc(p.titel)}${p.zeile ? ` · ${esc(p.zeile)}` : ''}</span><span class="fs-pin-formel">${fsHtml(p.html)}</span>${p.mal ? `<span class="fs-pin-mal">mit Malzeichen: ${malHtml(p.mal)}</span>` : ''}
     <button class="fs-pin-x" data-act="fsLoesen" aria-label="Formel entfernen">✕</button></div>`;
 }
 function fsOeffnen() {
@@ -2817,10 +2818,31 @@ function fsAnheften(k, i) {
   const x = S.fs.kaesten[k], z = x && x.zeilen[i];
   if (!z || !A) return;
   const ziel = fsZiel(aktuellerTeil());
-  A.fsPin = { kasten: k, titel: x.titel, zeile: z.zeile, html: z.html, teil: A.idx };
+  // Auftrag 41 (befristet): darunter dieselbe Formel mit allen Malzeichen, die ergänzten farbig
+  const mal = L.hilfeAn(S, 'malzeichen_hilfe', L.tagKey()) ? L.malzeichenErgaenzen(z.text) : null;
+  A.fsPin = { kasten: k, titel: x.titel, zeile: z.zeile, html: z.html, teil: A.idx, ...(mal ? { mal } : {}) };
   A.fsAnzahl = (A.fsAnzahl || 0) + 1;
-  protokoll(S, 'formelsammlung', { aktion: 'anheften', kasten: k, zeile: z.zeile, aufgabe: A.aufgabe.id, schritt: A.idx, ...(ziel ? { richtige_zeile: ziel.kasten === k && ziel.zeile === z.zeile } : {}) });
+  protokoll(S, 'formelsammlung', { aktion: 'anheften', kasten: k, zeile: z.zeile, aufgabe: A.aufgabe.id, schritt: A.idx, ...(ziel ? { richtige_zeile: ziel.kasten === k && ziel.zeile === z.zeile } : {}), ...(mal ? { mit_malzeichen: true } : {}) });
   schliesseModal(); sichern(); zeigeAufgabe();
+}
+// Formel mit ergänzten Malzeichen: Text der Formelsammlung, die neuen Malzeichen farbig
+function malHtml(teile) {
+  return mathe(teile.map(p => (p.neu ? '\u0001' : p.t)).join('')).replace(/\b([a-z])_([a-z0-9])\b/g, '$1<sub>$2</sub>').replace(/\u0001/g, '<b class="mal-neu">·</b>');
+}
+// Merkzettel „Malzeichen lesen“ (Auftrag 41, befristet): einmal je Sitzung bei der ersten Körper-Aufgabe
+function malMerkzettel() {
+  const a = A && A.aufgabe;
+  if (!a || !L.KOERPER_THEMEN.includes(a.thema) || S.malSitzung || !L.hilfeAn(S, 'malzeichen_merk', L.tagKey())) return;
+  S.malSitzung = true;
+  protokoll(S, 'merkzettel', { art: 'malzeichen', aktion: 'gezeigt', id: a.id });
+  sichern();
+  oeffneModal(`<div class="hinweis-text mal-merk"><div class="merk-titel">Merkzettel</div><h2 class="modal-titel">Malzeichen lesen</h2>
+    <p>In der Formelsammlung fehlt oft das Malzeichen.</p>
+    <p class="mal-regel"><b>Steht nichts zwischen Zahl, Buchstabe oder Klammer, heißt das: mal.</b></p>
+    <ul class="mal-beispiele"><li>${mathe('4π')} heißt ${mathe('4 · π')}</li><li>${mathe('4/3 π')} heißt ${mathe('4/3 · π')}</li><li>r(r + s) heißt r · (r + s)</li></ul>
+    <p class="mal-falle">Aber: 23 ist eine Zahl. Nicht 2 · 3.</p>
+    <p class="mal-falle">Und: r² heißt r · r. Nicht r · 2.</p>
+    <button class="btn btn-haupt" data-act="malVerstanden">Verstanden</button></div>`);
 }
 function fsLoesen() {
   if (!A || !A.fsPin) return;
@@ -5142,6 +5164,7 @@ function klick(e) {
     case 'fsSeite': fsSeiteZeigen(Number(el.dataset.n)); break;
     case 'fsZoom': fsZoom(Number(el.dataset.d)); break;
     case 'fsNotfall': fsNotfall(); break;
+    case 'malVerstanden': protokoll(S, 'merkzettel', { art: 'malzeichen', aktion: 'verstanden', id: A && A.aufgabe ? A.aufgabe.id : null }); sichern(); schliesseModal(); break;
     case 'mehrHilfe': mehrHilfe(el.dataset.id); break;
     case 'formelSeite': formelSeite(Number(el.dataset.s)); break;
     case 'rechner': rechnerOeffnen(); break;

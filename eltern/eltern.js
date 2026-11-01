@@ -17,7 +17,7 @@ import qrcode from './vendor/qrcode.mjs';
 import * as FB from '../js/feedback.js';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.56.0';
+export const ELTERN_VERSION = '1.57.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -1946,6 +1946,7 @@ function baukastenTeil(w, liveStufe) {
     </section>
     <p class="klein gedaempft">Die App passt die Stufen weiter selbst an. Was du hier änderst, ist der neue Startpunkt.</p>
     ${freigabeKarte(w)}
+    ${hilfenBisKarte(w)}
     <p class="klein gedaempft">Die Häufigkeit kommt aus dem Paket. Änderst du sie hier, gilt das nur für ${esc(name())}. Das Paket bleibt, wie es ist.</p>`;
 }
 
@@ -2211,6 +2212,17 @@ const FREIGABE_TEXTE = { minusminus: ['Doppeltes Minus und Minus in Klammern', '
   halbkugel: ['Halbe Kugel', 'Kugel Stufe 1: auch eine halbe Kugel (Volumen der Kugel : 2).'],
   fs_suchen: ['Formelsammlung: Kasten selbst finden', 'Die Formelsammlung öffnet bei der Übersicht aller Kästen statt beim Kasten des Körpers.'],
   zusammengesetzt: ['Zusammengesetzte Körper', 'Zwei Teile, nur Volumen, zusammenzählen (Turm, Silo, Eistüte, Doppelkegel).'] };
+// Befristete Hilfen (Auftrag 41): gelten bis einschließlich Datum, ohne Datum aus
+const HILFEN_TEXTE = { malzeichen_hilfe: ['Formel mit Malzeichen', 'Unter einer angehefteten Formel aus der Formelsammlung steht klein „mit Malzeichen: …“.'],
+  malzeichen_merk: ['Merkzettel Malzeichen', 'Einmal je Sitzung bei der ersten Körper-Aufgabe: „Steht nichts zwischen Zahl, Buchstabe oder Klammer, heißt das: mal.“'] };
+function hilfenBisKarte(w) {
+  const h = w.hilfen_bis || {}, heute = L.tagKey();
+  return `<h2 class="abschnitt">Befristete Hilfen</h2><section class="karte liste-karte">${L.HILFEN_BIS.map(k => {
+    const bis = h[k], an = !!bis && heute <= bis;
+    return `<div class="einstell-block"><span>${esc(HILFEN_TEXTE[k][0])}<span class="klein gedaempft block">${esc(HILFEN_TEXTE[k][1])} ${bis ? (an ? `An bis einschließlich ${tagKurz(bis)}.` : `Seit ${tagKurz(bis)} aus.`) : 'Aus.'}</span></span>
+      <span class="hilfe-bis"><label class="klein">bis <input type="date" name="hilfe-bis" data-k="${k}" value="${esc(bis || '')}"></label>${bis ? `<button class="knopf-klein" data-act="hilfeBisAus" data-k="${k}">Aus</button>` : ''}</span></div>`;
+  }).join('')}</section>`;
+}
 function freigabeKarte(w) {
   const f = w.freigaben || {}, heute = L.tagKey();
   return `<section class="karte liste-karte">${L.FREIGABEN.map(k => {
@@ -2865,6 +2877,7 @@ document.addEventListener('click', (ev) => {
     }
     case 'wpEingriffWeg': { entwurf.eingriffe = (entwurf.eingriffe || []).filter((_, i) => i !== Number(el.dataset.i)); meldung = null; zeichne(); break; }
     case 'experte': { ev.preventDefault(); experteOffen = !experteOffen; zeichne(); break; }
+    case 'hilfeBisAus': { const h = { ...(entwurf.hilfen_bis || {}) }; delete h[el.dataset.k]; entwurf.hilfen_bis = h; meldung = null; zeichne(); break; }
     case 'freigabe': { const f = { ...(entwurf.freigaben || {}) }; if (el.dataset.v === '1') f[el.dataset.k] = f[el.dataset.k] || L.tagKey(); else delete f[el.dataset.k]; entwurf.freigaben = f; meldung = null; zeichne(); break; }
     case 'muehStandard': entwurf.spielzeit = { ...entwurf.spielzeit, muehe: { ...L.SPIELZEIT_STANDARD.muehe } }; meldung = null; zeichne(); break;
     case 'durchklick': entwurf.spielzeit = { ...entwurf.spielzeit, durchklick: el.dataset.v === '1' }; meldung = null; zeichne(); break;
@@ -3052,6 +3065,7 @@ document.addEventListener('change', (ev) => {
   const el = ev.target;
   if (el.classList && el.classList.contains('bg-foto') && el.files && el.files.length) { bgFotoNeu(el.dataset.id, el.dataset.nr, el.files); return; }
   if (el.name === 'vl-art') { VL.art = el.value; vlSichern(); VS.oben = true; zeichne(); return; }
+  if (el.name === 'hilfe-bis') { const e = entwurfHolen(); const h = { ...(e.hilfen_bis || {}) }; if (/^\d{4}-\d{2}-\d{2}$/.test(el.value)) h[el.dataset.k] = el.value; else delete h[el.dataset.k]; e.hilfen_bis = h; meldung = null; zeichne(); return; }
   if (el.name === 'nutzer-wahl' || el.name === 'tag-wahl') {
     if (el.name === 'tag-wahl') { location.hash = '#verlauf/' + el.value; return; }
     C.nutzer = el.value; konfigSichern();

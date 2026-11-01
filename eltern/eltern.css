@@ -717,3 +717,6 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .ticket-hinweis { display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-bottom: 12px; text-decoration: none; color: inherit; border-left: 4px solid #B4472E; }
 .ticket-hinweis-symbol { color: #B4472E; display: flex; }
 .ticket-hinweis-los { margin-left: auto; font-weight: 700; color: var(--teal-dunkel, #1F6F75); white-space: nowrap; }
+
+.hilfe-bis { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hilfe-bis input[type=date] { font: inherit; font-size: 16px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--linie, #D3DCDC); }

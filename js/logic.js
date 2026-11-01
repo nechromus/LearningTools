@@ -843,6 +843,25 @@ export function kuerzelAufgabe(a) {
   return lw.some((z, i) => z !== a.loesungsweg[i]) ? { ...a, loesungsweg: lw } : a;
 }
 export const FREIGABEN = ['minusminus', 'prozent_formel', 'halbkugel', 'fs_suchen', 'zusammengesetzt'];
+// Befristete Hilfen (Auftrag 41): gelten bis einschließlich Datum, ohne Datum aus
+export const HILFEN_BIS = ['malzeichen_hilfe', 'malzeichen_merk'];
+export const hilfeAn = (z, k, heute) => !!(z && z.hilfenBis && z.hilfenBis[k] && heute <= z.hilfenBis[k]);
+// Fehlende Malzeichen in einer Formel der Formelsammlung ergänzen (z. B. 4π · r² → 4 · π · r²).
+// Gibt Teile [{t, neu}] zurück oder null, wenn kein Mal fehlt.
+export function malzeichenErgaenzen(text) {
+  const toks = String(text || '').match(/\d+\/\d+|\d+(?:,\d+)?|π|[A-Za-z](?:_[A-Za-z0-9])?|[⁰¹²³⁴⁵⁶⁷⁸⁹]+|\s+|./g) || [];
+  const out = []; let vorher = null, raum = '', neu = false;
+  for (const t of toks) {
+    if (/^\s+$/.test(t)) { raum += t; continue; }
+    const wert = /^(\d|π|[A-Za-z])/.test(t), hoch = /^[⁰¹²³⁴⁵⁶⁷⁸⁹]+$/.test(t);
+    if (vorher === 'wert' && (wert || t === '(')) { out.push({ t: ' ' }, { t: '·', neu: true }, { t: ' ' }); neu = true; }
+    else if (raum) out.push({ t: raum });
+    raum = '';
+    out.push({ t });
+    vorher = wert || hoch || t === ')' ? 'wert' : 'op';
+  }
+  return neu ? out : null;
+}
 // ---------- Teil-Lösung und Lesezeit bei Auswahl (Auftrag 37) ----------
 // Teil-Lösung: genau eine gezeigte Lösung bei einem Zwischenschritt, alle Schritte danach selbst richtig.
 // teile: Pflicht-Teile (ohne Bonus und Merkzettel) mit status. Gibt { anteil } oder null.
@@ -988,6 +1007,12 @@ export function fernAnwenden(z, datei) {
     for (const k of FREIGABEN) if (/^\d{4}-\d{2}-\d{2}$/.test(w.freigaben[k] || '')) neu[k] = w.freigaben[k];
     if (JSON.stringify(neu) !== JSON.stringify(z.freigaben || {})) geaendert.push('freigaben');
     z.freigaben = neu;
+  }
+  // Befristete Hilfen (Auftrag 41)
+  {
+    const h = w.hilfen_bis && typeof w.hilfen_bis === 'object' ? w.hilfen_bis : {}, neu = {};
+    for (const k of HILFEN_BIS) if (/^\d{4}-\d{2}-\d{2}$/.test(h[k] || '')) neu[k] = h[k];
+    if (JSON.stringify(neu) !== JSON.stringify(z.hilfenBis || {})) { geaendert.push('hilfen_bis'); z.hilfenBis = neu; }
   }
   // Befristete Grenzen (Auftrag 36): bis einschließlich „bis“, danach wie vorher
   {
