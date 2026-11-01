@@ -17,7 +17,7 @@ import qrcode from './vendor/qrcode.mjs';
 import * as FB from '../js/feedback.js';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.55.0';
+export const ELTERN_VERSION = '1.56.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -229,6 +229,7 @@ async function allesLaden({ nutzerliste = false } = {}) {
   }
   laedt = false;
   zeichne();
+  ticketsPruefen();
 }
 
 const neuesterStand = () => D.daten && D.daten.staende[0] ? D.daten.staende[0].stand : null;
@@ -250,7 +251,7 @@ function navLinks(art) {
   const aktiv = route.seite === 'aufgabe' || route.seite === 'spiel' ? 'verlauf' : route.seite === 'ticket' ? 'tickets' : ['spielzeit', 'gewichte', 'pakete', 'paket', 'qr', 'einheit', 'splitter'].includes(route.seite) ? 'einstellungen' : route.seite;
   if (C.nur === 'boegen') return `<a href="#boegen" class="${art} aktiv" aria-current="page">${svg('boegen', 24)}<span>Bögen</span></a>`;
   return [['uebersicht', 'Übersicht'], ...(trendAn() ? [['trend', 'Trend']] : []), ['verlauf', 'Verlauf'], ['lernplan', 'Lernplan'], ...(boegenAn() ? [['boegen', 'Bögen']] : []), ...(berichteAn() ? [['berichte', 'Berichte']] : []), ['tickets', 'Tickets'], ['einstellungen', 'Einstellungen']].map(([k, t]) =>
-    `<a href="#${k}" class="${art}${aktiv === k ? ' aktiv' : ''}"${aktiv === k ? ' aria-current="page"' : ''}>${svg(k, 24)}<span>${t}</span></a>`).join('');
+    `<a href="#${k}" class="${art}${aktiv === k ? ' aktiv' : ''}"${aktiv === k ? ' aria-current="page"' : ''}>${svg(k, 24)}<span>${t}</span>${k === 'tickets' && ticketsNeu().length ? `<i class="nav-zahl" aria-label="${ticketsNeu().length} neu">${ticketsNeu().length}</i>` : ''}</a>`).join('');
 }
 
 function standZeile() {
@@ -328,8 +329,12 @@ async function fbSenden() {
   }
 }
 
+let zeichneSeite = null;
 function zeichne() {
   if (!C.token) return zeichneEinrichten();
+  // Gleiche Seite neu gezeichnet (z. B. eine Einstellung getippt): die Ansicht bleibt stehen (Safari sprang nach oben)
+  const seiteJetzt = location.hash, gleich = seiteJetzt === zeichneSeite, y = window.scrollY;
+  zeichneSeite = seiteJetzt;
   const inhalt = seiteHtml();
   const scroll = bgScrollMerken();
   vlScrollMerken();
@@ -353,6 +358,8 @@ function zeichne() {
   if (route.seite === 'lernplan') lernplanEinhaengen();
   if (route.seite === 'trend') trendEinhaengen();
   fbKnopf();
+  if (gleich && y > 0 && Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y);
+  if (gleich && y > 0) requestAnimationFrame(() => { if (Math.abs(window.scrollY - y) > 2 && location.hash === seiteJetzt) window.scrollTo(0, y); });
   bgScrollZurueck(scroll);
   vlScrollZurueck();
   // Abgeschickter Bogen: Felder nur ansehen
@@ -563,7 +570,7 @@ function bgEntwurf(id) {
   let e = null;
   try { e = JSON.parse(localStorage.getItem(k) || 'null'); } catch (x) {}
   if (!e && BG.fb[id]) { e = A.bogenFeedbackEntwurf(BG.fb[id]); if (e) e.gemachtHand = true; }
-  if (!e) { let von = ''; try { von = localStorage.getItem('bogen-von') || ''; } catch (x) {} e = { von, gemacht: A.gemachtStandard(BG.boegen[id], L.tagKey()), anfang: '', stimmung: '', hinweisblatt: '', dauer: null, uebungen: {}, sonst: '', gesehen: [] }; }
+  if (!e) { let von = ''; try { von = localStorage.getItem('bogen-von') || ''; } catch (x) {} e = { von, gemacht: A.gemachtStandard(BG.boegen[id], L.tagKey()), anfang: '', stimmung: '', hinweisblatt: '', formelsammlung: '', dauer: null, uebungen: {}, sonst: '', gesehen: [] }; }
   e.uebungen = e.uebungen || {}; e.gesehen = e.gesehen || [];
   return (BG.entwuerfe[k] = e);
 }
@@ -936,7 +943,7 @@ function bogenKachel() {
     const probleme = fb ? amp.filter(u => u.ergebnis === 'mit Hilfe' || u.ergebnis === 'nicht verstanden') : [];
     oben = `<a class="bgk-heute" href="#boegen/${encodeURIComponent(b.id)}"><span class="bgk-titel"><span class="kachel-label">${b.datum === heute ? 'Heute' : 'Als Nächstes · ' + wochentag(b.datum) + ' ' + datumKurz(b.datum)}</span><b>${esc(bgTitel(b.id))}</b><span class="klein gedaempft">${esc(String(b.titel || '').split(' · ').slice(2).join(' · '))}</span></span>${status}</a>
       ${fb ? `${ampelHtml(amp)}
-        <p class="bgk-meta klein">${[fb.anfang ? 'Anfang: ' + fb.anfang : '', fb.stimmung ? 'Stimmung: ' + fb.stimmung : '', fb.hinweisblatt ? 'Hinweisblatt: ' + fb.hinweisblatt : '', t ? `Dauer: <span class="${t.quelle === 'geschaetzt' ? 'gesch' : ''}">${minTxt(t.minuten, t.quelle === 'geschaetzt')}</span> (${QUELLE_TEXT[t.quelle]})` : ''].filter(Boolean).join(' · ')}</p>
+        <p class="bgk-meta klein">${[fb.anfang ? 'Anfang: ' + fb.anfang : '', fb.stimmung ? 'Stimmung: ' + fb.stimmung : '', fb.hinweisblatt ? 'Hinweisblatt: ' + fb.hinweisblatt : '', fb.formelsammlung ? 'Formelsammlung: ' + fb.formelsammlung : '', t ? `Dauer: <span class="${t.quelle === 'geschaetzt' ? 'gesch' : ''}">${minTxt(t.minuten, t.quelle === 'geschaetzt')}</span> (${QUELLE_TEXT[t.quelle]})` : ''].filter(Boolean).join(' · ')}</p>
         ${probleme.length ? `<div class="bgk-probleme">${probleme.map(u => `<a href="#boegen/${encodeURIComponent(b.id)}/${encodeURIComponent(u.nr)}" class="bgk-pz"><i class="bgk-p a-${A.AMPEL[u.ergebnis]}"></i><span><b>${esc(u.nr)} · ${esc(u.titel)}</b>${u.notiz ? `<span class="klein gedaempft block">${esc(u.notiz.split(/\s+/).slice(0, 10).join(' '))}${u.notiz.split(/\s+/).length > 10 ? ' …' : ''}</span>` : ''}</span><span class="klein">${esc(u.ergebnis)}</span></a>`).join('')}</div>` : ''}` : zeitBox(b.id, true)}`;
   }
   const wb = sortiert.filter(x => woche.includes(x.datum));
@@ -1407,15 +1414,37 @@ function lernplanEinhaengen() {
 // Status: neu → claude (Auftrag an Claude) → erledigt. Claude liest die Tickets auf Bitte im Chat und trägt die Antwort ein.
 const T = { liste: null, laedt: false, fehler: null, bilder: {} };
 const TICKET_STATUS = { neu: 'Neu', claude: 'Für Claude', erledigt: 'Erledigt' };
-async function ticketsLaden() {
+async function ticketsLaden(still = false) {
   if (T.laedt) return;
-  T.laedt = true; T.fehler = null; zeichne();
+  T.laedt = true; T.fehler = null; if (!still) zeichne();
   try {
     const dateien = (await U.ordnerLesen(C, 'feedback')).filter(f => f.type === 'file' && f.name.endsWith('.json'));
+    T.namen = dateien.map(f => f.name + ':' + f.sha).sort().join('|');
     T.liste = (await Promise.all(dateien.map(f => U.dateiLesen(C, f.path).catch(() => null)))).filter(t => t && t.id)
       .sort((a, b) => (a.erstellt < b.erstellt ? 1 : -1));
-  } catch (e) { T.fehler = e.message || 'Laden hat nicht geklappt.'; }
-  T.laedt = false; zeichne();
+  } catch (e) { if (!still) T.fehler = e.message || 'Laden hat nicht geklappt.'; }
+  T.laedt = false; T.geprueft = Date.now(); zeichne();
+}
+// Neue Tickets (Hinweis in der Übersicht und Zahl am Reiter): beim Start und alle 5 Minuten nachsehen, ob sich etwas geändert hat
+async function ticketsPruefen() {
+  if (!C.token || C.nur || T.laedt || document.hidden) return;
+  if (T.liste && Date.now() - (T.geprueft || 0) < 5 * 60 * 1000) return;
+  try {
+    const dateien = (await U.ordnerLesen(C, 'feedback')).filter(f => f.type === 'file' && f.name.endsWith('.json'));
+    const namen = dateien.map(f => f.name + ':' + f.sha).sort().join('|');
+    if (!T.liste || namen !== T.namen) ticketsLaden(true); else T.geprueft = Date.now();
+  } catch (e) { /* später */ }
+}
+const ticketsNeu = () => (T.liste || []).filter(t => t.status === 'neu');
+const ticketsGesehen = () => { try { return localStorage.getItem('tickets-gesehen') || ''; } catch (e) { return ''; } };
+function ticketHinweis() {
+  if (C.nur) return '';
+  const neu = ticketsNeu().filter(t => (t.erstellt || '') > ticketsGesehen());
+  if (!neu.length) return '';
+  const wer = {};
+  neu.forEach(t => { const n = t.von ? t.von.charAt(0).toUpperCase() + t.von.slice(1) : '?'; wer[n] = (wer[n] || 0) + 1; });
+  return `<a class="karte ticket-hinweis" href="#tickets"><span class="ticket-hinweis-symbol" aria-hidden="true">${svg('tickets', 22)}</span>
+    <span><b>${neu.length === 1 ? 'Ein neues Feedback-Ticket' : `${neu.length} neue Feedback-Tickets`}</b><span class="klein gedaempft block">von ${Object.entries(wer).map(([n, z]) => z > 1 ? `${esc(n)} (${z})` : esc(n)).join(', ')}</span></span><span class="ticket-hinweis-los">Ansehen ›</span></a>`;
 }
 function ticketBildLaden(name) {
   if (T.bilder[name] !== undefined) return;
@@ -1426,6 +1455,8 @@ const ticketWann = (iso) => { const d = new Date(iso); return `${d.toLocaleDateS
 const ticketVon = (t) => (t.von ? t.von.charAt(0).toUpperCase() + t.von.slice(1) : '?') + (t.kontext && t.kontext.testgeraet ? ` · Testgerät${t.kontext.testAls ? ' als ' + t.kontext.testAls.charAt(0).toUpperCase() + t.kontext.testAls.slice(1) : ''}` : '');
 function ticketsSeite() {
   if (!T.liste && !T.laedt && !T.fehler) setTimeout(ticketsLaden, 0);
+  // Angesehen: der Hinweis in der Übersicht verschwindet bis zum nächsten neuen Ticket
+  if (T.liste) { try { localStorage.setItem('tickets-gesehen', new Date().toISOString()); } catch (e) { /* egal */ } }
   const filter = C.ticketFilter || 'offen';
   const liste = (T.liste || []).filter(t => filter === 'alle' || (filter === 'offen' ? t.status !== 'erledigt' : t.status === filter));
   const zahl = (st) => (T.liste || []).filter(t => st === 'offen' ? t.status !== 'erledigt' : t.status === st).length;
@@ -1564,6 +1595,7 @@ function uebersichtSeite() {
   return `<div class="seite">
     ${breit.matches ? `<header class="kopf-breit"><h1>Übersicht · ${esc(name())}</h1>${nutzerWahl('nutzer-chip nur-hoch')}${zeitraumWahl()}</header>` : kopfSchmal('Übersicht') + zeitraumWahl()}
     ${speicherKarte()}
+    ${ticketHinweis()}
     ${liveKarte()}
     ${berichtKachel()}
     ${bogenKachel()}
@@ -3111,7 +3143,8 @@ document.addEventListener('visibilitychange', () => {
 // Bei jeder Änderung der Ansicht: ein wartendes Update laden, sobald nichts mehr bearbeitet wird
 window.addEventListener('hashchange', () => setTimeout(updateAnbieten, 300));
 setInterval(updatePruefen, 15 * 60 * 1000);
-setInterval(neueDatenPruefen, 60 * 1000); // solange die Eltern-App offen ist: jede Minute nach neuen Daten sehen
+setInterval(neueDatenPruefen, 60 * 1000);
+setInterval(ticketsPruefen, 60 * 1000); // solange die Eltern-App offen ist: jede Minute nach neuen Daten sehen
 
 leseRoute();
 bogenLinkPruefen();

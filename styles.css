@@ -258,7 +258,7 @@ code { font-size: 14px; }
 .r-taste:active { background: var(--teal-hell); }
 .r-op { background: var(--teal-hell); color: var(--teal-dunkel); }
 .r-gleich { background: var(--teal); color: #fff; border-color: var(--teal); }
-.r-uebernehmen { grid-column: span 1; font-size: 13px; background: var(--amber-hell); color: var(--amber-dunkel); border-color: var(--amber); }
+.r-uebernehmen { grid-column: span 3; font-size: 13px; background: var(--amber-hell); color: var(--amber-dunkel); border-color: var(--amber); }
 .r-uebernehmen:disabled { opacity: 0.4; }
 
 /* ---------- 2048 im Zonai-Stil (eigene Gestaltung, keine Originalgrafiken) ---------- */
@@ -1105,3 +1105,5 @@ mark.signal { background: rgba(245, 180, 60, .35); color: inherit; border-radius
 .fs-blatt .fr > span:first-child, .fs-pin .fr > span:first-child, .fs-wahl .fr > span:first-child, .fs-loesung .fr > span:first-child { border-bottom: 1px solid currentColor; padding: 0 2px; }
 .fs-blatt .sq .ov, .fs-pin .sq .ov, .fs-wahl .sq .ov, .fs-loesung .sq .ov { border-top: 1px solid currentColor; padding: 0 2px; }
 .fs-blatt .wi, .fs-pin .wi, .fs-wahl .wi, .fs-loesung .wi { font-size: .6em; margin-right: -3px; }
+
+.r-taste.hoch-an { background: var(--teal-hell); outline: 2px solid var(--teal, #1F6F75); }

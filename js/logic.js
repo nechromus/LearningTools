@@ -471,6 +471,7 @@ export function mischen(arr, rng = Math.random) {
 // ---------- Taschenrechner ----------
 // Ausdruck mit × ÷ − + ( ) π ² ³ √ und Komma. Gibt Zahl oder null zurück.
 
+const HOCH = '⁰¹²³⁴⁵⁶⁷⁸⁹⁻';
 export function rechne(ausdruck) {
   const s = (ausdruck || '').replace(/\s+/g, '');
   const tokens = [];
@@ -485,7 +486,13 @@ export function rechne(ausdruck) {
       tokens.push({ t: 'n', v: Number(zahl) });
       i = j;
     } else if (c === 'π') { tokens.push({ t: 'n', v: Math.PI }); i++; }
-    else if (c === '²' || c === '³') { tokens.push({ t: 'post', v: c === '²' ? 2 : 3 }); i++; }
+    else if (HOCH.includes(c)) {
+      // Hochzahl aus hochgestellten Ziffern (x², x³ und xⁿ): ²³, ⁸, ¹², ⁻³
+      let j = i, z = '';
+      while (j < s.length && HOCH.includes(s[j])) { z += String(HOCH.indexOf(s[j])).replace('10', '-'); j++; }
+      if (!/^-?\d+$/.test(z)) return null;
+      tokens.push({ t: 'post', v: Number(z) }); i = j;
+    }
     else if (c === '√') { tokens.push({ t: 'wurzel' }); i++; }
     else if ('+−-×÷*/·:'.includes(c)) {
       const op = { '−': '-', '×': '*', '÷': '/', '·': '*', ':': '/' }[c] || c;

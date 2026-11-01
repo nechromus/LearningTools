@@ -690,17 +690,18 @@ export function wochenplanStand(werte, eintraege, heute = tagKey()) {
 
 // ---------- Bögen und Bogen-Feedback (Auftrag 25, nur Kinder mit Schalter „boegen_feedback“) ----------
 export const BOGEN_ERGEBNISSE = ['klappt', 'mit Hilfe', 'nicht verstanden', 'ausgelassen'];
-export const BOGEN_CHIPS = ['Flüchtigkeitsfehler', '2. Versuch', 'Hinweisblatt benutzt', 'Taschenrechner', 'Rechenweg unklar', 'Text nicht verstanden', 'Brauchte Rückversicherung', 'motiviert', 'unmotiviert'];
+export const BOGEN_CHIPS = ['Flüchtigkeitsfehler', '2. Versuch', 'Hinweisblatt benutzt', 'Formelsammlung benutzt', 'Taschenrechner', 'Rechenweg unklar', 'Text nicht verstanden', 'Brauchte Rückversicherung', 'motiviert', 'unmotiviert'];
 // Bonus getrennt bewerten (Auftrag 27): Teile mit bonus: true in bogen.json
 export const BOGEN_BONUS = ['klappt', 'mit Hilfe', 'nicht verstanden', 'ausgelassen', 'nicht versucht'];
 // Am Anfang nur „Wer trägt ein?“ und „Anfang“, der Rest im Überblick am Ende (Auftrag 27)
 export const BOGEN_ANFANG = ['von', 'anfang'];
-export const BOGEN_ENDE = ['stimmung', 'hinweisblatt', 'dauer'];
+export const BOGEN_ENDE = ['stimmung', 'hinweisblatt', 'formelsammlung', 'dauer'];
 export const BOGEN_ALLGEMEIN = [
   { k: 'von', titel: 'Wer trägt ein?', werte: ['Vater', 'Mutter', 'Oma', 'Opa'] },
   { k: 'anfang', titel: 'Anfang', werte: ['direkt los', 'kurz überredet', 'stark überredet'] },
   { k: 'stimmung', titel: 'Stimmung', werte: ['gut', 'geht', 'schwierig'] },
   { k: 'hinweisblatt', titel: 'Hinweisblatt benutzt?', werte: ['ja', 'nein', 'weiß nicht'] },
+  { k: 'formelsammlung', titel: 'Formelsammlung benutzt?', werte: ['ja', 'nein', 'weiß nicht'] },
   { k: 'dauer', titel: 'Dauer ungefähr', werte: [15, 30, 45, 60], text: (v) => v === 60 ? '60+' : String(v), frei: true }
 ];
 // „Gemacht am“ (Auftrag 35): Datum des Bogens, wenn es heute oder früher ist, sonst heute
@@ -729,7 +730,7 @@ export function bogenFeedbackDatei(kind, id, e, jetzt = new Date()) {
   return {
     format: 'bogen-feedback-1', kind, bogen: id,
     ...(e.von ? { von: e.von } : {}), gemacht: e.gemacht || tagKey(jetzt), gespeichert: lokal,
-    ...(e.anfang ? { anfang: e.anfang } : {}), ...(e.stimmung ? { stimmung: e.stimmung } : {}), ...(e.hinweisblatt ? { hinweisblatt: e.hinweisblatt } : {}), ...(e.dauer ? { dauer: e.dauer } : {}),
+    ...(e.anfang ? { anfang: e.anfang } : {}), ...(e.stimmung ? { stimmung: e.stimmung } : {}), ...(e.hinweisblatt ? { hinweisblatt: e.hinweisblatt } : {}), ...(e.formelsammlung ? { formelsammlung: e.formelsammlung } : {}), ...(e.dauer ? { dauer: e.dauer } : {}),
     ...(e.zeit && e.zeit.minuten > 0 ? { zeit: { quelle: e.zeit.quelle === 'knopf' ? 'knopf' : 'hand', ...(e.zeit.start ? { start: e.zeit.start } : {}), ...(e.zeit.ende ? { ende: e.zeit.ende } : {}), ...(e.zeit.pausen && e.zeit.pausen.length ? { pausen: e.zeit.pausen } : {}), minuten: e.zeit.minuten } } : {}),
     uebungen, ...(String(e.sonst || '').trim() ? { sonst: String(e.sonst).trim() } : {}), ...(e.frei ? { ohne_bogen: true } : {})
   };
@@ -739,7 +740,7 @@ export function bogenFeedbackEntwurf(f) {
   if (!f || f.format !== 'bogen-feedback-1') return null;
   const uebungen = {};
   for (const [nr, x] of Object.entries(f.uebungen || {})) uebungen[nr] = { ergebnis: x.ergebnis || 'klappt', chips: x.chips || [], notiz: x.notiz || '', fotos: (x.fotos || []).map(name => ({ name })), ...(x.bonus && x.bonus.ergebnis ? { bonus: { ergebnis: x.bonus.ergebnis, notiz: x.bonus.notiz || '' } } : {}) };
-  return { von: f.von || '', gemacht: f.gemacht, anfang: f.anfang || '', stimmung: f.stimmung || '', hinweisblatt: f.hinweisblatt || '', dauer: f.dauer || null, ...(f.zeit ? { zeit: f.zeit } : {}), uebungen, sonst: f.sonst || '', gesehen: Object.keys(uebungen), frei: !!f.ohne_bogen };
+  return { von: f.von || '', gemacht: f.gemacht, anfang: f.anfang || '', stimmung: f.stimmung || '', hinweisblatt: f.hinweisblatt || '', formelsammlung: f.formelsammlung || '', dauer: f.dauer || null, ...(f.zeit ? { zeit: f.zeit } : {}), uebungen, sonst: f.sonst || '', gesehen: Object.keys(uebungen), frei: !!f.ohne_bogen };
 }
 
 // ---------- Hinweisblatt zum Ausdrucken (Auftrag 26) ----------

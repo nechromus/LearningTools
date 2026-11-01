@@ -708,3 +708,12 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .fb-label { font-weight: 700; }
 .fb-text { width: 100%; font: inherit; font-size: 16px; padding: 10px; border-radius: 10px; border: 2px solid var(--linie, #D3DCDC); box-sizing: border-box; }
 .fb-foto-knopf { align-self: flex-start; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; }
+
+/* Neue Feedback-Tickets: Zahl am Reiter und Hinweis in der Übersicht */
+.tab, .nav-link { position: relative; }
+.nav-zahl { position: absolute; top: 4px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #B4472E; color: #fff;
+  font: 700 11px/18px system-ui, sans-serif; font-style: normal; text-align: center; box-sizing: border-box; }
+.nav-link .nav-zahl { position: static; margin-left: auto; }
+.ticket-hinweis { display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-bottom: 12px; text-decoration: none; color: inherit; border-left: 4px solid #B4472E; }
+.ticket-hinweis-symbol { color: #B4472E; display: flex; }
+.ticket-hinweis-los { margin-left: auto; font-weight: 700; color: var(--teal-dunkel, #1F6F75); white-space: nowrap; }

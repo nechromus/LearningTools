@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.37.1';
+export const APP_VERSION = '2.37.2';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -2418,7 +2418,7 @@ function zeigeAufgabe() {
         ${a.rechnung ? `<div class="rechnung${a.rechnung.length > 22 ? ' lang' : ''}">${rechnungHtml(a)}</div>` : ''}
         ${a.bild ? `<div class="bild">${a.bild.linien ? linienBild(a) : bildSvg(a.bild)}</div>` : ''}
         ${a.typ === 'detektiv' && !liestNoch() ? fremdeRechnungHtml(a) : ''}
-        ${liestNoch() ? '' : `${!(a.typ === 'auswahl' || (a.typ === 'formel' && a.eingabe === 'auswahl')) ? `<p class="frage">${a.typ === 'detektiv' ? `<b>${mathe(a.frage)}</b>` : A.signal ? L.signalMarkieren(mathe(a.frage)) : mathe(a.frage)}</p>` : ''}
+        ${liestNoch() ? '' : `${!(a.typ === 'auswahl' || (a.typ === 'formel' && a.eingabe === 'auswahl')) || (A.uf && !A.fertig) ? `<p class="frage">${a.typ === 'detektiv' ? `<b>${mathe(a.frage)}</b>` : A.signal ? L.signalMarkieren(mathe(a.frage)) : mathe(a.frage)}</p>` : ''}
         ${A.knobeln && !A.fertig ? '<div class="knobel-zeile">✦ Knobel erst selbst.</div>' : ''}
         <div class="teile">${teileHtml()}</div>
         ${ufAngebot() ? `<button class="btn knobel-schritte" data-act="ufAn">In Schritten umformen${sternzeit() && !A.test ? ` <small>· dann ${wpMoeglich ? wpMoeglich.schritte : 1} WP</small>` : ''}</button>`
@@ -3705,7 +3705,9 @@ function rechnerOeffnen() {
   zeigeAufgabe();
 }
 
-const R_TASTEN = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', ',', 'π', '=', 'x²', 'x³', '√', '⌫'];
+const R_TASTEN = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', ',', 'π', '=', 'x²', 'x³', 'xⁿ', '√', '⌫'];
+// xⁿ: danach getippte Ziffern (und ein Minus am Anfang) werden hochgestellt, bis ein anderes Zeichen kommt
+const HOCH_Z = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
 
 function rechnerPanelHtml(t) {
   const r = A.rechner;
@@ -3731,6 +3733,8 @@ function rechnerAnzeigeAktualisieren() {
   p.querySelector('.rechner-ausdruck').innerHTML = esc(r.ausdruck) || '&nbsp;';
   p.querySelector('.rechner-ergebnis').innerHTML = r.ergebnis != null ? esc(L.formatRechnerZahl(r.ergebnis)) : '&nbsp;';
   const t = aktuellerTeil();
+  const xn = p.querySelector('[data-k="xⁿ"]');
+  if (xn) xn.classList.toggle('hoch-an', !!r.hoch);
   const u = p.querySelector('.r-uebernehmen');
   if (u) u.disabled = rechnerWert() == null || !t || t.art !== 'zahl';
 }
@@ -3745,7 +3749,8 @@ function rechnerWert() {
 function rechnerTaste(k) {
   const r = A && A.rechner;
   if (!r) return;
-  if (k === 'C') { r.ausdruck = ''; r.ergebnis = null; }
+  if (k !== 'xⁿ' && !(HOCH_Z[k] || k === '−') && k !== '⌫') r.hoch = false;
+  if (k === 'C') { r.ausdruck = ''; r.ergebnis = null; r.hoch = false; }
   else if (k === '⌫') { r.ausdruck = r.ausdruck.slice(0, -1); }
   else if (k === '=') {
     r.ergebnis = L.rechne(r.ausdruck);
@@ -3753,9 +3758,12 @@ function rechnerTaste(k) {
     sichern();
   } else {
     if (r.ergebnis != null && /^[0-9,π(]$/.test(k)) r.ausdruck = '';
-    else if (r.ergebnis != null && /^[÷×−+]$/.test(k)) r.ausdruck = L.formatRechnerZahl(r.ergebnis);
+    else if (r.ergebnis != null && (/^[÷×−+]$/.test(k) || ['x²', 'x³', 'xⁿ'].includes(k))) r.ausdruck = L.formatRechnerZahl(r.ergebnis);
     r.ergebnis = null;
-    r.ausdruck += k === 'x²' ? '²' : k === 'x³' ? '³' : k;
+    if (k === 'xⁿ') { r.hoch = true; r.hochLeer = true; }
+    else if (r.hoch && HOCH_Z[k]) { r.ausdruck += HOCH_Z[k]; r.hochLeer = false; }
+    else if (r.hoch && k === '−' && r.hochLeer) { r.ausdruck += '⁻'; r.hochLeer = false; }
+    else { r.hoch = false; r.ausdruck += k === 'x²' ? '²' : k === 'x³' ? '³' : k; }
   }
   rechnerAnzeigeAktualisieren();
 }
