@@ -995,6 +995,13 @@ export function zeitNorm(z) {
   if (!z || z.format !== 'bogen-zeit-1' || !z.start) return null;
   return { ...z, pausen: Array.isArray(z.pausen) ? z.pausen.filter(p => Array.isArray(p) && p[0]) : [] };
 }
+// Zeitdatei ist erledigt (Auftrag 38/42): Zeit steht im Feedback, oder das Feedback wurde nach dem Start der Messung gespeichert
+export function zeitErledigt(z, f) {
+  if (!z || !f) return false;
+  if (!z.laeuft && f.zeit && f.zeit.start === z.start) return true;
+  const g = Date.parse(f.gespeichert || ''), st = Date.parse(z.start);
+  return Number.isFinite(g) && Number.isFinite(st) && g >= st;
+}
 // Gemessene oder eingetragene Bogen-Zeit aus dem Feedback: { minuten, quelle } oder null
 export function bogenZeitAusFeedback(fb) {
   if (!fb) return null;

@@ -17,7 +17,7 @@ import qrcode from './vendor/qrcode.mjs';
 import * as FB from '../js/feedback.js';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.57.0';
+export const ELTERN_VERSION = '1.57.1';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -617,7 +617,8 @@ async function bgLaden(neu = false) {
     try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(`bogen-fb:${o}:`)) lokal.push(k.split(':').slice(2).join(':')); } } catch (x) {}
     BG.liste = [...new Set([...ids, ...fbIds, ...lokal])].map(id => ({ id, ordner: ids.includes(id), fertig: fbIds.includes(id) }));
     // Liegengebliebene Zeitdateien (Auftrag 38): Messung beendet und die Zeit steht schon im Feedback → Datei löschen
-    for (const id of zeitIds) { const z = BG.zeit[id], f = BG.fb[id]; if (z && !z.laeuft && f && f.zeit && f.zeit.start === z.start) { U.dateiLoeschen(C, ZEIT(o, id), `${ordnerName(o)}: Bogen ${id} Zeit aufgeräumt`).catch(() => {}); delete BG.zeit[id]; } }
+    // Auftrag 42: auch wenn das Feedback nach dem Start der Messung gespeichert wurde (z. B. Minuten von Hand, Uhr lief noch)
+    for (const id of zeitIds) { const z = BG.zeit[id], f = BG.fb[id]; if (z && f && A.zeitErledigt(z, f)) { U.dateiLoeschen(C, ZEIT(o, id), `${ordnerName(o)}: Bogen ${id} Zeit aufgeräumt`).catch(() => {}); delete BG.zeit[id]; } }
   } catch (e) { BG.fehler = e.message || 'Laden hat nicht geklappt.'; }
   BG.laedt = false; zeichne();
 }
@@ -1237,7 +1238,8 @@ async function bgSpeichern(id) {
     await U.dateiSchreiben(C, `daten/${o}/bogen-feedback/${id}.json`, JSON.stringify(datei, null, 1), `${ordnerName(o)}: Bogen-Feedback ${id}`);
     BG.fb[id] = datei;
     // Zeitmessung (Auftrag 34/38): Nach dem Speichern steht die Zeit im Feedback, die Datei <id>.zeit.json wird gelöscht
-    if (BG.zeit[id] && !BG.zeit[id].laeuft) { await U.dateiLoeschen(C, ZEIT(o, id), `${ordnerName(o)}: Bogen ${id} Zeit ins Feedback übernommen`).catch(() => {}); delete BG.zeit[id]; }
+    // Auftrag 42: auch bei Minuten von Hand oder noch laufender Uhr löschen (Feedback gespeichert = Bogen fertig)
+    if (BG.zeit[id]) { await U.dateiLoeschen(C, ZEIT(o, id), `${ordnerName(o)}: Bogen ${id} Zeit ${BG.zeit[id].laeuft ? 'beendet (Feedback gespeichert)' : 'ins Feedback übernommen'}`).catch(() => {}); delete BG.zeit[id]; }
     try { localStorage.removeItem(bgKey(id)); } catch (x) {}
     delete BG.entwuerfe[bgKey(id)];
     if (BG.bearbeiten) delete BG.bearbeiten[id];

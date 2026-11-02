@@ -197,7 +197,13 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
     }
     // Pyramide: Mantel nur 1 Dreieck
     if (aufgabe.thema === 'pyramide' && /A_M/.test(ttext) && nah(w, teil.wert / 4)) {
-      return { typ: 'pyramide-ein-dreieck', text: 'Die Pyramide hat 4 Dreiecke außen.' };
+      return { typ: 'pyramide-ein-dreieck', text: 'Die Pyramide hat 4 Dreiecke außen. A_M = 2a · hₛ.' };
+    }
+    // Pyramide (Auftrag 42): Mantel mit h statt hₛ
+    if (aufgabe.thema === 'pyramide' && /^A_M/.test(ttext) && Array.isArray(aufgabe.gegeben)) {
+      const g = (re) => { const x = aufgabe.gegeben.find(e => re.test(e.name)); return x ? Number(x.wert) : null; };
+      const pa = g(/^Seite a/), ph = g(/^Höhe h$/);
+      if (pa != null && ph != null && nah(w, 2 * pa * ph) && !nah(w, teil.wert)) return { typ: 'pyramide-h-statt-hs', text: 'Für A_M (Mantel) brauchst du hₛ, die Höhe außen. Nicht h.' };
     }
     const r = bild.r != null ? bild.r : bild.d != null ? bild.d / 2 : null;
     if (r != null) {
