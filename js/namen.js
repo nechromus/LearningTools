@@ -27,7 +27,7 @@ export const FEHLER_NAMEN = {
   'potenz-zweimal': 'Hoch 3: nur zweimal malgenommen', 'd-statt-r': 'Zylinder/Kegel: d statt r',
   'abgeschnitten': 'Abgeschnitten statt gerundet', 'kreis-prozent-statt-anzahl': 'Kreisdiagramm: Prozent statt Anzahl', 'mal10-nicht-verschoben': 'Mal 10: Komma nicht verschoben', 'mal10-falsche-richtung': 'Mal 10: falsche Richtung', 'mal10-stellen': 'Mal 10: Komma zu weit', 'mal10-ziffer-weg': 'Mal 10: Ziffer weg oder gerundet', 'einmaleins-geteilt': 'Einmaleins: geteilt', 'zylinder-ein-kreis': 'Zylinder: nur ein Kreis', 'drittel-vergessen': 'Kegel/Pyramide: Drittel vergessen',
   'pyramide-hs-statt-h': 'Pyramide: hₛ statt h', 'pyramide-h-statt-hs': 'Pyramide: h statt hₛ',
-  'pyramide-ein-dreieck': 'Pyramide: nur 1 Dreieck', 'zusammen-statt-abziehen': 'Zusammengezählt statt abgezogen', 'zerlegen': 'Körper falsch zerlegt', 'kegel-hoehe-bild': 'Kegelhöhe im Bild nicht erkannt', 'kegel-h-statt-s': 'Kegel: h statt s', 'kegel-zwei-kreise': 'Kegel: zwei Kreise',
+  'pyramide-ein-dreieck': 'Pyramide: nur 1 Dreieck', 'zusammen-statt-abziehen': 'Zusammengezählt statt abgezogen', 'zerlegen': 'Körper falsch zerlegt', 'kegel-hoehe-bild': 'Kegelhöhe im Bild nicht erkannt', 'kegel-breite-bild': 'Größter Kegel: Breite nicht erkannt', 'kegel-h-statt-s': 'Kegel: h statt s', 'kegel-zwei-kreise': 'Kegel: zwei Kreise',
   'zp-form': 'Zehnerpotenz: Zahl nicht zwischen 1 und 10', 'zp-vorzeichen': 'Zehnerpotenz: Hochzahl mit falschem Vorzeichen', 'zp-hochzahl': 'Zehnerpotenz: Hochzahl falsch',
   'formel-kehrwert': 'Formel: Kehrwert', 'formel-links': 'Formel: links nicht die gesuchte Größe', 'formel-ziel-rechts': 'Formel: gesuchte Größe rechts', 'formel': 'Formel falsch umgestellt',
   'knobel': 'Knobeln: Ergebnis falsch'

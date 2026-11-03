@@ -79,9 +79,10 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
   if (aufgabe.thema === 'pyramide' && /Seitenfl/.test(frage) && /^h\s*=/.test(o)) return { typ: 'pyramide-h-statt-hs', text: 'Die Seitenfläche ist ein Dreieck außen. Seine Höhe ist hₛ.' };
   if (aufgabe.thema === 'kegel' && /Mantel/.test(frage) && /^h\s*=/.test(o)) return { typ: 'kegel-h-statt-s', text: aufgabe.generator === 'kegel' ? 'A_M (Mantel) → s (schräg außen). h ist innen.' : 'Für A_M (Mantel) brauchst du s, die schräge Linie außen.' };
   // Quader mit ausgeschnittenem Kegel (Auftrag 43)
-  if (aufgabe.thema === 'zusammengesetzt' && /^Aus welchen/.test(frage)) return { typ: 'zerlegen', text: 'Außen ist ein Quader. Der Teil, der fehlt, ist unten spitz und oben rund: ein Kegel.' };
+  if (aufgabe.thema === 'zusammengesetzt' && /^Aus welchen/.test(frage)) return { typ: 'zerlegen', text: `Außen ist ein ${aufgabe.form === 'wuerfel-kegel' ? 'Würfel' : 'Quader'}. Der Teil, der fehlt, ist unten spitz und oben rund: ein Kegel.` };
+  if (aufgabe.thema === 'zusammengesetzt' && /^Wie breit ist der Kegel/.test(frage)) return { typ: 'kegel-breite-bild', text: 'Der größte Kegel geht oben von Rand zu Rand. Er ist so breit wie der Würfel: d = a.' };
   if (aufgabe.thema === 'zusammengesetzt' && /^Zusammenz/.test(frage)) return { typ: 'zusammen-statt-abziehen', text: 'Der Kegel ist ausgeschnitten. Er fehlt. Also abziehen.' };
-  if (aufgabe.thema === 'zusammengesetzt' && /^Wie hoch ist der Kegel/.test(frage)) return { typ: 'kegel-hoehe-bild', text: 'Schau ins Bild: Die Spitze berührt den Boden. Also ist der Kegel so hoch wie der Quader.' };
+  if (aufgabe.thema === 'zusammengesetzt' && /^Wie hoch ist der Kegel/.test(frage)) return { typ: 'kegel-hoehe-bild', text: `Schau ins Bild: Die Spitze berührt den Boden. Also ist der Kegel so hoch wie der ${aufgabe.form === 'wuerfel-kegel' ? 'Würfel' : 'Quader'}.` };
   // Zylinder „Was wird gesucht?“ mit vier Möglichkeiten (Auftrag 30)
   if (aufgabe.form === 'gesucht4' && /gesucht/.test(frage)) return { typ: 'zylinder-gesucht', text: '„passt hinein“ → V (Volumen). „rund herum“ → A_M (Mantel). „alles außen, mit Deckel und Boden“ → A_O (Oberfläche). „der Boden“ → A_G (Grundfläche).' };
   return null;
@@ -177,7 +178,7 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
   if (aufgabe.thema === 'zusammengesetzt' && teil && teil.wert != null && bild.a) {
     const p = parseZahl(eingabeText), r = bild.r != null ? bild.r : bild.d / 2;
     const vq = bild.a * bild.b * bild.c, vk = Math.PI * r * r * bild.h / 3;
-    if (p.ok && /^V = V_Quader|≈\s*$/.test(ttext) && !nah(p.wert, teil.wert) && nah(p.wert, vq + vk)) return { typ: 'zusammen-statt-abziehen', text: 'Der Kegel ist ausgeschnitten. Er fehlt. Also abziehen: V_Quader − V_Kegel.' };
+    if (p.ok && /^V = V_|≈\s*$/.test(ttext) && !nah(p.wert, teil.wert) && nah(p.wert, vq + vk)) return { typ: 'zusammen-statt-abziehen', text: 'Der Kegel ist ausgeschnitten. Er fehlt. Also abziehen.' };
     if (p.ok && /^V_Kegel/.test(ttext) && nah(p.wert, vk * 3)) return { typ: 'kegel-drittel-vergessen', text: 'Das Drittel nicht vergessen! Erst π · r² · h, dann durch 3.' };
     if (p.ok && /^V_Kegel/.test(ttext) && bild.d != null && nah(p.wert, vk * 4)) return { typ: 'd-statt-r', text: 'In der Formel steht r, nicht d. Der Radius ist halb so lang.' };
   }

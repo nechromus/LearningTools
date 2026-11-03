@@ -384,6 +384,9 @@ export function kugel(stufe, rng, opts = {}) {
   const g = stufe >= 2 && rng() < (stufe === 3 ? 1 : 0.4) ? wahl(rng, KUGEL_GESCHICHTEN) : null;
   const art = g ? g.art : wahl(rng, ['V', 'O']);
   const schritte = [], weg = [];
+  // Nachtrag 43b: Schreibweise der Schule „Oberflächeninhalt O“ (O = A_O), mit Auswahl wie bei Geschichten
+  const schule = !g && rng() < 0.4;
+  if (schule) { schritte.push({ text: 'Volumen oder Oberfläche?', optionen: ['Volumen', 'Oberfläche'], richtig: art === 'V' ? 0 : 1 }); weg.push(art === 'V' ? 'Volumen V → V (Volumen)' : 'Oberflächeninhalt O → A_O (Oberfläche), O ist dasselbe wie A_O'); }
   if (g) { schritte.push({ text: 'Volumen oder Oberfläche?', optionen: ['Volumen', 'Oberfläche'], richtig: art === 'V' ? 0 : 1 }); weg.push(art === 'V' ? '„passt hinein“ → V (Volumen)' : '„außen“ → A_O (Oberfläche)'); }
   if (mitD) { schritte.push({ text: 'Radius r =', wert: r, einheit: 'cm' }); weg.push(`r = ${2 * r} : 2 = ${r} cm`); }
   let x;
@@ -404,8 +407,9 @@ export function kugel(stufe, rng, opts = {}) {
     erklaerung: (art === 'V' ? 'Formelsammlung, Kasten Kugel, Zeile Volumen: V = 4/3 · π · r³.' : 'Formelsammlung, Kasten Kugel, Zeile Oberfläche: A_O = 4 · π · r².') + (mitD ? ' In der Formel steht r, nicht d.' : '')
   };
   if (g) { felder.geschichte = `${g.ding} hat ${mass}. ${g.satz}`; felder.frage = g.frage; }
+  else if (schule) felder.frage = `Eine Kugel hat ${mitD ? `den Durchmesser d = ${2 * r}` : `den Radius r = ${r}`} cm. ${art === 'V' ? 'Berechne das Volumen V.' : 'Berechne den Oberflächeninhalt O.'}`;
   else felder.frage = mitD ? `Eine Kugel hat den Durchmesser d = ${2 * r} cm. Wie groß ist ${art === 'V' ? 'das Volumen' : 'die Oberfläche'}?` : `Kugel mit r = ${r} cm: Wie groß ist ${art === 'V' ? 'das Volumen' : 'die Oberfläche'}?`;
-  return neu('kugel', [art, mitD ? 'd' : 'r', mitD ? 2 * r : r, g ? KUGEL_GESCHICHTEN.indexOf(g) : 'x'], felder);
+  return neu('kugel', [art, mitD ? 'd' : 'r', mitD ? 2 * r : r, g ? KUGEL_GESCHICHTEN.indexOf(g) : schule ? 's' : 'x'], felder);
 }
 function halbkugel(rng) {
   const g = wahl(rng, HALBKUGEL), r = wahl(rng, KUGEL_R1.concat([4, 6]));
@@ -868,7 +872,38 @@ export function quaderKegelOk(vq, vk) {
   const ziel = r1(vq - vk);
   return [1, 2, 3].every(k => r1(vq - rdK(vk, k)) === ziel);
 }
+export const ZG_WUERFEL = ['Würfel und Kegel', 'Würfel und Zylinder', 'Quader und Pyramide'];
+// Nachtrag 43b (Schulmaterial): Würfel mit dem größten Kegel, der hineinpasst (d = a, h = a), a = 6, 8, 10
+export function wuerfelKegel(a, rng) {
+  const r = a / 2, vq = a ** 3, vk = Math.PI * r * r * a / 3, ges = vq - vk;
+  if (!quaderKegelOk(vq, vk)) return null;
+  const opt = mischen(rng, ZG_WUERFEL.slice());
+  const bo = rng() < 0.5 ? [`d = ${a} cm, so breit wie der Würfel`, `d = ${a / 2} cm, halb so breit`] : [`d = ${a / 2} cm, halb so breit`, `d = ${a} cm, so breit wie der Würfel`];
+  const ho = rng() < 0.5 ? [`h = ${a} cm, so hoch wie der Würfel`, 'Das steht nirgends.'] : ['Das steht nirgends.', `h = ${a} cm, so hoch wie der Würfel`];
+  const schritte = [
+    { text: 'Aus welchen Körpern besteht er?', optionen: opt, richtig: opt.indexOf(ZG_WUERFEL[0]) },
+    { text: 'Wie breit ist der Kegel?', optionen: bo, richtig: bo.findIndex(o => o.includes('so breit wie')) },
+    { text: 'Wie hoch ist der Kegel?', optionen: ho, richtig: ho.findIndex(o => o.startsWith('h')) },
+    { text: 'V_Würfel = a³ =', wert: vq, einheit: 'cm³' },
+    { text: 'Radius r =', wert: r, einheit: 'cm' },
+    gs({ text: 'V_Kegel = 1/3 · π · r² · h =', wert: r3(vk), toleranz: 0.01, einheit: 'cm³' }, vk),
+    { text: 'Zusammenzählen oder abziehen?', optionen: ['zusammenzählen', 'abziehen'], richtig: 1 },
+    gsAus({ text: 'V = V_Würfel − V_Kegel =', wert: r3(ges), toleranz: 0.01, einheit: 'cm³' }, [vk], (k) => vq - k),
+    { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(ges), einheit: 'cm³', runden: 1 }];
+  return neu('zusammengesetzt', ['wuerfel-kegel', a], {
+    thema: 'zusammengesetzt', typ: 'schritte', stufe: 3, form: 'wuerfel-kegel', taschenrechner: true,
+    bild: { form: 'quader-kegel', a, b: a, c: a, d: a, h: a, h_gleich: true, groesster: true },
+    frage: `Aus einem Würfel (a = ${a} cm) wird der größte Kegel ausgeschnitten, der hineinpasst. Wie groß ist das Volumen des Körpers?`,
+    gegeben: [{ name: 'Seite a vom Würfel', wert: a, einheit: 'cm' }],
+    schritte, hinweise: ['kegel', 'runden'],
+    loesungsweg: ['Aus welchen Körpern? → Würfel und Kegel (ausgeschnitten)', `Größter Kegel: so breit wie der Würfel → d = ${a} cm`, `so hoch wie der Würfel → h = ${a} cm`,
+      `V_Würfel = ${a} · ${a} · ${a} = ${vq} cm³`, `r = ${a} : 2 = ${r} cm`, `V_Kegel = 1 ÷ 3 × π × ${r}² × ${a} = ${zahlText(r3(vk))}… cm³`,
+      'Der Kegel ist ausgeschnitten. Er fehlt. → abziehen', `V = ${vq} − ${zahlText(r3(vk))}… = ${zahlText(r3(ges))}… cm³`, `V ≈ ${zahlText(r1(ges), 1)} cm³`],
+    erklaerung: 'Der größte Kegel, der in einen Würfel passt, ist so breit und so hoch wie der Würfel: d = a und h = a. Formelsammlung, Kasten Würfel, Zeile Volumen: V = a³. Kasten Kegel, Zeile Volumen: V = 1/3 · π · r² · h. Der Kegel fehlt, also abziehen.'
+  });
+}
 export function zusammengesetzt(stufe, rng) {
+  if (stufe === 3 && rng() < 0.4) { const w = wuerfelKegel(wahl(rng, [6, 8, 10]), rng); if (w) return w; }
   for (let v = 0; v < 400; v++) {
     const a = zufall(rng, 6, 12), b = zufall(rng, 6, 12), c = zufall(rng, 6, 12);
     if (a === b && b === c) continue;                                   // kein Würfel

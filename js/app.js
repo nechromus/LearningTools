@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.39.0';
+export const APP_VERSION = '2.39.1';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1904,6 +1904,12 @@ function wartendeAufgabe() {
   if (!w || !w.aufgabe || !Array.isArray(w.teile)) { S.wartet = null; return null; }
   S.wartet = null;
   if (!((gewichte()[w.aufgabe.thema] || 0) > 0) || !erlaubt(w.aufgabe)) return null;
+  // Nachtrag 43b: feste Aufgabe inzwischen geändert (z. B. app-pyramide-7, Auftrag 42) → alte Fassung nicht fortsetzen
+  if (!w.aufgabe.generator) {
+    const jetzt = alleAufgaben().find(x => x.id === w.aufgabe.id);
+    const schritteText = (x) => JSON.stringify((x.schritte || []).map(st => [st.text, st.wert]));
+    if (jetzt && schritteText(jetzt) !== schritteText(w.aufgabe)) { protokoll(S, 'wartet_veraltet', { id: w.aufgabe.id }); return null; }
+  }
   const neu = { ...w, start: Date.now(), phase: w.phase === 'tipp' ? 'tipp' : w.phase, meldung: null, fertig: false, rechnerOffen: false };
   if (neu.zuo) neu.zuo = { ...neu.zuo, falsch: new Set(neu.zuo.falsch || []) };
   neu.teile.forEach(t => { t.seit = Date.now(); t.hilfeStart = Date.now(); });
@@ -2692,7 +2698,9 @@ function gesuchtUmbauen() {
   if (st.folge >= 3) ersatz = [neu(t.label, null, vier.map(k => GZ_OPT[k]), vier.indexOf(ziel), 'direkt')];
   else {
     const m = `${a.geschichte || ''} ${a.frage || ''}`.match(GZ_WORT[ziel]);
-    if (m) ersatz = [neu(`Was ist gesucht? Zeichen zu „${m[1]}“`, `Welches Zeichen gehört zu „${m[1]}“?`, vier.map(k => GZ_OPT[k]), vier.indexOf(ziel), 'wort', { zweiVersuche: true, wort: m[1] })];
+    // Nachtrag 43b: Schule schreibt „Oberflächeninhalt O“ → Merkzettel O = A_O
+    const oZeichen = ziel === 'O' && /Oberflächeninhalt O\b|\bO\s*=/.test(`${a.geschichte || ''} ${a.frage || ''}`);
+    if (m) ersatz = [neu(`Was ist gesucht? Zeichen zu „${m[1]}“`, `Welches Zeichen gehört zu „${m[1]}“?${oZeichen ? ' Merke: O ist dasselbe wie A_O.' : ''}`, vier.map(k => GZ_OPT[k]), vier.indexOf(ziel), 'wort', { zweiVersuche: true, wort: m[1] })];
     else {
       ersatz = [neu('Was ist gesucht? Hinein oder Hülle', 'Geht es um das, was hineinpasst, oder um die Hülle?', ['hinein', 'Hülle'], ziel === 'V' ? 0 : 1, 'zwei_a', { zweiVersuche: true })];
       if (ziel !== 'V' && !kugel) ersatz.push(neu('Was ist gesucht? Welche Teile', 'Welche Teile?', [GZ_TEILE.G, GZ_TEILE.M, GZ_TEILE.O], ['G', 'M', 'O'].indexOf(ziel), 'zwei_b', { zweiVersuche: true }));
@@ -2747,6 +2755,7 @@ function fsZiel(t, a = A.aufgabe) {
   if (/^s²|Mantellinie/.test(l)) return { kasten: 'kegel', zeile: 'Mantellinie' };
   // Quader mit ausgeschnittenem Kegel (Auftrag 43): Kasten des Teils
   if (/^V_Quader/.test(l)) return { kasten: 'quader', zeile: 'Volumen' };
+  if (/^V_Würfel/.test(l)) return { kasten: 'wuerfel', zeile: 'Volumen' };
   if (/^V_Kegel/.test(l)) return { kasten: 'kegel', zeile: 'Volumen' };
   if (a.thema === 'zusammengesetzt') return null;
   const m = l.match(/^(A_[GMO])\b/);
@@ -2776,7 +2785,7 @@ function fsOeffnen() {
   const a = A && A.aufgabe;
   const suchen = (a && a.thema === 'formelsammlung') || L.freigegeben(S, 'fs_suchen', L.tagKey());
   const z = a && a.thema === 'zusammengesetzt' ? fsZiel(aktuellerTeil()) : null;
-  const k = !suchen && a && L.KOERPER_THEMEN.includes(a.thema) ? (a.thema === 'zusammengesetzt' ? (z ? z.kasten : 'quader') : a.thema) : null;
+  const k = !suchen && a && L.KOERPER_THEMEN.includes(a.thema) ? (a.thema === 'zusammengesetzt' ? (z ? z.kasten : a.form === 'wuerfel-kegel' ? 'wuerfel' : 'quader') : a.thema) : null;
   if (A) A.fsEinladung = false;
   protokoll(S, 'formelsammlung', { aktion: 'offen', kasten: k, aufgabe: a ? a.id : null, schritt: A ? A.idx : null });
   sichern();

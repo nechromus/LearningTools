@@ -16,7 +16,7 @@ export function mathe(text) {
   return esc(text)
     .replace(/(\d+)\/(\d+)/g, (_, z, n) => bruchHtml(z, n))
     .replace(/\bA_([GMO])\b/g, 'A<sub>$1</sub>')
-    .replace(/\bV_(Quader|Kegel)\b/g, 'V<sub>$1</sub>')
+    .replace(/\bV_(Quader|Kegel|Würfel)(?![\wäöüß])/g, 'V<sub>$1</sub>')
     .replace(/\bF_G\b/g, 'F<sub>G</sub>')
     .replace(/v₀/g, 'v<sub>0</sub>')
     .replace(/(\d) (€|cm|m(?![a-zäöüß])|%|Min\.)/g, '$1\u00A0$2');
@@ -224,7 +224,8 @@ function quaderKegelSvg(b) {
   s += `<line x1="${g.P.ftl[0]}" y1="${g.yT}" x2="${g.P.ftr[0]}" y2="${g.yT}" stroke="${f.linie}" stroke-width="2"/>`; // vordere Kante liegt vor dem Kegel
   // Maße: r bzw. d oben, h innen (Stufe 3 ohne h: die Spitze berührt den Boden)
   const mf = farbig ? { a: K.r, b: K.s, c: K.h, r: K.r, d: K.d, h: K.h } : { a: LINIE, b: LINIE, c: LINIE, r: LINIE, d: LINIE, h: LINIE };
-  if (b.d != null) {
+  if (b.groesster) { /* größter Kegel: d = a und h = a selbst erkennen */ }
+  else if (b.d != null) {
     s += pfeil(c[0] - rx + 2, c[1], c[0] + rx - 2, c[1], mf.d);
     s += txt(c[0], c[1] - ry - 6, `d = ${zahlCm(b.d)}`, mf.d, 'text-anchor="middle" ' + HALO);
   } else {
@@ -236,9 +237,9 @@ function quaderKegelSvg(b) {
     const my = Math.max((c[1] + spitze[1]) / 2, c[1] + ry + 16);
     s += txt(c[0] - rx / 2 - 8, my + 5, `h = ${zahlCm(b.h)}`, mf.h, 'text-anchor="end" ' + HALO);
   }
-  s += quaderMasse(g, b, mf);
-  const kegel = `Kegel ${b.d != null ? `d = ${zahlCm(b.d)}` : `r = ${zahlCm(r)}`}${b.h_gleich ? ', Spitze unten auf dem Boden' : `, h = ${zahlCm(b.h)}`}`;
-  return svg(360, 222, s, `Quader a = ${zahlCm(b.a)}, b = ${zahlCm(b.b)}, c = ${zahlCm(b.c)}, oben ein Kegel ausgeschnitten: ${kegel}`);
+  s += b.groesster ? txt((g.P.fbl[0] + g.P.fbr[0]) / 2, g.P.fbl[1] + 18, `a = ${zahlCm(b.a)}`, mf.a, 'text-anchor="middle"') : quaderMasse(g, b, mf);
+  const kegel = b.groesster ? 'größter Kegel, der hineinpasst, Spitze unten auf dem Boden' : `Kegel ${b.d != null ? `d = ${zahlCm(b.d)}` : `r = ${zahlCm(r)}`}${b.h_gleich ? ', Spitze unten auf dem Boden' : `, h = ${zahlCm(b.h)}`}`;
+  return svg(360, 222, s, `${b.groesster ? `Würfel a = ${zahlCm(b.a)}` : `Quader a = ${zahlCm(b.a)}, b = ${zahlCm(b.b)}, c = ${zahlCm(b.c)}`}, oben ein Kegel ausgeschnitten: ${kegel}`);
 }
 
 function pyramideSvg(b) {
