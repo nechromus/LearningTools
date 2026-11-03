@@ -6,7 +6,7 @@ export const THEMA_NAMEN = {
   'prozent-baukasten': 'Prozent-Baukasten', 'prozent-formel': 'Prozent mit Formel', 'rabatt': 'Rabatt', 'neuer-preis': 'Neuer Preis',
   'kreisdiagramm': 'Kreisdiagramm', 'runden': 'Runden', 'kugel': 'Kugel',
   'einmaleins': 'Einmaleins', 'mal-10': 'Mal 10 und durch 10',
-  'zylinder': 'Zylinder', 'kegel': 'Kegel', 'pyramide': 'Pyramide',
+  'zylinder': 'Zylinder', 'kegel': 'Kegel', 'pyramide': 'Pyramide', 'quader': 'Quader', 'zusammengesetzt': 'Quader mit ausgeschnittenem Kegel',
   'zehnerpotenzen': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Masse und Gewichtskraft', 'umstellen': 'Gleichungen umstellen', 'dichte': 'Dichte',
   'formelsammlung': 'Formelsammlung: Finde es'
 };
@@ -14,7 +14,7 @@ export const THEMA_NAMEN = {
 export const GEN_NAMEN = {
   'minus-plus': 'Minus-Zahlen', 'reihenfolge': 'Reihenfolge', 'potenz': 'Potenzen', 'einmaleins': 'Einmaleins',
   'mal10': 'Mal 10 / durch 10', 'prozent': 'Prozent von …', 'baukasten': 'Prozent-Baukasten', 'runden': 'Runden',
-  'bruch-bild': 'Bruch aus Bild', 'kugel': 'Kugel', 'zylinder': 'Zylinder', 'geld-geschichte': 'Geld-Geschichten', 'rabatt-geschichte': 'Rabatt-Geschichten', 'prozent-formel': 'Prozent mit Formel', 'kegel': 'Kegel', 'pyramide': 'Pyramide', 'kreisdiagramm': 'Kreisdiagramm',
+  'bruch-bild': 'Bruch aus Bild', 'kugel': 'Kugel', 'zylinder': 'Zylinder', 'geld-geschichte': 'Geld-Geschichten', 'rabatt-geschichte': 'Rabatt-Geschichten', 'prozent-formel': 'Prozent mit Formel', 'kegel': 'Kegel', 'pyramide': 'Pyramide', 'quader': 'Quader', 'zusammengesetzt': 'Quader − Kegel', 'kreisdiagramm': 'Kreisdiagramm',
   'zehnerpotenz': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Gewichtskraft', 'gleichung': 'Gleichungen', 'formel-umstellen': 'Formeln umstellen', 'dichte': 'Dichte'
 };
 
@@ -27,7 +27,7 @@ export const FEHLER_NAMEN = {
   'potenz-zweimal': 'Hoch 3: nur zweimal malgenommen', 'd-statt-r': 'Zylinder/Kegel: d statt r',
   'abgeschnitten': 'Abgeschnitten statt gerundet', 'kreis-prozent-statt-anzahl': 'Kreisdiagramm: Prozent statt Anzahl', 'mal10-nicht-verschoben': 'Mal 10: Komma nicht verschoben', 'mal10-falsche-richtung': 'Mal 10: falsche Richtung', 'mal10-stellen': 'Mal 10: Komma zu weit', 'mal10-ziffer-weg': 'Mal 10: Ziffer weg oder gerundet', 'einmaleins-geteilt': 'Einmaleins: geteilt', 'zylinder-ein-kreis': 'Zylinder: nur ein Kreis', 'drittel-vergessen': 'Kegel/Pyramide: Drittel vergessen',
   'pyramide-hs-statt-h': 'Pyramide: hₛ statt h', 'pyramide-h-statt-hs': 'Pyramide: h statt hₛ',
-  'pyramide-ein-dreieck': 'Pyramide: nur 1 Dreieck', 'kegel-h-statt-s': 'Kegel: h statt s', 'kegel-zwei-kreise': 'Kegel: zwei Kreise',
+  'pyramide-ein-dreieck': 'Pyramide: nur 1 Dreieck', 'zusammen-statt-abziehen': 'Zusammengezählt statt abgezogen', 'zerlegen': 'Körper falsch zerlegt', 'kegel-hoehe-bild': 'Kegelhöhe im Bild nicht erkannt', 'kegel-h-statt-s': 'Kegel: h statt s', 'kegel-zwei-kreise': 'Kegel: zwei Kreise',
   'zp-form': 'Zehnerpotenz: Zahl nicht zwischen 1 und 10', 'zp-vorzeichen': 'Zehnerpotenz: Hochzahl mit falschem Vorzeichen', 'zp-hochzahl': 'Zehnerpotenz: Hochzahl falsch',
   'formel-kehrwert': 'Formel: Kehrwert', 'formel-links': 'Formel: links nicht die gesuchte Größe', 'formel-ziel-rechts': 'Formel: gesuchte Größe rechts', 'formel': 'Formel falsch umgestellt',
   'knobel': 'Knobeln: Ergebnis falsch'

@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.38.3';
+export const APP_VERSION = '2.39.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1388,7 +1388,7 @@ function paketFuerThema(t) {
 const TEST_GEN = {
   'minus-zahlen': ['minus-plus', 'geld-geschichte'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'], 'bruch-bild': ['bruch-bild'],
   'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'prozent-formel': ['prozent-formel'], 'kreisdiagramm': ['kreisdiagramm'], 'rabatt': ['rabatt-geschichte'], 'neuer-preis': ['rabatt-geschichte'],
-  'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'],
+  'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'],
   'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
 };
 const testFokus = () => (S.upload.testgeraet && S.testFokus && (L.THEMEN.includes(S.testFokus.thema) || S.testFokus.thema === 'formelsammlung') ? S.testFokus : null);
@@ -1796,7 +1796,7 @@ function waehleIn(kategorie, g, ersatz, ohneDetektiv = false) {
   const fokus = fokusOptionen();
   // Zylinder, Kegel, Pyramide: auf den Plätzen Schritte und Abschluss, je nach Gewicht im Paket.
   // Zylinder halb aus dem Pool, halb aus dem Baukasten; Kegel und Pyramide nur aus dem Pool.
-  const koerperOptionen = (gw) => ['zylinder', 'kegel', 'pyramide'].map(t => ({ w: gw[t] || 0, koerper: t }));
+  const koerperOptionen = (gw) => ['zylinder', 'kegel', 'pyramide', 'quader', 'zusammengesetzt'].map(t => ({ w: gw[t] || 0, koerper: t }));
   // Seit Auftrag 30 auch Kegel und Pyramide halb aus dem Baukasten (mehr Abwechslung bei viel Übungszeit)
   const koerperAufgabe = (t) => {
     if (Math.random() < 0.5) return erzeuge(t, genStufe(t));
@@ -2745,6 +2745,10 @@ function fsZiel(t, a = A.aufgabe) {
   if (/^Runde/.test(l)) return null;
   if (/^Radius r/.test(l)) return { kasten: 'kreis', zeile: 'Durchmesser' };
   if (/^s²|Mantellinie/.test(l)) return { kasten: 'kegel', zeile: 'Mantellinie' };
+  // Quader mit ausgeschnittenem Kegel (Auftrag 43): Kasten des Teils
+  if (/^V_Quader/.test(l)) return { kasten: 'quader', zeile: 'Volumen' };
+  if (/^V_Kegel/.test(l)) return { kasten: 'kegel', zeile: 'Volumen' };
+  if (a.thema === 'zusammengesetzt') return null;
   const m = l.match(/^(A_[GMO])\b/);
   let k = m ? m[1].slice(2) : /^V\b|Volumen/.test(l) ? 'V' : null;
   if (!k) { const z = A.teile.map(x => String(x.label || '').match(/(V|A_[GMO]) ≈/)).find(Boolean); k = z ? (z[1] === 'V' ? 'V' : z[1].slice(2)) : null; }
@@ -2771,7 +2775,8 @@ function fsOeffnen() {
   if (!fsDa()) return;
   const a = A && A.aufgabe;
   const suchen = (a && a.thema === 'formelsammlung') || L.freigegeben(S, 'fs_suchen', L.tagKey());
-  const k = !suchen && a && L.KOERPER_THEMEN.includes(a.thema) ? a.thema : null;
+  const z = a && a.thema === 'zusammengesetzt' ? fsZiel(aktuellerTeil()) : null;
+  const k = !suchen && a && L.KOERPER_THEMEN.includes(a.thema) ? (a.thema === 'zusammengesetzt' ? (z ? z.kasten : 'quader') : a.thema) : null;
   if (A) A.fsEinladung = false;
   protokoll(S, 'formelsammlung', { aktion: 'offen', kasten: k, aufgabe: a ? a.id : null, schritt: A ? A.idx : null });
   sichern();

@@ -835,6 +835,83 @@ export function pyramide(stufe, rng) {
   return null;
 }
 
+// ---------- Quader und Quader mit ausgeschnittenem Kegel (Auftrag 43, Klassenarbeit 6.11.) ----------
+// Quader: V = a · b · c. Stufe 1 ohne Geschichte (2–10), ab Stufe 2 mit Geschichte („Wie viel passt hinein?“).
+const QUADER_GESCHICHTEN = [
+  { ding: 'Ein Karton', pr: 'Er', frage: 'Wie viel cm³ passen in den Karton?', a: [20, 50, 5], b: [10, 40, 5], c: [10, 30, 5] },
+  { ding: 'Eine Kiste', pr: 'Sie', frage: 'Wie viel cm³ passen in die Kiste?', a: [30, 80, 10], b: [20, 50, 10], c: [20, 40, 10] },
+  { ding: 'Ein Aquarium', pr: 'Es', frage: 'Wie viel cm³ Wasser passen in das Aquarium?', a: [40, 80, 10], b: [20, 40, 10], c: [30, 50, 10] },
+  { ding: 'Eine Schachtel', pr: 'Sie', frage: 'Wie viel cm³ passen in die Schachtel?', a: [6, 15], b: [4, 12], c: [3, 10] }
+];
+export function quader(stufe, rng) {
+  const g = stufe >= 2 ? wahl(rng, QUADER_GESCHICHTEN) : null;
+  const a = g ? ausBereich(rng, g.a) : zufall(rng, 2, 10), b = g ? ausBereich(rng, g.b) : zufall(rng, 2, 10), c = g ? ausBereich(rng, g.c) : zufall(rng, 2, 10);
+  const v = a * b * c;
+  const felder = {
+    thema: 'quader', typ: 'schritte', stufe, taschenrechner: true, bild: { form: 'quader', a, b, c },
+    gegeben: [{ name: 'Länge a', wert: a, einheit: 'cm' }, { name: 'Breite b', wert: b, einheit: 'cm' }, { name: 'Höhe c', wert: c, einheit: 'cm' }],
+    schritte: [{ text: 'V = a · b · c =', wert: v, einheit: 'cm³' }], hinweise: [],
+    loesungsweg: [`V = a · b · c = ${a} · ${b} · ${c} = ${v} cm³`],
+    erklaerung: 'Formelsammlung, Kasten Quader, Zeile Volumen: V = a · b · c. Länge mal Breite mal Höhe.'
+  };
+  if (g) { felder.geschichte = `${g.ding} hat die Form eines Quaders. ${g.pr} ist ${a} cm lang, ${b} cm breit und ${c} cm hoch.`; felder.frage = g.frage; }
+  else felder.frage = `Ein Quader ist a = ${a} cm lang, b = ${b} cm breit und c = ${c} cm hoch. Wie groß ist sein Volumen?`;
+  return neu('quader', g ? ['g', QUADER_GESCHICHTEN.indexOf(g), a, b, c] : ['v', a, b, c], felder);
+}
+
+// Quader mit ausgeschnittenem Kegel (ab Freigabe `zusammengesetzt`): Kegel-Spitze zeigt nach unten in den Quader,
+// der Grundkreis liegt in der Deckfläche. Nur Volumen, immer abziehen: V = V_Quader − V_Kegel.
+// Stufe 1: Bild farbig, r gegeben. Stufe 2: Bild ohne Farben, d gegeben. Stufe 3: Kegel so hoch wie der Quader (h = c), im Bild erkennen.
+// Nur Werte, bei denen ganze, auf 1, 2 oder 3 Stellen gerundete Zwischenwerte dasselbe Ergebnis auf 1 Stelle geben.
+export const ZG_KOERPER = ['Quader und Kegel', 'Quader und Zylinder', 'Würfel und Pyramide'];
+export function quaderKegelOk(vq, vk) {
+  const ziel = r1(vq - vk);
+  return [1, 2, 3].every(k => r1(vq - rdK(vk, k)) === ziel);
+}
+export function zusammengesetzt(stufe, rng) {
+  for (let v = 0; v < 400; v++) {
+    const a = zufall(rng, 6, 12), b = zufall(rng, 6, 12), c = zufall(rng, 6, 12);
+    if (a === b && b === c) continue;                                   // kein Würfel
+    const r = zufall(rng, 2, 5);
+    if (2 * r >= Math.min(a, b)) continue;                              // Kegel passt in die Deckfläche
+    const h = stufe === 3 ? c : zufall(rng, 3, c - 1);
+    const vq = a * b * c, vk = Math.PI * r * r * h / 3, ges = vq - vk;
+    if (!quaderKegelOk(vq, vk)) continue;
+    const mitD = stufe === 2;
+    const opt = mischen(rng, ZG_KOERPER.slice());
+    const schritte = [{ text: 'Aus welchen Körpern besteht er?', optionen: opt, richtig: opt.indexOf(ZG_KOERPER[0]) }];
+    const weg = ['Aus welchen Körpern? → Quader und Kegel (ausgeschnitten)'];
+    if (stufe === 3) {
+      const ho = rng() < 0.5 ? [`h = ${c} cm, so hoch wie der Quader`, 'Das steht nirgends.'] : ['Das steht nirgends.', `h = ${c} cm, so hoch wie der Quader`];
+      schritte.push({ text: 'Wie hoch ist der Kegel?', optionen: ho, richtig: ho.findIndex(o => o.startsWith('h')) });
+      weg.push(`Die Spitze berührt den Boden → h = c = ${c} cm`);
+    }
+    schritte.push({ text: 'V_Quader = a · b · c =', wert: vq, einheit: 'cm³' });
+    weg.push(`V_Quader = ${a} · ${b} · ${c} = ${vq} cm³`);
+    if (mitD) { schritte.push({ text: 'Radius r =', wert: r, einheit: 'cm' }); weg.push(`r = ${2 * r} : 2 = ${r} cm`); }
+    schritte.push(gs({ text: 'V_Kegel = 1/3 · π · r² · h =', wert: r3(vk), toleranz: 0.01, einheit: 'cm³' }, vk));
+    weg.push(`V_Kegel = 1 ÷ 3 × π × ${r}² × ${h} = ${zahlText(r3(vk))}… cm³`);
+    schritte.push({ text: 'Zusammenzählen oder abziehen?', optionen: ['zusammenzählen', 'abziehen'], richtig: 1 });
+    weg.push('Der Kegel ist ausgeschnitten. Er fehlt. → abziehen');
+    schritte.push(gsAus({ text: 'V = V_Quader − V_Kegel =', wert: r3(ges), toleranz: 0.01, einheit: 'cm³' }, [vk], (k) => vq - k),
+      { text: 'Runde auf eine Stelle nach dem Komma. V ≈', wert: r1(ges), einheit: 'cm³', runden: 1 });
+    weg.push(`V = ${vq} − ${zahlText(r3(vk))}… = ${zahlText(r3(ges))}… cm³`, `V ≈ ${zahlText(r1(ges), 1)} cm³`);
+    const kegelText = stufe === 3 ? `Der Kegel hat den Radius r = ${r} cm. Schau im Bild, wie tief er geht.`
+      : mitD ? `Der Kegel hat den Durchmesser d = ${2 * r} cm und die Höhe h = ${h} cm.` : `Der Kegel hat den Radius r = ${r} cm und die Höhe h = ${h} cm.`;
+    return neu('zusammengesetzt', ['quader-kegel', a, b, c, mitD ? 'd' : 'r', mitD ? 2 * r : r, stufe === 3 ? 'c' : h], {
+      thema: 'zusammengesetzt', typ: 'schritte', stufe, form: 'quader-kegel', taschenrechner: true,
+      bild: { form: 'quader-kegel', a, b, c, ...(mitD ? { d: 2 * r } : { r }), h, ...(stufe === 3 ? { h_gleich: true } : {}), ...(stufe === 1 ? { farbig: true } : {}) },
+      frage: `Ein Quader ist a = ${a} cm lang, b = ${b} cm breit und c = ${c} cm hoch. Oben ist ein Kegel ausgeschnitten. ${kegelText} Wie groß ist das Volumen des Körpers?`,
+      gegeben: [{ name: 'Länge a', wert: a, einheit: 'cm' }, { name: 'Breite b', wert: b, einheit: 'cm' }, { name: 'Höhe c', wert: c, einheit: 'cm' },
+        mitD ? { name: 'Durchmesser d vom Kegel', wert: 2 * r, einheit: 'cm' } : { name: 'Radius r vom Kegel', wert: r, einheit: 'cm' },
+        ...(stufe === 3 ? [] : [{ name: 'Höhe h vom Kegel', wert: h, einheit: 'cm' }])],
+      schritte, hinweise: ['kegel', 'runden'], loesungsweg: weg,
+      erklaerung: 'Erst zerlegen: ein Quader, aus dem ein Kegel ausgeschnitten ist. Formelsammlung, Kasten Quader, Zeile Volumen: V = a · b · c. Kasten Kegel, Zeile Volumen: V = 1/3 · π · r² · h. Der Kegel fehlt, also abziehen.' + (mitD ? ' In der Formel steht r, nicht d.' : '') + (stufe === 3 ? ' Die Spitze berührt den Boden: Der Kegel ist so hoch wie der Quader.' : '')
+    });
+  }
+  return null;
+}
+
 // ---------- Kreisdiagramm (Auftrag 33) ----------
 // Stufe 1: 3 Teile, gefragt 2 Teile mit 50/25/10/20 %. Stufe 2: 3–4 Teile, alle gefragt, der letzte als Bonus.
 // Stufe 3: umgekehrt: Anzahl → Prozent, oder ein Teil ohne Prozent („Der Rest“). Jede Anzahl ist ganz.
@@ -945,7 +1022,7 @@ export function block(gen, rng, stufe = 1, opts = {}) {
 export const GENERATOREN = {
   'minus-plus': minusPlus, 'reihenfolge': reihenfolge, 'potenz': potenz, 'einmaleins': einmaleins, 'mal10': mal10,
   'prozent': prozent, 'baukasten': baukasten, 'runden': runden, 'bruch-bild': bruchBild, 'kugel': kugel, 'zylinder': zylinder,
-  'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte, 'prozent-formel': prozentFormel, 'kegel': kegel, 'pyramide': pyramide, 'kreisdiagramm': kreisdiagramm,
+  'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte, 'prozent-formel': prozentFormel, 'kegel': kegel, 'pyramide': pyramide, 'kreisdiagramm': kreisdiagramm, 'quader': quader, 'zusammengesetzt': zusammengesetzt,
   'zehnerpotenz': zehnerpotenz, 'einheiten': einheiten, 'gewichtskraft': gewichtskraft, 'gleichung': gleichung, 'formel-umstellen': formelUmstellen, 'dichte': dichte
 };
 
@@ -954,7 +1031,7 @@ export const THEMA_GENERATOREN = {
   'minus-zahlen': ['minus-plus', 'minus-plus', 'reihenfolge'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'],
   'bruch-bild': ['bruch-bild'], 'zuordnung': ['bruch-bild'], 'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'],
   'prozent-formel': ['prozent-formel'], 'rabatt': ['prozent', 'baukasten'], 'neuer-preis': ['prozent', 'baukasten'], 'kreisdiagramm': ['kreisdiagramm'],
-  'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'],
+  'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'],
   'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
 };
 export const MIX_GENERATOREN = ['einmaleins', 'potenz', 'mal10', 'prozent', 'runden', 'bruch-bild', 'minus-plus', 'reihenfolge', 'baukasten', 'einmaleins'];

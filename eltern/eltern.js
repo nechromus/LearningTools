@@ -17,7 +17,7 @@ import qrcode from './vendor/qrcode.mjs';
 import * as FB from '../js/feedback.js';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.57.1';
+export const ELTERN_VERSION = '1.58.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -2204,7 +2204,7 @@ function splitterSeite() {
 // Welches Thema die Häufigkeit eines Baukastens steuert. Geschichten hängen an einem anderen Baukasten-Thema.
 const GEN_THEMA = {
   'minus-plus': 'minus-zahlen', 'reihenfolge': 'reihenfolge', 'potenz': 'potenzen', 'einmaleins': 'einmaleins', 'mal10': 'mal-10',
-  'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'prozent-formel': 'prozent-formel', 'runden': 'runden', 'bruch-bild': 'bruch-bild', 'kugel': 'kugel', 'zylinder': 'zylinder', 'kegel': 'kegel', 'pyramide': 'pyramide', 'kreisdiagramm': 'kreisdiagramm'
+  'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'prozent-formel': 'prozent-formel', 'runden': 'runden', 'bruch-bild': 'bruch-bild', 'kugel': 'kugel', 'zylinder': 'zylinder', 'kegel': 'kegel', 'pyramide': 'pyramide', 'kreisdiagramm': 'kreisdiagramm', 'quader': 'quader', 'zusammengesetzt': 'zusammengesetzt'
 };
 const GEN_WIE = { 'geld-geschichte': ['minus-zahlen'], 'rabatt-geschichte': ['rabatt', 'neuer-preis'] };
 
@@ -2213,7 +2213,7 @@ const FREIGABE_TEXTE = { minusminus: ['Doppeltes Minus und Minus in Klammern', '
   prozent_formel: ['Prozent mit Formel', 'W = G · p : 100: Formel direkt, im Text, Rabatt mit Formel. Steht die Art im Wochenplan unter „gesperrt“, wird sie ab diesem Tag frei.'],
   halbkugel: ['Halbe Kugel', 'Kugel Stufe 1: auch eine halbe Kugel (Volumen der Kugel : 2).'],
   fs_suchen: ['Formelsammlung: Kasten selbst finden', 'Die Formelsammlung öffnet bei der Übersicht aller Kästen statt beim Kasten des Körpers.'],
-  zusammengesetzt: ['Zusammengesetzte Körper', 'Zwei Teile, nur Volumen, zusammenzählen (Turm, Silo, Eistüte, Doppelkegel).'] };
+  zusammengesetzt: ['Quader mit ausgeschnittenem Kegel', 'Zusammengesetzter Körper: Quader, oben ein Kegel ausgeschnitten. Zerlegen, V_Quader, V_Kegel, abziehen, runden. Steht die Art im Wochenplan unter „gesperrt“, wird sie ab diesem Tag frei.'] };
 // Befristete Hilfen (Auftrag 41): gelten bis einschließlich Datum, ohne Datum aus
 const HILFEN_TEXTE = { malzeichen_hilfe: ['Formel mit Malzeichen', 'Unter einer angehefteten Formel aus der Formelsammlung steht klein „mit Malzeichen: …“.'],
   malzeichen_merk: ['Merkzettel Malzeichen', 'Einmal je Sitzung bei der ersten Körper-Aufgabe: „Steht nichts zwischen Zahl, Buchstabe oder Klammer, heißt das: mal.“'] };

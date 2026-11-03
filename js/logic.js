@@ -78,6 +78,10 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
   if (aufgabe.thema === 'pyramide' && /Volumen/.test(frage) && /^hₛ/.test(o)) return { typ: 'pyramide-hs-statt-h', text: 'hₛ liegt außen auf der Seitenfläche. Für das Volumen brauchst du h: von der Spitze gerade nach unten.' };
   if (aufgabe.thema === 'pyramide' && /Seitenfl/.test(frage) && /^h\s*=/.test(o)) return { typ: 'pyramide-h-statt-hs', text: 'Die Seitenfläche ist ein Dreieck außen. Seine Höhe ist hₛ.' };
   if (aufgabe.thema === 'kegel' && /Mantel/.test(frage) && /^h\s*=/.test(o)) return { typ: 'kegel-h-statt-s', text: aufgabe.generator === 'kegel' ? 'A_M (Mantel) → s (schräg außen). h ist innen.' : 'Für A_M (Mantel) brauchst du s, die schräge Linie außen.' };
+  // Quader mit ausgeschnittenem Kegel (Auftrag 43)
+  if (aufgabe.thema === 'zusammengesetzt' && /^Aus welchen/.test(frage)) return { typ: 'zerlegen', text: 'Außen ist ein Quader. Der Teil, der fehlt, ist unten spitz und oben rund: ein Kegel.' };
+  if (aufgabe.thema === 'zusammengesetzt' && /^Zusammenz/.test(frage)) return { typ: 'zusammen-statt-abziehen', text: 'Der Kegel ist ausgeschnitten. Er fehlt. Also abziehen.' };
+  if (aufgabe.thema === 'zusammengesetzt' && /^Wie hoch ist der Kegel/.test(frage)) return { typ: 'kegel-hoehe-bild', text: 'Schau ins Bild: Die Spitze berührt den Boden. Also ist der Kegel so hoch wie der Quader.' };
   // Zylinder „Was wird gesucht?“ mit vier Möglichkeiten (Auftrag 30)
   if (aufgabe.form === 'gesucht4' && /gesucht/.test(frage)) return { typ: 'zylinder-gesucht', text: '„passt hinein“ → V (Volumen). „rund herum“ → A_M (Mantel). „alles außen, mit Deckel und Boden“ → A_O (Oberfläche). „der Boden“ → A_G (Grundfläche).' };
   return null;
@@ -169,6 +173,14 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
   const schritte = aufgabe.schritte || [];
   const vorher = teil ? schritte[schritte.indexOf(teil) - 1] : null;
 
+  // Quader mit ausgeschnittenem Kegel (Auftrag 43): zusammengezählt statt abgezogen, Drittel vergessen
+  if (aufgabe.thema === 'zusammengesetzt' && teil && teil.wert != null && bild.a) {
+    const p = parseZahl(eingabeText), r = bild.r != null ? bild.r : bild.d / 2;
+    const vq = bild.a * bild.b * bild.c, vk = Math.PI * r * r * bild.h / 3;
+    if (p.ok && /^V = V_Quader|≈\s*$/.test(ttext) && !nah(p.wert, teil.wert) && nah(p.wert, vq + vk)) return { typ: 'zusammen-statt-abziehen', text: 'Der Kegel ist ausgeschnitten. Er fehlt. Also abziehen: V_Quader − V_Kegel.' };
+    if (p.ok && /^V_Kegel/.test(ttext) && nah(p.wert, vk * 3)) return { typ: 'kegel-drittel-vergessen', text: 'Das Drittel nicht vergessen! Erst π · r² · h, dann durch 3.' };
+    if (p.ok && /^V_Kegel/.test(ttext) && bild.d != null && nah(p.wert, vk * 4)) return { typ: 'd-statt-r', text: 'In der Formel steht r, nicht d. Der Radius ist halb so lang.' };
+  }
   // Kreisdiagramm (Auftrag 33): Prozentzahl statt Anzahl eingegeben
   if (aufgabe.thema === 'kreisdiagramm' && teil && /^Wie viele\b/.test(teil.frage || teil.text || '') && aufgabe.bild && aufgabe.bild.gesamt) {
     const p = parseZahl(eingabeText);
@@ -340,6 +352,7 @@ export function muehGruppe(a, { umformen = false } = {}) {
   const g = String(a.generator || '');
   if (a.thema === 'dichte' && DICHTE_GRUPPE[a.variante]) return DICHTE_GRUPPE[a.variante];
   if (a.thema === 'formelsammlung') return 'kurz';                         // „Finde es“ (Auftrag 40)
+  if (a.thema === 'quader') return 'normal';                               // Quader-Volumen (Auftrag 43)
   if (KOERPER.includes(a.thema) || a.typ === 'detektiv' || a.modus === 'knobeln') return 'schwer';
   if (a.typ === 'auswahl') return 'normal';
   if (a.fach === 'physik' && a.geschichte) return 'schwer';                 // Physik-Geschichten
@@ -626,13 +639,13 @@ export function hoechsteKachel(feld) {
 // ---------- Aufgaben aus JSON kontrollieren (Elternbereich, Tools) ----------
 
 export const TYPEN = ['zahl', 'auswahl', 'bruch', 'schritte', 'zuordnung', 'mehrfrage', 'zehnerpotenz', 'formel', 'detektiv'];
-export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'prozent-formel', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte'];
+export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'prozent-formel', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte', 'quader', 'zusammengesetzt'];
 // Fach je Thema (Auftrag 13). Fehlt das Feld fach an der Aufgabe, gilt das Fach des Themas.
 export const PHYSIK_THEMEN = ['zehnerpotenzen', 'einheiten', 'gewichtskraft', 'dichte'];
 export const fachVon = (a) => (a && (a.fach || (PHYSIK_THEMEN.includes(a.thema) ? 'physik' : 'mathe'))) || 'mathe';
 // Körper mit Taschenrechner: eigene Plätze (Schritte und Abschluss), nicht bei Text und Struktur aus dem allgemeinen Pool
-export const KOERPER = ['kugel', 'zylinder', 'kegel', 'pyramide'];
-export const BILDFORMEN = ['streifen', 'kreis', 'quadrat', 'rechteck', 'kreisdiagramm', 'kugel', 'zylinder', 'kegel', 'pyramide'];
+export const KOERPER = ['kugel', 'zylinder', 'kegel', 'pyramide', 'quader', 'zusammengesetzt'];
+export const BILDFORMEN = ['streifen', 'kreis', 'quadrat', 'rechteck', 'kreisdiagramm', 'kugel', 'zylinder', 'kegel', 'pyramide', 'quader', 'quader-kegel'];
 
 export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
   const f = [];
@@ -836,7 +849,7 @@ export const BEDIENUNG = [
   { k: 'teil_loesung', f: 'teilLoesung', std: false, titel: 'Teil-Lösung getrennt werten', text: 'An: Kam die Lösung bei einem Zwischenschritt und der Rest wurde selbst gerechnet, zählt die Aufgabe als „Teil-Lösung“ mit anteiliger Zeit. Bei Körpern zählt eine Auswahl in den ersten 3 Sekunden nicht.' }
 ];
 // Kürzel mit Namen (Auftrag 35): Auswahl bei Körpern zeigt „V (Volumen)“, „A_O (Oberfläche)“ …
-export const KOERPER_THEMEN = ['zylinder', 'kegel', 'pyramide', 'kugel'];
+export const KOERPER_THEMEN = ['zylinder', 'kegel', 'pyramide', 'kugel', 'quader', 'zusammengesetzt'];
 const KUERZEL_VON = { 'Volumen': 'V', 'Oberfläche': 'A_O', 'Mantel': 'A_M', 'Grundfläche': 'A_G' };
 export function mitKuerzel(o) {
   const m = String(o).match(/^(Volumen|Oberfläche|Mantel|Grundfläche)(?:\s+(?:V|A_[OMG]))?(?:\s*\((.+)\))?$/);
@@ -950,7 +963,7 @@ export function mal10Fehler(rechnung, w, ziel) {
   return { typ: 'mal10-ziffer-weg', text: 'Alle Ziffern bleiben. Nur das Komma rutscht.', tafel };
 }
 // Themen, die erst ab ihrem Freigabedatum kommen (Auftrag 30). Steht so ein Thema im Wochenplan unter „gesperrt“, wird es ab dem Datum frei.
-export const FREIGABE_THEMEN = { 'prozent-formel': 'prozent_formel' };
+export const FREIGABE_THEMEN = { 'prozent-formel': 'prozent_formel', 'zusammengesetzt': 'zusammengesetzt' };
 export const themaFreigegeben = (z, thema, heute) => !FREIGABE_THEMEN[thema] || freigegeben(z, FREIGABE_THEMEN[thema], heute);
 export const freigegeben = (z, k, heute) => !!(z && z.freigaben && z.freigaben[k] && z.freigaben[k] <= heute);
 export const bedienung = (e, k) => { const b = BEDIENUNG.find(x => x.k === k); return typeof (e || {})[b.f] === 'boolean' ? e[b.f] : b.std; };

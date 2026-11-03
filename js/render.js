@@ -16,6 +16,7 @@ export function mathe(text) {
   return esc(text)
     .replace(/(\d+)\/(\d+)/g, (_, z, n) => bruchHtml(z, n))
     .replace(/\bA_([GMO])\b/g, 'A<sub>$1</sub>')
+    .replace(/\bV_(Quader|Kegel)\b/g, 'V<sub>$1</sub>')
     .replace(/\bF_G\b/g, 'F<sub>G</sub>')
     .replace(/v₀/g, 'v<sub>0</sub>')
     .replace(/(\d) (€|cm|m(?![a-zäöüß])|%|Min\.)/g, '$1\u00A0$2');
@@ -102,6 +103,8 @@ export function bildSvg(bild, klein = false) {
   if (f === 'zylinder') return zylinderSvg(bild);
   if (f === 'kegel') return kegelSvg(bild);
   if (f === 'pyramide') return pyramideSvg(bild);
+  if (f === 'quader') return quaderSvg(bild);
+  if (f === 'quader-kegel') return quaderKegelSvg(bild);
   return '';
 }
 
@@ -171,6 +174,71 @@ function kegelSvg(b) {
   if (b.s != null) zeilen.push([`s = ${zahlCm(b.s)}`, 'schräg außen', K.s]);
   s += legende(190, 106 - (zeilen.length - 1) * 22, zeilen);
   return svg(360, 200, s, `Kegel: ${zeilen.map(z => z[0]).join(', ')}`);
+}
+
+// ---------- Quader und Quader mit ausgeschnittenem Kegel (Auftrag 43) ----------
+// Quader schräg: a vorne unten, b nach hinten, c senkrecht. Verdeckte Kanten gestrichelt.
+function quaderGeom(b) {
+  const W = 160, H = Math.max(70, Math.min(125, W * b.c / b.a)), L = Math.max(36, Math.min(72, 70 * b.b / b.a));
+  const dx = L * 0.82, dy = -L * 0.57, x0 = 78, yB = 196, yT = yB - H;
+  const P = { ftl: [x0, yT], ftr: [x0 + W, yT], fbl: [x0, yB], fbr: [x0 + W, yB] };
+  for (const k of ['ftl', 'ftr', 'fbl', 'fbr']) P['b' + k.slice(1)] = [P[k][0] + dx, P[k][1] + dy];
+  return { W, H, L, dx, dy, x0, yB, yT, P };
+}
+const pt = (p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
+function quaderKoerper(g, farben) {
+  const { P } = g, f = farben;
+  let s = `<path d="M${pt(P.ftl)}L${pt(P.ftr)}L${pt(P.fbr)}L${pt(P.fbl)}Z" fill="${f.vorne}" stroke="${f.linie}" stroke-width="2"/>`;
+  s += `<path d="M${pt(P.ftr)}L${pt(P.btr)}L${pt(P.bbr)}L${pt(P.fbr)}Z" fill="${f.seite}" stroke="${f.linie}" stroke-width="2"/>`;
+  s += `<path d="M${pt(P.ftl)}L${pt(P.btl)}L${pt(P.btr)}L${pt(P.ftr)}Z" fill="${f.oben}" stroke="${f.linie}" stroke-width="2"/>`;
+  s += `<path d="M${pt(P.fbl)}L${pt(P.bbl)}L${pt(P.bbr)}M${pt(P.bbl)}L${pt(P.btl)}" fill="none" stroke="${f.linie}" stroke-width="1.3" stroke-dasharray="4 3"/>`;
+  return s;
+}
+function quaderMasse(g, b, farbe) {
+  const { P } = g, mb = [(P.fbr[0] + P.bbr[0]) / 2, (P.fbr[1] + P.bbr[1]) / 2];
+  return txt((P.fbl[0] + P.fbr[0]) / 2, P.fbl[1] + 18, `a = ${zahlCm(b.a)}`, farbe.a, 'text-anchor="middle"')
+    + txt(mb[0] + 10, mb[1] + 14, `b = ${zahlCm(b.b)}`, farbe.b)
+    + txt(P.ftl[0] - 8, (P.ftl[1] + P.fbl[1]) / 2 + 5, `c = ${zahlCm(b.c)}`, farbe.c, 'text-anchor="end"');
+}
+const HALO = 'stroke="#fff" stroke-width="4" paint-order="stroke"';
+const QF = { vorne: '#E9F4F8', seite: '#D7ECF3', oben: '#F3F9FB', linie: '#08506A' };
+const QF_SCHULE = { vorne: '#FFFFFF', seite: '#F2F2F2', oben: '#FAFAFA', linie: LINIE };
+function quaderSvg(b) {
+  EINHEIT = b.einheit || 'cm';
+  const g = quaderGeom(b);
+  const s = quaderKoerper(g, QF) + quaderMasse(g, b, { a: K.r, b: K.s, c: K.h });
+  return svg(360, 222, s, `Quader: a = ${zahlCm(b.a)}, b = ${zahlCm(b.b)}, c = ${zahlCm(b.c)}`);
+}
+function quaderKegelSvg(b) {
+  EINHEIT = 'cm';
+  const g = quaderGeom(b), farbig = !!b.farbig, f = farbig ? QF : QF_SCHULE, kl = farbig ? '#C2410C' : LINIE;
+  const r = b.r != null ? b.r : b.d / 2;
+  const c = [(g.P.ftl[0] + g.P.ftr[0]) / 2 + g.dx / 2, g.yT + g.dy / 2];   // Mitte der Deckfläche
+  const rx = r * g.W / b.a, ry = Math.max(6, r * Math.abs(g.dy) / b.b), spitze = [c[0], c[1] + b.h * g.H / b.c];
+  let s = quaderKoerper(g, f);
+  // Kegel: Öffnung oben sichtbar, Seiten innen (gestrichelt), farbig orange
+  s += `<path d="M${c[0] - rx} ${c[1]}L${pt(spitze)}L${c[0] + rx} ${c[1]}Z" fill="${farbig ? '#FCE3D3' : '#EDEDED'}" fill-opacity="${farbig ? 0.75 : 0.6}"/>`;
+  s += `<ellipse cx="${c[0]}" cy="${c[1]}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="${farbig ? '#F8C9A8' : '#DCDCDC'}" stroke="${kl}" stroke-width="2"/>`;
+  s += `<path d="M${(c[0] - rx).toFixed(1)} ${c[1]}L${pt(spitze)}L${(c[0] + rx).toFixed(1)} ${c[1]}" fill="none" stroke="${kl}" stroke-width="1.6" stroke-dasharray="5 3"/>`;
+  s += `<circle cx="${spitze[0]}" cy="${spitze[1].toFixed(1)}" r="2.6" fill="${kl}"/>`;
+  s += `<line x1="${g.P.ftl[0]}" y1="${g.yT}" x2="${g.P.ftr[0]}" y2="${g.yT}" stroke="${f.linie}" stroke-width="2"/>`; // vordere Kante liegt vor dem Kegel
+  // Maße: r bzw. d oben, h innen (Stufe 3 ohne h: die Spitze berührt den Boden)
+  const mf = farbig ? { a: K.r, b: K.s, c: K.h, r: K.r, d: K.d, h: K.h } : { a: LINIE, b: LINIE, c: LINIE, r: LINIE, d: LINIE, h: LINIE };
+  if (b.d != null) {
+    s += pfeil(c[0] - rx + 2, c[1], c[0] + rx - 2, c[1], mf.d);
+    s += txt(c[0], c[1] - ry - 6, `d = ${zahlCm(b.d)}`, mf.d, 'text-anchor="middle" ' + HALO);
+  } else {
+    s += `<line x1="${c[0]}" y1="${c[1]}" x2="${(c[0] + rx - 1).toFixed(1)}" y2="${c[1]}" stroke="${mf.r}" stroke-width="2.6"/><circle cx="${c[0]}" cy="${c[1]}" r="2.4" fill="${LINIE}"/>`;
+    s += txt(c[0] + rx / 2, c[1] - ry - 6, `r = ${zahlCm(r)}`, mf.r, 'text-anchor="middle" ' + HALO);
+  }
+  if (!b.h_gleich) {
+    s += `<line x1="${c[0]}" y1="${c[1]}" x2="${spitze[0]}" y2="${spitze[1].toFixed(1)}" stroke="${mf.h}" stroke-width="2" stroke-dasharray="3 3"/>`;
+    const my = Math.max((c[1] + spitze[1]) / 2, c[1] + ry + 16);
+    s += txt(c[0] - rx / 2 - 8, my + 5, `h = ${zahlCm(b.h)}`, mf.h, 'text-anchor="end" ' + HALO);
+  }
+  s += quaderMasse(g, b, mf);
+  const kegel = `Kegel ${b.d != null ? `d = ${zahlCm(b.d)}` : `r = ${zahlCm(r)}`}${b.h_gleich ? ', Spitze unten auf dem Boden' : `, h = ${zahlCm(b.h)}`}`;
+  return svg(360, 222, s, `Quader a = ${zahlCm(b.a)}, b = ${zahlCm(b.b)}, c = ${zahlCm(b.c)}, oben ein Kegel ausgeschnitten: ${kegel}`);
 }
 
 function pyramideSvg(b) {
