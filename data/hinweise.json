@@ -138,7 +138,7 @@
       },
       "regeln": [
         "V = 4/3 · π · r³",
-        "O = 4 · π · r²",
+        "A_O = 4 · π · r²",
         "d gegeben? Dann r = d : 2",
         "„passt hinein\" → Volumen, „außen herum\" → Oberfläche",
         "Taschenrechner: Taste π, am Ende runden"
@@ -327,7 +327,8 @@
         "Erst rechnen wie beim Zylinder, dann durch 3",
         "A_G = π · r²  (der Kreis unten)",
         "A_M = π · r · s  (die Fläche außen herum)",
-        "A_O = A_G + A_M  (1 Kreis und der Mantel)",
+        "A_O = π · r(r + s) = A_G + A_M  (1 Kreis und der Mantel)",
+        "s² = r² + h²  (Mantellinie s, wenn sie fehlt)",
         "Volumen → h, Mantel → s"
       ],
       "achtung": "Das Drittel nicht vergessen!",
@@ -355,9 +356,8 @@
         "A_G = a · a = a²  (das Quadrat unten)",
         "Volumen → h (innen, gerade nach unten)",
         "Seitenflächen → hₛ (außen, schräg)",
-        "1 Dreieck = 1/2 · a · hₛ",
-        "A_M = 4 Dreiecke",
-        "A_O = A_G + A_M  (Quadrat und 4 Dreiecke)"
+        "A_M = 2a · hₛ  (die 4 Dreiecke außen)",
+        "A_O = A_G + A_M  (Quadrat und Mantel)"
       ],
       "achtung": "Das Drittel nicht vergessen!",
       "beispiel": "a = 12 cm, h = 8 cm → A_G = 144 → 144 · 8 = 1152 → : 3 → V = 384 cm³",
