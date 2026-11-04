@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.39.1';
+export const APP_VERSION = '2.39.2';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -2947,7 +2947,8 @@ function teileHtml() {
       if (aktiv && t.zp) {
         inhalt = `${label}${zpEingabeHtml(t)}`;
       } else if (aktiv) {
-        inhalt = `${label}${fsPinHtml()}<div class="feld-zeile"><div class="feld aktiv-feld${t.eingabe ? '' : ' leer'}" aria-live="polite">${esc(t.eingabe.replace('-', '−')) || '?'}</div>${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}</div>`;
+        inhalt = `${label}${fsPinHtml()}<div class="feld-zeile"><div class="feld aktiv-feld${t.eingabe ? '' : ' leer'}" aria-live="polite">${esc(t.eingabe.replace('-', '−')) || '?'}</div>${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}</div>`
+          + (t.rundenTipp && A.phase === 'eingabe' && !t.versuche.length ? '<div class="lese-tipp runden-tipp">Die Zahl hat schon 1 Stelle nach dem Komma. Sie ist fertig gerundet. Schreib sie noch einmal ab.</div>' : '');
       } else {
         const ok = t.versuche.find(v => v.richtig);
         const zeigen = ok ? `${eingabeText(ok.eingabe)}${t.einheit ? ' ' + t.einheit : ''}` : formatWert(t.ziel.wert, t.einheit);
@@ -3363,6 +3364,19 @@ function antwortGeben() {
     if (!richtig && t.nennerFest) fehler = { typ: 'gefaerbt-zaehler', text: `Zähl die gefärbten ${gefaerbtWort(a)} im Bild.` };
   }
   if (!richtig && !fehler && t.knobel) fehler = { typ: 'knobel', text: 'Probier es noch einmal. Oder tippe auf „In Schritten rechnen“.' };
+  // Auftrag 44: Runden-Schritt am Schluss, die Zahl davor hatte schon höchstens 1 Stelle → erst ein Tipp, dann Fehlertyp „nachgerundet“
+  if (!richtig && t.art === 'zahl') {
+    const vor = schonGerundet(t);
+    if (vor != null) {
+      const p = L.parseZahl(t.eingabe);
+      if (p.ok && Math.abs(p.wert - vor) < 1e-9) richtig = true;
+      else if (!t.rundenTipp) {
+        t.rundenTipp = true;
+        protokoll(S, 'runden_tipp', { id: a.id, teil: A.idx, eingabe, vorher: vor });
+        eingabeLeeren(t); sichern(); return zeigeAufgabe();
+      } else fehler = { typ: 'nachgerundet', text: 'Runde nur einmal, ganz am Ende.' };
+    }
+  }
   // Zu schnell (Textaufgabe im 1. Versuch oder nach einem Fehler): zählt nicht als Versuch
   const schnell = !richtig && L.zuSchnell(a, t, Date.now() - t.seit);
   if (schnell) return zuSchnellMelden(t, eingabe, schnell);
@@ -3375,6 +3389,19 @@ function antwortGeben() {
     return zeigeAufgabe();
   }
   versuchMerken(t, eingabe, richtig, fehler);
+}
+
+// Auftrag 44: Ist das der Runden-Schritt am Schluss einer Körper-Aufgabe aus dem Baukasten, und hatte die richtige Eingabe
+// im Schritt davor schon höchstens 1 Stelle nach dem Komma? Dann diese Zahl, sonst null.
+function schonGerundet(t) {
+  const a = A.aufgabe, q = t.quelle || {};
+  if (!a.generator || !L.KOERPER_THEMEN.includes(a.thema) || q.runden == null || A.idx !== A.teile.length - 1) return null;
+  const v = A.teile[A.idx - 1];
+  if (!v || v.art !== 'zahl' || !v.versuche) return null;
+  const ok = [...v.versuche].reverse().find(x => x.richtig);
+  if (!ok) return null;
+  const e = String(ok.eingabe), stellen = e.includes('.') ? e.split('.')[1].length : 0;
+  return stellen <= q.runden ? Number(e) : null;
 }
 
 // Tippen auf ein späteres Feld: aktuelles Feld abgeben, wenn etwas drinsteht. Sonst das aktuelle Feld aufblinken lassen.

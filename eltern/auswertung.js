@@ -7,7 +7,7 @@ import * as BS from '../js/bildschirm.js';
 import * as LP from '../js/lernplan.js';
 import * as W from '../js/wochenplan.js';
 
-const ZU_AUFGABE = new Set(['versuch', 'versuch_wiederholt', 'tipp_bestaetigt', 'hinweis', 'rechner', 'rechner_offen',
+const ZU_AUFGABE = new Set(['versuch', 'versuch_wiederholt', 'runden_tipp', 'tipp_bestaetigt', 'hinweis', 'rechner', 'rechner_offen',
   'rechner_angeboten', 'rechner_optional', 'verlassen', 'sprung', 'loesung_gezeigt', 'bonus_teil_uebersprungen', 'hilfe',
   'zu_schnell', 'vorlesen', 'gelesen', 'text_hilfe', 'hinweis_kurz', 'hinweis_lang', 'formeluebersicht', 'schritte_an', 'umformen_an', 'umform_versuch', 'umform_schritt', 'umform_hilfe', 'umform_umweg', 'umform_zurueck', 'umform_aufstellen', 'umform_fertig', 'erinnerung']);
 
@@ -284,6 +284,7 @@ export function zeitleiste(rec, a, hinweisTitel = {}) {
         p.art = e.richtig ? 'ok' : 'fehler';
         break;
       }
+      case 'runden_tipp': p.titel = `Schon gerundet, noch einmal gerundet: ${zahl(e.eingabe)}`; p.text = `Zahl davor ${zahl(e.vorher)} · Tipp „Sie ist fertig gerundet. Schreib sie noch einmal ab.“ · zählt nicht`; p.art = 'info'; break;
       case 'versuch_wiederholt': p.titel = `Gleiche Antwort nochmal: ${zahl(e.eingabe)}`; p.text = 'zählt nicht als neuer Versuch'; break;
       case 'tipp_bestaetigt': p.titel = 'Tipp gelesen'; break;
       case 'hinweis': p.titel = `Hinweis „${hinweisTitel[e.hinweis] || e.hinweis}“ geöffnet`; break;
