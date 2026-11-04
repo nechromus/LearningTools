@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.39.2';
+export const APP_VERSION = '2.39.3';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1888,7 +1888,16 @@ function startInfoVon(A, extra = {}) {
   });
   // Erzeugte oder hinzugefügte Aufgaben vollständig mitschreiben, damit die Eltern-App sie zeigen kann
   if (!BASIS_IDS.has(aufgabe.id)) startInfo.aufgabe = aufgabe;
+  // Auftrag 45: dieselbe Aufgabe mal in Schritten, mal gebündelt (Knobeln; doppeltes Minus mit/ohne Zwischenschritt)
+  const dar = darstellungVon(A);
+  if (dar) startInfo.darstellung = dar;
   return startInfo;
+}
+function darstellungVon(A) {
+  const a = A.aufgabe;
+  if (a.modus === 'knobeln') return A.knobeln ? 'gebuendelt' : 'schritte';
+  if (['minusminus', 'klammer_negativ'].includes(a.form)) return Array.isArray(a.parameter) && a.parameter[1] === 'z' ? 'schritte' : 'gebuendelt';
+  return null;
 }
 
 // Zustand einer angefangenen Aufgabe zum Speichern (ohne Taschenrechner-Anzeige)
@@ -2339,11 +2348,11 @@ function ufHilfe() {
       const s1 = (A.aufgabe.schritte || []).find(x => x.text && !/^\s*x\s*=/.test(x.text));
       u.aufTipp = true;
       u.tipp = `${s1 ? `Denk zuerst an diese Frage: ${esc(s1.text)} ` : ''}Schreib das mit ${esc(u.ziel)}. Setz es gleich dem, was herauskommen soll.`;
-      protokoll(S, 'umform_hilfe', { id: A.aufgabe.id, schritt: 0, art: 'aufstellen-tipp' });
+      protokoll(S, 'umform_hilfe', { id: A.aufgabe.id, schritt: 0, art: 'aufstellen-tipp', ...hb('umformen.aufstellen-tipp') });
     } else {
       u.app = { ...u.zielGl }; u.status = {};
       u.tipp = 'So heißt die Gleichung. Vergleiche sie mit der Geschichte.';
-      protokoll(S, 'umform_hilfe', { id: A.aufgabe.id, schritt: 0, art: 'aufstellen-gleichung' });
+      protokoll(S, 'umform_hilfe', { id: A.aufgabe.id, schritt: 0, art: 'aufstellen-gleichung', ...hb('umformen.aufstellen-gleichung') });
     }
     sichern();
     return zeigeAufgabe();
@@ -2352,18 +2361,18 @@ function ufHilfe() {
     const v = UF.vorschlag(A.aufgabe, u.gl, u.schritte.length, u.vars);
     if (!u.vorschlag) {
       u.vorschlag = v || `Was passiert mit ${u.ziel}? Mach es auf beiden Seiten rückgängig, in umgekehrter Reihenfolge.`;
-      protokoll(S, 'umform_hilfe', { id: A.aufgabe.id, schritt: u.schritte.length + 1, art: 'vorschlag', vorschlag: v || null });
+      protokoll(S, 'umform_hilfe', { id: A.aufgabe.id, schritt: u.schritte.length + 1, art: 'vorschlag', vorschlag: v || null, ...hb('umformen.vorschlag') });
     } else {
       const um = UF.umformungAus(u.vorschlag);
       if (um && um.art === 'op') { u.op = um.op; u.term = UF.setzen(um.term); }
-      else if (um) { protokoll(S, 'umform_hilfe', { id: A.aufgabe.id, schritt: u.schritte.length + 1, art: 'uebernommen' }); return ufAnwenden(um.art); }
-      protokoll(S, 'umform_hilfe', { id: A.aufgabe.id, schritt: u.schritte.length + 1, art: 'uebernommen' });
+      else if (um) { protokoll(S, 'umform_hilfe', { id: A.aufgabe.id, schritt: u.schritte.length + 1, art: 'uebernommen', ...hb('umformen.uebernommen') }); return ufAnwenden(um.art); }
+      protokoll(S, 'umform_hilfe', { id: A.aufgabe.id, schritt: u.schritte.length + 1, art: 'uebernommen', ...hb('umformen.uebernommen') });
     }
     u.hilfe = true;
   } else if (u.stufe > 1) {
     u.stufe -= 1; u.schrittHilfe = true; u.hilfe = true;
     ufStufeAnwenden();
-    protokoll(S, 'umform_hilfe', { id: A.aufgabe.id, schritt: u.schritte.length + 1, art: 'stufe' + u.stufe });
+    protokoll(S, 'umform_hilfe', { id: A.aufgabe.id, schritt: u.schritte.length + 1, art: 'stufe' + u.stufe, ...hb('umformen.stufe' + u.stufe) });
   }
   sichern();
   zeigeAufgabe();
@@ -2380,7 +2389,7 @@ function schritteAn(auto = false) {
   teileStarten(A.teile);
   A.idx = 0; A.phase = 'eingabe'; A.feld = 'z';
   A.meldung = auto ? 'Jetzt rechnest du in Schritten.' : null;
-  protokoll(S, 'schritte_an', { id: A.aufgabe.id, auto, versuche: alt ? alt.versuche.length : 0, ms: Date.now() - A.start });
+  protokoll(S, 'schritte_an', { id: A.aufgabe.id, auto, versuche: alt ? alt.versuche.length : 0, ms: Date.now() - A.start, ...hb('knobeln.in-schritten') });
   sichern();
   zeigeAufgabe();
 }
@@ -2588,7 +2597,7 @@ function textHilfeJa() {
   schliesseModal();
   A.textHilfe = true;
   if (A.satz != null) { A.satz = L.saetzeVon(A.aufgabe.geschichte).length; A.textSeit = A.textSeit || Date.now(); }
-  protokoll(S, 'text_hilfe', { id: A.aufgabe.id, angenommen: true });
+  protokoll(S, 'text_hilfe', { id: A.aufgabe.id, angenommen: true, ...hb('text.vorlesen-markieren') });
   sichern();
   zeigeAufgabe();
   vorlesen();
@@ -2649,14 +2658,14 @@ function zuSchnellMelden(t, eingabe, art = 'text') {
   if (art === 'auswahl') {
     A.meldung = null; t.leseSchnell = (t.leseSchnell || 0) + 1; A.signal = true; t.gewaehlt = null; t.seit = Date.now();
     t.lesenBis = Date.now() + L.LESEZEIT_MS;
-    protokoll(S, 'zu_schnell', { id: A.aufgabe.id, teil: A.idx, eingabe, ms, art }); sichern(); zeigeAufgabe();
+    protokoll(S, 'zu_schnell', { id: A.aufgabe.id, teil: A.idx, eingabe, ms, art, ...hb('lesezeit.auswahl') }); sichern(); zeigeAufgabe();
     const teil = t;
     setTimeout(() => { if (A && !A.fertig && aktuellerTeil() === teil && ansicht === 'aufgabe') zeigeAufgabe(); }, L.LESEZEIT_MS + 50);
     return;
   }
   t.schnell = (t.schnell || 0) + 1;
   A.schnellFolge = (A.schnellFolge || 0) + 1;
-  protokoll(S, 'zu_schnell', { id: A.aufgabe.id, teil: A.idx, eingabe, ms, art, folge: A.schnellFolge });
+  protokoll(S, 'zu_schnell', { id: A.aufgabe.id, teil: A.idx, eingabe, ms, art, folge: A.schnellFolge, ...hb(art === 'tipp' ? 'tipp.zu-schnell' : 'tipp.lies-noch-einmal') });
   if (t.art !== 'legen') eingabeLeeren(t);
   if (art === 'tipp') t.seit = Date.now();
   // Hinweis gegen Durchklicken: nach zwei zu schnellen Eingaben hintereinander, einmal pro Aufgabe (je Kind schaltbar)
@@ -2787,7 +2796,7 @@ function fsOeffnen() {
   const z = a && a.thema === 'zusammengesetzt' ? fsZiel(aktuellerTeil()) : null;
   const k = !suchen && a && L.KOERPER_THEMEN.includes(a.thema) ? (a.thema === 'zusammengesetzt' ? (z ? z.kasten : a.form === 'wuerfel-kegel' ? 'wuerfel' : 'quader') : a.thema) : null;
   if (A) A.fsEinladung = false;
-  protokoll(S, 'formelsammlung', { aktion: 'offen', kasten: k, aufgabe: a ? a.id : null, schritt: A ? A.idx : null });
+  protokoll(S, 'formelsammlung', { aktion: 'offen', kasten: k, aufgabe: a ? a.id : null, schritt: A ? A.idx : null, ...hb(k ? 'formelsammlung.' + k : 'formelsammlung.uebersicht') });
   sichern();
   fsZeigen(k);
 }
@@ -2836,7 +2845,7 @@ function fsAnheften(k, i) {
   const mal = L.hilfeAn(S, 'malzeichen_hilfe', L.tagKey()) ? L.malzeichenErgaenzen(z.text) : null;
   A.fsPin = { kasten: k, titel: x.titel, zeile: z.zeile, html: z.html, teil: A.idx, ...(mal ? { mal } : {}) };
   A.fsAnzahl = (A.fsAnzahl || 0) + 1;
-  protokoll(S, 'formelsammlung', { aktion: 'anheften', kasten: k, zeile: z.zeile, aufgabe: A.aufgabe.id, schritt: A.idx, ...(ziel ? { richtige_zeile: ziel.kasten === k && ziel.zeile === z.zeile } : {}), ...(mal ? { mit_malzeichen: true } : {}) });
+  protokoll(S, 'formelsammlung', { aktion: 'anheften', kasten: k, zeile: z.zeile, aufgabe: A.aufgabe.id, schritt: A.idx, ...hb(`formelsammlung.${k}.${ZEILE_ID(z.zeile)}`), ...(ziel ? { richtige_zeile: ziel.kasten === k && ziel.zeile === z.zeile } : {}), ...(mal ? { mit_malzeichen: true } : {}) });
   schliesseModal(); sichern(); zeigeAufgabe();
 }
 // Formel mit ergänzten Malzeichen: Text der Formelsammlung, die neuen Malzeichen farbig
@@ -2848,7 +2857,7 @@ function malMerkzettel() {
   const a = A && A.aufgabe;
   if (!a || !L.KOERPER_THEMEN.includes(a.thema) || S.malSitzung || !L.hilfeAn(S, 'malzeichen_merk', L.tagKey())) return;
   S.malSitzung = true;
-  protokoll(S, 'merkzettel', { art: 'malzeichen', aktion: 'gezeigt', id: a.id });
+  protokoll(S, 'merkzettel', { art: 'malzeichen', aktion: 'gezeigt', id: a.id, ...hb('merkzettel.malzeichen') });
   sichern();
   oeffneModal(`<div class="hinweis-text mal-merk"><div class="merk-titel">Merkzettel</div><h2 class="modal-titel">Malzeichen lesen</h2>
     <p>In der Formelsammlung fehlt oft das Malzeichen.</p>
@@ -2868,7 +2877,7 @@ function fsNotfall() {
   const id = (A.aufgabe.hinweise || []).find(h => HMAP[h]);
   if (!id) return;
   A.notfall = true;
-  protokoll(S, 'formelsammlung', { aktion: 'notfall', kasten: A.aufgabe.thema, aufgabe: A.aufgabe.id, schritt: A.idx });
+  protokoll(S, 'formelsammlung', { aktion: 'notfall', kasten: A.aufgabe.thema, aufgabe: A.aufgabe.id, schritt: A.idx, ...hb('formelsammlung.notfall') });
   schliesseModal();
   hinweisOeffnen(id);
 }
@@ -3269,6 +3278,12 @@ function hilfeBox(t) {
   return `<div class="hilfe-box"><div class="hilfe-titel">So fängst du an</div>${anz.zeilen.map(z => `<div class="hilfe-zeile">${mathe(z)}</div>`).join('')}<p class="hilfe-text">Rechne das <b>?</b> aus.</p></div>`;
 }
 
+// Auftrag 45: feste Hinweis-IDs und Fehler-Bezug für Hilfe-Ereignisse (nur Protokoll, kein anderes Verhalten)
+const ZEILE_ID = (z) => String(z || '').toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+function hb(hinweisId) {
+  const f = A && !A.fertig ? A.letzterFehler : (A && A.letzterFehler) || null;
+  return { hinweis_id: hinweisId, nach_fehler: f ? f.typ : null, ...(f ? { nach_fehler_teil: f.teil } : {}) };
+}
 function hilfeZeigen() {
   const t = aktuellerTeil();
   if (!t || A.phase !== 'eingabe' || !hilfeKnopf() || hilfeRest(t) > 0) return;
@@ -3276,7 +3291,7 @@ function hilfeZeigen() {
   A.hilfeGenutzt = true;
   const haupt = A.teile.filter(x => !x.merk);
   const anz = L.hilfeAnzeige(A.aufgabe.loesungsweg || [], haupt.length, haupt.indexOf(t), t.hilfe);
-  protokoll(S, 'hilfe', { id: A.aufgabe.id, teil: A.idx, stufe: t.hilfe, zeilen: anz.zeilen });
+  protokoll(S, 'hilfe', { id: A.aufgabe.id, teil: A.idx, stufe: t.hilfe, zeilen: anz.zeilen, ...hb('hilfmir.loesungsweg') });
   sichern();
   zeigeAufgabe();
   const b = document.querySelector('.hilfe-box');
@@ -3372,7 +3387,7 @@ function antwortGeben() {
       if (p.ok && Math.abs(p.wert - vor) < 1e-9) richtig = true;
       else if (!t.rundenTipp) {
         t.rundenTipp = true;
-        protokoll(S, 'runden_tipp', { id: a.id, teil: A.idx, eingabe, vorher: vor });
+        protokoll(S, 'runden_tipp', { id: a.id, teil: A.idx, eingabe, vorher: vor, ...hb('tipp.schon-gerundet') });
         eingabeLeeren(t); sichern(); return zeigeAufgabe();
       } else fehler = { typ: 'nachgerundet', text: 'Runde nur einmal, ganz am Ende.' };
     }
@@ -3437,6 +3452,7 @@ function versuchMerken(t, eingabe, richtig, fehler) {
   const a = A.aufgabe;
   const ms = Date.now() - t.seit;
   t.versuche.push({ eingabe, richtig });
+  if (!richtig) A.letzterFehler = { typ: fehler ? fehler.typ : null, teil: A.idx };
   protokoll(S, 'versuch', {
     id: a.id, thema: a.thema, teil: A.idx, label: t.label || null, merk: !!t.merk, versuch: t.versuche.length, eingabe, richtig,
     fehler: fehler ? fehler.typ : null, ms, schnell: !!a.geschichte && ms < 4000,
@@ -3458,6 +3474,7 @@ function versuchMerken(t, eingabe, richtig, fehler) {
   const fz = fsAufgabe() && t.art === 'zahl' && !t.merk ? fsZiel(t) : null;
   if (t.versuche.length < maxVersuche) {
     t.tipp = fehler ? fehler.text : fz ? 'Rechne noch einmal.' : 'Schau dir den Hinweis an und rechne noch einmal.';
+    t.tippId = fehler ? 'tipp.' + fehler.typ : fz ? 'tipp.formelsammlung' : 'tipp.allgemein';
     if (fz) t.tipp += ' Schau in die Formelsammlung.';
     t.tafel = fehler && fehler.tafel ? fehler.tafel : null; // Stellentafel bei Mal 10 (Auftrag 36)
     // Ohne „Verstanden“ (Schalter pro Kind): der Tipp bleibt stehen, bis weitergetippt wird
@@ -3470,7 +3487,7 @@ function versuchMerken(t, eingabe, richtig, fehler) {
     if (fz) t.fsZeile = fsZeile(fz); // Formelsammlung: Kasten und Zeile mit der Lösung
     t.tafel = fehler && fehler.tafel ? fehler.tafel : t.tafel || null;
     A.phase = 'aufgeloest';
-    protokoll(S, 'loesung_gezeigt', { id: a.id, teil: A.idx, loesung_schritt: A.idx, loesung_label: t.label || null });
+    protokoll(S, 'loesung_gezeigt', { id: a.id, teil: A.idx, loesung_schritt: A.idx, loesung_label: t.label || null, ...hb('loesung.schritt') });
   }
   sichern();
   zeigeAufgabe();
@@ -3679,6 +3696,7 @@ function zuordnungAntwort() {
   z.versuch++;
   const ms = Date.now() - t.seit;
   t.versuche.push({ eingabe: JSON.stringify(z.wahl), richtig: !falsch.length });
+  if (falsch.length) A.letzterFehler = { typ: null, teil: 0 };
   protokoll(S, 'versuch', { id: A.aufgabe.id, thema: A.aufgabe.thema, teil: 0, versuch: z.versuch, eingabe: z.wahl, falsch: falsch.length, richtig: !falsch.length, ms, hinweiseOffen: A.hinweise.slice() });
   t.seit = Date.now();
   if (!falsch.length) { t.status = z.versuch === 1 ? 'erst' : 'zweit'; return naechsterTeil(); }
@@ -3694,7 +3712,7 @@ function zuordnungAntwort() {
   z.falsch = new Set(falsch);
   A.aufgabe.gruppen.forEach((_, gi) => z.spalten.forEach(s => { z.wahl[gi][s] = gi; }));
   t.status = 'loesung';
-  protokoll(S, 'loesung_gezeigt', { id: A.aufgabe.id, teil: 0 });
+  protokoll(S, 'loesung_gezeigt', { id: A.aufgabe.id, teil: 0, ...hb('loesung.schritt') });
   A.phase = 'aufgeloest';
   sichern();
   zeigeAufgabe();
@@ -3711,18 +3729,18 @@ function hinweisOeffnen(id) {
   if (!h) return;
   if (A && ansicht === 'aufgabe' && !A.hinweise.includes(id)) A.hinweise.push(id);
   if (!FORMELN) {
-    protokoll(S, 'hinweis', { hinweis: id, id: aufgabeId() });
+    protokoll(S, 'hinweis', { hinweis: id, id: aufgabeId(), ...hb(id) });
     sichern();
     return oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);
   }
   // Stufe „Gleich lang“: sofort der lange Hinweis, ohne Kosten
   if (langStufe() === 0) {
-    protokoll(S, 'hinweis_lang', { hinweis: id, stufe: 0, kosten: 'keine', id: aufgabeId() });
+    protokoll(S, 'hinweis_lang', { hinweis: id, stufe: 0, kosten: 'keine', id: aufgabeId(), ...hb(id) });
     sichern();
     return oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);
   }
   const abschnitte = FU.abschnitteFuer(FORMELN, id).map(a => a.id);
-  protokoll(S, 'hinweis_kurz', { hinweis: id, abschnitte, id: aufgabeId() });
+  protokoll(S, 'hinweis_kurz', { hinweis: id, abschnitte, id: aufgabeId(), ...hb(abschnitte.length ? abschnitte.map(x => 'formeluebersicht.' + x) : 'formeluebersicht.leer') });
   sichern();
   kurzZeigen(id);
 }
@@ -3744,7 +3762,7 @@ function mehrHilfe(id) {
   const kostet = stufe === 2 && A && ansicht === 'aufgabe' && !A.fertig;
   if (kostet) A.langHalb = true;
   if (A && ansicht === 'aufgabe') { A.hinweiseLang = A.hinweiseLang || []; if (!A.hinweiseLang.includes(id)) A.hinweiseLang.push(id); }
-  protokoll(S, 'hinweis_lang', { hinweis: id, stufe, kosten: kostet ? 'halb' : 'keine', id: aufgabeId() });
+  protokoll(S, 'hinweis_lang', { hinweis: id, stufe, kosten: kostet ? 'halb' : 'keine', id: aufgabeId(), ...hb(id) });
   sichern();
   oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);
   if (ansicht === 'aufgabe' && A) zeigeAufgabe();
@@ -5193,7 +5211,7 @@ function klick(e) {
     case 'linienPruefen': linienPruefen(); break;
     case 'detektivHilfe': protokoll(S, 'detektiv_hilfe', { id: A && A.aufgabe.id }); detektivEinfuehrung(); break;
     case 'verstanden':
-      protokoll(S, 'tipp_bestaetigt', { id: A.aufgabe.id, teil: A.idx });
+      protokoll(S, 'tipp_bestaetigt', { id: A.aufgabe.id, teil: A.idx, ...hb((aktuellerTeil() || {}).tippId || 'tipp.allgemein') });
       A.phase = 'eingabe'; A.meldung = null; zeigeAufgabe(); break;
     case 'weiter': naechsterTeil(); break;
     case 'hinweis': hinweisOeffnen(el.dataset.id); break;
