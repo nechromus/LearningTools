@@ -17,7 +17,7 @@ import qrcode from './vendor/qrcode.mjs';
 import * as FB from '../js/feedback.js';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.58.0';
+export const ELTERN_VERSION = '1.58.1';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -2146,7 +2146,7 @@ function bzKarte() {
   return `<section class="karte liste-karte bz-liste">
     <div class="karte-kopf"><h2>Bildschirmzeit</h2></div>
     <div class="bz-zeile"><div><b>Heute</b><span class="klein gedaempft block">verdient ${A.minutenText(heute)} von ${w.max + w.extraMin} Min.</span></div></div>
-    ${liste.slice(0, 10).map(e => `<div class="bz-zeile"><div><b>${esc(zeitText(e.t))}</b><span class="klein gedaempft block">${A.minutenText(e.sekunden)} · ${e.aufgaben} ${e.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}</span></div><span class="bz-code">${esc(e.code || '–')}</span></div>`).join('')}
+    ${liste.slice(0, 10).map(e => `<div class="bz-zeile"><div><b>${esc(zeitText(e.t))}</b><span class="klein gedaempft block">${A.minutenText(e.sekunden)} · ${e.aufgaben} ${e.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}</span>${e.doppelt ? `<span class="klein block bz-doppelt">⚠ Code schon am ${esc(zeitText(e.doppelt))} abgeschickt. Neu sind nur ${A.minutenText(e.neuSek)} (${e.neuAufgaben} ${e.neuAufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}).</span>` : ''}</div><span class="bz-code">${esc(e.code || '–')}</span></div>`).join('')}
     ${liste.length ? '<p class="klein gedaempft">Stimmt der Code in der Nachricht mit dem hier überein, ist die Anfrage echt.</p>' : ''}
   </section>`;
 }

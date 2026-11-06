@@ -72,8 +72,28 @@ export function kontoVon(b, tag) {
     tag,
     heute: gleicherTag && Number.isFinite(k.heute) && k.heute > 0 ? Math.round(k.heute) : 0,
     aufgaben: Number.isInteger(k.aufgaben) && k.aufgaben > 0 ? k.aufgaben : 0,
-    code: typeof k.code === 'string' && /^[A-Z0-9]{4}$/.test(k.code) ? k.code : null
+    code: typeof k.code === 'string' && /^[A-Z0-9]{4}$/.test(k.code) ? k.code : null,
+    gesendet: codesVon(k.gesendet)
   };
+}
+
+// Schon abgeschickte Codes (die letzten 20), damit ein alter Stand vom Server nicht noch einmal abgeschickt wird
+const CODE_RE = /^[A-Z0-9]{4}$/;
+function codesVon(l) {
+  return Array.isArray(l) ? [...new Set(l.filter(c => typeof c === 'string' && CODE_RE.test(c)))].slice(-20) : [];
+}
+
+// Nach dem Übernehmen eines Spielstands: Codes von Handy und Server zusammenführen.
+// Steht im übernommenen Konto ein Code, der schon abgeschickt ist, war das Konto schon eingelöst: zurück auf 0.
+// Gibt { sekunden, aufgaben, code } zurück, wenn zurückgesetzt wurde, sonst null.
+export function schonGesendetPruefen(konto, lokaleCodes) {
+  konto.gesendet = codesVon([...(konto.gesendet || []), ...(lokaleCodes || [])]);
+  if (!konto.code || !konto.gesendet.includes(konto.code) || !(konto.stand > 0)) return null;
+  const weg = { sekunden: konto.stand, aufgaben: konto.aufgaben, code: konto.code };
+  konto.stand = 0;
+  konto.aufgaben = 0;
+  konto.code = null;
+  return weg;
 }
 
 // Abschicken erst ab der Mindestzeit (Standard 15 Min.)
@@ -125,6 +145,7 @@ export function nachrichtText(konto, jetzt) {
 // Nach dem Teilen: Konto auf 0, Eintrag für das Protokoll zurückgeben
 export function abschicken(konto) {
   const eintrag = { sekunden: konto.stand, aufgaben: konto.aufgaben, code: konto.code };
+  if (konto.code) konto.gesendet = codesVon([...(konto.gesendet || []), konto.code]);
   konto.stand = 0;
   konto.aufgaben = 0;
   konto.code = null;

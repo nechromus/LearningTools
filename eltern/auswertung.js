@@ -392,7 +392,7 @@ export function kennzahlen(aufgaben, eintraege, vonTag) {
     gespieltSek: ein.filter(e => e.typ === 'spiel_ende').reduce((s, e) => s + (e.sekunden || 0), 0),
     // Bildschirmzeit: verdient (aufgabe_ende.bildschirm) und eingelöst (abgeschickt, Ereignis bildschirmzeit)
     bzVerdientSek: auf.reduce((s, r) => s + (r.ende.bildschirm || 0), 0),
-    bzEingeloestSek: ein.filter(e => e.typ === 'bildschirmzeit').reduce((s, e) => s + (e.sekunden || 0), 0),
+    bzEingeloestSek: bzAnfragen(ein).reduce((s, e) => s + e.neuSek, 0), // doppelt geschickte Zeit nur einmal
     bzEingeloest: ein.filter(e => e.typ === 'bildschirmzeit').length,
     geschenkt: ein.filter(e => e.typ === 'basis').length,
     aktiveTage: Object.keys(tage).length,
@@ -557,8 +557,20 @@ export function szHeute(eintraege, heute = tagKey()) {
   return eintraege.filter(e => e.typ === 'aufgabe_ende' && tagKey(new Date(e.t)) === heute).reduce((s, e) => s + (e.sekunden || 0), 0);
 }
 // Abgeschickte Bildschirmzeit (neueste zuerst)
+// Kam derselbe Code schon einmal (Fehler bis App 2.39.3: altes Konto vom Server wieder übernommen),
+// steht am Eintrag doppelt = Zeitpunkt der ersten Anfrage und neuSek / neuAufgaben = nur der neue Teil.
 export function bzAnfragen(eintraege) {
-  return eintraege.filter(e => e.typ === 'bildschirmzeit').slice().sort((a, b) => a.t < b.t ? 1 : -1);
+  const l = eintraege.filter(e => e.typ === 'bildschirmzeit').slice().sort((a, b) => a.t < b.t ? -1 : 1);
+  const vorher = {};
+  const aus = l.map(e => {
+    const v = e.code && vorher[e.code];
+    const r = v && (e.sekunden || 0) >= (v.sekunden || 0)
+      ? { ...e, doppelt: v.t, neuSek: (e.sekunden || 0) - (v.sekunden || 0), neuAufgaben: Math.max(0, (e.aufgaben || 0) - (v.aufgaben || 0)) }
+      : { ...e, neuSek: e.sekunden || 0, neuAufgaben: e.aufgaben || 0 };
+    if (e.code) vorher[e.code] = e;
+    return r;
+  });
+  return aus.reverse();
 }
 // Heute verdiente Bildschirmzeit (Sekunden)
 export function bzHeute(eintraege, heute = tagKey()) {

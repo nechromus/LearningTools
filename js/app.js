@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.39.3';
+export const APP_VERSION = '2.39.4';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -433,16 +433,21 @@ async function fernHolen(erzwingen = false) {
 // Ist auf dem Server eine neuere Fassung als die, die dieses Handy zuletzt kannte, wird sie übernommen –
 // auch wenn auf dem Handy inzwischen etwas anderes passiert ist. Erst danach wird hochgeladen.
 const standPfad = () => `daten/${nutzerOrdner()}/spielstand.json`;
-let standLaeuft = false, standZuletztGeprueft = 0;
+let standLaeuft = false, standNochmal = false, standZuletztGeprueft = 0;
 const ruhigeAnsicht = () => ['start', 'eltern', 'anmeldung'].includes(ansicht);
 const revVon = (d) => (d && Number(d.rev)) || 0;
 
 function standUebernehmen(datei, grund) {
   const warFrisch = istFrisch(S);
+  const lokaleCodes = (S.bildschirm && S.bildschirm.gesendet) || [];
   if (!spielstandAnwenden(S, datei)) return false;
   const u = S.upload;
   u.standRev = revVon(datei);
   u.standKern = spielstandKern(S);
+  // Schon abgeschickte Bildschirmzeit nicht wieder aufs Konto holen (alter Stand vom Moment des Teilens).
+  // Erst nach standKern: So unterscheidet sich der Stand vom Server und wird gleich wieder hochgeladen.
+  const weg = BS.schonGesendetPruefen(bzKonto(), lokaleCodes);
+  if (weg) { protokoll(S, 'bildschirm_korrigiert', { ...weg, rev: u.standRev }); standNochmal = true; }
   u.standOnline = { gespeichert: datei.gespeichert, geraetId: datei.geraetId };
   u.standWartet = false;
   protokoll(S, 'spielstand_geladen', { von: datei.geraetId, gespeichert: datei.gespeichert, rev: u.standRev, grund });
@@ -480,7 +485,9 @@ async function standAbgleich(erzwingen = false) {
 // dann gewinnt der Server und es wird nichts hochgeladen.
 async function standHochladen(erzwingen = false) {
   const u = S.upload;
-  if (!S.einstellungen.name || u.testgeraet || u.testAls || !u.repo || !u.token || standLaeuft || u.standWartet) return false;
+  if (standLaeuft) { if (erzwingen) standNochmal = true; return false; } // läuft schon: danach noch einmal
+  if (!S.einstellungen.name || u.testgeraet || u.testAls || !u.repo || !u.token || u.standWartet) return false;
+  standNochmal = false;
   const kern = spielstandKern(S);
   if (!erzwingen && kern === u.standKern) return false;
   standLaeuft = true;
@@ -505,6 +512,8 @@ async function standHochladen(erzwingen = false) {
   } finally {
     standLaeuft = false;
     sichern();
+    // Hat sich während des Hochladens etwas Wichtiges geändert (z. B. Bildschirmzeit abgeschickt), gleich noch einmal
+    if (standNochmal) { standNochmal = false; setTimeout(() => standHochladen(true), 0); }
   }
 }
 
@@ -1164,6 +1173,7 @@ async function bzTeilen() {
   const eintrag = BS.abschicken(k);
   protokoll(S, 'bildschirmzeit', { ...eintrag, faktor: BZ().faktor, bild: !!mitBild });
   sichern();
+  standHochladen(true); // Konto mit 0 sicher auf den Server (läuft gerade ein Upload vom Teilen-Fenster: danach)
   syncen();
   bzGeschickt = { sekunden: eintrag.sekunden };
   zeigeBildschirmzeit();
