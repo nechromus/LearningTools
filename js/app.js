@@ -31,7 +31,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.39.4';
+export const APP_VERSION = '2.39.5';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1154,6 +1154,8 @@ function zeigeBildschirmzeit() {
   </div>`;
 }
 
+// Teilen läuft: Geht die App dabei in den Hintergrund, war eine andere App offen (z. B. WhatsApp).
+let bzTeilenLaeuft = false, bzTeilenWeg = false;
 async function bzTeilen() {
   const k = bzKonto();
   if (!BS.kannAbschicken(k, BZ()) || !k.code) return;
@@ -1161,8 +1163,18 @@ async function bzTeilen() {
   let geteilt = false, mitBild = false;
   if (navigator.share) {
     mitBild = bzBildDatei && navigator.canShare && navigator.canShare({ files: [bzBildDatei], text });
+    bzTeilenLaeuft = true; bzTeilenWeg = false;
     try { await navigator.share(mitBild ? { files: [bzBildDatei], text } : { text }); geteilt = true; }
-    catch (e) { if (e && e.name === 'AbortError') return; } // abgebrochen: alles bleibt stehen
+    catch (e) {
+      if (e && e.name === 'AbortError') {
+        // Das iPhone meldet manchmal „abgebrochen“, obwohl die Nachricht rausging. War die App weg, nachfragen.
+        const weg = bzTeilenWeg;
+        bzTeilenLaeuft = false;
+        protokoll(S, 'teilen_abbruch', { code: k.code, sekunden: k.stand, weg });
+        if (weg) bzNachfragen(!!mitBild);
+        return; // sonst abgebrochen: alles bleibt stehen
+      }
+    } finally { bzTeilenLaeuft = false; }
   }
   if (!geteilt) {
     // Kein Teilen-Fenster (z. B. Computer): Text kopieren
@@ -1170,8 +1182,18 @@ async function bzTeilen() {
     const m = document.getElementById('bz-meldung');
     if (m && m.hidden) { m.hidden = false; m.textContent = 'Der Text ist kopiert. Füge ihn in deine Nachricht ein. Dann tippe noch einmal auf „Teilen“.'; return; }
   }
+  bzAbgeschickt(k, !!mitBild);
+}
+
+function bzNachfragen(mitBild) {
+  oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Ist die Nachricht angekommen?</h2>
+    <p>Hast du sie an deine Eltern geschickt?</p>
+    <div class="knopf-reihe"><button class="btn btn-haupt" data-act="bzAngekommen" data-bild="${mitBild ? 1 : 0}">Ja, geschickt</button><button class="btn" data-act="bzNichtAngekommen">Nein</button></div></div>`);
+}
+
+function bzAbgeschickt(k, mitBild, bestaetigt = false) {
   const eintrag = BS.abschicken(k);
-  protokoll(S, 'bildschirmzeit', { ...eintrag, faktor: BZ().faktor, bild: !!mitBild });
+  protokoll(S, 'bildschirmzeit', { ...eintrag, faktor: BZ().faktor, bild: !!mitBild, ...(bestaetigt ? { bestaetigt: true } : {}) });
   sichern();
   standHochladen(true); // Konto mit 0 sicher auf den Server (läuft gerade ein Upload vom Teilen-Fenster: danach)
   syncen();
@@ -3875,6 +3897,7 @@ function rechnerUebernehmen() {
 
 function sichtbarkeit() {
   if (document.hidden) {
+    if (bzTeilenLaeuft) bzTeilenWeg = true;
     versteckt = Date.now();
     S.laufend = ansicht === 'aufgabe' && A && !A.fertig && !A.aufgabe.bonus ? aufgabeSchnappschuss() : null;
     sichern();
@@ -5097,6 +5120,13 @@ function klick(e) {
     case 'zweckBild': zweck = 'bild'; protokoll(S, 'zweck', { zweck, grund: 'spielzeit_voll' }); neueAufgabe(); break;
     case 'bzSeite': zeigeBildschirmzeit(); break;
     case 'bzTeilen': bzTeilen(); break;
+    case 'bzAngekommen': {
+      schliesseModal();
+      const k = bzKonto();
+      if (BS.kannAbschicken(k, BZ()) && k.code) bzAbgeschickt(k, el.dataset.bild === '1', true);
+      break;
+    }
+    case 'bzNichtAngekommen': schliesseModal(); protokoll(S, 'teilen_nicht_angekommen', {}); sichern(); break;
     case 'spielen':
       zeigeSpiel(); break;
     case 'zumSpiel':
