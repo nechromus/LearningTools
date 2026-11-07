@@ -17,7 +17,7 @@ import qrcode from './vendor/qrcode.mjs';
 import * as FB from '../js/feedback.js';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.59.0';
+export const ELTERN_VERSION = '1.59.1';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -882,7 +882,8 @@ async function bgZeit(id, art, wert) {
     if (z) { z.geaendert = jetzt; await U.dateiSchreiben(C, ZEIT(o, id), JSON.stringify(z, null, 1), `${ordnerName(o)}: Bogen ${id} Zeit (${art})`); }
     else await U.dateiLoeschen(C, ZEIT(o, id), `${ordnerName(o)}: Bogen ${id} Zeitmessung verworfen`).catch(() => {});
     BG.zeit[id] = z;
-    if (z && !z.laeuft && z.ende) { zeitInsFeedback(id, z); if (art === 'fertig' || art === 'ende') { BG.zeitSchreibt = false; location.hash = '#boegen/' + encodeURIComponent(id); return; } }
+    // Auf dem Überblick (Schritt 3) bleiben: dort folgen „Zum Schluss“ und Speichern
+    if (z && !z.laeuft && z.ende) { zeitInsFeedback(id, z); if ((art === 'fertig' || art === 'ende') && !/\/ende$/.test(location.hash)) { BG.zeitSchreibt = false; location.hash = '#boegen/' + encodeURIComponent(id); return; } }
   } catch (e) { BG.zeitMeldung = { id, text: e.message || 'Speichern hat nicht geklappt.' }; }
   BG.zeitSchreibt = false; zeichne();
 }
@@ -1184,6 +1185,7 @@ function bogenEnde(id) {
   return `<div class="seite schmal-inhalt bg-schritt bg-wisch" data-vor="${zurueck}"><a class="zurueck" href="${zurueck}">‹ ${nrn.length ? 'Übung ' + esc(nrn[nrn.length - 1]) : 'Allgemein'}</a><h1>${bgGesperrt(id) ? 'Überblick' : 'Fertig?'}</h1><p class="klein gedaempft">Schritt 3 von 3 · Überblick</p>
     ${bgLeiste(id, 'ende')}${bgAbgeschickt(id)}
     <section class="karte liste-karte">${nrn.map(nr => { const u = e.uebungen[nr] || { ergebnis: 'klappt', chips: [], notiz: '' }, x = bgUeInfo(id, nr) || {}; return `<a class="zeile bg-ueb" href="#boegen/${encodeURIComponent(id)}/${encodeURIComponent(nr)}"><span class="zeile-haupt">${esc(nr)}${x.titel ? ' · ' + esc(x.titel) : ''}<span class="klein gedaempft block">${[u.bonus ? 'Bonus: ' + u.bonus.ergebnis : '', u.chips.length ? u.chips.join(', ') : '', u.notiz ? 'Notiz' : '', u.fotos && u.fotos.length ? u.fotos.length + ' Foto' + (u.fotos.length > 1 ? 's' : '') : ''].filter(Boolean).join(' · ')}</span></span><span class="bg-pill" data-erg="${esc(u.ergebnis)}">${esc(u.ergebnis)}</span></a>`; }).join('')}</section>
+    ${!bgGesperrt(id) && BG.zeit[id] ? zeitBox(id) : ''}
     <section class="karte bg-allg"><h3 class="bg-h3">Zum Schluss</h3>${bgAllgemeinFelder(id, e, A.BOGEN_ENDE, false)}${bgSonst(id, e)}</section>
     ${bgGesperrt(id) ? (BG.meldung ? `<p class="meldung ${BG.meldung.art}">${esc(BG.meldung.text)}</p>` : '') : `${bgSpeichernKnopf(id)}<p class="klein gedaempft mitte">Danach im Chat: „Bogen ${esc(bgTitel(id).replace(' · ', ' '))} erledigt“</p>`}</div>`;
 }
