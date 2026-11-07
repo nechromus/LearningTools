@@ -1115,3 +1115,17 @@ mark.signal { background: rgba(245, 180, 60, .35); color: inherit; border-radius
 .mal-regel { background: #FBF1DE; border-radius: 10px; padding: 10px 12px; }
 .mal-beispiele { margin: 4px 0 8px; padding-left: 20px; display: grid; gap: 4px; }
 .mal-falle { margin: 4px 0; }
+
+/* Runengruft: der alte Kobold und das Spiel in der App */
+.kobold-karte { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; border-radius: 14px; background: linear-gradient(90deg, #2a2a1c, #182022); border: 1px solid #8a6a3a; color: #F1F6F3; text-align: left; font: inherit; cursor: pointer; box-shadow: 0 0 18px rgba(216, 176, 90, 0.18); }
+.kobold-karte b { display: block; font-size: 17px; }
+.kobold-karte .klein { color: #c9b98a; }
+.kobold-mini { width: 54px; height: 54px; flex: none; }
+.kobold-dialog { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.kobold-dialog canvas { width: 100%; max-width: 260px; height: auto; align-self: center; border-radius: 12px; background: radial-gradient(ellipse at 50% 30%, #1d2a28, #0b100f); }
+.kobold-wer { font-family: 'Cinzel', serif; color: #D8B05A; letter-spacing: 0.04em; }
+.kobold-dialog p { margin: 0; font-size: 18px; line-height: 1.4; }
+.kobold-zaehler { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 30px; font-variant-numeric: tabular-nums; color: #B9FFE2; }
+.modul-runengruft .km-huelle { display: block; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.modul-runengruft .rg { max-width: 520px; margin: 0 auto; }
+.spiel-start .kobold-karte { grid-column: 1 / -1; }

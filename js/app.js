@@ -16,6 +16,9 @@ import { runenreihenStarten } from './runenreihen-ui.js';
 import { hoehlenkarteStarten } from './hoehlenkarte-ui.js';
 import { runenbrecherStarten } from './runenbrecher-ui.js';
 import { jadeschlangeStarten } from './jadeschlange-ui.js';
+import { runengruftStarten } from './runengruft-ui.js';
+import * as RGF from './runengruft-freischalten.js';
+import { koboldMalen } from './kobold-bild.js';
 import * as SP from './splitter.js';
 import * as BS from './bildschirm.js';
 import * as LP from './lernplan.js';
@@ -31,7 +34,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.39.5';
+export const APP_VERSION = '2.40.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -618,18 +621,24 @@ const SPIEL_INFO = {
   runenreihen: { text: 'Drei gleiche', start: () => zeigeModulSpiel('runenreihen') },
   hoehlenkarte: { text: 'Fallen finden', start: () => zeigeModulSpiel('hoehlenkarte') },
   runenbrecher: { text: 'Mauern brechen', start: () => zeigeModulSpiel('runenbrecher') },
-  jadeschlange: { text: 'Schlange lenken', start: () => zeigeModulSpiel('jadeschlange') }
+  jadeschlange: { text: 'Schlange lenken', start: () => zeigeModulSpiel('jadeschlange') },
+  runengruft: { text: 'Abenteuer in der Gruft', start: () => zeigeModulSpiel('runengruft') }
 };
+// Runengruft: eigenes Abenteuer, freigeschaltet beim alten Kobold (Schalter „runengruft“ in den Einstellungen)
+const RUNENGRUFT = { id: 'runengruft', name: 'Runengruft' };
+const runengruftAn = () => bed('runengruft');
+const runengruftFrei = (sp = SP.splitterVon(S.splitter)) => runengruftAn() && (RGF.etageFrei(sp, 0) || !!S.upload.testgeraet);
 const IMMER_OFFEN = [{ id: '2048', name: '2048' }, { id: 'runenfeld', name: 'Runenfeld' }, { id: 'kristallmine', name: 'Kristallmine' }];
 const SPIEL_START = Object.fromEntries(Object.entries(SPIEL_INFO).filter(([, v]) => v.start).map(([k, v]) => [k, v.start]));
 
 // Darf dieses Spiel gerade gespielt werden? (Test-Handys: alle fertigen Spiele)
 function spielOffen(id, sp = SP.splitterVon(S.splitter)) {
   if (IMMER_OFFEN.some(g => g.id === id)) return true;
+  if (id === 'runengruft') return runengruftFrei(sp);
   const g = SP.NEUE_SPIELE.find(x => x.id === id);
   return !!g && g.fertig && !!SPIEL_START[id] && (SP.istFrei(sp, id) || !!S.upload.testgeraet);
 }
-const spielName = (id) => (IMMER_OFFEN.find(g => g.id === id) || SP.NEUE_SPIELE.find(g => g.id === id) || { name: id }).name;
+const spielName = (id) => (IMMER_OFFEN.find(g => g.id === id) || SP.NEUE_SPIELE.find(g => g.id === id) || (id === 'runengruft' ? RUNENGRUFT : null) || { name: id }).name;
 const letztesOffenes = () => (S.letztesSpiel && spielOffen(S.letztesSpiel) ? S.letztesSpiel : '2048');
 function spielStarten(id) { if (spielOffen(id) && SPIEL_START[id]) SPIEL_START[id](); }
 
@@ -660,6 +669,7 @@ function spieleStartHtml() {
   const bereit = n && n.fehlt === 0 && n.spiel.fertig;
   const anteil = n ? Math.min(100, Math.round(sp.stand / Math.max(1, n.preis) * 100)) : 100;
   return `<div class="spiel-start">
+      ${koboldKarteHtml(sp)}
       <button class="btn btn-amber-rand weiter-spiel" data-act="zumSpiel">${spielVorschau(id, 40)}<span><span class="klein">Weiter mit</span><b>${esc(spielName(id)).replace(/^(Kristall|Stein|Runen|Höhlen|Jade)(.{4,})$/, '$1&shy;$2')}</b></span></button>
       <button class="spiele-knopf${bereit ? ' bereit' : ''}" data-act="spielauswahl">
         <span class="spiele-knopf-kopf"><b>Alle Spiele</b><span class="splitter-mini">${splitterSymbol(16)}${sp.stand}</span></span>
@@ -669,9 +679,22 @@ function spieleStartHtml() {
     </div>`;
 }
 
+// Der alte Kobold wartet am Schrein (ab 300 Runensplittern, solange die Runengruft zu ist)
+function koboldKarteHtml(sp) {
+  if (!runengruftAn() || !RGF.koboldDa(sp)) return '';
+  setTimeout(koboldMinisMalen, 0);
+  return `<button class="kobold-karte" data-act="kobold"><canvas class="kobold-mini" width="96" height="96" aria-hidden="true"></canvas><span><b>Ein alter Kobold wartet am Schrein</b><span class="klein">Er will dir etwas zeigen.</span></span></button>`;
+}
+function koboldMinisMalen() {
+  document.querySelectorAll('canvas.kobold-mini').forEach(c => {
+    const g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height);
+    g.save(); g.translate(c.width * 0.42, c.height * 0.97); koboldMalen(g, 1200, c.width / 230, false, true); g.restore();
+  });
+}
+
 function spielKarte(g, sp, n) {
   const offen = spielOffen(g.id, sp);
-  const frei = IMMER_OFFEN.some(x => x.id === g.id) || SP.istFrei(sp, g.id);
+  const frei = IMMER_OFFEN.some(x => x.id === g.id) || SP.istFrei(sp, g.id) || (g.id === 'runengruft' && offen);
   const info = SPIEL_INFO[g.id] || {};
   const zuletzt = g.id === letztesOffenes();
   if (frei) {
@@ -703,7 +726,7 @@ function zeigeSpieleSeite() {
   setzeAnsicht('spiele');
   const sp = SP.splitterVon(S.splitter);
   const n = SP.naechstes(sp);
-  const offen = [...IMMER_OFFEN, ...SP.NEUE_SPIELE.filter(g => SP.istFrei(sp, g.id))];
+  const offen = [...(runengruftFrei(sp) ? [RUNENGRUFT] : []), ...IMMER_OFFEN, ...SP.NEUE_SPIELE.filter(g => SP.istFrei(sp, g.id))];
   const gesperrt = SP.NEUE_SPIELE.filter(g => !SP.istFrei(sp, g.id));
   $app.innerHTML = `
   <div class="spiele-zauber" aria-hidden="true"><div class="sz-lichter"><i></i><i></i><i></i><i></i></div>
@@ -712,6 +735,7 @@ function zeigeSpieleSeite() {
     <header class="topbar"><button class="btn-text" data-act="start">← Zurück</button><b class="spiele-titel"><span class="sz-rune">✦</span>Spiele<span class="sz-rune">✦</span></b>
       <button class="splitter-chip dunkel" data-act="erfolge" aria-label="Runensplitter und Erfolge">${splitterSymbol(22)}<b>${sp.stand}</b></button></header>
     <div class="spiele-uhr">${zeitSymbol(22)} <b>${L.formatZeit(S.guthaben)}</b> Spielzeit</div>
+    ${koboldKarteHtml(sp)}
     <h2 class="spiele-abschnitt"><span>Deine Spiele</span></h2>
     <div class="spiele-gitter">${offen.map(g => spielKarte(g, sp, n)).join('')}</div>
     ${gesperrt.length ? `<h2 class="spiele-abschnitt"><span>Noch zu entdecken</span></h2>
@@ -720,6 +744,102 @@ function zeigeSpieleSeite() {
     ${S.guthaben <= 0 ? '<p class="spiele-hinweis">Keine Spielzeit mehr. Mach ein paar Aufgaben!</p>' : ''}
     <button class="btn btn-haupt btn-gross" data-act="aufgaben">Aufgaben machen</button>
   </div>`;
+}
+
+// ---------- Der alte Kobold: Runengruft für alle Runensplitter ----------
+const KOBOLD_SAETZE = [
+  'Hm. Ich rieche Runensplitter. Viele.',
+  'Unter dem Schrein liegt eine alte Gruft. Ich kenne den Weg hinab.',
+  'Gib mir alle deine Splitter. Dann öffne ich dir das Tor.'
+];
+let koboldSchleife = null;
+function koboldBild() {
+  cancelAnimationFrame(koboldSchleife);
+  const male = (t) => {
+    const c = document.querySelector('#kobold-bild');
+    if (!c) return;
+    const g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height);
+    g.save(); g.translate(c.width * 0.42, c.height * 0.96); koboldMalen(g, t, c.height / 300, RGF.rgVon(SP.splitterVon(S.splitter)).kobold, ruhigeBewegung()); g.restore();
+    koboldSchleife = requestAnimationFrame(male);
+  };
+  koboldSchleife = requestAnimationFrame(male);
+}
+const ruhigeBewegung = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+function koboldZeigen(schritt = 0) {
+  const sp = SP.splitterVon(S.splitter);
+  if (!runengruftAn() || !RGF.koboldDa(sp)) return;
+  if (schritt === 0) protokoll(S, 'kobold', { aktion: 'gezeigt', stand: sp.stand });
+  const letzter = schritt === KOBOLD_SAETZE.length - 1;
+  oeffneModal(`<div class="kobold-dialog"><canvas id="kobold-bild" width="260" height="240" aria-hidden="true"></canvas>
+    <span class="kobold-wer">Der alte Kobold</span><p>${KOBOLD_SAETZE[schritt]}</p>
+    ${letzter ? `<p class="klein gedaempft">Du hast ${sp.stand} Runensplitter.</p>` : ''}
+    <div class="knopf-reihe">${letzter ? '<button class="btn" data-act="koboldSpaeter">Noch nicht</button><button class="btn btn-haupt" data-act="koboldJa">Ja, nimm sie</button>' : `<button class="btn btn-haupt" data-act="koboldWeiter" data-schritt="${schritt + 1}">Weiter</button>`}</div></div>`,
+    () => { cancelAnimationFrame(koboldSchleife); if (ansicht === 'spiele') zeigeSpieleSeite(); else if (ansicht === 'start') zeigeStart(); });
+  koboldBild();
+}
+function koboldSpaeter() {
+  protokoll(S, 'kobold', { aktion: 'spaeter' }); sichern();
+  oeffneModal(`<div class="kobold-dialog"><canvas id="kobold-bild" width="260" height="240" aria-hidden="true"></canvas>
+    <span class="kobold-wer">Der alte Kobold</span><p>Gut. Ich warte hier am Schrein. Ich habe Zeit. Viel Zeit.</p>
+    <div class="knopf-reihe"><button class="btn btn-haupt" data-act="modalZu">Bis bald</button></div></div>`,
+    () => { cancelAnimationFrame(koboldSchleife); if (ansicht === 'spiele') zeigeSpieleSeite(); else if (ansicht === 'start') zeigeStart(); });
+  koboldBild();
+}
+function koboldJa() {
+  S.splitter = SP.splitterVon(S.splitter);
+  const r = RGF.koboldAnnehmen(S.splitter);
+  if (!r) { schliesseModal(); return; }
+  protokoll(S, 'kobold', { aktion: 'angenommen', gegeben: r.gegeben });
+  sichern();
+  standHochladen(true);
+  oeffneModal(`<div class="kobold-dialog"><canvas id="kobold-bild" width="260" height="240" aria-hidden="true"></canvas>
+    <div class="kobold-zaehler">${splitterSymbol(28)}<b id="kobold-zahl">${r.gegeben}</b></div>
+    <span class="kobold-wer">Der alte Kobold</span><p id="kobold-text">Eins, zwei, viele … Danke. Die Splitter brauche ich für die Runen am Tor.</p>
+    <div class="knopf-reihe" id="kobold-knoepfe" style="display:none"><button class="btn" data-act="modalZu">Später</button><button class="btn btn-haupt" data-act="neuspiel" data-id="runengruft">Zur Runengruft</button></div></div>`,
+    () => { cancelAnimationFrame(koboldSchleife); if (ansicht === 'spiele') zeigeSpieleSeite(); else if (ansicht === 'start') zeigeStart(); });
+  koboldBild();
+  const start = performance.now(), dauer = ruhigeBewegung() ? 10 : Math.min(3200, 900 + r.gegeben * 1.2);
+  const zaehlen = (t) => {
+    const el = document.getElementById('kobold-zahl');
+    if (!el) return;
+    const p = Math.min(1, (t - start) / dauer);
+    el.textContent = Math.round(r.gegeben * (1 - (1 - (1 - p) * (1 - p))));
+    if (p < 1) requestAnimationFrame(zaehlen);
+    else {
+      document.getElementById('kobold-text').textContent = 'Das Tor ist offen. Unten wartet die erste Etage. Für jede weitere Etage brauchen die Runen neue Splitter.';
+      document.getElementById('kobold-knoepfe').style.display = '';
+    }
+  };
+  requestAnimationFrame(zaehlen);
+}
+// Für die Runengruft: Etagen freischalten und Hilfen bezahlen
+function runengruftOpt() {
+  const sp = () => (S.splitter = SP.splitterVon(S.splitter));
+  const HILFE = { tipp: 'Tipp', spur: 'Spur zu einem Geheimnis', trank: 'Heiltrank' };
+  return {
+    etagen: {
+      frei: (nr) => RGF.etageFrei(sp(), nr) || !!S.upload.testgeraet,
+      info: (nr) => { const n = RGF.naechsteEtage(sp()); return n && n.etage === nr && n.fertig ? n : null; },
+      kaufen: (nr) => {
+        const n = RGF.naechsteEtage(sp());
+        if (!RGF.etageFreischalten(sp(), nr)) return false;
+        protokoll(S, 'runengruft_etage', { etage: nr + 1, preis: n.preis, stand: S.splitter.stand });
+        sichern(); standHochladen(true);
+        return true;
+      }
+    },
+    splitter: {
+      stand: () => sp().stand,
+      bezahlen: (n, art) => {
+        const s0 = sp();
+        if (s0.stand < n) return false;
+        SP.gutschreiben(s0, -n, 'kobold_hilfe', `Kobold: ${HILFE[art] || art}`);
+        protokoll(S, 'runengruft_hilfe', { art, preis: n, stand: s0.stand });
+        sichern();
+        return true;
+      }
+    }
+  };
 }
 
 function freischaltenJetzt(id) {
@@ -4354,6 +4474,7 @@ function zeigeSteinschieber() {
 // ---------- Weitere freischaltbare Spiele als Bausteine (gleiche Schnittstelle: starten, beenden, anhalten, stand, ruht) ----------
 
 const MODUL_SPIELE = {
+  runengruft: { starten: runengruftStarten, feld: 'runengruft', extra: () => runengruftOpt(), ende: (k) => ({ etage: (k.etage || 0) + 1, stufe: k.helden && k.helden[0] ? k.helden[0].stufe : 1, geheimnisse: Object.values(k.gefunden || {}).reduce((n, a) => n + (Array.isArray(a) ? a.length : 0), 0), geschafft: (k.geschafftBis ?? -1) + 1 }) },
   runenreihen: { starten: runenreihenStarten, feld: 'runenreihen', ende: (k) => ({ punkte: k.punkte || 0, stufe: k.stufe || 1, zuege: k.zuege || 0, rekord: k.rekord || 0 }) },
   hoehlenkarte: { starten: hoehlenkarteStarten, feld: 'hoehlenkarte', ende: (k) => ({ groesse: k.groesse || null, offen: Array.isArray(k.offen) ? k.offen.filter(Boolean).length : (k.offen || 0), zurueck: k.zurueck || 0, tipps: k.tipps || 0 }) },
   runenbrecher: { starten: runenbrecherStarten, feld: 'runenbrecher', ende: (k) => ({ punkte: k.punkte || 0, level: (k.level || 0) + 1, hoechstes: (k.hoechstes || 0) + 1 }) },
@@ -4417,11 +4538,11 @@ function zeigeModulSpiel(id) {
   if (spielSitzung && spielSitzung.art !== id) spielBeenden();
   if (!spielSitzung) {
     spielSitzung = { start: Date.now(), sekunden: 0, art: id };
-    protokoll(S, 'spiel_start', { guthaben: S.guthaben, spiel: id, test: !SP.istFrei(SP.splitterVon(S.splitter), id) || undefined });
+    protokoll(S, 'spiel_start', { guthaben: S.guthaben, spiel: id, test: (id === 'runengruft' ? !RGF.etageFrei(SP.splitterVon(S.splitter), 0) : !SP.istFrei(SP.splitterVon(S.splitter), id)) || undefined });
   }
   sichern();
   $app.innerHTML = `
-  <div class="screen spiel-screen kristallmine-screen">
+  <div class="screen spiel-screen kristallmine-screen modul-${id}">
     <header class="topbar spiel-kopf">
       <button class="btn-text" data-act="spielZurueck">← Zurück</button>
       <div class="rune-uhr${S.guthaben < 60 ? ' knapp' : ''}" id="uhr"><span class="uhr-ring"></span><span id="spielzeit">${L.formatZeit(S.guthaben)}</span></div>
@@ -4434,7 +4555,8 @@ function zeigeModulSpiel(id) {
     stand: S[m.feld],
     sichern: (st) => { S[m.feld] = st; sichern(); },
     melden: (typ, daten) => { protokoll(S, typ, daten); sichern(); },
-    darfLaufen: spielDarfLaufen
+    darfLaufen: spielDarfLaufen,
+    ...(m.extra ? m.extra() : {})
   }) };
   overlayPruefen();
   anleitungErstmals(id);
@@ -5141,6 +5263,10 @@ function klick(e) {
     case 'anleitungZurueck': { const a = document.getElementById('anleitung'); anleitungZeigen(a.dataset.id, Number(a.dataset.seite) - 1); break; }
     case 'anleitungZu': anleitungSchliessen(); break;
     case 'freischalten': freischaltenJetzt(el.dataset.id); break;
+    case 'kobold': koboldZeigen(0); break;
+    case 'koboldWeiter': koboldZeigen(Number(el.dataset.schritt)); break;
+    case 'koboldSpaeter': koboldSpaeter(); break;
+    case 'koboldJa': koboldJa(); break;
     case 'neuspiel': {
       const id = el.dataset.id, sp = SP.splitterVon(S.splitter);
       if ($modal.classList.contains('offen')) { modalSchliessen = null; schliesseModal(); }

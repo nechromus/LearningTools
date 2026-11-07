@@ -1,0 +1,148 @@
+/* Runengruft: Aussehen (alle Regeln unter .rg). Dunkle Gruft, Jade und Gold wie im Schrein. */
+.rg { --rg-stein: #141917; --rg-stein2: #1c2321; --rg-linie: #2c3532; --rg-text: #e6efe9; --rg-blass: #9fb3aa; --rg-jade: #5FE8B4; --rg-gold: #c4a660; --rg-leben: #d9a24a; --rg-mana: #4fb8e8;
+  display: flex; flex-direction: column; gap: 8px; color: var(--rg-text); font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; user-select: none; -webkit-user-select: none; }
+.rg button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.rg button:focus-visible { outline: 2px solid var(--rg-jade); outline-offset: 2px; }
+.rg-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rg-titel { display: flex; flex-direction: column; min-width: 0; }
+.rg-name { font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 22px; letter-spacing: 0.06em; color: var(--rg-gold); }
+.rg-etage { font-size: 13px; color: var(--rg-blass); letter-spacing: 0.04em; }
+.rg-kopf-knoepfe { display: flex; gap: 6px; }
+.rg-klein { background: var(--rg-stein2); border: 1px solid var(--rg-linie); border-radius: 8px; padding: 7px 12px; font-size: 15px; font-weight: 700; }
+.rg-haupt { background: linear-gradient(#2a8f6c, #1d6e53); border: 1px solid #5FE8B4; border-radius: 10px; padding: 10px 18px; font-size: 17px; font-weight: 700; color: #f2fff8; }
+
+.rg-sicht { position: relative; border-radius: 12px; overflow: hidden; border: 2px solid #3a3424; box-shadow: 0 0 0 1px #000, inset 0 0 30px #000; background: #000; }
+.rg-bild, .rg-karte { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; touch-action: none; }
+.rg-karte { position: absolute; inset: 0; }
+.rg-bild.stoss { animation: rg-stoss 0.25s; }
+@keyframes rg-stoss { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+.rg-meldung { position: absolute; left: 8px; right: 8px; bottom: 8px; padding: 8px 12px; border-radius: 8px; background: rgba(6,8,7,0.82); border: 1px solid rgba(196,166,96,0.4); font-size: 16px; line-height: 1.3; opacity: 0; transform: translateY(6px); transition: opacity 0.25s, transform 0.25s; pointer-events: none; text-wrap: balance; }
+.rg-meldung.an { opacity: 1; transform: none; }
+.rg-gegnerleiste { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); width: min(70%, 320px); display: flex; flex-direction: column; align-items: center; gap: 3px; pointer-events: none; }
+.rg-gegnername { font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 15px; text-shadow: 0 1px 3px #000; }
+.rg-balken { display: block; width: 100%; height: 8px; border-radius: 4px; background: rgba(0,0,0,0.7); border: 1px solid #555; overflow: hidden; }
+.rg-balken i { display: block; height: 100%; background: linear-gradient(#e8c36a, #a07a2a); transition: width 0.3s; }
+.rg-zahlen { position: absolute; inset: 0; pointer-events: none; }
+.rg-zahl { position: absolute; transform: translate(-50%, -50%); font-weight: 700; font-size: 30px; text-shadow: 0 2px 4px #000; animation: rg-zahl 1.1s forwards; }
+.rg-zahl.treffer { color: #fff3c8; }
+.rg-zahl.heil { color: #7dffcb; }
+.rg-zahl.aua { color: #ffb36b; }
+@keyframes rg-zahl { from { opacity: 1; margin-top: 0; } to { opacity: 0; margin-top: -40px; } }
+.rg-tafel { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 12px; background: rgba(4,6,5,0.72); }
+.rg-tafel-innen { max-width: 420px; width: 100%; background: linear-gradient(#2a302b, #1b201d); border: 2px solid #8c7d50; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 8px 30px #000; }
+.rg-tafel-innen h2 { margin: 0 0 2px; font-family: 'Cinzel', Georgia, serif; color: var(--rg-gold); font-size: 22px; }
+.rg-tafel-innen p { margin: 0; font-size: 17px; line-height: 1.35; }
+.rg-tafel-runen { width: 100%; max-width: 300px; height: auto; align-self: center; }
+.rg-tafel-knoepfe { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+
+.rg-hier { font-size: 15px; color: var(--rg-blass); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rg-gruppe { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rg-held { display: flex; gap: 8px; padding: 8px; border-radius: 10px; background: var(--rg-stein); border: 1px solid var(--rg-linie); min-width: 0; }
+.rg-held.tot { opacity: 0.45; }
+.rg-held.waehlbar { border-color: var(--rg-jade); box-shadow: 0 0 0 2px rgba(95,232,180,0.3); cursor: pointer; }
+.rg-held.getroffen { animation: rg-aua 0.4s; }
+@keyframes rg-aua { 0%, 100% { transform: none; } 30% { transform: translateX(-4px); background: #3a2a1a; } 60% { transform: translateX(4px); } }
+.rg-bildchen { width: 42px; height: 42px; flex: none; border-radius: 50%; display: grid; place-items: center; border: 2px solid; }
+.rg-bildchen svg { width: 30px; height: 30px; }
+.rg-rana { background: radial-gradient(#4a3a22, #1e1810); border-color: var(--rg-gold); }
+.rg-ilo { background: radial-gradient(#1f4a3c, #0e1d18); border-color: var(--rg-jade); }
+.rg-held-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.rg-held-name { display: flex; justify-content: space-between; gap: 4px; font-size: 15px; }
+.rg-held-name span { color: var(--rg-blass); font-size: 12px; }
+.rg-lp, .rg-mana { position: relative; height: 14px; border-radius: 7px; background: #0a0d0c; overflow: hidden; }
+.rg-lp i, .rg-mana i { display: block; height: 100%; transition: width 0.3s; }
+.rg-lp i { background: linear-gradient(#e8b45e, #a8701f); }
+.rg-mana i { background: linear-gradient(#6fcff5, #2b7fa6); }
+.rg-lp span, .rg-mana span { position: absolute; inset: 0; font-size: 11px; line-height: 14px; text-align: center; font-weight: 700; text-shadow: 0 1px 2px #000; font-variant-numeric: tabular-nums; }
+.rg-aktionen { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+.rg-akt { flex: 1 1 60px; min-width: 0; white-space: nowrap; background: #2a2416; border: 1px solid var(--rg-gold); border-radius: 8px; padding: 8px 4px; font-size: 15px; font-weight: 700; }
+.rg-akt small { color: var(--rg-mana); font-size: 11px; }
+.rg-akt:disabled { opacity: 0.35; }
+.rg-warten { grid-column: 1 / -1; background: var(--rg-stein2); border: 1px solid var(--rg-linie); border-radius: 8px; padding: 8px; font-size: 15px; font-weight: 700; }
+.rg-taschen { display: flex; gap: 6px; flex-wrap: wrap; }
+.rg-tasche { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; background: var(--rg-stein); border: 1px solid var(--rg-linie); font-size: 14px; }
+.rg-tasche svg { width: 20px; height: 20px; }
+.rg-tasche.leer, .rg-tasche:disabled { opacity: 0.45; }
+.rg-steuer { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-width: 330px; width: 100%; align-self: center; }
+.rg-steuer button { height: 52px; border-radius: 10px; background: linear-gradient(#262e2b, #171c1a); border: 1px solid #3a4440; font-size: 22px; color: var(--rg-jade); touch-action: manipulation; }
+.rg-steuer button:active { background: #2f3a36; }
+.im-kampf .rg-steuer { opacity: 0.4; }
+.rg-fuss { font-size: 12px; color: var(--rg-blass); text-align: center; }
+@media (prefers-reduced-motion: reduce) { .rg-zahl, .rg-held.getroffen, .rg-bild.stoss { animation: none; } }
+.rg [hidden] { display: none !important; }
+.rg-stil { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 14px; color: var(--rg-blass); }
+.rg-stil-knoepfe { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.rg-chip { background: var(--rg-stein); border: 1px solid var(--rg-linie); border-radius: 999px; padding: 6px 11px; font-size: 14px; font-weight: 700; }
+.rg-chip.an { border-color: var(--rg-jade); color: var(--rg-jade); background: #12241e; }
+/* Geheimnisse, Tagebuch, Notizen (Etage 2) */
+.rg-geheim { position: absolute; left: 50%; top: 10px; transform: translate(-50%, -8px); display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 16px; border-radius: 10px; background: rgba(10,14,22,0.88); border: 1px solid rgba(140,200,255,0.55); box-shadow: 0 0 24px rgba(110,200,255,0.35); color: #e6f4ff; opacity: 0; transition: opacity 0.3s, transform 0.3s; pointer-events: none; text-align: center; max-width: calc(100% - 24px); }
+.rg-geheim.an { opacity: 1; transform: translate(-50%, 0); }
+.rg-geheim b { color: #9fdcff; font-family: 'Cinzel', Georgia, serif; font-size: 15px; letter-spacing: 0.04em; }
+.rg-geheim span { font-size: 16px; }
+.rg-geheim small { font-size: 13px; opacity: 0.8; }
+.rg-geheim-zahl { color: #9fdcff; cursor: pointer; }
+.rg-tafel-innen h3 { margin: 8px 0 0; font-size: 15px; color: #9fdcff; font-weight: 700; }
+.rg-geheim-liste { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 16px; }
+.rg-geheim-liste li { padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,0.04); color: rgba(220,230,226,0.45); letter-spacing: 0.1em; }
+.rg-geheim-liste li.ja { color: #e6f4ff; letter-spacing: 0; background: rgba(110,200,255,0.1); }
+.rg-klein-text { font-size: 14px !important; opacity: 0.7; }
+.rg-tagebuch { max-height: 100%; overflow: auto; }
+.rg-tagebuch details { border-top: 1px solid rgba(255,255,255,0.08); padding: 4px 0; }
+.rg-tagebuch summary { cursor: pointer; font-size: 16px; color: var(--rg-gold); }
+.rg-notiz { background: linear-gradient(#3a3527, #26231a); border-color: #a8996e; }
+.rg-notiz.senna { border-color: #5FE8B4; }
+.rg-notiz p { font-style: italic; }
+.rg-notiz p.rg-antwort, .rg-gespraech p { font-style: normal; }
+.rg [hidden] { display: none !important; }
+.rg-ende { max-height: 100%; overflow: auto; }
+.gegner-am-zug .rg-akt, .gegner-am-zug .rg-warten { opacity: 0.5; pointer-events: none; }
+/* Heldenbogen und Beutel im Spiel */
+.rg-zahl.mana { color: #8fb6ff; }
+.rg-punkt { font-style: normal; font-weight: 700; color: #0c1a14; background: var(--rg-gold); border-radius: 999px; padding: 0 6px; margin-left: 4px; font-size: 12px; }
+.rg-beutel-knopf.neu { border-color: var(--rg-gold); box-shadow: 0 0 0 1px var(--rg-gold) inset; }
+.rg-beutel-knopf.neu::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--rg-gold); margin-left: 2px; }
+.rg-kristall-akt { border-color: #6ec8ff !important; color: #bfe6ff; }
+.rg-beutel { max-width: 480px; max-height: 100%; overflow: auto; }
+.rg-bogen { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rg-bogen-held { display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); min-width: 0; }
+.rg-bogen-kopf { display: flex; flex-direction: column; }
+.rg-bogen-kopf b { font-family: 'Cinzel', Georgia, serif; color: var(--rg-gold); font-size: 16px; }
+.rg-bogen-kopf span, .rg-bogen-klein { font-size: 12.5px; color: var(--rg-blass); font-variant-numeric: tabular-nums; }
+.rg-bogen-werte { font-size: 14px; font-variant-numeric: tabular-nums; }
+.rg-bogen-punkte { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 13px; color: var(--rg-gold); }
+.rg-bogen-punkte .rg-klein { padding: 4px 8px; font-size: 13px; }
+.rg-plaetze { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.rg-platz { display: flex; flex-direction: column; align-items: flex-start; gap: 0; padding: 5px 7px; border-radius: 8px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); color: inherit; font: inherit; text-align: left; cursor: pointer; min-width: 0; }
+.rg-platz small { font-size: 10.5px; color: var(--rg-blass); letter-spacing: 0.04em; text-transform: uppercase; }
+.rg-platz span { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.rg-platz.leer span { color: var(--rg-blass); }
+.rg-platz.an, .rg-ding.an { border-color: var(--rg-gold); background: rgba(216,176,90,0.12); }
+.rg-beutel-gitter { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.rg-ding { position: relative; min-height: 42px; display: flex; flex-direction: column; justify-content: center; padding: 4px 6px; border-radius: 8px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); color: inherit; font: inherit; font-size: 12.5px; line-height: 1.15; text-align: left; cursor: pointer; min-width: 0; }
+.rg-ding.leer { cursor: default; opacity: 0.35; }
+.rg-besser { font-style: normal; font-size: 11px; font-weight: 700; color: #7dffcb; }
+.rg-auswahl { display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 8px; background: rgba(255,255,255,0.03); min-height: 40px; }
+.rg-auswahl p { font-size: 15px !important; }
+.rg-vergleich { font-size: 14px !important; }
+.rg-vergleich .plus { color: #7dffcb; } .rg-vergleich .minus { color: #ffb36b; }
+.rg-vergleich.nein { color: var(--rg-blass); }
+@media (max-width: 380px) { .rg-bogen { grid-template-columns: 1fr; } }
+.rg [hidden] { display: none !important; }
+.rg { position: relative; }
+.rg-voll { position: absolute; inset: 0; z-index: 5; overflow: auto; padding: 8px 0; background: rgba(6,8,7,0.94); display: flex; justify-content: center; align-items: flex-start; }
+.rg-voll .rg-beutel { max-height: none; }
+.rg [hidden] { display: none !important; }
+.rg-platz span { white-space: normal; overflow: visible; line-height: 1.15; }
+.rg-erinnerung-bild { width: 100%; max-width: 320px; height: auto; align-self: center; }
+.rg-erinnerung { border-color: #8fb8c8; background: linear-gradient(#1e2a30, #141c20); }
+.rg-kael { border-color: #a9b6c2; color: #dfe8f0; } .rg-ende-bild { border-color: var(--rg-gold); }
+.rg-tafel-innen { max-height: 100%; overflow: auto; }
+/* Hilfen vom Kobold */
+.rg-kobold-knopf { border-color: #8a6a3a; color: #f0d79a; }
+.rg-kobold { border-color: #8a6a3a; }
+.rg-hilfen { display: flex; flex-direction: column; gap: 6px; }
+.rg-hilfe { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--rg-stein2); border: 1px solid var(--rg-linie); text-align: left; }
+.rg-hilfe b { font-size: 16px; } .rg-hilfe span { font-size: 14px; color: var(--rg-gold); white-space: nowrap; }
+.rg-hilfe:disabled { opacity: 0.45; cursor: default; }
+.rg-kobold-tipp { padding: 10px 12px; border-radius: 10px; background: rgba(230,196,90,0.1); border: 1px solid rgba(230,196,90,0.4); font-size: 17px !important; }
+.rg-kopf-knoepfe { flex-wrap: wrap; justify-content: flex-end; }

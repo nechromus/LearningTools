@@ -225,6 +225,11 @@ export function spielVorschau(id, px = 68) {
     case 'runenbrecher': return rbBild(px - 10, px - 10, { steine: RB.steineVon(0), schild: { x: 50, breite: RB.SCHILD.breite }, kugeln: [{ x: 58, y: 80 }], spuren: { 0: [{ x: 68, y: 98 }, { x: 64, y: 91 }, { x: 61, y: 85 }] } }, { x: 0, y: 12, w: 100, h: 100 }, null, 'anl-vorschau');
     case 'jadeschlange': return szene({ kl: 'js-spiel anl-vorschau', w: 4, h: 4, max: m, vor: '<div class="jsg-brett anl-voll"></div>',
       figuren: [...glieder([[1, 2], [1, 1], [2, 1], [2, 0]], 0), { r: 1, c: 3, html: kristall() }] });
+    case 'runengruft': return `<div class="anl-bild anl-vorschau rg-vorschau" style="width:${px - 10}px;height:${px - 10}px"><svg viewBox="0 0 48 48" width="${px - 10}" height="${px - 10}" aria-hidden="true">
+      <rect width="48" height="48" rx="6" fill="#0d1311"/>${[0, 1, 2, 3].map(r => [0, 1, 2].map(c => `<rect x="${c * 16 + (r % 2) * 8 - 4}" y="${r * 12 + 1}" width="15" height="11" fill="#1f2826"/>`).join('')).join('')}
+      <path d="M12 46 V22 A12 12 0 0 1 36 22 V46 Z" fill="#050807" stroke="#5a6b64" stroke-width="2"/>
+      <g stroke="#5FE8B4" stroke-width="2.4" stroke-linecap="round" fill="none"><path d="M24 24 V38"/><path d="M19 27 L29 35"/><path d="M29 27 L19 35"/></g>
+      <circle cx="24" cy="31" r="9" fill="rgba(95,232,180,.15)"/></svg></div>`;
     default: return '';
   }
 }

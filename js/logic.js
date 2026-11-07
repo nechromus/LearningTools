@@ -847,7 +847,8 @@ export const BEDIENUNG = [
   { k: 'spielzeit_zeigen', f: 'spielzeitZeigen', std: true, titel: 'Spielzeit und Spiele zeigen', text: 'Aus: keine Spielzeit, kein „Abholen“, keine Spiele und keine Minuten in der Aufgabe. Bildschirmzeit bleibt, wenn sie an ist.' },
   { k: 'rechner_frei', f: 'rechnerFrei', std: false, titel: 'Taschenrechner immer ohne Abzug', text: 'An: Der Taschenrechner kostet nie Zeit.' },
   { k: 'umformen_sofort', f: 'umformenSofort', std: false, titel: 'Gleichungen gleich in Schritten umformen', text: 'An: Gleichungen starten direkt mit „In Schritten umformen“, ohne Abzug bei den Wissenspunkten.' },
-  { k: 'teil_loesung', f: 'teilLoesung', std: false, titel: 'Teil-Lösung getrennt werten', text: 'An: Kam die Lösung bei einem Zwischenschritt und der Rest wurde selbst gerechnet, zählt die Aufgabe als „Teil-Lösung“ mit anteiliger Zeit. Bei Körpern zählt eine Auswahl in den ersten 3 Sekunden nicht.' }
+  { k: 'teil_loesung', f: 'teilLoesung', std: false, titel: 'Teil-Lösung getrennt werten', text: 'An: Kam die Lösung bei einem Zwischenschritt und der Rest wurde selbst gerechnet, zählt die Aufgabe als „Teil-Lösung“ mit anteiliger Zeit. Bei Körpern zählt eine Auswahl in den ersten 3 Sekunden nicht.' },
+  { k: 'runengruft', f: 'runengruft', std: false, titel: 'Abenteuer „Runengruft“', text: 'An: Ab 300 Runensplittern erscheint ein alter Kobold und bietet das Abenteuer für alle Splitter an. Weitere Etagen kosten 450, 500, 550, 600 Runensplitter.' }
 ];
 // Kürzel mit Namen (Auftrag 35): Auswahl bei Körpern zeigt „V (Volumen)“, „A_O (Oberfläche)“ …
 export const KOERPER_THEMEN = ['zylinder', 'kegel', 'pyramide', 'kugel', 'quader', 'zusammengesetzt'];

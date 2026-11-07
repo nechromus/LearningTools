@@ -53,6 +53,12 @@ const TEXTE = {
     ['Triff alle Steine. Violette brauchen zwei Treffer.', 'Gold gibt mehr Punkte. Graue feste Steine bleiben stehen.'],
     ['Manchmal fallen Zeichen herunter. Fang sie!', 'Sie machen den Schild breiter, die Kugel langsamer oder geben eine zweite Kugel.']
   ] },
+  runengruft: { titel: 'Runengruft', seiten: [
+    ['Lauf mit den Pfeilen oder wisch über das Bild.', 'Wisch nach links oder rechts, um dich zu drehen.'],
+    ['Tippe im Bild auf alles an der Wand: Tafeln, Schalter, Runen, Kristalle.', 'Manche Steine sind Knöpfe.'],
+    ['Kommt ein Gegner, handeln Rana und Ilo nacheinander.', 'Funde kommen in den Beutel. ▲ heißt: besser für Rana oder Ilo.'],
+    ['Jede Etage hat Geheimnisse. Das Tagebuch zeigt, wie viele noch fehlen.', 'Steckst du fest? Der Kobold hilft für ein paar Runensplitter.']
+  ] },
   jadeschlange: { titel: 'Jadeschlange', seiten: [
     ['Wische in eine Richtung.', 'Die Schlange biegt dorthin ab.'],
     ['Sammle Kristalle. Die Schlange wird länger.', 'Goldene Kristalle geben mehr Punkte.'],
