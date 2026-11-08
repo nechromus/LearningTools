@@ -34,7 +34,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.40.0';
+export const APP_VERSION = '2.40.1';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -626,7 +626,8 @@ const SPIEL_INFO = {
 };
 // Runengruft: eigenes Abenteuer, freigeschaltet beim alten Kobold (Schalter „runengruft“ in den Einstellungen)
 const RUNENGRUFT = { id: 'runengruft', name: 'Runengruft' };
-const runengruftAn = () => bed('runengruft');
+// Vorerst nur auf Test-Geräten (Wunsch Vater 8.11.: wird noch verbessert). Später wieder: bed('runengruft')
+const runengruftAn = () => !!S.upload.testgeraet;
 const runengruftFrei = (sp = SP.splitterVon(S.splitter)) => runengruftAn() && (RGF.etageFrei(sp, 0) || !!S.upload.testgeraet);
 const IMMER_OFFEN = [{ id: '2048', name: '2048' }, { id: 'runenfeld', name: 'Runenfeld' }, { id: 'kristallmine', name: 'Kristallmine' }];
 const SPIEL_START = Object.fromEntries(Object.entries(SPIEL_INFO).filter(([, v]) => v.start).map(([k, v]) => [k, v.start]));
