@@ -2316,13 +2316,13 @@ export function runengruftStarten(wurzel, opt = {}) {
     const P = R.HILFE_PREISE;
     const stand = SPL ? SPL.stand() : null;
     const preisTipp = s.gratisTipp ? 0 : P.tipp;
-    const kann = (n) => !SPL || stand >= n;
+    const kann = (n) => !SPL || SPL.test || stand >= n;
     const knopf = (art, n, text, aus) => `<button class="rg-hilfe" data-a="koboldHilfe" data-art="${art}" ${aus || !kann(n) ? 'disabled' : ''}><b>${text}</b><span>${n ? `${n} Runensplitter` : 'gratis'}</span></button>`;
     $tafel.hidden = false;
     $tafel.innerHTML = `<div class="rg-tafel-innen rg-kobold">
       <h2>Der alte Kobold</h2>
       <p>„Hm. Brauchst du Hilfe? Hilfe kostet. Ein bisschen.“</p>
-      ${SPL ? `<p class="rg-klein-text">Du hast ${stand} Runensplitter.</p>` : '<p class="rg-klein-text">Vorschau: Hilfen kosten hier nichts.</p>'}
+      ${SPL && !SPL.test ? `<p class="rg-klein-text">Du hast ${stand} Runensplitter.</p>` : `<p class="rg-klein-text">${SPL ? 'Testmodus' : 'Vorschau'}: Hilfen kosten hier nichts.</p>`}
       <div class="rg-hilfen">
         ${knopf('tipp', preisTipp, 'Was muss ich tun?', false)}
         ${knopf('spur', P.spur, 'Spur zu einem Geheimnis', !R.spurMoeglich(s))}

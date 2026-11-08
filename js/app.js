@@ -34,7 +34,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.40.1';
+export const APP_VERSION = '2.40.2';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -788,9 +788,16 @@ function koboldSpaeter() {
 }
 function koboldJa() {
   S.splitter = SP.splitterVon(S.splitter);
-  const r = RGF.koboldAnnehmen(S.splitter);
+  let r;
+  if (S.upload.testgeraet) {
+    // Testmodus: Tor öffnen, aber keine Splitter abziehen
+    if (!RGF.koboldDa(S.splitter)) { schliesseModal(); return; }
+    const rg = RGF.rgVon(S.splitter);
+    rg.kobold = true; rg.frei = [0]; rg.gegeben = 0;
+    r = { gegeben: S.splitter.stand, test: true };
+  } else r = RGF.koboldAnnehmen(S.splitter);
   if (!r) { schliesseModal(); return; }
-  protokoll(S, 'kobold', { aktion: 'angenommen', gegeben: r.gegeben });
+  protokoll(S, 'kobold', { aktion: 'angenommen', gegeben: r.test ? 0 : r.gegeben, test: r.test || undefined });
   sichern();
   standHochladen(true);
   oeffneModal(`<div class="kobold-dialog"><canvas id="kobold-bild" width="260" height="240" aria-hidden="true"></canvas>
@@ -807,7 +814,8 @@ function koboldJa() {
     el.textContent = Math.round(r.gegeben * (1 - (1 - (1 - p) * (1 - p))));
     if (p < 1) requestAnimationFrame(zaehlen);
     else {
-      document.getElementById('kobold-text').textContent = 'Das Tor ist offen. Unten wartet die erste Etage. Für jede weitere Etage brauchen die Runen neue Splitter.';
+      document.getElementById('kobold-text').textContent = r.test ? 'Testmodus: Das Tor ist offen. Die Splitter bleiben bei dir.' : 'Das Tor ist offen. Unten wartet die erste Etage. Für jede weitere Etage brauchen die Runen neue Splitter.';
+      if (r.test) document.getElementById('kobold-zahl').textContent = S.splitter.stand;
       document.getElementById('kobold-knoepfe').style.display = '';
     }
   };
@@ -830,9 +838,11 @@ function runengruftOpt() {
       }
     },
     splitter: {
+      test: !!S.upload.testgeraet,
       stand: () => sp().stand,
       bezahlen: (n, art) => {
         const s0 = sp();
+        if (S.upload.testgeraet) { protokoll(S, 'runengruft_hilfe', { art, preis: 0, test: true }); return true; }   // Testmodus: kostet nichts
         if (s0.stand < n) return false;
         SP.gutschreiben(s0, -n, 'kobold_hilfe', `Kobold: ${HILFE[art] || art}`);
         protokoll(S, 'runengruft_hilfe', { art, preis: n, stand: s0.stand });
