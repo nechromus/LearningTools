@@ -536,12 +536,28 @@ export function paketQuoten(aufgaben, vonTag) {
 // Bildschirmzeit-Einstellungen für die Seite. extraMin gilt nur heute (danach 0).
 export function bzWerte(r, heute = tagKey()) {
   const g = BS.bzRegeln(r, heute);
-  return { an: g.an, faktor: g.faktor, max: g.max, maxBis: g.max_bis || '', maxDanach: g.max_danach || null, ab: g.ab, extraMin: g.extra && g.extra.tag === heute ? g.extra.min : 0, extraFaktor: g.extra ? g.extra.faktor : 0.5 };
+  return { an: g.an, faktor: g.faktor, max: g.max, maxBis: g.max_bis || '', maxDanach: g.max_danach || null, ab: g.ab, extraMin: g.extra && g.extra.tag === heute ? g.extra.min : 0, extraFaktor: g.extra ? g.extra.faktor : 0.5,
+    stufenAn: !!g.stufen_an, stufen: BS.stufenVon(g.stufen), schnitt: g.schnitt ?? null };
 }
 // Zurück in die Form der Einstellungsdatei
 export function bzDatei(werte, heute = tagKey()) {
   const w = werte || bzWerte(null, heute);
-  return BS.bzRegeln({ an: w.an, faktor: w.faktor, max: w.max, ...(w.maxBis ? { max_bis: w.maxBis, max_danach: w.maxDanach } : {}), ab: w.ab, extra: w.extraMin > 0 ? { tag: heute, min: w.extraMin, faktor: w.extraFaktor ?? 0.5 } : null }, heute);
+  return BS.bzRegeln({ an: w.an, faktor: w.faktor, max: w.max, ...(w.maxBis ? { max_bis: w.maxBis, max_danach: w.maxDanach } : {}), ab: w.ab, extra: w.extraMin > 0 ? { tag: heute, min: w.extraMin, faktor: w.extraFaktor ?? 0.5 } : null,
+    ...(w.stufenAn || (w.stufen && JSON.stringify(BS.stufenVon(w.stufen)) !== JSON.stringify(BS.STUFEN_STD)) ? { stufen_an: !!w.stufenAn, stufen: w.stufen } : {}), ...(w.schnitt && w.stufenAn ? { schnitt: w.schnitt } : {}) }, heute);
+}
+// Auftrag 49: Lohn je Übungsminute (Sekunden, vor Bildschirm-Faktor und Stufen), Schnitt der letzten 7 Tage mit Aufgaben.
+// Nur Aufgaben ohne Kappung (nicht voll, keine Extra-Zeit). faktor = Grundfaktor der Bildschirmzeit.
+export function bzLohnSchnitt(eintraege, faktor = 1, heute = tagKey()) {
+  const tage = new Set(); let lohn = 0, ms = 0;
+  const grenze = (() => { const d = new Date(heute + 'T12:00:00'); d.setDate(d.getDate() - 7); return tagKey(d); })();
+  for (const e of eintraege) {
+    if (e.typ !== 'aufgabe_ende' || e.voll || e.extra != null || e.spielzeitVoll) continue;
+    const k = tagKey(new Date(e.t)); if (k <= grenze || k > heute) continue;
+    const l = e.bildschirm > 0 ? e.bildschirm / (faktor * (e.stufe_faktor || 1)) : (e.sekunden || 0);
+    if (!(l > 0) || !(e.ms > 0)) continue;
+    lohn += l; ms += Math.min(e.ms, BS.UEB_MAX_MS); tage.add(k);
+  }
+  return ms > 0 ? { proMin: Math.round(lohn / (ms / 60000)), tage: tage.size } : null;
 }
 // Spielzeit im Schrein pro Tag (wie Bildschirmzeit)
 export function szWerte(r, heute = tagKey()) {

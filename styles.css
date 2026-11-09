@@ -1129,3 +1129,118 @@ mark.signal { background: rgba(245, 180, 60, .35); color: inherit; border-radius
 .modul-runengruft .km-huelle { display: block; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .modul-runengruft .rg { max-width: 520px; margin: 0 auto; }
 .spiel-start .kobold-karte { grid-column: 1 / -1; }
+
+/* ===== Bildschirmzeit in Stufen (Auftrag 49) ===== */
+body:has(.aufgabe-screen.bz-warm) { background: #FAF1DE; }
+.bz-leiste { display: flex; flex-direction: column; gap: 6px; padding: 2px 2px 0; }
+.bz-leiste-oben { display: flex; align-items: center; gap: 10px; }
+.bz-hexe { display: inline-flex; align-items: center; gap: 2px; flex: none; }
+.bz-hex { display: inline-flex; line-height: 0; }
+.bz-hex svg { overflow: visible; }
+.bz-hex .bz-hex-rand { fill: #FBFAF5; stroke: #8A9696; stroke-width: 1.4; }
+.bz-hex .bz-hex-f { fill: var(--teal); transform-box: fill-box; transform-origin: center; transform: scale(0); }
+.bz-hex-voll .bz-hex-f, .bz-hex-jetzt .bz-hex-f { transform: scale(1); }
+.bz-hex-voll .bz-hex-rand, .bz-hex-jetzt .bz-hex-rand { stroke: var(--teal); }
+.bz-hex-jetzt svg { filter: drop-shadow(0 0 3px rgba(31, 111, 117, .45)); }
+.bz-hex-schnell-leer .bz-hex-rand { stroke: #C9A86A; fill: #FFF8EA; }
+.bz-hex-schnell .bz-hex-rand { fill: var(--amber-hell); stroke: var(--amber); stroke-width: 1; }
+.bz-hex-schnell .bz-hex-f { fill: var(--amber); transform: scale(.78); }
+.bz-hex-schnell svg { filter: drop-shadow(0 0 5px rgba(233, 182, 90, .75)); }   /* ruhiges Leuchten, ohne Blinken */
+.bz-leiste-zahl { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
+.bz-leiste-zahl b { font-size: 17px; }
+.bz-leiste-zahl span { font-size: 13px; color: var(--gedaempft); text-align: right; }
+.bz-leiste.schnell .bz-leiste-zahl span { color: #6E4004; font-weight: 700; }
+.bz-info { flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--teal); background: var(--karte); color: var(--teal); font-weight: 700; font-family: Georgia, serif; font-style: italic; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
+.bz-balken { height: 7px; background: #FFFFFF; border: 1px solid #B9C2C2; border-radius: 4px; overflow: hidden; }
+.bz-balken > div { height: 100%; background: var(--teal); border-radius: 3px; }
+.bz-leiste.schnell .bz-balken { border-color: #C9A86A; }
+.bz-leiste.schnell .bz-balken > div { background: var(--amber); }
+.bz-leiste.extra .bz-balken > div { background: linear-gradient(90deg, var(--teal), #3E9AA0); }
+
+/* Feier nach der Aufgabe: kurz (1–2 s), Antippen springt zum Ende, kein Blinken */
+.bz-feier { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 14px 12px; margin-bottom: 10px; border-radius: 12px; background: var(--teal); color: #fff; overflow: hidden; cursor: pointer; }
+.bz-feier-text { display: flex; flex-direction: column; gap: 2px; }
+.bz-feier-text b { font-family: 'Cinzel', Georgia, serif; font-size: 24px; letter-spacing: .5px; }
+.bz-feier-text span { font-size: 16px; }
+.bz-feier-buehne { position: relative; display: flex; align-items: center; justify-content: center; min-height: 56px; padding-top: 8px; }
+.bz-feier .bz-hex .bz-hex-rand { fill: rgba(255, 255, 255, .14); stroke: rgba(255, 255, 255, .55); }
+.bz-feier .bz-hex-voll .bz-hex-f, .bz-feier .bz-hex-jetzt .bz-hex-f { fill: #FFFFFF; }
+.bz-feier .bz-hex-jetzt text { fill: var(--teal); }
+.bz-feier .bz-hex-schnell .bz-hex-f { fill: var(--fuell); }
+.bz-feier .bz-hex-schnell-leer text, .bz-feier .bz-hex-leer text { fill: rgba(255, 255, 255, .7); }
+/* Das neue Sechseck füllt sich und leuchtet auf */
+.bz-neu .bz-hex-f { animation: bz-fuellen .7s cubic-bezier(.2, .9, .3, 1.3) .15s both; }
+.bz-neu svg { animation: bz-glanz 1.4s ease-out .2s both; }
+@keyframes bz-fuellen { from { transform: scale(0); } }
+@keyframes bz-glanz { 0% { filter: drop-shadow(0 0 0 rgba(255, 255, 255, 0)); } 35% { filter: drop-shadow(0 0 10px rgba(255, 255, 255, .95)); } 100% { filter: drop-shadow(0 0 3px rgba(255, 255, 255, .4)); } }
+.bz-feier-text { animation: bz-hoch .5s ease-out .35s both; }
+@keyframes bz-hoch { from { opacity: 0; transform: translateY(8px); } }
+/* Lichtfunken steigen auf */
+.bz-funken { position: absolute; left: 50%; bottom: 10px; width: 0; height: 0; pointer-events: none; }
+.bz-funke { position: absolute; left: 0; bottom: 0; width: 5px; height: 5px; border-radius: 50%; background: #E9F8F7; box-shadow: 0 0 6px 2px rgba(220, 237, 237, .9); opacity: 0; animation: bz-funke 1.3s ease-out var(--d) both; }
+.bz-funke.warm { background: #FFF1CF; box-shadow: 0 0 7px 2px rgba(233, 182, 90, .95); }
+@keyframes bz-funke { 0% { opacity: 0; transform: translate(0, 0) scale(.6); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), calc(-1 * var(--hoch))) scale(1); } }
+/* Größer von Stufe zu Stufe */
+.bz-feier-auf.stufe-3 { padding: 18px 12px; }
+.bz-feier-auf.stufe-3 .bz-feier-text b { font-size: 26px; }
+/* Schneller Bereich: größter Effekt, warm, mit Strahlen */
+.bz-feier-schnell { background: linear-gradient(160deg, #7A4704, #9A5B06 55%, #B8761A); padding: 20px 12px 18px; }
+.bz-feier-schnell .bz-feier-text b { font-size: 28px; color: #FFF4DC; }
+.bz-strahlen { position: absolute; left: 50%; top: 50%; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 236, 190, .38) 0 7deg, rgba(255, 236, 190, 0) 7deg 22deg);
+  -webkit-mask: radial-gradient(circle, #000 18%, transparent 68%); mask: radial-gradient(circle, #000 18%, transparent 68%);
+  opacity: 0; animation: bz-strahlen 1.9s ease-out .1s both; }
+@keyframes bz-strahlen { 0% { opacity: 0; transform: scale(.3) rotate(0deg); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.15) rotate(40deg); } }
+/* 90 Minuten voll: Ring breitet sich aus */
+.bz-feier-voll { background: linear-gradient(160deg, #0E4A4F, #1F6F75); }
+.bz-voll-hex { line-height: 0; animation: bz-fuellen .6s cubic-bezier(.2, .9, .3, 1.3) .1s both; }
+.bz-ring { position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin: -26px 0 0 -30px; border-radius: 50%; border: 3px solid rgba(233, 182, 90, .9); opacity: 0; animation: bz-ring 1.4s ease-out .2s both; pointer-events: none; }
+@keyframes bz-ring { 0% { opacity: .9; transform: scale(.4); } 100% { opacity: 0; transform: scale(3.2); } }
+/* Extra-Runde: alte Stufen leeren sich von rechts nach links, dann leuchtet Stufe 1 neu auf */
+.bz-feier-extra { background: var(--karte); color: var(--text); border: 2px solid var(--amber); }
+.bz-feier-extra .bz-feier-text b { color: var(--amber-dunkel); font-size: 22px; }
+.bz-extra-box { width: 100%; background: var(--amber-hell); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; animation: bz-hoch .5s ease-out .2s both; }
+.bz-feier-extra .bz-hex .bz-hex-rand { fill: #FBFAF5; stroke: #8A9696; }
+.bz-feier-extra .bz-hex-voll .bz-hex-f, .bz-feier-extra .bz-hex-jetzt .bz-hex-f { fill: var(--teal); }
+.bz-feier-extra .bz-hex-jetzt text { fill: #fff; }
+.bz-feier-extra .bz-hex-schnell .bz-hex-f { fill: var(--amber); }
+.bz-feier-extra .bz-hex-leer text { fill: #8A9696; }
+.bz-feier-extra .bz-hex-schnell-leer text { fill: var(--amber); }
+.bz-feier-extra .bz-hex-schnell-leer .bz-hex-rand { stroke: #C9A86A; fill: #FFF8EA; }
+.bz-wechsel { display: grid; place-items: center; }
+.bz-wechsel > span { grid-area: 1 / 1; }
+.bz-alt .bz-hex-f { animation: bz-leeren .45s ease-in calc(.6s + (4 - var(--i)) * .22s) both; }
+.bz-alt { animation: bz-weg .3s ease-in 1.55s both; }
+.bz-neu-reihe { animation: bz-hoch .4s ease-out 1.65s both; }
+.bz-neu-reihe .bz-neu .bz-hex-f { animation-delay: 1.8s; }
+.bz-neu-reihe .bz-neu svg { animation: none; filter: drop-shadow(0 0 4px rgba(31, 111, 117, .5)); }
+@keyframes bz-leeren { to { transform: scale(0); } }
+@keyframes bz-weg { to { opacity: 0; } }
+.bz-feier-unter { font-size: 14px; color: var(--gedaempft); font-weight: 700; animation: bz-hoch .4s ease-out 1.9s both; }
+/* Antippen: sofort der Endzustand */
+.bz-feier.ende *, .bz-feier.ende { animation-duration: 0s !important; animation-delay: 0s !important; }
+.bz-feier.ende .bz-funke, .bz-feier.ende .bz-strahlen, .bz-feier.ende .bz-ring { display: none; }
+/* Bewegung reduzieren: nur Farbe, keine Bewegung */
+@media (prefers-reduced-motion: reduce) {
+  .bz-feier *, .bz-feier { animation-duration: 0s !important; animation-delay: 0s !important; }
+  .bz-funke, .bz-strahlen, .bz-ring { display: none; }
+  .bz-feier { transition: background-color .8s; }
+}
+
+/* Erklärung (einmalig, danach über „i“) */
+.bz-erkl { display: flex; flex-direction: column; gap: 10px; }
+.bz-erkl p { margin: 0; }
+.bz-erkl-kopf { display: flex; align-items: center; gap: 8px; font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 14px; letter-spacing: 1.5px; color: var(--teal); text-transform: uppercase; }
+.bz-saeulen-box { background: var(--karte); border: 1.5px solid var(--linie); border-radius: 10px; padding: 12px 10px 10px; display: flex; flex-direction: column; gap: 6px; text-align: center; }
+.bz-saeulen { display: flex; align-items: flex-end; gap: 7px; height: 150px; }
+.bz-saeule { flex: 1; height: var(--h); background: var(--teal-hell); border: 1.5px solid var(--teal); border-radius: 8px 8px 0 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--teal-dunkel); font-size: 13px; }
+.bz-saeule span { font-size: 15px; font-weight: 700; color: var(--text); }
+.bz-saeule:nth-child(2) { background: #A9D3D5; }
+.bz-saeule:nth-child(3) { background: var(--teal); color: #fff; }
+.bz-saeule:nth-child(3) span { color: #fff; }
+.bz-saeule.schnell { background: var(--amber); border-color: var(--amber); color: #fff; }
+.bz-saeule.schnell span { color: #fff; }
+.bz-saeule small { font-size: 11px; font-weight: 700; letter-spacing: .5px; }
+.bz-saeulen-ab { display: flex; gap: 7px; font-size: 12px; color: var(--gedaempft); }
+.bz-saeulen-ab span { flex: 1; }
+.bz-saeulen-box > small { font-size: 12px; color: var(--gedaempft); }

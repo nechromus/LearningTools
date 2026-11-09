@@ -17,7 +17,7 @@ import qrcode from './vendor/qrcode.mjs';
 import * as FB from '../js/feedback.js';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.60.0';
+export const ELTERN_VERSION = '1.61.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -2091,6 +2091,38 @@ function szEinstellungen(w) {
     </section>`;
 }
 
+// Bildschirmzeit in Stufen (Auftrag 49): Schieberegler für Grundfaktor und Stufen, Vorschau mit dem Schnitt der letzten 7 Tage
+function bzReglerSetzen(el) {
+  const v = Math.round(Number(el.value) * 20) / 20, b = entwurf.bildschirm;
+  if (el.dataset.bzf === 'grund') entwurf.bildschirm = { ...b, faktor: v };
+  else { const st = b.stufen.map(x => ({ ...x })); const i = Number(el.dataset.bzf); if (st[i]) st[i].faktor = v; entwurf.bildschirm = { ...b, stufen: st }; }
+  entwurf.bildschirm.schnitt = bzSchnitt(entwurf.bildschirm);
+  if (el.nextElementSibling) el.nextElementSibling.textContent = kommaZwei(v);
+  meldung = null;
+}
+const kommaZwei = (x) => (Math.round(x * 100) / 100).toFixed(2).replace('.', ',');
+const bzRegler = (id, wert, min, max) => `<label class="bz-regler"><span class="unsichtbar">Faktor</span><input type="range" min="${min}" max="${max}" step="0.05" value="${wert}" data-bzf="${id}"><b>${kommaZwei(wert)}</b></label>`;
+function bzSchnitt(b) { const s = A.bzLohnSchnitt(D.daten.eintraege || [], b.faktor || 1); return s ? s.proMin : (b.schnitt || null); }
+function bzVorschauHtml(b) {
+  const s = bzSchnitt(b);
+  if (!s) return '<span class="klein gedaempft">Für die Vorschau fehlen Aufgaben aus den letzten 7 Tagen.</span>';
+  const ziel = b.max * 60, nm = esc(name());
+  const mit = b.stufenAn ? BS.minutenBis(ziel, s, b.faktor, b.stufen) : null;
+  const ohne = Math.ceil(ziel / (s * b.faktor));
+  const proMin = (f) => String(Math.round(s * b.faktor * f / 60 * 10) / 10).replace('.', ',');
+  return `<b>Für ${b.max} Min. braucht ${nm} etwa ${mit ?? ohne} Min. Übung.</b>${b.stufenAn ? ` Ohne Stufen wären es ${ohne} Min.` : ''}
+    <span class="klein gedaempft block">${b.stufenAn ? b.stufen.map((x, i) => `Stufe ${i + 1}: 1 Min. Üben → etwa ${proMin(x.faktor)} Min.`).join(' · ') + ' ' : ''}Schnitt der letzten 7 Tage: ${String(Math.round(s / 6) / 10).replace('.', ',')} Min. Lohn je Übungsminute (vor dem Faktor).</span>`;
+}
+function bzStufenBlock(b) {
+  const seg = (act, werte, akt, text) => `<div class="segmente" role="group">${werte.map(x => `<button class="segment${x === akt ? ' an' : ''}" data-act="${act}" data-w="${x}" aria-pressed="${x === akt}">${text(x)}</button>`).join('')}</div>`;
+  return `<div class="einstell-block bz-stufen-block"><span>Stufen nach Übungsminuten<span class="klein gedaempft block">Je länger ${esc(name())} an einem Tag übt, desto mehr gibt jede Aufgabe. Gesamt = Faktor × Stufe. Bei Extra-Zeit fangen die Stufen wieder bei 0 an.</span></span>${seg('bzStufenAn', [true, false], b.stufenAn, x => x ? 'An' : 'Aus')}
+    ${b.stufenAn ? `<div class="bz-stufen-liste">${b.stufen.map((x, i) => `<div class="bz-stufe-zeile"><span class="bz-stufe-nr">Stufe ${i + 1}</span>
+      <label class="bz-ab">ab Minute <input type="number" inputmode="numeric" min="0" max="240" step="1" value="${x.ab}" data-bzab="${i}"${i === 0 ? ' disabled' : ''}></label>
+      ${bzRegler(i, x.faktor, BS.STUFE_FAKTOR.min, BS.STUFE_FAKTOR.max)}
+      ${i > 0 ? `<button class="knopf knopf-klein" data-act="bzStufeWeg" data-i="${i}" aria-label="Stufe ${i + 1} entfernen">Entfernen</button>` : '<span></span>'}</div>`).join('')}
+      ${b.stufen.length < 8 ? '<button class="knopf knopf-klein" data-act="bzStufeNeu">Stufe hinzufügen</button>' : ''}</div>` : ''}
+    <div class="bz-vorschau" id="bz-vorschau">${bzVorschauHtml(b)}</div></div>`;
+}
 // Bildschirmzeit: an/aus, Faktor, Höchstwert pro Tag, „nur heute mehr“
 function bzEinstellungen(w) {
   const b = w.bildschirm;
@@ -2100,7 +2132,8 @@ function bzEinstellungen(w) {
   return `<h2 class="abschnitt">Bildschirmzeit</h2>
     <section class="karte liste-karte">
       <div class="einstell-block"><span>Kann für Bildschirmzeit üben<span class="klein gedaempft block">Vor der ersten Aufgabe fragt die App: Spielzeit oder Bildschirmzeit?</span></span>${seg('bzAn', [true, false], b.an, x => x ? 'An' : 'Aus')}</div>
-      ${b.an ? `<div class="einstell-block"><span>Faktor zur Spielzeit</span>${seg('bzFaktor', BS.FAKTOREN, b.faktor, bruch)}<span class="klein gedaempft">1 = gleich viel wie Spielzeit. Gleiche Regeln (Serie, 2. Versuch, Hilfen).</span></div>
+      ${b.an ? `<div class="einstell-block"><span>Faktor zur Spielzeit</span>${bzRegler('grund', b.faktor, BS.FAKTOR_REGLER.min, Math.max(BS.FAKTOR_REGLER.max, b.faktor))}<span class="klein gedaempft">1 = gleich viel wie Spielzeit. Gleiche Regeln (Serie, 2. Versuch, Hilfen).</span></div>
+      ${bzStufenBlock(b)}
       ${maxBlock('bz', b, BS.HOECHSTWERTE, 'Minuten.')}
       <div class="einstell-block"><span>Abschicken ab</span>${seg('bzAb', BS.MINDESTWERTE, b.ab)}<span class="klein gedaempft">Minuten. Vorher kann ${esc(name())} noch nichts abschicken.</span></div>
       ${extraBlock('bzExtra', b, A.minutenText(heute), esc(name()))}` : ''}
@@ -2907,6 +2940,9 @@ document.addEventListener('click', (ev) => {
     case 'langeHinweise': entwurf.langeHinweise = Number(el.dataset.w); meldung = null; zeichne(); break;
     case 'bzAn': entwurf.bildschirm = { ...entwurf.bildschirm, an: el.dataset.w === 'true' }; meldung = null; zeichne(); break;
     case 'bzFaktor': entwurf.bildschirm = { ...entwurf.bildschirm, faktor: Number(el.dataset.w) }; meldung = null; zeichne(); break;
+    case 'bzStufenAn': entwurf.bildschirm = { ...entwurf.bildschirm, stufenAn: el.dataset.w === 'true', schnitt: bzSchnitt(entwurf.bildschirm) }; meldung = null; zeichne(); break;
+    case 'bzStufeNeu': { const st = entwurf.bildschirm.stufen.map(x => ({ ...x })); const l = st[st.length - 1]; st.push({ ab: Math.min(240, l.ab + 10), faktor: Math.min(2, Math.round((l.faktor + 0.25) * 20) / 20) }); entwurf.bildschirm = { ...entwurf.bildschirm, stufen: BS.stufenVon(st) }; meldung = null; zeichne(); break; }
+    case 'bzStufeWeg': { const st = entwurf.bildschirm.stufen.filter((x, i) => i !== Number(el.dataset.i)); entwurf.bildschirm = { ...entwurf.bildschirm, stufen: BS.stufenVon(st) }; meldung = null; zeichne(); break; }
     case 'bzMax': entwurf.bildschirm = { ...entwurf.bildschirm, max: Number(el.dataset.w), maxBis: '', maxDanach: null }; meldung = null; zeichne(); break;
     case 'maxEigen': { const k = el.dataset.art === 'bz' ? 'bildschirm' : 'spielzeitTag', w = entwurf[k]; const liste = el.dataset.art === 'bz' ? BS.HOECHSTWERTE : BS.SZ_HOECHSTWERTE;
       if (liste.includes(w.max)) entwurf[k] = { ...w, maxDanach: w.max, max: Math.min(BS.MAX_FREI.max, liste[liste.length - 1] + 30) }; meldung = null; zeichne(); break; }
@@ -3078,6 +3114,12 @@ document.addEventListener('change', (ev) => {
     allesLaden(); return;
   }
   if (!entwurf) return;
+  if (el.dataset.bzf != null) { bzReglerSetzen(el); zeichne(); return; }
+  if (el.dataset.bzab != null) {
+    const i = Number(el.dataset.bzab), n = Math.round(Number(el.value)), st = entwurf.bildschirm.stufen.map(x => ({ ...x }));
+    if (Number.isFinite(n) && st[i]) { st[i].ab = Math.max(1, Math.min(240, n)); entwurf.bildschirm = { ...entwurf.bildschirm, stufen: BS.stufenVon(st) }; meldung = null; }
+    zeichne(); return;
+  }
   if (el.dataset.maxfeld) {
     const k = el.dataset.maxfeld === 'bz' ? 'bildschirm' : 'spielzeitTag', n = Math.round(Number(el.value));
     if (Number.isFinite(n)) { entwurf[k] = { ...entwurf[k], max: Math.max(BS.MAX_FREI.min, Math.min(BS.MAX_FREI.max, n)) }; meldung = null; }
@@ -3125,6 +3167,7 @@ document.addEventListener('input', (ev) => {
   if (paketEntwurf && el.id === 'p-name') paketEntwurf.name = el.value;
   if (paketEntwurf && el.id === 'p-beschr') paketEntwurf.beschreibung = el.value;
   if (el.id === 'p-text') paketText.text = el.value;
+  if (entwurf && el.dataset && el.dataset.bzf != null) { bzReglerSetzen(el); const v = document.getElementById('bz-vorschau'); if (v) v.innerHTML = bzVorschauHtml(entwurf.bildschirm); return; }
   if (el.classList && el.classList.contains('bg-text')) { const e = bgEntwurf(el.dataset.id); if (el.dataset.bonus) { const u = bgUe(e, el.dataset.nr); u.bonus = { ergebnis: (u.bonus && u.bonus.ergebnis) || '', notiz: el.value }; } else if (el.dataset.nr) bgUe(e, el.dataset.nr).notiz = el.value; else e.sonst = el.value; bgSichern(el.dataset.id, e); }
   if (el.classList && el.classList.contains('bg-dauer-feld')) { const e = bgEntwurf(el.dataset.id); dauerSetzen(e, Number(el.value)); bgSichern(el.dataset.id, e); return; }
   if (el.id === 'bg-gemacht') { const e = bgEntwurf(el.dataset.id); e.gemacht = el.value; e.gemachtHand = true; bgSichern(el.dataset.id, e); }

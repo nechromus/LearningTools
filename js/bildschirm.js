@@ -4,6 +4,10 @@
 // Reine Logik ohne DOM (testbar mit node).
 
 export const FAKTOREN = [0.5, 1, 1.5, 2];
+// Grundfaktor als Schieberegler (Auftrag 49): 0,10–1,50 in Schritten von 0,05 (alte Werte bis 2 bleiben gültig)
+export const FAKTOR_REGLER = Object.freeze({ min: 0.1, max: 1.5, schritt: 0.05 });
+const f05 = (v) => Number.isFinite(v) && v >= 0.1 - 1e-9 && v <= 2 + 1e-9 && Math.abs(v * 20 - Math.round(v * 20)) < 1e-6;
+export const faktorOk = (v) => FAKTOREN.includes(v) || f05(v);
 export const HOECHSTWERTE = [15, 30, 45, 60];   // Minuten pro Tag
 export const EXTRAS = [0, 15, 30, 60];           // „Nur heute mehr zulassen“ (Minuten)
 export const MINDESTWERTE = [5, 10, 15, 30];     // Abschicken erst ab so vielen Minuten
@@ -48,7 +52,9 @@ export function bzRegeln(r, heute) {
   const m = maxVon(r, HOECHSTWERTE, S0.max, heute);
   return {
     an: typeof r.an === 'boolean' ? r.an : S0.an,
-    faktor: FAKTOREN.includes(r.faktor) ? r.faktor : S0.faktor,
+    faktor: faktorOk(r.faktor) ? Math.round(r.faktor * 100) / 100 : S0.faktor,
+    ...(r.stufen_an === true || Array.isArray(r.stufen) ? { stufen_an: r.stufen_an === true, stufen: stufenVon(r.stufen) } : {}),
+    ...(Number.isFinite(r.schnitt) && r.schnitt >= 10 && r.schnitt <= 1200 ? { schnitt: Math.round(r.schnitt) } : {}),
     max: m.max,
     ab: MINDESTWERTE.includes(r.ab) ? r.ab : S0.ab,
     extra,
@@ -73,7 +79,10 @@ export function kontoVon(b, tag) {
     heute: gleicherTag && Number.isFinite(k.heute) && k.heute > 0 ? Math.round(k.heute) : 0,
     aufgaben: Number.isInteger(k.aufgaben) && k.aufgaben > 0 ? k.aufgaben : 0,
     code: typeof k.code === 'string' && /^[A-Z0-9]{4}$/.test(k.code) ? k.code : null,
-    gesendet: codesVon(k.gesendet)
+    gesendet: codesVon(k.gesendet),
+    // Auftrag 49: Übungszeit heute in ms (je Aufgabe höchstens 10 Min.) und Übungszeit beim Start der Extra-Runde
+    uebMs: gleicherTag && Number.isFinite(k.uebMs) && k.uebMs > 0 ? Math.round(k.uebMs) : 0,
+    extraAb: gleicherTag && Number.isFinite(k.extraAb) && k.extraAb >= 0 ? Math.round(k.extraAb) : null
   };
 }
 
@@ -104,9 +113,9 @@ export const restSek = (konto, regeln) => Math.max(0, grenzeSek(regeln, konto.ta
 
 // Spielzeit-Sekunden einer Aufgabe in Bildschirmzeit umrechnen und gutschreiben (höchstens bis zur Tagesgrenze).
 // Gibt { plus, voll } zurück. voll = Tagesgrenze jetzt erreicht.
-export function gutschreiben(konto, spielSek, regeln) {
+export function gutschreiben(konto, spielSek, regeln, stufenFaktor = 1) {
   const r = bzRegeln(regeln, konto.tag);
-  const roh = Math.round(Math.max(0, spielSek) * r.faktor);
+  const roh = Math.round(Math.max(0, spielSek) * r.faktor * stufenFaktor);
   const ex = r.extra && r.extra.tag === konto.tag ? r.extra : null;
   const g = mitExtra(roh, konto.heute, r.max * 60, grenzeSek(r, konto.tag), ex ? ex.faktor : null);
   const plus = g.plus;
@@ -114,6 +123,63 @@ export function gutschreiben(konto, spielSek, regeln) {
   konto.heute += plus;
   konto.aufgaben += 1;
   return { plus, voll: restSek(konto, r) <= 0, extra: g.extra, verbraucht: g.verbraucht };
+}
+
+// ---------- Bildschirmzeit in Stufen (Auftrag 49) ----------
+// Der Lohn je Aufgabe wird mal dem Faktor der Stufe beim Start der Aufgabe genommen. Die Stufe hängt an den Übungsminuten heute
+// (Summe der Aufgabenzeiten, je Aufgabe höchstens 10 Min., ohne Spiele und Bögen). Ist die normale Grenze voll und gibt es
+// heute Extra-Zeit, beginnen die Stufen wieder bei 0 Min. (Extra-Runde).
+export const STUFEN_STD = Object.freeze([{ ab: 0, faktor: 0.3 }, { ab: 10, faktor: 0.5 }, { ab: 20, faktor: 0.7 }, { ab: 30, faktor: 1.05 }]);
+export const STUFE_FAKTOR = Object.freeze({ min: 0.1, max: 2, schritt: 0.05 });
+export const UEB_MAX_MS = 10 * 60 * 1000;
+export function stufenVon(l) {
+  if (!Array.isArray(l)) return STUFEN_STD.map(x => ({ ...x }));
+  const ok = l.filter(x => x && Number.isInteger(x.ab) && x.ab >= 0 && x.ab <= 240 && f05(x.faktor))
+    .map(x => ({ ab: x.ab, faktor: Math.round(x.faktor * 100) / 100 })).sort((a, b) => a.ab - b.ab)
+    .filter((x, i, a) => i === 0 || x.ab !== a[i - 1].ab).slice(0, 8);
+  if (!ok.length) return STUFEN_STD.map(x => ({ ...x }));
+  if (ok[0].ab !== 0) ok[0] = { ...ok[0], ab: 0 };
+  return ok;
+}
+// Extra-Runde: normale Grenze erreicht und heute gibt es Extra-Zeit
+export function extraRunde(konto, regeln) {
+  const r = bzRegeln(regeln, konto.tag);
+  return !!(r.extra && r.extra.tag === konto.tag && konto.heute >= r.max * 60);
+}
+// Stand der Stufen. Ohne Stufen: { an: false, faktor: 1 }.
+export function stufeVon(konto, regeln) {
+  const r = bzRegeln(regeln, konto.tag);
+  if (!r.stufen_an) return { an: false, faktor: 1 };
+  const ex = extraRunde(konto, r);
+  const ms = ex ? Math.max(0, konto.uebMs - (konto.extraAb ?? konto.uebMs)) : konto.uebMs;
+  const min = ms / 60000;
+  const st = stufenVon(r.stufen);
+  let i = 0;
+  while (i + 1 < st.length && min >= st[i + 1].ab) i++;
+  const naechste = st[i + 1] || null;
+  return { an: true, stufe: i + 1, anzahl: st.length, faktor: st[i].faktor, uebMin: Math.floor(min * 10) / 10, extraRunde: ex,
+    bisNaechste: naechste ? Math.max(1, Math.ceil(naechste.ab - min)) : null, schnell: i + 1 === st.length && st.length > 1 };
+}
+// Nach jeder Aufgabe (auch für Spielzeit): Übungszeit buchen. Beginnt die Extra-Runde, merkt sich das Konto den Startpunkt.
+export function uebungBuchen(konto, ms, regeln) {
+  konto.uebMs += Math.min(Math.max(0, ms || 0), UEB_MAX_MS);
+  extraStartMerken(konto, regeln);
+}
+export function extraStartMerken(konto, regeln) {
+  if (konto.extraAb == null && extraRunde(konto, regeln)) konto.extraAb = konto.uebMs;
+}
+// Grobe Schätzung für die Eltern-App: Übungsminuten bis zur Grenze, bei lohnProMin (Lohn in s je Übungsminute vor allen Faktoren)
+export function minutenBis(zielSek, lohnProMin, grundfaktor, stufen) {
+  if (!(lohnProMin > 0) || !(grundfaktor > 0)) return null;
+  const st = stufenVon(stufen);
+  let sek = 0;
+  for (let m = 0; m < 600; m++) {
+    let i = 0;
+    while (i + 1 < st.length && m >= st[i + 1].ab) i++;
+    sek += lohnProMin * grundfaktor * st[i].faktor;
+    if (sek >= zielSek) return m + 1;
+  }
+  return null;
 }
 
 // Kurzer Code ohne leicht verwechselbare Zeichen (kein 0/O, 1/I/L, 5/S, 8/B, 2/Z)

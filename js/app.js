@@ -21,6 +21,7 @@ import * as RGF from './runengruft-freischalten.js';
 import { koboldMalen } from './kobold-bild.js';
 import * as SP from './splitter.js';
 import * as BS from './bildschirm.js';
+import * as BZS from './bz-stufen.js';
 import * as LP from './lernplan.js';
 import * as W from './wochenplan.js';
 import { bildschirmBild } from './bildschirm-bild.js';
@@ -34,7 +35,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.42.0';
+export const APP_VERSION = '2.43.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -91,6 +92,43 @@ const BZ = () => BS.bzRegeln(S.bzRegeln);
 const bzKonto = () => (S.bildschirm = BS.kontoVon(S.bildschirm, L.tagKey()));
 let zweck = null;            // wofür in dieser Runde geübt wird: 'spiel' | 'bild' (Frage vor der ersten Aufgabe)
 const istBild = () => zweck === 'bild' && BZ().an;
+// Bildschirmzeit in Stufen (Auftrag 49): Stand jetzt (vor einer Aufgabe = Stufe beim Start)
+const bzStufe = () => { const k = bzKonto(); BS.extraStartMerken(k, BZ()); return BS.stufeVon(k, BZ()); };
+const bzStufenAn = () => istBild() && BZ().stufen_an;
+// Stand für die Leiste: während der Aufgabe die Stufe beim Start, danach der neue Stand
+function bzLeisteStand() {
+  if (!bzStufenAn() || !A) return null;
+  const st = A.fertig ? BS.stufeVon(bzKonto(), BZ()) : (A.bzStart && A.bzStart.an ? A.bzStart : BS.stufeVon(bzKonto(), BZ()));
+  return st.an ? st : null;
+}
+// Feier nach der Aufgabe (Auftrag 49): voll > Extra-Runde > schneller Bereich > Aufstieg. Nur einmal je Aufgabe.
+function bzFeier() {
+  if (!BZ().an || !BZ().stufen_an || !A.bild) return '';   // auch wenn nach „voll“ schon zur Spielzeit gewechselt wurde
+  const st = BS.stufeVon(bzKonto(), BZ()), r = BZ();
+  let art = null;
+  if (A.bzExtraNeu) art = 'extra';
+  else if (A.bild.voll) art = 'voll';
+  else if (A.bzAufstieg) art = A.bzAufstieg.schnell ? 'schnell' : 'auf';
+  if (!art) return '';
+  if (!A.bzFeierTon && (art === 'voll' || art === 'extra')) { A.bzFeierTon = true; setTimeout(BZS.tonVoll, 250); }
+  // Beim Neuzeichnen nach dem Effekt gleich den Endzustand zeigen (kein zweites Mal abspielen)
+  const ende = A.bzFeierSeit && Date.now() - A.bzFeierSeit > 300;
+  if (!A.bzFeierSeit) A.bzFeierSeit = Date.now();
+  const h = BZS.feierHtml(art, { st, vorher: A.bzStart, regeln: r });
+  return ende ? h.replace('class="bz-feier ', 'class="bz-feier ende ') : h;
+}
+const bzZiel = () => { const r = BZ(); const m = r.schnitt ? BS.minutenBis(r.max * 60, r.schnitt, r.faktor, r.stufen) : null; return m ? Math.max(5, Math.round(m / 5) * 5) : null; };   // „etwa 40“: auf 5 gerundet
+function bzErklaerung(nochmal = false) {
+  protokoll(S, 'merkzettel', { art: 'bildschirm_stufen', aktion: 'gezeigt', ...(nochmal ? { nochmal: true } : {}), ...hb('merkzettel.bildschirm_stufen') });
+  sichern();
+  oeffneModal(BZS.erklaerungHtml(BZ(), bzZiel()));
+}
+// Einmalig vor der ersten Aufgabe mit Stufen
+function bzErklaerungEinmal() {
+  if (!bzStufenAn() || S.verlauf.bzStufenGesehen) return;
+  S.verlauf.bzStufenGesehen = true;
+  bzErklaerung();
+}
 // Zeit (Spielzeit oder Bildschirmzeit) in der Aufgabe zeigen? Ohne Spielzeit nur, wenn für Bildschirmzeit geübt wird.
 const zeitZeigen = () => bed('spielzeit_zeigen') || istBild();
 // „Ab 15 Min. kannst du abschicken. Noch 3 Min.“
@@ -2107,6 +2145,7 @@ function neueAufgabe() {
     A.serienPos = serieWeiter();
     A.wartete = true;
     A.satz = undefined; A.textHilfe = false; A.hilfeAngeboten = false;
+    A.bzStart = bzStufe();
     protokoll(S, 'aufgabe_start', startInfoVon(A, { fortsetzung: true, teil: A.idx }));
     sichern();
     setzeAnsicht('aufgabe');
@@ -2145,6 +2184,7 @@ function neueAufgabe() {
   if (fsAufgabe(aufgabe) && !S.fsSitzung) { A.fsEinladung = true; S.fsSitzung = true; }
   if (aufgabe.modus === 'knobeln') A.knobeln = true;
   if (aufgabe.typ === 'zuordnung') zuordnungVorbereiten();
+  A.bzStart = bzStufe();
   protokoll(S, 'aufgabe_start', startInfoVon(A, bonusWdh ? { bonusWiederholung: true } : {}));
   S.verlauf.letzteIds = [...S.verlauf.letzteIds, aufgabe.id].slice(-20);
   if (!A.test) { etappeMerken(aufgabe); heuteZaehlen(aufgabe); wpZaehlen(aufgabe); if (wpJetzt()) wpGestartet(wpInfo, aufgabe); }
@@ -2155,6 +2195,7 @@ function neueAufgabe() {
   if (ufSofort()) return ufAn(true);
   zeigeAufgabe();
   malMerkzettel();
+  bzErklaerungEinmal();
   // Fehler-Detektiv: beim ersten Mal die Einführungskarte, danach nur über „?“
   if (aufgabe.typ === 'detektiv' && !S.detektivGesehen) { S.detektivGesehen = true; protokoll(S, 'detektiv_einfuehrung', { id: aufgabe.id }); sichern(); detektivEinfuehrung(); }
 }
@@ -2586,13 +2627,14 @@ function zeigeAufgabe() {
   // Ohne „Verstanden“: Tipp direkt unter der Eingabe, damit ihn die Tastatur nicht verdeckt
   const tippInKarte = !bed('verstanden') && !!A.meldung && A.phase === 'eingabe' && !(A.uf && !A.fertig);
   $app.innerHTML = `
-  <div class="screen aufgabe-screen${A.uf && !A.fertig ? ' mit-uf' : ''}">
+  <div class="screen aufgabe-screen${A.uf && !A.fertig ? ' mit-uf' : ''}${bzLeisteStand() && bzLeisteStand().schnell ? ' bz-warm' : ''}">
     ${sternzeit() ? szKopf() : ''}
     <header class="topbar">
       <button class="btn-text" data-act="beenden">✕ Fertig</button>
-      ${zeitZeigen() ? `<div class="serie-chip">Aufgabe ${A.serienPos} · <b>${istBild() ? String(Math.round(min * BZ().faktor * 100) / 100).replace('.', ',') : tz} Min.</b></div>
+      ${zeitZeigen() ? `<div class="serie-chip">Aufgabe ${A.serienPos} · <b>${istBild() ? String(Math.round(min * BZ().faktor * (bzStufenAn() && A.bzStart && A.bzStart.an ? A.bzStart.faktor : 1) * 100) / 100).replace('.', ',') : tz} Min.</b></div>
       ${istBild() ? `<div class="zeit-chip bz-chip">${videoSymbol(18)}${BS.minText(bzKonto().stand)}</div>` : `<div class="zeit-chip">${zeitSymbol(18)}${L.formatZeit(S.guthaben)}</div>`}` : `<div class="serie-chip">Aufgabe ${A.serienPos}</div>`}
     </header>
+    ${bzLeisteStand() && zeitZeigen() ? BZS.leisteHtml(bzLeisteStand(), bzKonto(), BZ()) : ''}
     <main class="aufgabe-inhalt">
       ${A.wartete && !A.fertig && A.teile.every(t => !t.versuche.length) ? '<p class="wartet-hinweis">Diese Aufgabe wartet noch auf dich.</p>' : ''}
       ${A.uzHinweis && !A.fertig ? '<div class="uz-hinweis"><b>Für heute hast du dein Pensum erreicht.</b><br>Die laufende Aufgabe kannst du noch fertig machen.</div>' : ''}
@@ -3355,7 +3397,8 @@ function ergebnisHtml() {
   let zeit = '';
   const b = A.bild;
   if (b) {
-    if (b.plus > 0) zeit = `<div class="mini-gewinn wk-bild"><span class="mini-icons">${bildIcons(0.62)}</span><div><b>+${BS.minText(b.plus)}</b><small>Bildschirmzeit${chips}</small></div></div>`;
+    zeit += bzFeier();
+    if (b.plus > 0) zeit += `<div class="mini-gewinn wk-bild"><span class="mini-icons">${bildIcons(0.62)}</span><div><b>+${BS.minText(b.plus)}</b><small>Bildschirmzeit${chips}</small></div></div>`;
     zeit += `<div class="konto-zeile"><span>Gesammelt</span><b>${BS.minText(b.stand)}</b></div>`;
     if (b.stand > 0 && b.stand < BS.abSek(BZ())) zeit += `<p class="bz-ab gedaempft">${abText({ stand: b.stand })}</p>`;
     zeit += b.voll ? `<p class="wechsel-hinweis">Die Bildschirmzeit ist für heute voll. Ab jetzt kommt alle Zeit zur Spielzeit im Schrein.</p>`
@@ -3739,11 +3782,14 @@ function abschliessen() {
   let spielSek = sek;
   if (istBild()) {
     const k = bzKonto();
-    const g = BS.gutschreiben(k, sek, BZ());
+    const st = A.bzStart && A.bzStart.an ? A.bzStart : null;
+    const sf = st ? st.faktor : 1;
+    A.bzSt = st;
+    const g = BS.gutschreiben(k, sek, BZ(), sf);
     A.bild = { plus: g.plus, voll: g.voll, stand: k.stand, rest: BS.restSek(k, BZ()) };
     if (g.extra != null && g.plus > 0) A.extra = g.extra;
     // Bildschirmzeit voll: Rest dieser Aufgabe und alle weiteren Aufgaben gehen zur Spielzeit im Schrein
-    spielSek = g.voll ? Math.max(0, sek - Math.round(g.verbraucht / BZ().faktor)) : 0;
+    spielSek = g.voll ? Math.max(0, sek - Math.round(g.verbraucht / (BZ().faktor * sf))) : 0;
     if (g.voll) { zweck = 'spiel'; A.wechsel = true; protokoll(S, 'zweck', { zweck, grund: 'voll' }); }
   }
   A.sekunden = 0;
@@ -3785,6 +3831,20 @@ function abschliessen() {
   // Nach dem Hinweis gegen Durchklicken kommt diese oder eine ähnliche Aufgabe wieder, mit Bonuszeit
   if (A.durchklick && !A.test) S.wiederholen = [...S.wiederholen, { ab: S.verlauf.zaehler + 3, aufgabe: a, wdh: (A.wdh || 0) + 1, bonus: true }].slice(-10);
   if (!A.test) { paketZeitBuchen(A.paket, Date.now() - A.start); wpBuchen(a, Date.now() - A.start); S.verlauf.uebMs = uebMs() + Math.min(Date.now() - A.start, 10 * 60 * 1000); }
+  // Bildschirmzeit in Stufen: Übungsminuten heute buchen, Aufstieg und Beginn der Extra-Runde merken (Effekte erst nach der Aufgabe)
+  A.bzAufstieg = null; A.bzExtraNeu = false;
+  {   // auch beim gezielten Testen (Konto liegt nur auf dem Gerät, Testgeräte übertragen nichts)
+    const vorher = A.bzStart;
+    BS.uebungBuchen(bzKonto(), Date.now() - A.start, BZ());
+    const nach = BS.stufeVon(bzKonto(), BZ());
+    if (vorher && vorher.an && nach.an) {
+      if (!vorher.extraRunde && nach.extraRunde) A.bzExtraNeu = true;
+      else if (nach.extraRunde === vorher.extraRunde && nach.stufe > vorher.stufe) {
+        A.bzAufstieg = { von: vorher.stufe, nach: nach.stufe, schnell: nach.schnell };
+        protokoll(S, 'bildschirm_stufe', { stufe: nach.stufe, uebung_min: nach.uebMin, extra_runde: nach.extraRunde });
+      }
+    }
+  }
   if (A.gleich && !lsg && S.verlauf.loesung) { const m = { ...S.verlauf.loesung }; delete m[a.id]; S.verlauf.loesung = m; }
   S.verlauf.zaehler++;
   if (a.form && !A.test) { const fz = S.verlauf.formZaehler || (S.verlauf.formZaehler = {}); fz[a.form] = (fz[a.form] || 0) + 1; }
@@ -3796,6 +3856,7 @@ function abschliessen() {
   protokoll(S, 'aufgabe_ende', {
     id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: A.sekunden, serienPos: A.serienPos,
     ...(A.bild ? { bildschirm: A.bild.plus, voll: A.bild.voll || undefined } : {}),
+    ...(A.bild && A.bzSt ? { uebung_min: A.bzSt.uebMin, bz_stufe: A.bzSt.stufe, stufe_faktor: A.bzSt.faktor, ...(A.bzSt.extraRunde ? { extra_runde: true } : {}) } : {}),
     ...(A.kopf ? { kopf: true } : {}), ...(A.sz && A.sz.voll ? { spielzeitVoll: true } : {}),
     ...(A.paket ? { paket: A.paket } : {}), ...(A.etappe != null ? { etappe: A.etappe } : {}),
     strafe: A.strafe, rechnerOptional: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, verlassen: A.verlassen, ms: Date.now() - A.start, hinweise: A.hinweise.slice(), hinweiseLang: (A.hinweiseLang || []).slice(), langHalb: !!A.langHalb,
@@ -5439,6 +5500,9 @@ function klick(e) {
     case 'fsSeite': fsSeiteZeigen(Number(el.dataset.n)); break;
     case 'fsZoom': fsZoom(Number(el.dataset.d)); break;
     case 'fsNotfall': fsNotfall(); break;
+    case 'bzInfo': bzErklaerung(true); break;
+    case 'bzVerstanden': protokoll(S, 'merkzettel', { art: 'bildschirm_stufen', aktion: 'verstanden' }); sichern(); schliesseModal(); break;
+    case 'bzFeierFertig': { const f = el.closest('.bz-feier') || el; f.classList.add('ende'); break; }
     case 'malVerstanden': protokoll(S, 'merkzettel', { art: 'malzeichen', aktion: 'verstanden', id: A && A.aufgabe ? A.aufgabe.id : null }); sichern(); schliesseModal(); break;
     case 'mehrHilfe': mehrHilfe(el.dataset.id); break;
     case 'formelSeite': formelSeite(Number(el.dataset.s)); break;

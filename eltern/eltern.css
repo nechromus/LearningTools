@@ -721,3 +721,21 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 
 .hilfe-bis { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .hilfe-bis input[type=date] { font: inherit; font-size: 16px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--linie, #D3DCDC); }
+
+/* Bildschirmzeit in Stufen (Auftrag 49) */
+.bz-regler { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 420px; }
+.bz-regler input[type=range] { flex: 1; min-height: 44px; accent-color: var(--teal, #1F6F75); }
+.bz-regler b { min-width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
+.bz-stufen-liste { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 4px; }
+.bz-stufe-zeile { display: grid; grid-template-columns: auto auto minmax(140px, 1fr) auto; gap: 6px 12px; align-items: center; padding: 6px 0; border-top: 1px solid var(--linie); }
+.bz-stufe-nr { font-weight: 700; }
+.bz-ab { display: flex; align-items: center; gap: 6px; }
+.bz-ab input { font: inherit; font-size: 16px; width: 4.2em; min-height: 42px; border: 1.5px solid var(--linie); border-radius: 10px; padding: 0 8px; background: #fff; }
+.bz-ab input:disabled { background: transparent; border-color: transparent; color: inherit; }
+.bz-vorschau { width: 100%; margin-top: 8px; padding: 10px 12px; border-radius: 10px; background: var(--teal-hell, #DCEDED); line-height: 1.4; }
+@media (max-width: 560px) {
+  .bz-stufe-zeile { grid-template-columns: auto 1fr; }
+  .bz-stufe-zeile .bz-regler { grid-column: 1 / -1; max-width: none; }
+}
+.bz-stufen-liste .knopf { min-height: 42px; font-size: 15px; padding: 0 12px; white-space: nowrap; width: auto; justify-self: start; }
+.bz-stufen-liste > .knopf { align-self: flex-start; margin-top: 4px; }
