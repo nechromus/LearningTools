@@ -684,9 +684,17 @@ function pfSchritte(G, p, einheit, wLabel = 'W') {
     { text: `${wLabel} = 1 % · p =`, wert: pfW(G, p), einheit }
   ];
 }
-const pfWeg = (G, p, einheit) => [`W/${p} = ${G}/100`, `1 % = ${G} : 100 = ${pfMit(pf1(G), einheit === '€' || einheit === 'g' ? einheit : '')}`, `W = ${pfMit(pf1(G), einheit === '€' || einheit === 'g' ? einheit : '')} · ${p} = ${pfMit(pfW(G, p), einheit)}`];
+// Lösungsweg wie auf dem Bogen (Nachtrag 47b): vier Schritte, bei Geld 1 % mit 2 Stellen
+const pfGeld2 = (x, e) => e === '€' && !Number.isInteger(x) ? `${zahlText(x, 2)} €` : pfMit(x, e);
+const pfWeg = (G, p, einheit, wName = 'W') => {
+  const e1 = einheit === '€' || einheit === 'g' ? einheit : '';
+  return [`1 G und p finden, ${wName === 'W' ? 'W' : 'der Rabatt W'} ist gesucht → G = ${pfMit(G, einheit)}, p = ${p}`,
+    `2 einsetzen, W bleibt stehen → W/${p} = ${G}/100`,
+    `3 G : 100 = 1 % → ${G} : 100 = ${pfGeld2(pf1(G), e1)}`,
+    `4 mal p → W = ${pfGeld2(pf1(G), e1)} · ${p} = ${pfMit(pfW(G, p), einheit)}`];
+};
 export function prozentFormel(stufe, rng, opts = {}) {
-  if (opts.gpw !== false && rng() < 0.25) { const g = prozentGpw(rng); if (g) return g; }
+  if (opts.gpw !== false && rng() < (opts.gpwAnteil ?? 0.25)) { const g = prozentGpw(rng); if (g) return g; }
   for (let v = 0; v < 300; v++) {
     if (stufe === 1) {
       const p = rng() < 1 / 3 ? wahl(rng, [10, 25, 50]) : wahl(rng, PF_P);
@@ -694,7 +702,7 @@ export function prozentFormel(stufe, rng, opts = {}) {
       return neu('prozent-formel', ['direkt', G, p], {
         thema: 'prozent-formel', typ: 'schritte', stufe, taschenrechner: true, frage: `${p} % von ${G} €`,
         schritte: [{ text: 'G =', wert: G, einheit: '€' }, { text: 'p =', wert: p }, ...pfSchritte(G, p, '€')],
-        hinweise: ['formel'], loesungsweg: [`G = ${G} €, p = ${p}, W ist gesucht`, ...pfWeg(G, p, '€')],
+        hinweise: ['formel'], loesungsweg: pfWeg(G, p, '€'),
         erklaerung: 'G ist das Ganze (nach „von“), p die Zahl vor dem %. W ist gesucht.' + ([10, 25, 50].includes(p) ? ' Das geht auch im Kopf, das Ergebnis ist dasselbe.' : '')
       });
     }
@@ -710,7 +718,7 @@ export function prozentFormel(stufe, rng, opts = {}) {
         geschichte: t.text(G, p, d, n), frage,
         gegeben: [{ name: 'G', wert: G, einheit: t.einheit }, { name: 'p', wert: p, einheit: '%' }],
         schritte: pfSchritte(G, p, t.einheit),
-        hinweise: ['formel', 'text'], loesungsweg: [`G = ${pfMit(G, t.einheit)}, p = ${p}, W ist gesucht`, ...pfWeg(G, p, t.einheit)],
+        hinweise: ['formel', 'text'], loesungsweg: pfWeg(G, p, t.einheit),
         erklaerung: 'Erst G und p aus dem Text holen. G ist das Ganze, p die Zahl vor dem %. W ist gesucht.'
       });
     }
@@ -725,7 +733,7 @@ export function prozentFormel(stufe, rng, opts = {}) {
       geschichte: `${d.nom} kostet ${G} €. Heute gibt es ${p} % Rabatt.`, frage: 'Wie viel kostet es jetzt?',
       gegeben: [{ name: 'G', wert: G, einheit: '€' }, { name: 'p', wert: p, einheit: '%' }],
       schritte: [...pfSchritte(G, p, '€', 'Rabatt W'), { text: 'Neuer Preis = G − W =', wert: neuP, einheit: '€' }],
-      hinweise: ['formel', 'text'], loesungsweg: [`G = ${G} €, p = ${p}, der Rabatt W ist gesucht`, ...pfWeg(G, p, '€'), `${G} € − ${geld(W)} € = ${geld(neuP)} €`],
+      hinweise: ['formel', 'text'], loesungsweg: [...pfWeg(G, p, '€', 'Rabatt'), `Neuer Preis: ${G} € − ${geld(W)} € = ${geld(neuP)} €`],
       erklaerung: 'Erst den Rabatt mit der Formel. Dann vom Preis abziehen.'
     });
   }
@@ -744,9 +752,9 @@ export function prozentGpw(rng) {
       thema: 'prozent-formel', form: 'gpw', typ: 'schritte', stufe: 1, kategorie: 'text',
       geschichte: t.text(G, p, d, n), frage: `${frage} Rechne nicht. Ordne nur zu.`,
       schritte: [
-        { text: 'G (Grundwert, das Ganze) =', optionen: opt, richtig: 0 },
-        { text: 'p (Prozentsatz, die Zahl vor dem %) =', optionen: opt, richtig: 1 },
-        { text: 'W (Prozentwert, der Teil) =', optionen: opt, richtig: 2 }
+        { text: 'G (Grundwert, das Ganze) =', optionen: opt, richtig: 0, zwei_versuche: true },
+        { text: 'p (Prozentsatz, die Zahl vor dem %) =', optionen: opt, richtig: 1, zwei_versuche: true },
+        { text: 'W (Prozentwert, der Teil) =', optionen: opt, richtig: 2, zwei_versuche: true }
       ],
       hinweise: ['formel', 'text'], loesungsweg: [`G = ${opt[0]} (das Ganze)`, `p = ${p} (die Zahl vor dem %)`, 'W ist gesucht: der Teil'],
       erklaerung: 'G ist das Ganze, oft nach „von“ oder der Preis. p steht vor dem %. W ist der Teil, den die Frage sucht.'

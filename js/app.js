@@ -34,7 +34,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.41.0';
+export const APP_VERSION = '2.42.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1380,7 +1380,7 @@ function schritteVon(liste, thema) {
     : s.karten
     ? { art: 'legen', label: s.text, karten: s.karten, wahl: s.karten.map(() => null), quelle: s }
     : s.optionen
-    ? { art: 'wahl', label: s.text, optionen: L.KOERPER_THEMEN.includes(thema) ? s.optionen.map(L.mitKuerzel) : s.optionen, richtig: s.richtig, quelle: s, formel: !s.fs_html && s.optionen.every(o => /=/.test(o)), ...(s.fs_html ? { fsHtml: s.fs_html } : {}) }
+    ? { art: 'wahl', label: s.text, optionen: L.KOERPER_THEMEN.includes(thema) ? s.optionen.map(L.mitKuerzel) : s.optionen, richtig: s.richtig, quelle: s, formel: !s.fs_html && s.optionen.every(o => /=/.test(o)), ...(s.fs_html ? { fsHtml: s.fs_html } : {}), ...(s.zwei_versuche ? { zweiVersuche: true } : {}) }
     : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden, gueltige: s.gueltige_ziffern || undefined, genau: s.genau, varianten: s.varianten, abgeschnitten: s.abgeschnitten, auch: s.auch }, einheit: s.einheit || '', quelle: s });
 }
 
@@ -1437,7 +1437,9 @@ function fokusOptionen() {
 }
 
 // Doppeltes Minus und Minus vor Klammer (Auftrag 21): nur mit Freigabe ab ihrem Datum; die ersten 5 je Form mit Zwischenschritt
-const formOpts = (g) => ((g === 'minus-plus' || g === 'reihenfolge') && L.freigegeben(S, 'minusminus', S.tag.key) ? { minusminus: true, formZaehler: S.verlauf.formZaehler || {} } : {});
+const formOpts0 = (g) => ((g === 'minus-plus' || g === 'reihenfolge') && L.freigegeben(S, 'minusminus', S.tag.key) ? { minusminus: true, formZaehler: S.verlauf.formZaehler || {} } : {});
+// Nachtrag 47b: „Was ist G, p und W?“ zuerst etwa jede 2. Aufgabe, nach 5 richtigen hintereinander etwa jede 4.
+const formOpts = (g) => g === 'prozent-formel' ? { gpwAnteil: S.verlauf.gpwSelten ? 0.25 : 0.5 } : formOpts0(g);
 function erzeuge(g, stufe, opts = {}) {
   const letzte = S.verlauf.letzteIds.slice(-15);
   // Etappe ohne „Was ist gesucht?“ (Zylinder, Etappe 3)
@@ -3081,7 +3083,7 @@ function findeEsAufgabe() {
   return { id: `fs-finde-${k}-${K[k].zeilen.indexOf(z)}`, quelle: 'Formelsammlung', generator: 'finde-es', parameter: [k, z.zeile], bonus: false,
     thema: 'formelsammlung', typ: 'schritte', stufe: 1,
     frage: `Wo steht die Formel für ${FS_ART[z.zeile] || `die ${z.zeile}`} ${FS_IM[k]}? Schau in die Formelsammlung.`,
-    schritte: [{ text: 'In welchem Kasten steht sie?', optionen: kOpt.map(x => K[x].titel), richtig: kOpt.indexOf(k) },
+    schritte: [{ text: L.KOERPER_THEMEN.includes(k) ? 'Welcher Körper? (Welcher Kasten in der Formelsammlung?)' : 'Welcher Kasten in der Formelsammlung?', optionen: kOpt.map(x => K[x].titel), richtig: kOpt.indexOf(k) },
       { text: 'Welche Formel steht dort?', optionen: fOpt.map(r => r.text), fs_html: fOpt.map(r => r.html), richtig: fOpt.indexOf(z) }],
     hinweise: [], loesungsweg: [`Kasten ${K[k].titel}`, `Zeile ${z.zeile}: ${z.text}`],
     erklaerung: 'Die Formelsammlung darfst du immer benutzen. Auch in der Schule.' };
@@ -3092,7 +3094,7 @@ function findeEsProzent(K) {
   return { id: 'fs-finde-prozentrechnung-0', quelle: 'Formelsammlung', generator: 'finde-es', parameter: ['prozentrechnung', ''], bonus: false,
     thema: 'formelsammlung', typ: 'schritte', stufe: 1,
     frage: 'Wo steht die Formel für die Prozentrechnung? Schau in die Formelsammlung.',
-    schritte: [{ text: 'In welchem Kasten steht sie?', optionen: kOpt.map(x => K[x].titel), richtig: kOpt.indexOf('prozentrechnung') },
+    schritte: [{ text: 'Welcher Kasten in der Formelsammlung?', optionen: kOpt.map(x => K[x].titel), richtig: kOpt.indexOf('prozentrechnung') },
       { text: 'Welche Formel steht dort?', optionen: fOpt.map(r => r.text), fs_html: fOpt.map(r => r.html), richtig: fOpt.indexOf(z) }],
     hinweise: [], loesungsweg: ['Kasten Prozentrechnung', `Formel: ${z.text}`],
     erklaerung: 'Die Formelsammlung darfst du immer benutzen. Auch in der Schule.' };
@@ -3771,7 +3773,7 @@ function abschliessen() {
   } else {
     // Einmaleins-Dreierblöcke (außer auf dem Einstiegsplatz) zählen für die Stufe des Einmaleins
     const g = a.generator === 'block-einmaleins' && a.stufeZaehlt ? 'einmaleins' : a.generator;
-    if (!a.bonus && !A.test && !a.etappeMindest && !g.startsWith('block') && G.GENERATOREN[g]) {
+    if (!a.bonus && !A.test && !a.etappeMindest && a.form !== 'gpw' && !g.startsWith('block') && G.GENERATOREN[g]) {
       const st = S.genStufen[g] || (S.genStufen[g] = { stufe: 1, folge: 0 });
       if (ergebnis === 'erst' && A.hilfeGenutzt) st.folge = 0; // mit „Hilf mir“: Stufe bleibt
       else if (ergebnis === 'erst') { st.folge++; if (st.folge >= 3 && st.stufe < stufeGrenze(g)) { st.stufe++; st.folge = 0; stufeHoch = { generator: g, stufe: st.stufe }; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } }
@@ -3786,6 +3788,7 @@ function abschliessen() {
   if (A.gleich && !lsg && S.verlauf.loesung) { const m = { ...S.verlauf.loesung }; delete m[a.id]; S.verlauf.loesung = m; }
   S.verlauf.zaehler++;
   if (a.form && !A.test) { const fz = S.verlauf.formZaehler || (S.verlauf.formZaehler = {}); fz[a.form] = (fz[a.form] || 0) + 1; }
+  if (a.form === 'gpw' && !A.test) { const v = S.verlauf; v.gpwFolge = ergebnis === 'erst' ? (v.gpwFolge || 0) + 1 : 0; if (v.gpwFolge >= 5 && !v.gpwSelten) { v.gpwSelten = true; protokoll(S, 'gpw_seltener', { folge: v.gpwFolge }); } }
   S.verlauf.themaZuletzt[a.thema] = { ergebnis, stufe: a.stufe };
   // Wissenspunkte (nur Gestaltung Sternzeit)
   A.wp = sternzeit() && !A.test ? L.wissenspunkteFuer(a, { ergebnis, schritte: !!A.schritteAn && !A.ufSofort }) : 0;

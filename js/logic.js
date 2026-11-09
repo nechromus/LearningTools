@@ -830,10 +830,26 @@ export function rechnerOptional(a) {
 // Taschenrechner wäre hier erlaubt (Körper-Aufgaben oder große Zahlen) → im Kopf gerechnet gibt einen Bonus
 export function rechnerZulaessig(a) {
   if (fachVon(a) === 'physik') return false; // Physik: Rechner frei, kein Kopf-Bonus
-  return !!a.taschenrechner || rechnerOptional(a);
+  return !!a.taschenrechner || rechnerOptional(a) || !kopfGlatt(a);
 }
 // Rechner frei (ohne Abzug): Aufgaben mit taschenrechner und alle Physik-Aufgaben
-export const rechnerFrei = (a) => !!(a && (a.taschenrechner || fachVon(a) === 'physik'));
+// Nur „glatt im Kopf“ rechenbare Aufgaben kosten Zeit mit Rechner (Wunsch Vater, 9.11.):
+// Minus-Zahlen und Reihenfolge: alle Zahlen unter 100. Prozent, Prozent-Baukasten, Rabatt, Neuer Preis: alle Ergebnisse ganze Zahlen (keine Cent).
+// Alle anderen Arten gelten als glatt (Einmaleins, Mal 10, Potenzen, Runden, Bruch-Bild, Kreisdiagramm, „Was ist G, p und W?“ …).
+const GLATT_UNTER_100 = ['minus-zahlen', 'reihenfolge'];
+const GLATT_GANZ = ['prozent', 'prozent-baukasten', 'rabatt', 'neuer-preis'];
+export function ergebnisWerte(a) {
+  const w = [a.antwort && a.antwort.wert, a.richtig_rechnen && a.richtig_rechnen.wert, ...(a.schritte || []).filter(s => !s.optionen).map(s => s.wert),
+    ...(a.fragen || []).map(f => f.wert), ...(a.aufgaben || []).map(x => x && x.antwort && x.antwort.wert)];
+  return w.filter(x => typeof x === 'number');
+}
+export function kopfGlatt(a) {
+  if (!a) return true;
+  if (GLATT_UNTER_100.includes(a.thema)) return groessteZahl(a) < 100;
+  if (GLATT_GANZ.includes(a.thema)) return ergebnisWerte(a).every(x => Number.isInteger(Math.round(x * 1e6) / 1e6));
+  return true;
+}
+export const rechnerFrei = (a) => !!(a && (a.taschenrechner || fachVon(a) === 'physik' || !kopfGlatt(a)));
 // Freiwilliger Rechner wird bei jeder Aufgabe angeboten (kostet Spielzeit), außer dort, wo er ohnehin erlaubt ist
 export function rechnerAnbieten(a) {
   return !rechnerFrei(a) && !['auswahl', 'zuordnung', 'formel'].includes(a.typ) && a.thema !== 'formelsammlung';
