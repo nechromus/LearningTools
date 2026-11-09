@@ -34,7 +34,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.40.2';
+export const APP_VERSION = '2.41.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1373,6 +1373,8 @@ function schritteTeile(a) {
 function schritteVon(liste, thema) {
   return liste.map(s => s.linien_waehlen
     ? { art: 'linien', label: s.text, richtig: s.linien_waehlen.richtig.slice(), linien: [], quelle: s }
+    : s.prozentformel
+    ? { art: 'bruch', pf: true, label: s.text, antwort: { zaehler: s.prozentformel.G, nenner: s.prozentformel.p }, quelle: s }
     : s.bruch
     ? { art: 'bruch', label: s.text, antwort: { zaehler: s.bruch.zaehler, nenner: s.bruch.nenner }, nennerFest: !!s.bruch.nenner_fest, quelle: s }
     : s.karten
@@ -1445,6 +1447,8 @@ function erzeuge(g, stufe, opts = {}) {
   if (bgOhne.length) opts = { ...opts, ohne: bgOhne };
   opts = { ...opts, ...formOpts(g), ...befOpts(g), ...(g === 'kugel' && L.freigegeben(S, 'halbkugel', S.tag.key) ? { halbkugel: true } : {}) };
   stufe = befStufe(g, stufe);
+  // Prozent mit Formel (Auftrag 47): bis zur Freigabe „prozent_formel_2“ nur Stufe 1 (G nur Hunderter)
+  if (g === 'prozent-formel' && !L.freigegeben(S, 'prozent_formel_2', L.tagKey())) stufe = 1;
   let a;
   for (let i = 0; i < 8; i++) {
     a = G.GENERATOREN[g](stufe, Math.random, opts);
@@ -2572,7 +2576,8 @@ function zeigeAufgabe() {
   const min = Math.round(L.minutenFuerPosition(A.serienPos, R()) * L.muehFaktor(a, R(), { umformen: !!A.uf }) * 100) / 100;
   const tz = String(min).replace('.', ',');
   const fsHier = fsAufgabe(a);
-  const icons = fsHier ? '' : (a.hinweise || []).filter(id => HMAP[id]).map(id =>
+  const fsOhneHinweis = fsHier && a.thema !== 'prozent-formel';   // Prozent mit Formel: Formelsammlung und Hinweis 23 (Auftrag 47)
+  const icons = fsOhneHinweis ? '' : (a.hinweise || []).filter(id => HMAP[id]).map(id =>
     `<button class="hw-btn${A.meldung && A.phase === 'tipp' ? ' pulsieren' : ''}" data-act="hinweis" data-id="${id}" aria-label="Hinweis ${esc(HMAP[id].titel)}">${hinweisIcon(HMAP[id], 42)}</button>`).join('');
 
   const wpMoeglich = sternzeit() && A.knobeln && !A.fertig && a.wissenspunkte ? a.wissenspunkte : null;
@@ -2604,7 +2609,7 @@ function zeigeAufgabe() {
           : A.knobeln && !A.fertig && A.phase === 'eingabe' ? `<button class="btn knobel-schritte" data-act="schritteAn">In Schritten rechnen${wpMoeglich ? ` <small>· dann ${wpMoeglich.schritte} WP</small>` : ''}</button>` : ''}`}
         ${tippInKarte ? `<div class="meldung meldung-in-karte${A.meldung === SCHNELL_TIPP ? ' schnell' : ''}">${meldungHtml()}</div>` : ''}
         ${fsHier && !A.fertig ? fsKnopfHtml() : ''}
-        <div class="hw-leiste">${fsHier ? '' : '<span class="gedaempft">Hinweis:</span>'}${icons}
+        <div class="hw-leiste">${fsOhneHinweis ? '' : '<span class="gedaempft">Hinweis:</span>'}${icons}
           ${wpMoeglich ? `<span class="sz-punkte wp-chip">◆ ${wpMoeglich.knobeln} WP</span>` : ''}
           ${L.rechnerFrei(a) && !A.fertig ? '<button class="btn btn-klein btn-rechner" data-act="rechner">Taschenrechner</button>' : ''}
           ${hilfeKnopf()}
@@ -2655,6 +2660,13 @@ function bruchGleichHtml(t, aktiv) {
   return `<div class="bruch-gleich">${links}<div class="bruch-eingabe">
     ${aktiv ? `<button class="feld bruch-feld aktiv-feld" data-act="feld" data-feld="z">${esc(t.z) || '?'}</button>` : '<div class="feld bruch-feld leer">?</div>'}
     <div class="bruch-strich"></div><div class="feld bruch-feld fest">${t.antwort.nenner}</div></div></div>`;
+}
+// Prozentformel einsetzen (Auftrag 47): W/p = G/100, W und 100 fest, p (unten links) und G (oben rechts) eintippen
+function pfFormelHtml(t, aktiv) {
+  const fest = (x) => `<div class="feld bruch-feld fest">${esc(String(x))}</div>`;
+  const feld = (f, w) => aktiv ? `<button class="feld bruch-feld${A.feld === f ? ' aktiv-feld' : ''}" data-act="feld" data-feld="${f}">${esc(w) || '?'}</button>` : `<div class="feld bruch-feld${w ? '' : ' leer'}">${esc(w) || '?'}</div>`;
+  if (!aktiv && t.status !== 'offen') return `<div class="feld-zeile">${erledigtWert(t, `${bruchHtml('W', t.antwort.nenner)} = ${bruchHtml(t.antwort.zaehler, '100')}`, true)}</div>`;
+  return `<div class="bruch-gleich pf-formel"><div class="bruch-eingabe">${fest('W')}<div class="bruch-strich"></div>${feld('n', t.n)}</div><span class="gl">=</span><div class="bruch-eingabe">${feld('z', t.z)}<div class="bruch-strich"></div>${fest(100)}</div></div>`;
 }
 function linienBild(a) {
   const t = aktuellerTeil();
@@ -2903,7 +2915,7 @@ function gesuchtGezaehlt(t, richtig) {
 // ---------- Formelsammlung der Schule (Auftrag 40, Teil 5) ----------
 // Daten aus dem Daten-Repo (daten/<name>/formelblatt/schule-kaesten.json und bilder/schule-*.png), nicht in der öffentlichen App.
 const fsDa = () => !!(S.fs && S.fs.kaesten && S.fs.kaesten.zylinder);
-const fsAufgabe = (a = A && A.aufgabe) => !!a && fsDa() && (L.KOERPER_THEMEN.includes(a.thema) || a.thema === 'formelsammlung');
+const fsAufgabe = (a = A && A.aufgabe) => !!a && fsDa() && (L.KOERPER_THEMEN.includes(a.thema) || a.thema === 'formelsammlung' || (a.thema === 'prozent-formel' && !!S.fs.kaesten.prozentrechnung));
 let fsLaeuft = false;
 async function fsLaden() {
   const u = S.upload;
@@ -2920,6 +2932,7 @@ const fsHtml = (h) => String(h || '').replace(/<(?!\/?(?:span|sub|sup)(?:\s+clas
 const FS_ZEILE = { V: 'Volumen', O: 'Oberfläche', M: 'Mantelfläche', G: 'Grundfläche' };
 // Welche Zeile der Formelsammlung braucht dieser Schritt?
 function fsZiel(t, a = A.aufgabe) {
+  if (t && !t.merk && t.art === 'zahl' && a.thema === 'prozent-formel' && /1 %|W =/.test(String(t.label || ''))) return { kasten: 'prozentrechnung', zeile: '' };
   if (!t || t.merk || t.art !== 'zahl' || !L.KOERPER_THEMEN.includes(a.thema)) return null;
   const l = String(t.label || '');
   if (/^Runde/.test(l)) return null;
@@ -2957,7 +2970,7 @@ function fsOeffnen() {
   const a = A && A.aufgabe;
   const suchen = (a && a.thema === 'formelsammlung') || L.freigegeben(S, 'fs_suchen', L.tagKey());
   const z = a && a.thema === 'zusammengesetzt' ? fsZiel(aktuellerTeil()) : null;
-  const k = !suchen && a && L.KOERPER_THEMEN.includes(a.thema) ? (a.thema === 'zusammengesetzt' ? (z ? z.kasten : a.form === 'wuerfel-kegel' ? 'wuerfel' : 'quader') : a.thema) : null;
+  const k = !suchen && a && a.thema === 'prozent-formel' ? 'prozentrechnung' : !suchen && a && L.KOERPER_THEMEN.includes(a.thema) ? (a.thema === 'zusammengesetzt' ? (z ? z.kasten : a.form === 'wuerfel-kegel' ? 'wuerfel' : 'quader') : a.thema) : null;
   if (A) A.fsEinladung = false;
   protokoll(S, 'formelsammlung', { aktion: 'offen', kasten: k, aufgabe: a ? a.id : null, schritt: A ? A.idx : null, ...hb(k ? 'formelsammlung.' + k : 'formelsammlung.uebersicht') });
   sichern();
@@ -3051,6 +3064,9 @@ const FS_ART = { Volumen: 'das Volumen', Durchmesser: 'den Durchmesser', Umfang:
 function findeEsAufgabe() {
   if (!fsDa()) return null;
   const K = S.fs.kaesten, da = FS_FINDE.filter(x => K[x] && K[x].zeilen && K[x].zeilen.length);
+  // Auftrag 47: ab der Freigabe von Prozent mit Formel auch der Kasten Prozentrechnung
+  const pz = K.prozentrechnung && K.zinsrechnung && K.dichte && K.geschwindigkeit && (L.freigegeben(S, 'prozent_formel', L.tagKey()) || (testFokus() && testFokus().thema === 'formelsammlung'));
+  if (pz && Math.random() < 1 / (da.length + 1)) return findeEsProzent(K);
   if (da.length < 3) return null;
   const k = wahl(da), zs = K[k].zeilen.filter(z => z.zeile), z = wahl(zs);
   if (!z) return null;
@@ -3068,6 +3084,17 @@ function findeEsAufgabe() {
     schritte: [{ text: 'In welchem Kasten steht sie?', optionen: kOpt.map(x => K[x].titel), richtig: kOpt.indexOf(k) },
       { text: 'Welche Formel steht dort?', optionen: fOpt.map(r => r.text), fs_html: fOpt.map(r => r.html), richtig: fOpt.indexOf(z) }],
     hinweise: [], loesungsweg: [`Kasten ${K[k].titel}`, `Zeile ${z.zeile}: ${z.text}`],
+    erklaerung: 'Die Formelsammlung darfst du immer benutzen. Auch in der Schule.' };
+}
+function findeEsProzent(K) {
+  const z = K.prozentrechnung.zeilen[0], kOpt = L.mischen(['prozentrechnung', 'zinsrechnung', 'dichte']);
+  const fOpt = L.mischen([z, K.dichte.zeilen[0], K.geschwindigkeit.zeilen[0]]);
+  return { id: 'fs-finde-prozentrechnung-0', quelle: 'Formelsammlung', generator: 'finde-es', parameter: ['prozentrechnung', ''], bonus: false,
+    thema: 'formelsammlung', typ: 'schritte', stufe: 1,
+    frage: 'Wo steht die Formel für die Prozentrechnung? Schau in die Formelsammlung.',
+    schritte: [{ text: 'In welchem Kasten steht sie?', optionen: kOpt.map(x => K[x].titel), richtig: kOpt.indexOf('prozentrechnung') },
+      { text: 'Welche Formel steht dort?', optionen: fOpt.map(r => r.text), fs_html: fOpt.map(r => r.html), richtig: fOpt.indexOf(z) }],
+    hinweise: [], loesungsweg: ['Kasten Prozentrechnung', `Formel: ${z.text}`],
     erklaerung: 'Die Formelsammlung darfst du immer benutzen. Auch in der Schule.' };
 }
 function durchklickHinweis() {
@@ -3141,6 +3168,8 @@ function teileHtml() {
       inhalt = `<div class="teil-label">${nr}<span>${aktiv ? `<b>${mathe(t.label)}</b>` : mathe(t.label.split('.')[0] + '.')}</span></div>${aktiv
         ? '<p class="gedaempft klein">Tippe eine Linie an. Noch mal tippen nimmt sie zurück.</p>'
         : `<div class="feld-zeile">${erledigtWert(t, 'Linien eingezeichnet')}</div>`}`;
+    } else if (t.art === 'bruch' && t.pf) {
+      inhalt = `<div class="teil-label">${nr}<span>${aktiv ? `<b>${mathe(t.label)}</b>` : mathe(t.label)}</span></div>${pfFormelHtml(t, aktiv)}${aktiv ? '<p class="gedaempft klein mitte">Tippe ein Feld an: unten links p, oben rechts G.</p>' : ''}`;
     } else if (t.art === 'bruch' && t.nennerFest) {
       inhalt = `<div class="teil-label">${nr}<span>Gleich viel gefärbt:</span></div>${bruchGleichHtml(t, aktiv)}${aktiv ? `<p class="gedaempft klein mitte">Wie viele ${esc(gefaerbtWort(a))} sind gefärbt? Tippe die Zahl oben ein.</p>` : ''}`;
     } else if (t.art === 'bruch') {
@@ -3233,6 +3262,7 @@ function loesungText(t) {
   if (t.art === 'formel') return formelText(`${t.antwort.ziel} = ${t.antwort.formel}`);
   if (t.art === 'zahl' && t.ziel.gueltige) return esc(PH.potenzText(PH.zerlege(t.ziel.wert).m, PH.zerlege(t.ziel.wert).e, t.ziel.gueltige) + (t.einheit ? ' ' + t.einheit : '')) + ` <span class="klein">(≈ ${esc(formatWert(PH.aufZiffern(t.ziel.wert, t.ziel.gueltige), t.einheit))})</span>`;
   if (t.art === 'zahl') return esc(formatWert(t.ziel.wert, t.einheit));
+  if (t.art === 'bruch' && t.pf) return `${bruchHtml('W', t.antwort.nenner)} = ${bruchHtml(t.antwort.zaehler, '100')}`;
   if (t.art === 'bruch') return bruchHtml(t.antwort.zaehler, t.antwort.nenner);
   if (t.art === 'linien') return 'Die Linien siehst du jetzt im Bild.';
   if (t.art === 'wahl') return t.formel ? formelText(t.optionen[t.richtig]) : mathe(t.optionen[t.richtig]);
@@ -3532,6 +3562,11 @@ function antwortGeben() {
         fehler = L.erkenneFehler(pseudo, t.quelle || (t.rechnung ? { wert: t.ziel.wert } : null), t.eingabe);
       }
     }
+  } else if (t.art === 'bruch' && t.pf) {
+    if (!t.z || !t.n) { A.meldung = 'Tippe p unten links und G oben rechts ein.'; return zeigeAufgabe(); }
+    eingabe = `W/${t.n}=${t.z}/100`;
+    richtig = Number(t.z) === t.antwort.zaehler && Number(t.n) === t.antwort.nenner;
+    if (!richtig) fehler = L.pfEinsetzenFehler(t.antwort.zaehler, t.antwort.nenner, Number(t.z), Number(t.n));
   } else if (t.art === 'bruch') {
     if (!t.z || !t.n) { A.meldung = 'Tippe Zähler und Nenner ein.'; return zeigeAufgabe(); }
     eingabe = `${t.z}/${t.n}`;
@@ -3896,8 +3931,9 @@ function hinweisOeffnen(id) {
     sichern();
     return oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);
   }
-  // Stufe „Gleich lang“: sofort der lange Hinweis, ohne Kosten
-  if (langStufe() === 0) {
+  // Stufe „Gleich lang“: sofort der lange Hinweis, ohne Kosten.
+  // Hinweis 23 „Prozent mit Formel“ (Auftrag 47): immer gleich die Karte, denn die Formelübersicht zeigt W/G = p/100, die Formelsammlung W/p = G/100.
+  if (langStufe() === 0 || id === 'formel') {
     protokoll(S, 'hinweis_lang', { hinweis: id, stufe: 0, kosten: 'keine', id: aufgabeId(), ...hb(id) });
     sichern();
     return oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);

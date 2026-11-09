@@ -658,59 +658,98 @@ export function rabattGeschichte(stufe, rng, opts = {}) {
   }
 }
 
-// ---------- Prozent mit Formel (Auftrag 30, ab Freigabe prozent_formel) ----------
-// W = G · p : 100. Stufe 1 Formel direkt, Stufe 2 Formel im Text (Merkzettel G, p), Stufe 3 Rabatt mit Formel.
+// ---------- Prozent mit Formel (Auftrag 30, ab Freigabe prozent_formel; Auftrag 47: Schreibweise der Formelsammlung) ----------
+// W/p = G/100. Rechenweg: G und p finden, einsetzen (W bleibt stehen), G : 100 = 1 %, mal p = W.
+// Stufe 1 Formel direkt (G nur Hunderter), Stufe 2 Formel im Text (Merkzettel G, p), Stufe 3 Rabatt mit Formel.
+// Etwa jede 4. Aufgabe (Form „gpw“): „Was ist G, p und W?“ ohne Rechnen, nur Sätze mit W gesucht.
 const PF_P = [5, 8, 12, 15, 18, 20, 25, 30, 35, 40, 45, 60, 65, 75];
 const PF_TEXTE = [
   { k: 'bus', g: [20, 32], ganz: true, einheit: 'Kinder', text: (G, p) => `In einer Klasse sind ${G} Kinder. ${p} % kommen mit dem Bus.`, frage: 'Wie viele Kinder kommen mit dem Bus?' },
   { k: 'verein', g: [40, 600], ganz: true, einheit: 'Mitglieder', text: (G, p) => `Ein Sportverein hat ${G} Mitglieder. ${p} % davon spielen Fußball.`, frage: 'Wie viele Mitglieder spielen Fußball?' },
   { k: 'rabatt', g: [20, 600], ganz: false, einheit: '€', text: (G, p, d) => `${d.nom} kostet ${G} €. Heute gibt es ${p} % Rabatt.`, frage: () => 'Wie viel Euro sparst du?' },
   { k: 'erspart', g: [40, 400], ganz: false, einheit: '€', text: (G, p, d, n) => `${n[0]} hat ${G} € gespart. ${n[1] === 'm' ? 'Er' : 'Sie'} gibt ${p} % davon für ${d.akk} aus.`, frage: (d, n) => `Wie viel Euro gibt ${n[0]} aus?` },
-  { k: 'saft', g: [200, 1000], ganz: false, einheit: 'g', text: (G, p) => `Eine Flasche Saft hat ${G} g Inhalt. ${p} % davon sind Zucker.`, frage: 'Wie viel Gramm Zucker sind darin?' }
+  { k: 'saft', g: [200, 600], ganz: false, einheit: 'g', text: (G, p) => `Eine Flasche Saft hat ${G} g Inhalt. ${p} % davon sind Zucker.`, frage: 'Wie viel Gramm Zucker sind darin?' }
 ];
 const PF_DINGE = [{ nom: 'Ein Handy', akk: 'ein Spiel', preis: [150, 600] }, { nom: 'Ein Fahrrad', akk: 'Kopfhörer', preis: [200, 600] }, { nom: 'Eine Jacke', akk: 'ein T-Shirt', preis: [40, 150] }, { nom: 'Ein Spiel', akk: 'eine Konzertkarte', preis: [20, 70] }, { nom: 'Ein Rucksack', akk: 'ein Buch', preis: [25, 90] }, { nom: 'Ein Paar Sneaker', akk: 'Sneaker', preis: [50, 150] }];
 const pfW = (G, p) => Math.round(G * p) / 100;
-export function prozentFormel(stufe, rng) {
+const pf1 = (G) => Math.round(G) / 100;
+// Zahl mit Einheit für Texte (Geld mit 2 Stellen)
+const pfMit = (x, e) => e === '€' ? `${geld(x)} €` : e ? `${zahlText(x)} ${e}` : zahlText(x);
+// Die Schritte ab „Einsetzen“: Formel mit W fest, G : 100 = 1 %, mal p
+function pfSchritte(G, p, einheit, wLabel = 'W') {
+  const e1 = einheit === '€' || einheit === 'g' ? einheit : '';
+  return [
+    { text: 'Setz G und p in die Formel ein. W bleibt stehen.', prozentformel: { G, p } },
+    { text: '1 % = G : 100 =', wert: pf1(G), einheit: e1 },
+    { text: `${wLabel} = 1 % · p =`, wert: pfW(G, p), einheit }
+  ];
+}
+const pfWeg = (G, p, einheit) => [`W/${p} = ${G}/100`, `1 % = ${G} : 100 = ${pfMit(pf1(G), einheit === '€' || einheit === 'g' ? einheit : '')}`, `W = ${pfMit(pf1(G), einheit === '€' || einheit === 'g' ? einheit : '')} · ${p} = ${pfMit(pfW(G, p), einheit)}`];
+export function prozentFormel(stufe, rng, opts = {}) {
+  if (opts.gpw !== false && rng() < 0.25) { const g = prozentGpw(rng); if (g) return g; }
   for (let v = 0; v < 300; v++) {
     if (stufe === 1) {
       const p = rng() < 1 / 3 ? wahl(rng, [10, 25, 50]) : wahl(rng, PF_P);
-      const G = zufall(rng, 20, 300), W = pfW(G, p);
-      if (!Number.isInteger(W * 100)) continue;
+      const G = zufall(rng, 1, 9) * 100, W = pfW(G, p);
       return neu('prozent-formel', ['direkt', G, p], {
         thema: 'prozent-formel', typ: 'schritte', stufe, taschenrechner: true, frage: `${p} % von ${G} €`,
-        schritte: [{ text: 'G =', wert: G, einheit: '€' }, { text: 'p =', wert: p }, { text: 'W = G · p : 100 =', wert: W, einheit: '€' }],
-        hinweise: ['formel'], loesungsweg: [`G = ${G} €, p = ${p}`, `W = ${G} · ${p} : 100 = ${geld(W)} €`],
-        erklaerung: 'G ist das Ganze (nach „von“), p die Zahl vor dem %.' + ([10, 25, 50].includes(p) ? ' Das geht auch im Kopf, das Ergebnis ist dasselbe.' : '')
+        schritte: [{ text: 'G =', wert: G, einheit: '€' }, { text: 'p =', wert: p }, ...pfSchritte(G, p, '€')],
+        hinweise: ['formel'], loesungsweg: [`G = ${G} €, p = ${p}, W ist gesucht`, ...pfWeg(G, p, '€')],
+        erklaerung: 'G ist das Ganze (nach „von“), p die Zahl vor dem %. W ist gesucht.' + ([10, 25, 50].includes(p) ? ' Das geht auch im Kopf, das Ergebnis ist dasselbe.' : '')
       });
     }
     if (stufe === 2) {
       const t = wahl(rng, PF_TEXTE), d = wahl(rng, PF_DINGE), n = wahl(rng, NAMEN);
       const bereich = t.k === 'rabatt' ? d.preis : t.g;
-      const p = wahl(rng, PF_P), G = t.k === 'bus' ? zufall(rng, bereich[0], bereich[1]) : zufall(rng, Math.ceil(bereich[0] / 5), Math.floor(bereich[1] / 5)) * 5, W = pfW(G, p);
+      const p = wahl(rng, PF_P), G = zufall(rng, Math.max(20, bereich[0]), Math.min(600, bereich[1])), W = pfW(G, p);
       if (t.ganz ? !Number.isInteger(W) : !Number.isInteger(W * 100)) continue;
-      if (t.einheit === 'g' && !Number.isInteger(W)) continue;
+      if (t.einheit === 'g' && !Number.isInteger(W * 10)) continue;
       const frage = typeof t.frage === 'function' ? t.frage(d, n) : t.frage;
       return neu('prozent-formel', ['text', t.k, G, p, PF_DINGE.indexOf(d), NAMEN.indexOf(n)], {
         thema: 'prozent-formel', typ: 'schritte', stufe, kategorie: 'text', taschenrechner: true,
         geschichte: t.text(G, p, d, n), frage,
-        gegeben: [{ name: 'G', wert: G, einheit: t.einheit === 'Kinder' || t.einheit === 'Mitglieder' ? t.einheit : t.einheit }, { name: 'p', wert: p, einheit: '%' }],
-        schritte: [{ text: 'W = G · p : 100 =', wert: W, einheit: t.einheit }],
-        hinweise: ['formel', 'text'], loesungsweg: [`G = ${G} ${t.einheit}, p = ${p}`, `W = ${G} · ${p} : 100 = ${t.einheit === '€' ? geld(W) : zahlText(W)} ${t.einheit}`],
-        erklaerung: 'Erst G und p aus dem Text holen. G ist das Ganze, p die Zahl vor dem %.'
+        gegeben: [{ name: 'G', wert: G, einheit: t.einheit }, { name: 'p', wert: p, einheit: '%' }],
+        schritte: pfSchritte(G, p, t.einheit),
+        hinweise: ['formel', 'text'], loesungsweg: [`G = ${pfMit(G, t.einheit)}, p = ${p}, W ist gesucht`, ...pfWeg(G, p, t.einheit)],
+        erklaerung: 'Erst G und p aus dem Text holen. G ist das Ganze, p die Zahl vor dem %. W ist gesucht.'
       });
     }
     // Stufe 3: Rabatt mit Formel
     const d = wahl(rng, PF_DINGE);
     const p = wahl(rng, [10, 15, 20, 25, 30, 40]);
-    const G = rng() < 0.6 ? zufall(rng, Math.ceil(d.preis[0] / 5), Math.floor(d.preis[1] / 5)) * 5 : zufall(rng, d.preis[0], d.preis[1]);
+    const G = zufall(rng, d.preis[0], d.preis[1]);
     const W = pfW(G, p), neuP = Math.round((G - W) * 100) / 100;
     if (!Number.isInteger(W * 100)) continue;
     return neu('prozent-formel', ['rabatt', G, p, PF_DINGE.indexOf(d)], {
       thema: 'prozent-formel', typ: 'schritte', stufe, kategorie: 'text', taschenrechner: true,
       geschichte: `${d.nom} kostet ${G} €. Heute gibt es ${p} % Rabatt.`, frage: 'Wie viel kostet es jetzt?',
-      schritte: [{ text: 'G =', wert: G, einheit: '€' }, { text: 'p =', wert: p }, { text: 'Rabatt W = G · p : 100 =', wert: W, einheit: '€' }, { text: 'Neuer Preis = G − W =', wert: neuP, einheit: '€' }],
-      hinweise: ['formel', 'text'], loesungsweg: [`G = ${G} €, p = ${p}`, `W = ${G} · ${p} : 100 = ${geld(W)} €`, `${G} € − ${geld(W)} € = ${geld(neuP)} €`],
+      gegeben: [{ name: 'G', wert: G, einheit: '€' }, { name: 'p', wert: p, einheit: '%' }],
+      schritte: [...pfSchritte(G, p, '€', 'Rabatt W'), { text: 'Neuer Preis = G − W =', wert: neuP, einheit: '€' }],
+      hinweise: ['formel', 'text'], loesungsweg: [`G = ${G} €, p = ${p}, der Rabatt W ist gesucht`, ...pfWeg(G, p, '€'), `${G} € − ${geld(W)} € = ${geld(neuP)} €`],
       erklaerung: 'Erst den Rabatt mit der Formel. Dann vom Preis abziehen.'
+    });
+  }
+  return null;
+}
+// „Was ist G, p und W?“ (Auftrag 47): ein Satz aus Stufe 2, für G, p und W die passende Zahl wählen; W ist immer gesucht
+export function prozentGpw(rng) {
+  for (let v = 0; v < 200; v++) {
+    const t = wahl(rng, PF_TEXTE), d = wahl(rng, PF_DINGE), n = wahl(rng, NAMEN);
+    const bereich = t.k === 'rabatt' ? d.preis : t.g;
+    const p = wahl(rng, PF_P), G = zufall(rng, Math.max(20, bereich[0]), Math.min(600, bereich[1]));
+    if (t.ganz && !Number.isInteger(pfW(G, p))) continue;
+    const frage = typeof t.frage === 'function' ? t.frage(d, n) : t.frage;
+    const opt = [pfMit(G, t.einheit), `${p}`, '? (gesucht)'];
+    return neu('prozent-formel', ['gpw', t.k, G, p, PF_DINGE.indexOf(d), NAMEN.indexOf(n)], {
+      thema: 'prozent-formel', form: 'gpw', typ: 'schritte', stufe: 1, kategorie: 'text',
+      geschichte: t.text(G, p, d, n), frage: `${frage} Rechne nicht. Ordne nur zu.`,
+      schritte: [
+        { text: 'G (Grundwert, das Ganze) =', optionen: opt, richtig: 0 },
+        { text: 'p (Prozentsatz, die Zahl vor dem %) =', optionen: opt, richtig: 1 },
+        { text: 'W (Prozentwert, der Teil) =', optionen: opt, richtig: 2 }
+      ],
+      hinweise: ['formel', 'text'], loesungsweg: [`G = ${opt[0]} (das Ganze)`, `p = ${p} (die Zahl vor dem %)`, 'W ist gesucht: der Teil'],
+      erklaerung: 'G ist das Ganze, oft nach „von“ oder der Preis. p steht vor dem %. W ist der Teil, den die Frage sucht.'
     });
   }
   return null;

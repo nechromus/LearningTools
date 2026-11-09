@@ -83,6 +83,13 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
   if (aufgabe.thema === 'zusammengesetzt' && /^Wie breit ist der Kegel/.test(frage)) return { typ: 'kegel-breite-bild', text: 'Der größte Kegel geht oben von Rand zu Rand. Er ist so breit wie der Würfel: d = a.' };
   if (aufgabe.thema === 'zusammengesetzt' && /^Zusammenz/.test(frage)) return { typ: 'zusammen-statt-abziehen', text: 'Der Kegel ist ausgeschnitten. Er fehlt. Also abziehen.' };
   if (aufgabe.thema === 'zusammengesetzt' && /^Wie hoch ist der Kegel/.test(frage)) return { typ: 'kegel-hoehe-bild', text: `Schau ins Bild: Die Spitze berührt den Boden. Also ist der Kegel so hoch wie der ${aufgabe.form === 'wuerfel-kegel' ? 'Würfel' : 'Quader'}.` };
+  // „Was ist G, p und W?“ (Auftrag 47)
+  if (aufgabe.form === 'gpw') {
+    const zu = teil.richtig, g = gewaehlt;
+    if ((zu === 0 && g === 1) || (zu === 1 && g === 0)) return PF_VERTAUSCHT;
+    if (g === 2) return { typ: 'formel-gpw', text: zu === 0 ? 'G steht im Text: das Ganze, 100 %.' : 'p steht im Text: die Zahl vor dem %.' };
+    return { typ: 'formel-gpw', text: 'W ist der Teil, den die Frage sucht. Er steht nicht im Text.' };
+  }
   // Zylinder „Was wird gesucht?“ mit vier Möglichkeiten (Auftrag 30)
   if (aufgabe.form === 'gesucht4' && /gesucht/.test(frage)) return { typ: 'zylinder-gesucht', text: '„passt hinein“ → V (Volumen). „rund herum“ → A_M (Mantel). „alles außen, mit Deckel und Boden“ → A_O (Oberfläche). „der Boden“ → A_G (Grundfläche).' };
   return null;
@@ -91,9 +98,16 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
 const PF_VERTAUSCHT = { typ: 'formel-g-p-vertauscht', text: 'G ist das Ganze: die Zahl nach „von“, zum Beispiel der Preis.' };
 function pfGp(a) {
   const par = a.parameter || [];
-  if (par[0] === 'text') return [par[2], par[3]];
+  if (par[0] === 'text' || par[0] === 'gpw') return [par[2], par[3]];
   if (par[0] === 'direkt' || par[0] === 'rabatt') return [par[1], par[2]];
   return null;
+}
+// Formel einsetzen (Auftrag 47): W/p = G/100, eingetippt p (unten links) und G (oben rechts)
+export function pfEinsetzenFehler(G, p, z, n) {
+  if (gleich(z, p) && gleich(n, G)) return PF_VERTAUSCHT;
+  if (gleich(n, p) && !gleich(z, G)) return { typ: 'formel-einsetzen', text: 'Oben rechts steht G: das Ganze, 100 %.' };
+  if (gleich(z, G) && !gleich(n, p)) return { typ: 'formel-einsetzen', text: 'Unten links steht p: die Zahl vor dem %.' };
+  return { typ: 'formel-einsetzen', text: 'Unten links p, die Zahl vor dem %. Oben rechts G, das Ganze.' };
 }
 // Merkzettel: falsche Zahl aus dem Text. Gibt { typ, text } oder null zurück.
 export function erkenneMerkFehler(aufgabe, label, eingabeText) {
@@ -133,6 +147,10 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
       if (/^G =/.test(ttx) && gleich(w, p)) return PF_VERTAUSCHT;
       if (/^p =/.test(ttx) && gleich(w, G)) return PF_VERTAUSCHT;
       if (/W = G/.test(ttx) && gleich(w, G * p)) return { typ: 'formel-ohne-100', text: 'Hast du durch 100 geteilt?' };
+      // Auftrag 47: 1 % = G : 100 mit falschem Komma; mal p ohne : 100
+      if (/^1 % = G : 100/.test(ttx) && !gleich(w, G / 100) && ziffernGleich(w, G / 100)) return { typ: 'formel-1prozent', text: 'Durch 100: Das Komma rutscht zwei Stellen nach links.', tafel: { x: G, mal: false, stellen: 2 } };
+      if (/^1 % = G : 100/.test(ttx) && gleich(w, G)) return { typ: 'formel-1prozent', text: 'Durch 100: Das Komma rutscht zwei Stellen nach links.', tafel: { x: G, mal: false, stellen: 2 } };
+      if (/1 % · p/.test(ttx) && gleich(w, G * p)) return { typ: 'formel-ohne-100', text: 'Erst 1 %: G : 100. Dann mal p.' };
       if (/^Neuer Preis/.test(ttx) && gleich(w, G * p / 100)) return { typ: 'formel-rabatt-statt-preis', text: 'Das ist der Rabatt. Wie viel kostet es jetzt? G − Rabatt.' };
     }
   }
@@ -353,6 +371,7 @@ export function muehGruppe(a, { umformen = false } = {}) {
   const g = String(a.generator || '');
   if (a.thema === 'dichte' && DICHTE_GRUPPE[a.variante]) return DICHTE_GRUPPE[a.variante];
   if (a.thema === 'formelsammlung') return 'kurz';                         // „Finde es“ (Auftrag 40)
+  if (a.form === 'gpw') return 'kurz';                                      // „Was ist G, p und W?“ (Auftrag 47)
   if (a.thema === 'quader') return 'normal';                               // Quader-Volumen (Auftrag 43)
   if (KOERPER.includes(a.thema) || a.typ === 'detektiv' || a.modus === 'knobeln') return 'schwer';
   if (a.typ === 'auswahl') return 'normal';
@@ -696,6 +715,7 @@ export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
           if (!Array.isArray(r) || !r.length || r.some(x => !Number.isInteger(x) || x < 0 || x >= n)) f.push(`${id}: Schritt ${i + 1}: linien_waehlen.richtig passt nicht zu bild.linien`);
         }
         else if (s.bruch) { if (typeof s.bruch.zaehler !== 'number' || typeof s.bruch.nenner !== 'number') f.push(`${id}: Schritt ${i + 1}: bruch braucht zaehler und nenner`); }
+        else if (s.prozentformel) { if (typeof s.prozentformel.G !== 'number' || typeof s.prozentformel.p !== 'number') f.push(`${id}: Schritt ${i + 1}: prozentformel braucht G und p`); }
         else if (typeof s.wert !== 'number') f.push(`${id}: Schritt ${i + 1} braucht „wert“`);
       });
       break;
@@ -863,7 +883,7 @@ export function kuerzelAufgabe(a) {
   const lw = a.loesungsweg.map(z => typeof z === 'string' ? z.replace(/→\s*(Volumen|Oberfläche|Mantel|Grundfläche)\b(?!\s*\()/g, (_, w) => `→ ${KUERZEL_VON[w]} (${w})`) : z);
   return lw.some((z, i) => z !== a.loesungsweg[i]) ? { ...a, loesungsweg: lw } : a;
 }
-export const FREIGABEN = ['minusminus', 'prozent_formel', 'halbkugel', 'fs_suchen', 'zusammengesetzt'];
+export const FREIGABEN = ['minusminus', 'prozent_formel', 'prozent_formel_2', 'halbkugel', 'fs_suchen', 'zusammengesetzt'];
 // Befristete Hilfen (Auftrag 41): gelten bis einschließlich Datum, ohne Datum aus
 export const HILFEN_BIS = ['malzeichen_hilfe', 'malzeichen_merk'];
 export const hilfeAn = (z, k, heute) => !!(z && z.hilfenBis && z.hilfenBis[k] && heute <= z.hilfenBis[k]);
@@ -950,6 +970,8 @@ export function befristetErlaubt(a, bef) {
   if (bef.stufe_max && bef.stufe_max.mal10 && bef.stufe_max.mal10 < 3 && a.thema === 'mal-10' && /\d,\d\d/.test(txt)) return false;
   return true;
 }
+// Dieselben Ziffern, nur das Komma woanders (400 statt 4, 0,4 statt 4)
+const ziffernGleich = (a, b) => ziffern(a) === ziffern(b);
 // Mal 10 / durch 10 (Auftrag 36): Fehler erkennen und Stellentafel zeigen
 const ziffern = (v) => String(Math.round(Math.abs(v) * 1000) / 1000).replace('.', '').replace(/^0+/, '').replace(/0+$/, '');
 export function mal10Fehler(rechnung, w, ziel) {

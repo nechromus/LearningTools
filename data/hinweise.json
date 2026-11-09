@@ -447,13 +447,14 @@
       "farbe_hell": "#D3EEF0",
       "farbe_text": "#0B4B52",
       "regeln": [
-        "W = G · p : 100",
-        "G = das Ganze (100 %), zum Beispiel der Preis",
-        "p = die Zahl vor dem %",
-        "W = der Teil, den du suchst",
-        "Rechner: G × p ÷ 100 ="
+        "W/p = G/100",
+        "wie in der Formelsammlung, Kasten Prozentrechnung",
+        "G (Grundwert) = das Ganze, 100 %. Oft steht „von“ davor, oder es ist der Preis.",
+        "p (Prozentsatz) = die Zahl vor dem %.",
+        "W (Prozentwert) = der Teil vom Ganzen.",
+        "So rechnest du: G : 100 = 1 %, dann mal p."
       ],
-      "beispiel": "15 % von 240 € → G = 240, p = 15 → 240 · 15 : 100 = 36 €",
+      "beispiel": "15 % von 200 € → W/15 = 200/100 → 200 : 100 = 2 → 2 · 15 = 30 → W = 30 €",
       "fach": "mathe"
     }
   ]

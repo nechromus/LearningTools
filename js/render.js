@@ -15,6 +15,7 @@ export function bruchHtml(z, n, gross = false) {
 export function mathe(text) {
   return esc(text)
     .replace(/(\d+)\/(\d+)/g, (_, z, n) => bruchHtml(z, n))
+    .replace(/(^|[\s(→=])([WGp])\/(\d+|[WGp])(?![\w\/])/g, (_, v, z, n) => v + bruchHtml(z, n))   // Prozentformel W/p = G/100 (Auftrag 47)
     .replace(/\bA_([GMO])\b/g, 'A<sub>$1</sub>')
     .replace(/\bV_(Quader|Kegel|Würfel)(?![\wäöüß])/g, 'V<sub>$1</sub>')
     .replace(/\bF_G\b/g, 'F<sub>G</sub>')
@@ -341,25 +342,27 @@ export function linienSvg(bild, { gewaehlt = [], fest = [], tippbar = false, all
 }
 
 // Mal 10 / durch 10 (Auftrag 36): Ziffern mit dem Komma und einem Pfeil, wie das Komma rutscht
-export function stellentafelHtml({ x, mal }, mitErgebnis = false) {
-  const res = Math.round((mal ? x * 10 : x / 10) * 1000) / 1000;
+export function stellentafelHtml({ x, mal, stellen = 1 }, mitErgebnis = false) {
+  const f = 10 ** stellen;
+  const res = Math.round((mal ? x * f : x / f) * 1000) / 1000;
   const z = (v) => String(v).replace('.', ',');
   const [g0, k0 = ''] = String(x).split('.');
-  // Ziffern, die nur zum Rutschen dazukommen, sind grau: ,0 bei ganzen Zahlen, eine 0 vorne bzw. hinten
+  // Ziffern, die nur zum Rutschen dazukommen, sind grau: ,0 bei ganzen Zahlen, Nullen vorne bzw. hinten
   const dig = [...g0].map(d => [d, false]).concat((k0 || '0').split('').map(d => [d, !k0]));
   let alt = g0.length;
-  if (!mal && alt === 1) { dig.unshift(['0', true]); alt = 2; }
-  if (mal) dig.push(['0', true]);
-  const neu = mal ? alt + 1 : alt - 1;
+  while (!mal && alt - stellen < 1) { dig.unshift(['0', true]); alt++; }
+  if (mal) for (let i = 0, n = stellen === 1 ? 1 : Math.max(0, stellen - k0.length); i < n; i++) dig.push(['0', true]);
+  const neu = mal ? alt + stellen : alt - stellen;
   const W = 40, L = 10, yZ = 48, H = 98;
   const kx = (pos) => L + pos * W;
   const zif = dig.map(([d, grau], i) => `<text x="${L + i * W + W / 2}" y="${yZ}" text-anchor="middle" class="kt-z${grau ? ' grau' : ''}">${d}</text>`).join('');
   const x1 = kx(alt), x2 = kx(neu), ym = yZ + 30, tief = yZ + 46; // Pfeil unter der Zeile, flacher Bogen
   const pfeil = `<path d="M ${x1} ${ym} Q ${(x1 + x2) / 2} ${tief}, ${x2} ${ym}" class="kt-pfeil" marker-end="url(#kt-spitze)"/>`;
   const breite = L * 2 + dig.length * W;
-  const svg = `<svg class="komma-sprung" viewBox="0 0 ${breite} ${H}" width="${breite}" height="${H}" role="img" aria-label="${z(x)} ${mal ? 'mal' : 'durch'} 10: Das Komma rutscht eine Stelle nach ${mal ? 'rechts' : 'links'}.">
+  const wie = `${stellen === 1 ? 'eine Stelle' : stellen === 2 ? 'zwei Stellen' : stellen + ' Stellen'} nach ${mal ? 'rechts' : 'links'}`;
+  const svg = `<svg class="komma-sprung" viewBox="0 0 ${breite} ${H}" width="${breite}" height="${H}" role="img" aria-label="${z(x)} ${mal ? 'mal' : 'durch'} ${f}: Das Komma rutscht ${wie}.">
     <defs><marker id="kt-spitze" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="kt-spitze"/></marker></defs>
     ${zif}<text x="${x1}" y="${yZ + 6}" text-anchor="middle" class="kt-komma alt">,</text><text x="${x2}" y="${yZ + 6}" text-anchor="middle" class="kt-komma neu">,</text>${pfeil}</svg>`;
   const ganzX = Number.isInteger(x) ? `<p>${z(x)} ist ${z(x)},0. Das Komma steht hinter der ${String(x).slice(-1)}.</p>` : '';
-  return `<div class="komma-tipp">${ganzX}${svg}<p>${mal ? 'Mal 10' : 'Durch 10'}: Das Komma rutscht eine Stelle nach ${mal ? 'rechts' : 'links'}. Die Ziffern bleiben.</p>${mitErgebnis ? `<p><b>${z(x)} ${mal ? '·' : ':'} 10 = ${z(res)}</b></p>` : ''}</div>`;
+  return `<div class="komma-tipp">${ganzX}${svg}<p>${mal ? 'Mal' : 'Durch'} ${f}: Das Komma rutscht ${wie}. Die Ziffern bleiben.</p>${mitErgebnis ? `<p><b>${z(x)} ${mal ? '·' : ':'} ${f} = ${z(res)}</b></p>` : ''}</div>`;
 }
