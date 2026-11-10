@@ -35,7 +35,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.43.0';
+export const APP_VERSION = '2.43.1';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -3696,7 +3696,9 @@ function versuchMerken(t, eingabe, richtig, fehler) {
   const ms = Date.now() - t.seit;
   t.versuche.push({ eingabe, richtig });
   if (!richtig) A.letzterFehler = { typ: fehler ? fehler.typ : null, teil: A.idx };
+  const ts = L.teilschrittVon(a, t);
   protokoll(S, 'versuch', {
+    ...(ts ? { teilschritt: ts } : {}),
     id: a.id, thema: a.thema, teil: A.idx, label: t.label || null, merk: !!t.merk, versuch: t.versuche.length, eingabe, richtig,
     fehler: fehler ? fehler.typ : null, ms, schnell: !!a.geschichte && ms < 4000,
     hinweiseOffen: A.hinweise.slice(), ...(a.typ === 'detektiv' ? { detektiv_schritt: A.idx + 1 } : {}),

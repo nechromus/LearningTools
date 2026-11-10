@@ -938,6 +938,32 @@ export function schrittSchluessel(label) {
   if (/^Runde/.test(l)) return 'runden';
   return l.replace(/\s*[=≈].*$/, '').trim();
 }
+// Teilschritt aus dem Kompetenzgraphen der Lernplattform (LK-052, katalog/teilschritte.md im Lernplattform-Daten-Repo).
+// Zuerst nur Zylinder und „Finde es“ beim Kasten Zylinder. Passt kein Schritt: null (Feld weglassen).
+// t = Teil der Aufgabe (label, merk, gesuchtModus). Die Aufgabe selbst ändert sich nicht.
+export function teilschrittVon(a, t) {
+  if (!a || !t) return null;
+  const l = String(t.label || '');
+  if (a.generator === 'finde-es') {
+    if (!Array.isArray(a.parameter) || a.parameter[0] !== 'zylinder') return null;
+    return /^Welche Formel/.test(l) && a.parameter[1] === 'Volumen' ? 'zyl.formel@2' : 'hilf.formel@2';
+  }
+  if (a.thema !== 'zylinder' || a.typ === 'detektiv') return null;
+  if (t.merk) return a.geschichte ? 'zyl.angaben@1' : 'zyl.erkennen@1';
+  if (t.gesuchtModus === 'wort') return 'zyl.gesucht@1';
+  if (t.gesuchtModus || /gesucht/i.test(l)) return 'zyl.gesucht@2';
+  const mitD = (a.schritte || []).some(s => /^Radius r =/.test(String(s.text || '')));
+  if (/^Radius r =/.test(l)) return 'kreis.rd@1';
+  if (/^r² =/.test(l)) return 'pot.quadrat@1';
+  if (/^V = π/.test(l)) return mitD ? 'zyl.einsetzen@2' : 'zyl.einsetzen@1';
+  if (/^A_G =/.test(l)) return mitD ? 'kreis.flaeche@2' : 'kreis.flaeche@1';
+  if (/^Runde/.test(l)) {
+    if (/\bV ≈/.test(l)) return 'zyl.volumen';
+    if (/A_G ≈/.test(l)) return 'kreis.flaeche';
+    return 'runden.stellen@2';
+  }
+  return null; // A_M, A_O: kein Schritt im Katalog
+}
 // Auswahl-Schritte bei Körpern, die man nur nach dem Lesen beantworten kann: 3 Sekunden Lesezeit
 export const LESEZEIT_MS = 3000;
 export const leseAuswahl = (a, label) => !!a && ['zylinder', 'kegel', 'pyramide', 'kugel'].includes(a.thema) && /gesucht|^Welche (Höhe|Länge)|^Volumen oder/i.test(String(label || ''));
