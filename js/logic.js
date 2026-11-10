@@ -946,7 +946,8 @@ export function teilschrittVon(a, t) {
   const l = String(t.label || '');
   if (a.generator === 'finde-es') {
     if (!Array.isArray(a.parameter) || a.parameter[0] !== 'zylinder') return null;
-    return /^Welche Formel/.test(l) && a.parameter[1] === 'Volumen' ? 'zyl.formel@2' : 'hilf.formel@2';
+    // Stufe 1: Die App hat die Formelsammlung der Schule, für das Kind die vertraute (Nachtrag 50)
+    return /^Welche Formel/.test(l) && a.parameter[1] === 'Volumen' ? 'zyl.formel@1' : 'hilf.formel@1';
   }
   if (a.thema !== 'zylinder' || a.typ === 'detektiv') return null;
   if (t.merk) return a.geschichte ? 'zyl.angaben@1' : 'zyl.erkennen@1';
@@ -955,14 +956,20 @@ export function teilschrittVon(a, t) {
   const mitD = (a.schritte || []).some(s => /^Radius r =/.test(String(s.text || '')));
   if (/^Radius r =/.test(l)) return 'kreis.rd@1';
   if (/^r² =/.test(l)) return 'pot.quadrat@1';
-  if (/^V = π/.test(l)) return mitD ? 'zyl.einsetzen@2' : 'zyl.einsetzen@1';
+  // Die Zahlen stehen schon eingesetzt in der Beschriftung, gerechnet wird nur noch (Nachtrag 50)
+  if (/^V = π/.test(l)) return 'hilf.rechner@2';
   if (/^A_G =/.test(l)) return mitD ? 'kreis.flaeche@2' : 'kreis.flaeche@1';
-  if (/^Runde/.test(l)) {
-    if (/\bV ≈/.test(l)) return 'zyl.volumen';
-    if (/A_G ≈/.test(l)) return 'kreis.flaeche';
-    return 'runden.stellen@2';
-  }
+  if (/^Runde/.test(l)) return 'runden.stellen@2'; // auch bei V und A_G (Nachtrag 50)
   return null; // A_M, A_O: kein Schritt im Katalog
+}
+// Oberster Schritt der ganzen Aufgabe für aufgabe_ende (Nachtrag 50): aus dem Runden-Schritt am Schluss.
+// V gesucht → zyl.volumen@2, nur A_G → kreis.flaeche, A_M/A_O → null (noch kein Schritt im Katalog).
+export function teilschrittAufgabe(a) {
+  if (!a || a.thema !== 'zylinder' || a.typ === 'detektiv' || !Array.isArray(a.schritte) || !a.schritte.length) return null;
+  const l = String(a.schritte[a.schritte.length - 1].text || '');
+  if (/\bV ≈/.test(l)) return 'zyl.volumen@2';
+  if (/A_G ≈/.test(l)) return 'kreis.flaeche';
+  return null;
 }
 // Auswahl-Schritte bei Körpern, die man nur nach dem Lesen beantworten kann: 3 Sekunden Lesezeit
 export const LESEZEIT_MS = 3000;

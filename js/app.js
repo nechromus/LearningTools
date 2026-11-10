@@ -35,7 +35,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.43.1';
+export const APP_VERSION = '2.43.2';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -3857,6 +3857,7 @@ function abschliessen() {
   S.serie.letzteAktivitaet = Date.now();
   protokoll(S, 'aufgabe_ende', {
     id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: A.sekunden, serienPos: A.serienPos,
+    ...(L.teilschrittAufgabe(a) ? { teilschritt: L.teilschrittAufgabe(a) } : {}),
     ...(A.bild ? { bildschirm: A.bild.plus, voll: A.bild.voll || undefined } : {}),
     ...(A.bild && A.bzSt ? { uebung_min: A.bzSt.uebMin, bz_stufe: A.bzSt.stufe, stufe_faktor: A.bzSt.faktor, ...(A.bzSt.extraRunde ? { extra_runde: true } : {}) } : {}),
     ...(A.kopf ? { kopf: true } : {}), ...(A.sz && A.sz.voll ? { spielzeitVoll: true } : {}),
