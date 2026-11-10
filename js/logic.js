@@ -947,7 +947,9 @@ export function teilschrittVon(a, t) {
   if (a.generator === 'finde-es') {
     if (!Array.isArray(a.parameter) || a.parameter[0] !== 'zylinder') return null;
     // Stufe 1: Die App hat die Formelsammlung der Schule, für das Kind die vertraute (Nachtrag 50)
-    return /^Welche Formel/.test(l) && a.parameter[1] === 'Volumen' ? 'zyl.formel@1' : 'hilf.formel@1';
+    if (!/^Welche Formel/.test(l)) return 'hilf.formel@1';
+    // LK-051: Formel für Mantel oder Oberfläche → zyl.oformel
+    return a.parameter[1] === 'Volumen' ? 'zyl.formel@1' : /^(Mantelfläche|Oberfläche)$/.test(a.parameter[1]) ? 'zyl.oformel@1' : 'hilf.formel@1';
   }
   if (a.thema !== 'zylinder' || a.typ === 'detektiv') return null;
   if (t.merk) return a.geschichte ? 'zyl.angaben@1' : 'zyl.erkennen@1';
@@ -959,16 +961,27 @@ export function teilschrittVon(a, t) {
   // Die Zahlen stehen schon eingesetzt in der Beschriftung, gerechnet wird nur noch (Nachtrag 50)
   if (/^V = π/.test(l)) return 'hilf.rechner@2';
   if (/^A_G =/.test(l)) return mitD ? 'kreis.flaeche@2' : 'kreis.flaeche@1';
-  if (/^Runde/.test(l)) return 'runden.stellen@2'; // auch bei V und A_G (Nachtrag 50)
-  return null; // A_M, A_O: kein Schritt im Katalog
+  // LK-051: Mantel und Oberfläche
+  if (/^A_M =/.test(l)) return zylDezimal(a) ? 'zyl.mantel@3' : mitD ? 'zyl.mantel@2' : 'zyl.mantel@1';
+  if (/^A_O =/.test(l)) {
+    if (/ohne Deckel|ohne Boden|oben offen/i.test(`${a.geschichte || ''} ${a.frage || ''}`)) return 'zyl.oberflaeche@3';
+    const davor = (a.schritte || []).slice(0, (a.schritte || []).findIndex(s => /^A_O =/.test(String(s.text || '')))).map(s => String(s.text || ''));
+    return davor.some(x => /^A_G =/.test(x)) && davor.some(x => /^A_M =/.test(x)) ? 'zyl.oberflaeche@1' : 'zyl.oberflaeche@2';
+  }
+  if (/^Runde/.test(l)) return 'runden.stellen@2'; // auch bei V, A_G, A_M, A_O
+  return null;
 }
+// Kommazahlen bei r, d oder h (gibt es in der App bisher nicht)
+const zylDezimal = (a) => [a.bild && a.bild.r, a.bild && a.bild.d, a.bild && a.bild.h, ...(a.gegeben || []).map(g => g.wert)].some(x => typeof x === 'number' && !Number.isInteger(x));
 // Oberster Schritt der ganzen Aufgabe für aufgabe_ende (Nachtrag 50): aus dem Runden-Schritt am Schluss.
-// V gesucht → zyl.volumen@2, nur A_G → kreis.flaeche, A_M/A_O → null (noch kein Schritt im Katalog).
+// V gesucht → zyl.volumen@2, nur A_G → kreis.flaeche, A_M → zyl.mantel, A_O → zyl.oberflaeche (LK-051).
 export function teilschrittAufgabe(a) {
   if (!a || a.thema !== 'zylinder' || a.typ === 'detektiv' || !Array.isArray(a.schritte) || !a.schritte.length) return null;
   const l = String(a.schritte[a.schritte.length - 1].text || '');
   if (/\bV ≈/.test(l)) return 'zyl.volumen@2';
   if (/A_G ≈/.test(l)) return 'kreis.flaeche';
+  if (/A_M ≈/.test(l)) return 'zyl.mantel';
+  if (/A_O ≈/.test(l)) return 'zyl.oberflaeche';
   return null;
 }
 // Auswahl-Schritte bei Körpern, die man nur nach dem Lesen beantworten kann: 3 Sekunden Lesezeit
