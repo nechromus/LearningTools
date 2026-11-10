@@ -1244,3 +1244,11 @@ body:has(.aufgabe-screen.bz-warm) { background: #FAF1DE; }
 .bz-saeulen-ab { display: flex; gap: 7px; font-size: 12px; color: var(--gedaempft); }
 .bz-saeulen-ab span { flex: 1; }
 .bz-saeulen-box > small { font-size: 12px; color: var(--gedaempft); }
+
+/* ---------- Bogen-Zeit (Auftrag 51) ---------- */
+.bogenzeit-screen { display: flex; flex-direction: column; gap: 18px; }
+.bogenzeit-karte { background: var(--karte); border: 1.5px solid var(--linie); border-radius: 16px; padding: 28px 22px 26px; text-align: center; margin-top: 8px; }
+.bogenzeit-bild { width: 132px; height: auto; display: block; margin: 0 auto 14px; }
+.bogenzeit-titel { font-size: 26px; color: var(--teal-dunkel); margin-bottom: 10px; }
+.bogenzeit-text { font-size: 19px; line-height: 1.45; color: var(--text); margin: 0; }
+.bogenzeit-screen > .btn { align-self: center; }

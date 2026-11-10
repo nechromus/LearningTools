@@ -884,6 +884,7 @@ export const BEDIENUNG = [
   { k: 'rechner_frei', f: 'rechnerFrei', std: false, titel: 'Taschenrechner immer ohne Abzug', text: 'An: Der Taschenrechner kostet nie Zeit.' },
   { k: 'umformen_sofort', f: 'umformenSofort', std: false, titel: 'Gleichungen gleich in Schritten umformen', text: 'An: Gleichungen starten direkt mit „In Schritten umformen“, ohne Abzug bei den Wissenspunkten.' },
   { k: 'teil_loesung', f: 'teilLoesung', std: false, titel: 'Teil-Lösung getrennt werten', text: 'An: Kam die Lösung bei einem Zwischenschritt und der Rest wurde selbst gerechnet, zählt die Aufgabe als „Teil-Lösung“ mit anteiliger Zeit. Bei Körpern zählt eine Auswahl in den ersten 3 Sekunden nicht.' },
+  { k: 'bogen_sperre', f: 'bogenSperre', std: false, titel: 'App ruht während der Bogen-Zeit', text: 'An: Läuft in der Eltern-App „Bogen beginnt“, gibt es in der Kinder-App keine neuen Aufgaben und keine Spiele. Eine angefangene Aufgabe darf zu Ende gemacht werden. Wieder frei bei „Bogen fertig“, beim Speichern des Feedbacks oder spätestens 1 Stunde nach dem Start.' },
   { k: 'runengruft', f: 'runengruft', std: false, titel: 'Abenteuer „Runengruft“', text: 'An: Ab 300 Runensplittern erscheint ein alter Kobold und bietet das Abenteuer für alle Splitter an. Weitere Etagen kosten 450, 500, 550, 600 Runensplitter.' }
 ];
 // Kürzel mit Namen (Auftrag 35): Auswahl bei Körpern zeigt „V (Volumen)“, „A_O (Oberfläche)“ …
@@ -928,6 +929,43 @@ export function teilLoesung(teile) {
   if (l.length !== 1 || l[0] >= st.length - 1) return null;
   if (st.slice(l[0] + 1).some(x => x !== 'erst' && x !== 'zweit')) return null;
   return { anteil: Math.round((st.length - 1) / st.length * 100) / 100, zweit: st.some(x => x === 'zweit') };
+}
+// Auftrag 51: Bogen-Zeit. Aus den Zeitmessungen der Eltern-App (bogen-feedback/<id>.zeit.json) die laufende finden.
+// Gilt höchstens 1 Stunde ab Start (Pausen verlängern nicht). Gibt { bogen, start, bis } oder null zurück.
+export const BOGEN_STUNDE_MS = 60 * 60 * 1000;
+export function bogenLaufend(messungen, jetzt = Date.now()) {
+  let aktiv = null;
+  for (const [id, z] of Object.entries(messungen || {})) {
+    if (!z || z.laeuft !== true || !z.start) continue;
+    const start = new Date(z.start).getTime(), bis = start + BOGEN_STUNDE_MS;
+    if (!Number.isFinite(start) || jetzt >= bis || jetzt < start - 5 * 60 * 1000) continue;
+    if (!aktiv || bis > aktiv.bis) aktiv = { bogen: id, start: z.start, bis };
+  }
+  return aktiv;
+}
+// Grund für das Ende der Sperre: Datei weg = Feedback gespeichert (oder Messung verworfen), laeuft false = „Bogen fertig“
+export function bogenFreiGrund(sperre, messungen, jetzt = Date.now()) {
+  if (jetzt >= sperre.bis) return 'stunde_um';
+  const z = (messungen || {})[sperre.bogen];
+  return z && z.laeuft === false ? 'bogen_fertig' : 'feedback';
+}
+// Auftrag 51: Lösung nur beim Runden am Schluss (Körper-Baukästen, zusammengesetzt), alle Schritte davor selbst richtig.
+export const RUNDEN_TEIL_GEN = ['zylinder', 'kegel', 'pyramide', 'kugel', 'quader', 'zusammengesetzt'];
+export function teilLoesungRunden(a, teile) {
+  if (!a || !RUNDEN_TEIL_GEN.includes(a.generator)) return null;
+  const st = (teile || []).map(t => t.status), n = st.length;
+  if (n < 2 || st[n - 1] !== 'loesung' || !/^Runde/.test(String(teile[n - 1].label || ''))) return null;
+  if (st.slice(0, -1).some(x => x !== 'erst' && x !== 'zweit')) return null;
+  return { anteil: Math.round((n - 1) / n * 100) / 100, zweit: st.some(x => x === 'zweit'), rundenAmEnde: true };
+}
+// Auftrag 51: Ist die Eingabe eine Rundung (oder abgeschnitten) der Zahl davor? Nur dann kommt der Tipp „schon gerundet“.
+export function istRundungVon(x, vor) {
+  if (!Number.isFinite(x) || !Number.isFinite(vor)) return false;
+  for (const k of [2, 1, 0, -1, -2]) {
+    const f = 10 ** k;
+    if (Math.abs(x - Math.round(vor * f) / f) < 1e-9 || Math.abs(x - Math.trunc(vor * f) / f) < 1e-9) return true;
+  }
+  return false;
 }
 // Gleiche Art von Schritt (für „neue Aufgabe, in der dieser Schritt früh kommt“)
 export function schrittSchluessel(label) {

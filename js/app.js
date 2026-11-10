@@ -35,7 +35,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.43.3';
+export const APP_VERSION = '2.44.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -475,12 +475,13 @@ async function fernHolen(erzwingen = false) {
 // auch wenn auf dem Handy inzwischen etwas anderes passiert ist. Erst danach wird hochgeladen.
 const standPfad = () => `daten/${nutzerOrdner()}/spielstand.json`;
 let standLaeuft = false, standNochmal = false, standZuletztGeprueft = 0;
-const ruhigeAnsicht = () => ['start', 'eltern', 'anmeldung'].includes(ansicht);
+const ruhigeAnsicht = () => ['start', 'eltern', 'anmeldung', 'bogenzeit'].includes(ansicht);
 const revVon = (d) => (d && Number(d.rev)) || 0;
 
 function standUebernehmen(datei, grund) {
   const warFrisch = istFrisch(S);
   const lokaleCodes = (S.bildschirm && S.bildschirm.gesendet) || [];
+  const kontoVorher = { ...bzKonto() }, stufenGesehen = !!(S.verlauf && S.verlauf.bzStufenGesehen);
   if (!spielstandAnwenden(S, datei)) return false;
   const u = S.upload;
   u.standRev = revVon(datei);
@@ -489,6 +490,10 @@ function standUebernehmen(datei, grund) {
   // Erst nach standKern: So unterscheidet sich der Stand vom Server und wird gleich wieder hochgeladen.
   const weg = BS.schonGesendetPruefen(bzKonto(), lokaleCodes);
   if (weg) { protokoll(S, 'bildschirm_korrigiert', { ...weg, rev: u.standRev }); standNochmal = true; }
+  // Auftrag 51: Übungsminuten am selben Tag nur steigen lassen, Stufen-Erklärung nicht noch einmal
+  const ueb = BS.uebungBehalten(bzKonto(), kontoVorher);
+  if (ueb) { protokoll(S, 'uebung_behalten', { server_min: Math.round(ueb.vorher / 6000) / 10, lokal_min: Math.round(ueb.nachher / 6000) / 10, rev: u.standRev }); standNochmal = true; }
+  if (stufenGesehen && S.verlauf) S.verlauf.bzStufenGesehen = true;
   u.standOnline = { gespeichert: datei.gespeichert, geraetId: datei.geraetId };
   u.standWartet = false;
   protokoll(S, 'spielstand_geladen', { von: datei.geraetId, gespeichert: datei.gespeichert, rev: u.standRev, grund });
@@ -581,6 +586,7 @@ async function syncen(erzwingen = false) {
   const u = S.upload;
   // Neue Einstellungen übernommen? Dann gleich den Stand melden, damit die Eltern-App es sieht.
   if (await fernHolen(erzwingen)) erzwingen = true;
+  bogenPruefen(erzwingen).catch(() => {});
   if (!S.einstellungen.name || u.testgeraet || u.testAls || !u.repo || !u.token) return null;
   try { wpEingriffeMelden(); wpPlanIst('sync'); } catch (e) { /* egal */ }
   try { await standAbgleich(erzwingen); } catch (e) { /* später nochmal */ }
@@ -1171,6 +1177,71 @@ function uebungTick() {
 }
 
 let uzBildDatei = null, uzGeschickt = false;
+// ---------- Bogen-Zeit (Auftrag 51) ----------
+// Läuft in der Eltern-App „Bogen beginnt“, gibt es keine neuen Aufgaben und keine Spiele (Schalter bogen_sperre).
+// Geprüft beim Öffnen (Sync) und vor jeder neuen Aufgabe bzw. jedem Spiel. Ohne Netz gilt der letzte Stand bis zur Stunde.
+const BOGEN_ACTS = ['aufgaben', 'zweck', 'zweckBild', 'naechste', 'spielen', 'zumSpiel', 'kristallmine', 'neuspiel', 'runenfeld', 'spielauswahl'];
+let bogenZuletzt = 0, bogenLauf = null, bogenUhr = null;
+function bogenFrei(grund) {
+  const b = S.bogenSperre;
+  if (!b) return;
+  S.bogenSperre = null;
+  protokoll(S, 'bogen_sperre', { aktion: 'aus', grund, bogen: b.bogen });
+  sichern();
+}
+function bogenGesperrt() {
+  const b = S.bogenSperre;
+  if (!b) return false;
+  if (!bed('bogen_sperre')) { bogenFrei('schalter_aus'); return false; }
+  if (Date.now() >= b.bis) { bogenFrei('stunde_um'); return false; }
+  return true;
+}
+function bogenPruefen(erzwingen = false) {
+  const u = S.upload;
+  if (!bed('bogen_sperre')) { if (S.bogenSperre) bogenFrei('schalter_aus'); return Promise.resolve(); }
+  if (!S.einstellungen.name || !u.repo || !u.token) return Promise.resolve();
+  if (bogenLauf) return bogenLauf;
+  if (!erzwingen && Date.now() - bogenZuletzt < 30 * 1000) return Promise.resolve();
+  bogenZuletzt = Date.now();
+  bogenLauf = (async () => {
+    try {
+      const o = fernOrdner();
+      const liste = (await U.ordnerLesen(u, `daten/${o}/bogen-feedback`)).filter(x => x.type === 'file' && x.name.endsWith('.zeit.json'));
+      const messungen = {};
+      for (const f of liste) messungen[f.name.slice(0, -10)] = await U.dateiLesen(u, f.path).catch(() => null);
+      const aktiv = L.bogenLaufend(messungen), alt = S.bogenSperre;
+      if (aktiv && (!alt || alt.bogen !== aktiv.bogen || alt.start !== aktiv.start)) {
+        S.bogenSperre = aktiv;
+        protokoll(S, 'bogen_sperre', { aktion: 'an', bogen: aktiv.bogen, start: aktiv.start });
+        sichern();
+      } else if (!aktiv && alt) bogenFrei(L.bogenFreiGrund(alt, messungen));
+    } catch (e) { /* ohne Netz: letzter Stand gilt bis zur Stunde */ }
+    finally { bogenLauf = null; }
+    if (ansicht === 'bogenzeit' && !bogenGesperrt()) zeigeStart();
+  })();
+  return bogenLauf;
+}
+function zeigeBogenZeit() {
+  if (ansicht === 'spiel') spielBeenden();
+  setzeAnsicht('bogenzeit');
+  $app.innerHTML = `
+  <div class="screen bogenzeit-screen">
+    <header class="topbar"><button class="btn-text" data-act="start">‹ Zum Start</button></header>
+    <div class="bogenzeit-karte">
+      <svg class="bogenzeit-bild" viewBox="0 0 120 96" aria-hidden="true">
+        <rect x="26" y="10" width="62" height="78" rx="6" fill="#fffaf0" stroke="#c9a85a" stroke-width="2.5"/>
+        <path d="M38 30h38M38 42h38M38 54h28M38 66h34" stroke="#a9b8b2" stroke-width="3" stroke-linecap="round"/>
+        <path d="M84 70l18-34 7 4-18 34-9 5z" fill="#2f8f72"/><path d="M84 70l-2 9 9-5" fill="#d8b05a"/>
+      </svg>
+      <h1 class="bogenzeit-titel">Jetzt ist Bogen-Zeit.</h1>
+      <p class="bogenzeit-text">Wenn der Bogen fertig ist, geht es hier weiter.</p>
+    </div>
+    <button class="btn" data-act="bogenNachsehen">Bogen fertig? Nachsehen</button>
+  </div>`;
+  clearInterval(bogenUhr);
+  bogenUhr = setInterval(() => { if (ansicht !== 'bogenzeit') return clearInterval(bogenUhr); bogenGesperrt() ? bogenPruefen() : zeigeStart(); }, 60 * 1000);
+}
+
 function zeigeUebungszeit() {
   setzeAnsicht('uebungszeit');
   const k = uzKonto();
@@ -2134,6 +2205,8 @@ function wartendeAufgabe() {
 
 function neueAufgabe() {
   tagAktualisieren(S);
+  // Bogen-Zeit (Auftrag 51): keine neue Aufgabe, eine angefangene darf zu Ende gemacht werden
+  if (bogenGesperrt()) return zeigeBogenZeit();
   // Übungszeit für heute erreicht: keine neue Aufgabe
   if (uzGesperrt()) return zeigeUebungszeit();
   // Neue Etappe: zuerst der Logbuch-Eintrag
@@ -3388,7 +3461,7 @@ function ergebnisHtml() {
   const nm = S.einstellungen.name ? `, ${esc(S.einstellungen.name)}` : '';
   if (A.ergebnis === 'erst') kopf = `<div class="erfolg-titel">${A.serienPos % 3 === 0 ? `Stark${nm}!` : `Richtig${nm}!`}</div>`;
   else if (A.ergebnis === 'zweit') kopf = `<div class="erfolg-titel">Geschafft – im 2. Versuch!</div>`;
-  else if (A.ergebnis === 'teil') kopf = `<div class="erfolg-titel teil">Mit Tipp geschafft!</div><p>Ein Schritt kam mit Lösung. Den Rest hast du selbst gerechnet. Dafür gibt es ${Math.round((A.anteil || 0) * 100)} % der Zeit.</p>`;
+  else if (A.ergebnis === 'teil') kopf = `<div class="erfolg-titel teil">Mit Tipp geschafft!</div><p>${A.rundenAmEnde ? 'Nur beim Runden kam die Lösung. Alles andere hast du selbst gerechnet.' : 'Ein Schritt kam mit Lösung. Den Rest hast du selbst gerechnet.'} Dafür gibt es ${Math.round((A.anteil || 0) * 100)} % der Zeit.</p>`;
   else kopf = `<div class="erfolg-titel neutral">Jetzt weißt du, wie es geht.</div><p>Die Aufgabe kommt später noch einmal.</p>`;
   if (A.bonusZeit && zeitZeigen()) kopf += `<div class="bonus-zeit">✦ <b>Bonuszeit:</b> Diesmal hast du es geschafft! <span>×${faktorText(A.bonusZeit)}</span></div>`;
   // Chips unter der verdienten Zeit: Mühe-Faktor (wenn nicht ×1) und Extra-Zeit
@@ -3628,6 +3701,8 @@ function antwortGeben() {
     if (vor != null) {
       const p = L.parseZahl(t.eingabe);
       if (p.ok && Math.abs(p.wert - vor) < 1e-9) richtig = true;
+      // Auftrag 51: Tipp und „nachgerundet“ nur, wenn die Eingabe eine Rundung der Zahl davor ist (kein Tippfehler wie 100,6 statt 1004,6)
+      else if (!p.ok || !L.istRundungVon(p.wert, vor)) { /* normaler Fehlversuch */ }
       else if (!t.rundenTipp) {
         t.rundenTipp = true;
         protokoll(S, 'runden_tipp', { id: a.id, teil: A.idx, eingabe, vorher: vor, ...hb('tipp.schon-gerundet') });
@@ -3759,7 +3834,10 @@ function abschliessen() {
   // Knobeln: Fehlversuch im Ergebnisfeld, danach in Schritten gelöst → wie 2. Versuch
   if (ergebnis === 'erst' && A.knobelFalsch) ergebnis = 'zweit';
   // Teil-Lösung (Auftrag 37): Lösung bei einem Zwischenschritt, der Rest selbst richtig
-  const tl = ergebnis === 'loesung' && bed('teil_loesung') && ['schritte', 'detektiv'].includes(a.typ) && !A.uf && a.modus !== 'knobeln' ? L.teilLoesung(pflicht) : null;
+  const tlErlaubt = ergebnis === 'loesung' && bed('teil_loesung') && ['schritte', 'detektiv'].includes(a.typ) && !A.uf && a.modus !== 'knobeln';
+  // Auftrag 51: Lösung nur beim Runden am Schluss zählt bei Körper-Baukästen auch als Teil-Lösung
+  const tl = tlErlaubt ? (L.teilLoesung(pflicht) || L.teilLoesungRunden(a, pflicht)) : null;
+  A.rundenAmEnde = !!(tl && tl.rundenAmEnde);
   if (tl) ergebnis = 'teil';
   const lsgTeile = A.teile.map((t, i) => [t, i]).filter(([t]) => t.status === 'loesung');
   // Kopf-Bonus: Rechner wäre erlaubt, wurde aber nicht geöffnet, App nicht verlassen
@@ -3866,7 +3944,7 @@ function abschliessen() {
     bonusTeile: A.teile.filter(t => t.bonus).map(t => t.status), merkTeile: A.teile.filter(t => t.merk).map(t => t.status),
     generator: a.generator || null, ...(A.gleich ? { gleiche_aufgabe: true } : {}),
     ...(lsgTeile.length ? { loesung_schritt: lsgTeile.length === 1 ? lsgTeile[0][1] : lsgTeile.map(x => x[1]), loesung_label: lsgTeile.length === 1 ? lsgTeile[0][0].label || null : lsgTeile.map(x => x[0].label || null) } : {}),
-    ...(tl ? { anteil: tl.anteil } : {}),
+    ...(tl ? { anteil: tl.anteil } : {}), ...(tl && tl.rundenAmEnde ? { runden_am_ende: true } : {}),
     muehe: A.muehe, muehGruppe: A.muehGruppe, bonus_wiederholung: !!A.bonusZeit, ...(A.extra != null ? { extra: A.extra } : {}),
     ...(schnell ? { zuSchnell: pflicht.reduce((n, t) => n + (t.schnell || 0), 0) } : {}), ...(A.durchklick ? { durchklick: true } : {}),
     ...(a.modus === 'knobeln' ? { knobeln: true, schritte: !!A.schritteAn } : {}), ...(a.fach ? { fach: a.fach } : {}), ...(A.wp ? { wp: A.wp } : {}),
@@ -5340,6 +5418,16 @@ function klick(e) {
   const el = e.target.closest('[data-act]');
   if (!el || el.disabled) return;
   const act = el.dataset.act;
+  // Bogen-Zeit (Auftrag 51): vor einer neuen Aufgabe oder einem Spiel nachsehen, ob der Bogen gerade läuft
+  if (BOGEN_ACTS.includes(act) && bed('bogen_sperre') && !el.dataset.bogenOk) {
+    Promise.race([bogenPruefen(), new Promise(r => setTimeout(r, 4000))]).finally(() => {
+      if (bogenGesperrt()) return zeigeBogenZeit();
+      if (!el.isConnected) return;
+      el.dataset.bogenOk = '1'; el.click(); delete el.dataset.bogenOk;
+    });
+    return;
+  }
+  if (act === 'bogenNachsehen') { bogenPruefen(true).finally(() => { if (!bogenGesperrt()) zeigeStart(); }); return; }
   switch (act) {
     case 'aufgaben':
       if (ansicht === 'spiel') spielBeenden();

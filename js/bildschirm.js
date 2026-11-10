@@ -160,6 +160,15 @@ export function stufeVon(konto, regeln) {
   return { an: true, stufe: i + 1, anzahl: st.length, faktor: st[i].faktor, uebMin: Math.floor(min * 10) / 10, extraRunde: ex,
     bisNaechste: naechste ? Math.max(1, Math.ceil(naechste.ab - min)) : null, schnell: i + 1 === st.length && st.length > 1 };
 }
+// Auftrag 51: Übungszeit am selben Tag nur steigen lassen (Stand vom Server mit weniger Minuten übernommen).
+// lokal = Konto vor dem Übernehmen. Gibt { vorher, nachher } in ms zurück, wenn korrigiert wurde, sonst null.
+export function uebungBehalten(konto, lokal) {
+  if (!lokal || lokal.tag !== konto.tag || !(lokal.uebMs > konto.uebMs)) return null;
+  const vorher = konto.uebMs;
+  konto.uebMs = lokal.uebMs;
+  if (konto.extraAb == null && lokal.extraAb != null) konto.extraAb = lokal.extraAb;
+  return { vorher, nachher: konto.uebMs };
+}
 // Nach jeder Aufgabe (auch für Spielzeit): Übungszeit buchen. Beginnt die Extra-Runde, merkt sich das Konto den Startpunkt.
 export function uebungBuchen(konto, ms, regeln) {
   konto.uebMs += Math.min(Math.max(0, ms || 0), UEB_MAX_MS);
