@@ -560,10 +560,10 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .bg-a-lbl { display: none; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; color: var(--gedaempft); }
 .bg-a-loes.an .bg-a-lbl { color: var(--amber-dunkel); }
 .bg-breit .bg-a-lbl { display: block; }
-.bg-breit .bg-aufgabe { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
-.bg-breit .bg-a-loes:not(.an) { align-self: stretch; justify-content: center; align-items: center; border: 1.5px dashed var(--linie); border-radius: 8px; min-height: 120px; }
-.bg-breit .bg-a-loes:not(.an) .bg-loes-knopf { align-self: center; }
-.bg-breit .bg-mini, .bg-breit .bg-mini.loes { max-height: 460px; }
+/* iPad (Wunsch Vater 11.11.): Aufgabe über die ganze Breite, Lösung darunter, damit die Bilder lesbar bleiben */
+.bg-breit .bg-aufgabe { display: flex; flex-direction: column; gap: 12px; }
+.bg-breit .bg-a-loes:not(.an) { align-items: flex-start; }
+.bg-breit .bg-mini, .bg-breit .bg-mini.loes { max-height: 640px; }
 .bg-breit .bg-bewertung { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 22px; border-top: 1px solid var(--linie); padding-top: 14px; }
 .bg-breit .bg-bewertung > * { grid-column: 1 / -1; }
 .bg-breit .bg-bewertung > .bg-erg-gruppe:has(+ .bg-bonus) { grid-column: 1; }
@@ -739,3 +739,18 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 }
 .bz-stufen-liste .knopf { min-height: 42px; font-size: 15px; padding: 0 12px; white-space: nowrap; width: auto; justify-self: start; }
 .bz-stufen-liste > .knopf { align-self: flex-start; margin-top: 4px; }
+
+/* Ergebnis noch nicht gewählt (Wunsch Vater 11.11.) */
+.bg-erg-gruppe.bg-erg-fehlt { border: 2px solid #C0392B; border-radius: 12px; padding: 10px 12px 12px; background: #FDF3F1; }
+.bg-erg-fehlt-text { color: #A5281B; text-transform: none; letter-spacing: 0; }
+.bg-l[data-stand="fehlt"] { border: 2px solid #C0392B; color: #A5281B; background: #fff; }
+.bg-pill.bg-pill-fehlt { background: #fff; color: #A5281B; border: 1.5px solid #C0392B; }
+.bg-warn-fehlt { border: 2px solid #C0392B; background: #FDF3F1; color: #6E1C12; border-radius: 12px; padding: 12px 14px; line-height: 1.45; }
+.bg-warn-fehlt a { color: #A5281B; font-weight: 700; }
+
+.bg-warn-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(20, 30, 30, 0.45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.bg-warn-box { background: var(--karte, #fff); border: 2px solid #C0392B; border-radius: 16px; padding: 18px 20px; max-width: 440px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+.bg-warn-box h2 { margin: 0 0 8px; font-size: 20px; color: #8E2A17; }
+.bg-warn-box p { margin: 0 0 10px; line-height: 1.45; }
+.bg-warn-box .knopf-reihe { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
+@media (max-width: 500px) { .bg-warn-box .knopf-reihe { flex-direction: column-reverse; } .bg-warn-box .knopf-reihe .knopf { width: 100%; } }

@@ -17,7 +17,7 @@ import qrcode from './vendor/qrcode.mjs';
 import * as FB from '../js/feedback.js';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.62.1';
+export const ELTERN_VERSION = '1.63.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -569,7 +569,7 @@ function bgEntwurf(id) {
   if (BG.entwuerfe[k]) return BG.entwuerfe[k];
   let e = null;
   try { e = JSON.parse(localStorage.getItem(k) || 'null'); } catch (x) {}
-  if (!e && BG.fb[id]) { e = A.bogenFeedbackEntwurf(BG.fb[id]); if (e) e.gemachtHand = true; }
+  if (!e && BG.fb[id]) { e = A.bogenFeedbackEntwurf(BG.fb[id]); if (e) { e.gemachtHand = true; e.ausFeedback = true; } }
   if (!e) { let von = ''; try { von = localStorage.getItem('bogen-von') || ''; } catch (x) {} e = { von, gemacht: A.gemachtStandard(BG.boegen[id], L.tagKey()), anfang: '', stimmung: '', hinweisblatt: '', formelsammlung: '', dauer: null, uebungen: {}, sonst: '', gesehen: [] }; }
   e.uebungen = e.uebungen || {}; e.gesehen = e.gesehen || [];
   return (BG.entwuerfe[k] = e);
@@ -579,6 +579,9 @@ function bgHatEntwurf(id) {
   try { const r = localStorage.getItem(bgKey(id)); if (!r) return false; if (!BG.fb[id]) return true; const e = JSON.parse(r); if (e && e.geaendert) return true; localStorage.removeItem(bgKey(id)); return false; } catch (x) { return false; }
 }
 function bgUe(e, nr) { return e.uebungen[nr] || (e.uebungen[nr] = { ergebnis: 'klappt', chips: [], notiz: '', fotos: [] }); }
+// Ergebnis bewusst gewählt? (Wunsch Vater 11.11.: nichts vorauswählen; abgeschicktes Feedback gilt als gewählt)
+const bgGewaehlt = (e, nr) => { const u = e.uebungen[nr]; return !!(e.ausFeedback || (u && (u.gewaehlt || u.ergebnis !== 'klappt'))); };
+const bgFehlend = (id) => { const e = bgEntwurf(id); return bgNummern(id).filter(nr => !bgGewaehlt(e, nr)); };
 // Nur Ansehen legt keinen Zwischenstand an: „gesehen“ kommt erst mit der ersten Änderung auf das Gerät
 function bgGesehen(id, nr) { const e = bgEntwurf(id); if (!e.gesehen.includes(nr)) { e.gesehen.push(nr); if (e.geaendert) { try { localStorage.setItem(bgKey(id), JSON.stringify(e)); } catch (x) {} } } }
 // Abgeschickter Bogen: nur ansehen, bis jemand „Bearbeiten“ tippt (Wunsch Vater 28.10.)
@@ -992,7 +995,7 @@ function bgNummern(id) { const b = BG.boegen[id]; return b ? b.uebungen.map(u =>
 function bgZeile(x, gewaehlt) {
   const b = BG.boegen[x.id], n = b ? b.uebungen.length : 0;
   const entwurf = bgHatEntwurf(x.id);
-  const g = entwurf ? bgEntwurf(x.id).gesehen.filter(nr => !b || b.uebungen.some(u => u.nr === nr)).length : 0;
+  const g = entwurf && b ? n - bgFehlend(x.id).length : 0; // Übungen mit gewähltem Ergebnis
   const hbFehlt = !x.fertig && hbFuerBogen(x.id).length;
   const pill = b && b.archiv && !x.fertig && !entwurf ? '<span class="bg-pill grau" title="Alter Bogen: ansehen und drucken, ohne Feedback">Archiv</span>' : hbFehlt ? '<span class="bg-pill warn" title="Erst Hinweisblatt neu drucken">⚠ Hinweis</span>' : x.fertig && !entwurf ? '<span class="bg-pill fertig">fertig</span>' : entwurf && n ? `<span class="bg-pill halb">${g} von ${n}</span>` : entwurf ? '<span class="bg-pill halb">angefangen</span>' : '';
   return `<a class="zeile bg-zeile${gewaehlt ? ' gewaehlt' : ''}${!x.fertig && !entwurf && x.ordner && !(b && b.archiv) ? ' neu' : ''}" href="#boegen/${encodeURIComponent(x.id)}">
@@ -1103,18 +1106,18 @@ function bgUeInfo(id, nr) { const b = BG.boegen[id]; return b ? b.uebungen.find(
 // Stand einer Übung für die Leiste: offen (noch nicht angesehen, nichts eingetragen) oder das Ergebnis
 function bgUeStand(id, nr) {
   const e = bgEntwurf(id), u = e.uebungen[nr];
-  if (!u || (!e.gesehen.includes(nr) && u.ergebnis === 'klappt' && !u.chips.length && !u.notiz && !(u.fotos || []).length && !u.bonus)) return 'offen';
-  return u.ergebnis;
+  if (!bgGewaehlt(e, nr)) return 'fehlt';
+  return u ? u.ergebnis : 'klappt';
 }
 // Leiste mit allen Übungen: antippen springt, Farbe nach Ergebnis
 function bgLeiste(id, aktiv) {
   const nrn = bgNummern(id);
   if (!nrn.length) return '';
-  return `<nav class="bg-leiste" aria-label="Übungen">${nrn.map(n => `<a href="#boegen/${encodeURIComponent(id)}/${encodeURIComponent(n)}" class="bg-l" data-stand="${esc(bgUeStand(id, n))}"${n === aktiv ? ' aria-current="true"' : ''} title="Übung ${esc(n)}: ${esc(bgUeStand(id, n))}">${esc(n)}</a>`).join('')}
+  return `<nav class="bg-leiste" aria-label="Übungen">${nrn.map(n => `<a href="#boegen/${encodeURIComponent(id)}/${encodeURIComponent(n)}" class="bg-l" data-stand="${esc(bgUeStand(id, n))}"${n === aktiv ? ' aria-current="true"' : ''} title="Übung ${esc(n)}: ${bgUeStand(id, n) === 'fehlt' ? 'noch kein Ergebnis' : esc(bgUeStand(id, n))}">${esc(n)}</a>`).join('')}
     <a href="#boegen/${encodeURIComponent(id)}/ende" class="bg-l bg-l-ende"${aktiv === 'ende' ? ' aria-current="true"' : ''}>Überblick</a></nav>`;
 }
 function ueKarte(id, nr, kompakt) {
-  const e = bgEntwurf(id), u = bgUe(e, nr), x = bgUeInfo(id, nr) || { nr };
+  const e = bgEntwurf(id), u = bgUe(e, nr), x = bgUeInfo(id, nr) || { nr }, gew = bgGewaehlt(e, nr);
   const loesAn = BG.zeig[id + '|' + nr] === 'loes';
   const bild = (w) => { const pfad = x.bilder && x.bilder[w]; if (!pfad) return ''; const src = bgBild(id, pfad);
     return src && src !== 'fehlt' ? `<img class="bg-mini${w === 'loes' ? ' loes' : ''}" data-act="bgGross" src="${src}" alt="${w === 'auf' ? 'Aufgabe' : 'Lösung'} Übung ${esc(nr)}" title="Antippen: groß anzeigen">` : `<span class="bg-mini-platz klein gedaempft">${src === 'fehlt' ? 'Kein Bild' : 'Bild lädt …'}</span>`; };
@@ -1125,7 +1128,7 @@ function ueKarte(id, nr, kompakt) {
   return `${x.bilder && x.bilder.auf ? `<div class="bg-aufgabe"><div class="bg-a-auf"><span class="bg-a-lbl">Aufgabe</span>${bild('auf')}</div>
     <div class="bg-a-loes${loesAn ? ' an' : ''}">${loesAn ? `<span class="bg-a-lbl">Lösung</span>${bild('loes')}` : ''}${x.bilder.loes ? loesKnopf : ''}</div></div>` : ''}
     <div class="bg-bewertung">${x.neu ? '<div class="bg-neu">Neu auf diesem Bogen. Wie kam es an?</div>' : ''}
-    <div class="bg-gruppe bg-erg-gruppe"><span class="bg-lbl">Ergebnis${x.bonusTeile ? ' ohne Bonus' : ''}</span><div class="bg-seg bg-erg" style="grid-template-columns:repeat(2,minmax(0,1fr))" role="group">${A.BOGEN_ERGEBNISSE.map(v => `<button data-act="bgErg" data-id="${esc(id)}" data-nr="${esc(nr)}" data-v="${esc(v)}" data-erg="${esc(v)}" aria-pressed="${u.ergebnis === v}">${esc(v)}</button>`).join('')}</div></div>
+    <div class="bg-gruppe bg-erg-gruppe${gew ? '' : ' bg-erg-fehlt'}"><span class="bg-lbl">Ergebnis${x.bonusTeile ? ' ohne Bonus' : ''}${gew ? '' : '<span class="bg-erg-fehlt-text"> · bitte wählen</span>'}</span><div class="bg-seg bg-erg" style="grid-template-columns:repeat(2,minmax(0,1fr))" role="group">${A.BOGEN_ERGEBNISSE.map(v => `<button data-act="bgErg" data-id="${esc(id)}" data-nr="${esc(nr)}" data-v="${esc(v)}" data-erg="${esc(v)}" aria-pressed="${gew && u.ergebnis === v}">${esc(v)}</button>`).join('')}</div></div>
     ${bonus}
     <div class="bg-gruppe"><span class="bg-lbl">Beobachtungen</span><div class="bg-chips">${A.BOGEN_CHIPS.map(c => `<button class="bg-chip" data-act="bgChip" data-id="${esc(id)}" data-nr="${esc(nr)}" data-v="${esc(c)}" aria-pressed="${u.chips.includes(c)}">${esc(c)}</button>`).join('')}</div></div>
     <label class="bg-gruppe"><span class="bg-lbl">Notiz</span><textarea class="bg-text" data-id="${esc(id)}" data-nr="${esc(nr)}" rows="${kompakt ? 2 : 3}" placeholder="Was ist dir aufgefallen? Diktieren: Mikrofon auf der Tastatur">${esc(u.notiz || '')}</textarea></label>
@@ -1184,10 +1187,21 @@ function bogenEnde(id) {
   const zurueck = `#boegen/${encodeURIComponent(id)}/${nrn.length ? encodeURIComponent(nrn[nrn.length - 1]) : ''}`;
   return `<div class="seite schmal-inhalt bg-schritt bg-wisch" data-vor="${zurueck}"><a class="zurueck" href="${zurueck}">‹ ${nrn.length ? 'Übung ' + esc(nrn[nrn.length - 1]) : 'Allgemein'}</a><h1>${bgGesperrt(id) ? 'Überblick' : 'Fertig?'}</h1><p class="klein gedaempft">Schritt 3 von 3 · Überblick</p>
     ${bgLeiste(id, 'ende')}${bgAbgeschickt(id)}
-    <section class="karte liste-karte">${nrn.map(nr => { const u = e.uebungen[nr] || { ergebnis: 'klappt', chips: [], notiz: '' }, x = bgUeInfo(id, nr) || {}; return `<a class="zeile bg-ueb" href="#boegen/${encodeURIComponent(id)}/${encodeURIComponent(nr)}"><span class="zeile-haupt">${esc(nr)}${x.titel ? ' · ' + esc(x.titel) : ''}<span class="klein gedaempft block">${[u.bonus ? 'Bonus: ' + u.bonus.ergebnis : '', u.chips.length ? u.chips.join(', ') : '', u.notiz ? 'Notiz' : '', u.fotos && u.fotos.length ? u.fotos.length + ' Foto' + (u.fotos.length > 1 ? 's' : '') : ''].filter(Boolean).join(' · ')}</span></span><span class="bg-pill" data-erg="${esc(u.ergebnis)}">${esc(u.ergebnis)}</span></a>`; }).join('')}</section>
+    ${!bgGesperrt(id) && bgFehlend(id).length ? `<div class="bg-warn-fehlt"><b>Noch kein Ergebnis bei ${bgFehlend(id).length === 1 ? 'Übung' : 'den Übungen'} ${bgFehlend(id).map(n => `<a href="#boegen/${encodeURIComponent(id)}/${encodeURIComponent(n)}">${esc(n)}</a>`).join(', ')}.</b> Bitte noch auswählen. Ohne Auswahl zählt eine Übung als „klappt“.</div>` : ''}
+    <section class="karte liste-karte">${nrn.map(nr => { const u = e.uebungen[nr] || { ergebnis: 'klappt', chips: [], notiz: '' }, x = bgUeInfo(id, nr) || {}, gew = bgGewaehlt(e, nr); return `<a class="zeile bg-ueb" href="#boegen/${encodeURIComponent(id)}/${encodeURIComponent(nr)}"><span class="zeile-haupt">${esc(nr)}${x.titel ? ' · ' + esc(x.titel) : ''}<span class="klein gedaempft block">${[u.bonus ? 'Bonus: ' + u.bonus.ergebnis : '', u.chips.length ? u.chips.join(', ') : '', u.notiz ? 'Notiz' : '', u.fotos && u.fotos.length ? u.fotos.length + ' Foto' + (u.fotos.length > 1 ? 's' : '') : ''].filter(Boolean).join(' · ')}</span></span>${gew ? `<span class="bg-pill" data-erg="${esc(u.ergebnis)}">${esc(u.ergebnis)}</span>` : '<span class="bg-pill bg-pill-fehlt">noch offen</span>'}</a>`; }).join('')}</section>
     ${!bgGesperrt(id) && BG.zeit[id] ? zeitBox(id) : ''}
     <section class="karte bg-allg"><h3 class="bg-h3">Zum Schluss</h3>${bgAllgemeinFelder(id, e, A.BOGEN_ENDE, false)}${bgSonst(id, e)}</section>
+    ${BG.warnFehlt === id ? bgWarnBox(id) : ''}
     ${bgGesperrt(id) ? (BG.meldung ? `<p class="meldung ${BG.meldung.art}">${esc(BG.meldung.text)}</p>` : '') : `${bgSpeichernKnopf(id)}<p class="klein gedaempft mitte">Danach im Chat: „Bogen ${esc(bgTitel(id).replace(' · ', ' '))} erledigt“</p>`}</div>`;
+}
+// Speichern mit Übungen ohne Ergebnis (Wunsch Vater 13.11.): Warnung, dann trotzdem speichern oder abbrechen
+function bgWarnBox(id) {
+  const f = bgFehlend(id);
+  return `<div class="bg-warn-overlay"><div class="bg-warn-box" role="alertdialog" aria-modal="true" aria-labelledby="bg-warn-t">
+    <h2 id="bg-warn-t">Noch nicht alles ausgewählt</h2>
+    <p>Bei ${f.length === 1 ? 'Übung' : 'den Übungen'} <b>${f.map(esc).join(', ')}</b> ist noch kein Ergebnis gewählt.</p>
+    <p>Wenn du trotzdem speicherst, zählen ${f.length === 1 ? 'sie' : 'diese Übungen'} als „klappt“.</p>
+    <div class="knopf-reihe"><button class="knopf" data-act="bgWarnZu">Abbrechen</button><button class="knopf haupt" data-act="bgSpeichern" data-id="${esc(id)}" data-trotzdem="1">Trotzdem speichern</button></div></div></div>`;
 }
 // Bogen in der App ansehen (Auftrag 27): alle Übungen als Bilder untereinander, antippen zoomt
 function bgAnsichtOverlay(id) {
@@ -2963,7 +2977,7 @@ document.addEventListener('click', (ev) => {
     case 'bgZeitEnde': { const f = document.getElementById('bgz-ende-' + el.dataset.id); bgZeit(el.dataset.id, 'ende', f && f.value); break; }
     case 'foDrucken': foDrucken(el.dataset.id); break;
     case 'bgWert': { const e = bgEntwurf(el.dataset.id); const k = el.dataset.k; let v = el.dataset.v; if (k === 'dauer') { v = Number(v); dauerSetzen(e, e.dauer === v ? 0 : v); } else e[k] = v; if (k === 'von') { try { localStorage.setItem('bogen-von', v); } catch (x) {} } bgSichern(el.dataset.id, e); zeichne(); break; }
-    case 'bgErg': { const e = bgEntwurf(el.dataset.id), u = bgUe(e, el.dataset.nr); u.ergebnis = el.dataset.v; bgSichern(el.dataset.id, e); zeichne(); break; }
+    case 'bgErg': { const e = bgEntwurf(el.dataset.id), u = bgUe(e, el.dataset.nr); u.ergebnis = el.dataset.v; u.gewaehlt = true; bgSichern(el.dataset.id, e); zeichne(); break; }
     case 'bgChip': { const e = bgEntwurf(el.dataset.id), u = bgUe(e, el.dataset.nr), c = el.dataset.v; u.chips = u.chips.includes(c) ? u.chips.filter(x => x !== c) : [...u.chips, c]; bgSichern(el.dataset.id, e); zeichne(); break; }
     case 'bgZeig': { const k = el.dataset.id + '|' + el.dataset.nr; BG.zeig[k] = BG.zeig[k] === el.dataset.w ? null : el.dataset.w; zeichne(); break; }
     case 'bgBonus': { const e = bgEntwurf(el.dataset.id), u = bgUe(e, el.dataset.nr), v = el.dataset.v; u.bonus = u.bonus && u.bonus.ergebnis === v ? null : { ergebnis: v, notiz: (u.bonus && u.bonus.notiz) || '' }; bgSichern(el.dataset.id, e); zeichne(); break; }
@@ -2972,7 +2986,8 @@ document.addEventListener('click', (ev) => {
     case 'bgGross': lupeAuf(el.getAttribute('src'), el.getAttribute('alt')); break;
     case 'bgFotoWeg': { const e = bgEntwurf(el.dataset.id), u = bgUe(e, el.dataset.nr); u.fotos = u.fotos.filter((_, i) => i !== Number(el.dataset.i)); bgSichern(el.dataset.id, e); zeichne(); break; }
     case 'bgPdf': bgPdfTeilen(el.dataset.id, el.dataset.w); break;
-    case 'bgSpeichern': bgSpeichern(el.dataset.id); break;
+    case 'bgSpeichern': if (!el.dataset.trotzdem && bgFehlend(el.dataset.id).length) { BG.warnFehlt = el.dataset.id; zeichne(); break; } BG.warnFehlt = null; bgSpeichern(el.dataset.id); break;
+    case 'bgWarnZu': BG.warnFehlt = null; zeichne(); break;
     case 'bgFrei': { const id = (document.getElementById('bg-frei-id').value || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, ''); if (!id) { BG.meldung = { art: 'fehler', text: 'Bitte ein Kürzel eingeben, z. B. w6t1.' }; zeichne(); break; } const e = bgEntwurf(id); e.frei = true; bgSichern(id, e); location.hash = '#boegen/' + encodeURIComponent(id); break; }
     case 'bgUeNeu': { const nr = (document.getElementById('bg-ue-nr').value || '').trim(); if (!nr) break; const e = bgEntwurf(el.dataset.id); bgUe(e, nr); bgSichern(el.dataset.id, e); zeichne(); break; }
     case 'bedienung': entwurf[el.dataset.k] = el.dataset.w === 'true'; meldung = null; zeichne(); break;
