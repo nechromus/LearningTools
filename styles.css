@@ -1252,3 +1252,6 @@ body:has(.aufgabe-screen.bz-warm) { background: #FAF1DE; }
 .bogenzeit-titel { font-size: 26px; color: var(--teal-dunkel); margin-bottom: 10px; }
 .bogenzeit-text { font-size: 19px; line-height: 1.45; color: var(--text); margin: 0; }
 .bogenzeit-screen > .btn { align-self: center; }
+
+/* Auftrag 53: G zum Erinnern neben dem Feld „Neuer Preis“ */
+.feld-erinnerung { margin-left: 10px; padding: 4px 10px; border-radius: 8px; background: var(--amber-hell); color: var(--amber-dunkel); font-weight: 700; font-size: 16px; white-space: nowrap; }

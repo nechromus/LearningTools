@@ -732,7 +732,7 @@ export function prozentFormel(stufe, rng, opts = {}) {
       thema: 'prozent-formel', typ: 'schritte', stufe, kategorie: 'text', taschenrechner: true,
       geschichte: `${d.nom} kostet ${G} €. Heute gibt es ${p} % Rabatt.`, frage: 'Wie viel kostet es jetzt?',
       gegeben: [{ name: 'G', wert: G, einheit: '€' }, { name: 'p', wert: p, einheit: '%' }],
-      schritte: [...pfSchritte(G, p, '€', 'Rabatt W'), { text: 'Neuer Preis = G − W =', wert: neuP, einheit: '€' }],
+      schritte: [...pfSchritte(G, p, '€', 'Rabatt W'), { text: 'Neuer Preis = G − W =', wert: neuP, einheit: '€', erinnerung: `G = ${geld(G)} €` }],
       hinweise: ['formel', 'text'], loesungsweg: [...pfWeg(G, p, '€', 'Rabatt'), `Neuer Preis: ${G} € − ${geld(W)} € = ${geld(neuP)} €`],
       erklaerung: 'Erst den Rabatt mit der Formel. Dann vom Preis abziehen.'
     });

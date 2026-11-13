@@ -155,6 +155,20 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
     }
   }
 
+  // Neuer Preis (Auftrag 53): 1 % statt G genommen (1 % − W, auch als Betrag, oder 1 % + W); negative Preise
+  if (/^(Neuer Preis|Rabatt W)/.test(ttx)) {
+    const sch = Array.isArray(aufgabe.schritte) ? aufgabe.schritte : [];
+    const s1 = sch.find(x => /^1 %/.test(String(x.text || ''))), sW = sch.find(x => /^Rabatt W/.test(String(x.text || '')));
+    if (/^Neuer Preis/.test(ttx) && s1 && sW && Number.isFinite(s1.wert) && Number.isFinite(sW.wert) && !gleich(w, ziel)) {
+      const eins = s1.wert, W = sW.wert, nah = (x) => Math.abs(w - x) <= 0.011 + 1e-9;
+      if (nah(eins - W) || nah(W - eins) || nah(eins + W)) {
+        const G = Math.round((ziel + W) * 100) / 100, gT = Number.isInteger(G) ? String(G) : G.toFixed(2).replace('.', ',');
+        return { typ: 'formel-1prozent-statt-g', text: `G ist der Preis vom Anfang: G = ${gT} €. Nicht 1 %. Rechne G − W.` };
+      }
+    }
+    if (w < 0) return { typ: 'formel-preis-negativ', text: 'Ein Preis ist nie kleiner als 0. Schau, welche Zahlen du abziehst.' };
+  }
+
   // Mal 10 / durch 10 (Auftrag 36), auch im Dreierblock und bei festen Aufgaben
   if (aufgabe.thema === 'mal-10' || /block-mal10/.test(aufgabe.generator || '')) {
     const f = mal10Fehler(aufgabe.rechnung, w, ziel);

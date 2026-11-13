@@ -35,7 +35,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.45.1';
+export const APP_VERSION = '2.46.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -3263,7 +3263,7 @@ function teileHtml() {
       if (aktiv && t.zp) {
         inhalt = `${label}${zpEingabeHtml(t)}`;
       } else if (aktiv) {
-        inhalt = `${label}${fsPinHtml()}<div class="feld-zeile"><div class="feld aktiv-feld${t.eingabe ? '' : ' leer'}" aria-live="polite">${esc(t.eingabe.replace('-', '−')) || '?'}</div>${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}</div>`
+        inhalt = `${label}${fsPinHtml()}<div class="feld-zeile"><div class="feld aktiv-feld${t.eingabe ? '' : ' leer'}" aria-live="polite">${esc(t.eingabe.replace('-', '−')) || '?'}</div>${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}${t.quelle && t.quelle.erinnerung ? `<span class="feld-erinnerung">${mathe(t.quelle.erinnerung)}</span>` : ''}</div>`
           + (t.rundenTipp && A.phase === 'eingabe' && !t.versuche.length ? '<div class="lese-tipp runden-tipp">Die Zahl hat schon 1 Stelle nach dem Komma. Sie ist fertig gerundet. Schreib sie noch einmal ab.</div>' : '');
       } else {
         const ok = t.versuche.find(v => v.richtig);
