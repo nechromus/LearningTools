@@ -347,8 +347,16 @@ export function spielzeitRegeln(r) {
     rechner: ANTEILE.includes(r.rechner) ? r.rechner : S0.rechner,
     hilfe: ANTEILE.includes(r.hilfe) ? r.hilfe : S0.hilfe,
     basisMin: minutenWert(r.basisMin, S0.basisMin, 15),
-    kopf: KOPF_FAKTOREN.includes(r.kopf) ? r.kopf : S0.kopf
+    kopf: KOPF_FAKTOREN.includes(r.kopf) ? r.kopf : S0.kopf,
+    ...(gruppenVon(r.gruppen) ? { gruppen: gruppenVon(r.gruppen) } : {})
   };
+}
+// Auftrag 52: Mühe-Gruppe je Thema für ein Kind festlegen (spielzeit.gruppen { thema: gruppe }).
+// Gilt nicht für Detektiv-Aufgaben und nicht für die Form gpw („Was ist G, p und W?“ bleibt kurz).
+function gruppenVon(g) {
+  if (!g || typeof g !== 'object' || Array.isArray(g)) return null;
+  const ok = Object.entries(g).filter(([k, v]) => /^[a-z0-9-]{1,40}$/.test(k) && MUEHE_GRUPPEN.includes(v));
+  return ok.length ? Object.fromEntries(ok.sort(([a], [b]) => a.localeCompare(b))) : null;
 }
 
 export function minutenFuerPosition(pos, regeln = SPIELZEIT_STANDARD) {
@@ -366,8 +374,10 @@ export function anteilText(a) {
 
 // Mühe-Gruppe einer Aufgabe (Auftrag 18). umformen: in Schritten umgeformt.
 const DICHTE_GRUPPE = { rho: 'normal', umrechnen: 'normal', quader: 'lang', 'masse-volumen': 'lang', vergleich: 'lang', verhaeltnis: 'lang', gewichtskraft: 'schwer' };
-export function muehGruppe(a, { umformen = false } = {}) {
+export function muehGruppe(a, { umformen = false, gruppen = null } = {}) {
   if (!a) return 'normal';
+  const fest = gruppen && a.typ !== 'detektiv' && a.form !== 'gpw' && gruppen[a.thema];
+  if (fest) return fest;
   const g = String(a.generator || '');
   if (a.thema === 'dichte' && DICHTE_GRUPPE[a.variante]) return DICHTE_GRUPPE[a.variante];
   if (a.thema === 'formelsammlung') return 'kurz';                         // „Finde es“ (Auftrag 40)
@@ -389,7 +399,7 @@ export function muehGruppe(a, { umformen = false } = {}) {
   if (a.typ === 'zahl' && !a.geschichte && a.thema !== 'prozent' && !a.fach) return 'kurz';
   return 'normal';
 }
-export const muehFaktor = (a, regeln = SPIELZEIT_STANDARD, opts) => ((regeln.muehe || SPIELZEIT_STANDARD.muehe)[muehGruppe(a, opts)] ?? 1);
+export const muehFaktor = (a, regeln = SPIELZEIT_STANDARD, opts) => ((regeln.muehe || SPIELZEIT_STANDARD.muehe)[muehGruppe(a, { ...(opts || {}), gruppen: regeln.gruppen || null })] ?? 1);
 
 // ergebnis: 'erst' | 'zweit' | 'loesung'; strafe: 'keine' | 'halb' | 'null'
 // muehe: Faktor je Aufgabenart; zweitVoll: 2. Versuch ohne zu schnelle Eingaben (volle Zeit); bonus: Faktor bei der Wiederholung

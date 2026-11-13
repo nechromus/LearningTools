@@ -35,7 +35,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.44.0';
+export const APP_VERSION = '2.45.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -3846,7 +3846,7 @@ function abschliessen() {
   // Wiederholung nach dem Durchklick-Hinweis im 1. Versuch ohne zu schnelle Eingaben: Bonuszeit
   const schnell = pflicht.some(t => t.schnell);
   A.muehe = L.muehFaktor(a, R(), { umformen: !!A.uf });
-  A.muehGruppe = L.muehGruppe(a, { umformen: !!A.uf });
+  A.muehGruppe = L.muehGruppe(a, { umformen: !!A.uf, gruppen: R().gruppen || null });
   A.bonusZeit = !!A.bonusWdh && ergebnis === 'erst' && !schnell && R().bonus > 1 ? R().bonus : 0;
   const lohnErg = tl ? (tl.zweit ? 'zweit' : 'erst') : ergebnis;
   let sek = L.sekundenFuerAufgabe({ ergebnis: lohnErg, serienPos: A.serienPos, strafe: A.strafe, rechnerHalb: !!A.rechnerHalb, hilfe: !!A.hilfeGenutzt, langHalb: !!A.langHalb, kopf: A.kopf, regeln: R(),

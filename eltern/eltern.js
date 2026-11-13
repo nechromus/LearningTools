@@ -17,7 +17,7 @@ import qrcode from './vendor/qrcode.mjs';
 import * as FB from '../js/feedback.js';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.62.0';
+export const ELTERN_VERSION = '1.62.1';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -3091,7 +3091,7 @@ document.addEventListener('click', (ev) => {
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(qr.link).then(() => alert('Link kopiert. Auf dem Kinder-Handy im Scan-Fenster unter „Link einfügen“ einfügen.'), () => prompt('Link kopieren:', qr.link));
       else prompt('Link kopieren:', qr.link);
       break;
-    case 'standardZeit': { const alt = entwurf.spielzeit || {}; entwurf.spielzeit = { ...L.spielzeitRegeln(null), durchklick: !!alt.durchklick, hilfeAb: alt.hilfeAb ?? 0, bonus: alt.bonus ?? L.SPIELZEIT_STANDARD.bonus }; meldung = null; zeichne(); break; }
+    case 'standardZeit': { const alt = entwurf.spielzeit || {}; entwurf.spielzeit = { ...L.spielzeitRegeln(null), durchklick: !!alt.durchklick, hilfeAb: alt.hilfeAb ?? 0, bonus: alt.bonus ?? L.SPIELZEIT_STANDARD.bonus, ...(alt.gruppen ? { gruppen: alt.gruppen } : {}) }; meldung = null; zeichne(); break; }
     case 'verwerfen': entwurf = null; geaenderteStufen = new Set(); meldung = null; zeichne(); break;
     case 'speichern': if (geaendert()) speichern(); break;
     case 'abmelden':
