@@ -30,5 +30,13 @@ export const FEHLER_NAMEN = {
   'pyramide-ein-dreieck': 'Pyramide: nur 1 Dreieck', 'zusammen-statt-abziehen': 'Zusammengezählt statt abgezogen', 'zerlegen': 'Körper falsch zerlegt', 'kegel-hoehe-bild': 'Kegelhöhe im Bild nicht erkannt', 'kegel-breite-bild': 'Größter Kegel: Breite nicht erkannt', 'nachgerundet': 'Gerundete Zahl noch einmal gerundet', 'kegel-h-statt-s': 'Kegel: h statt s', 'kegel-zwei-kreise': 'Kegel: zwei Kreise',
   'zp-form': 'Zehnerpotenz: Zahl nicht zwischen 1 und 10', 'zp-vorzeichen': 'Zehnerpotenz: Hochzahl mit falschem Vorzeichen', 'zp-hochzahl': 'Zehnerpotenz: Hochzahl falsch',
   'formel-kehrwert': 'Formel: Kehrwert', 'formel-links': 'Formel: links nicht die gesuchte Größe', 'formel-ziel-rechts': 'Formel: gesuchte Größe rechts', 'formel': 'Formel falsch umgestellt',
-  'knobel': 'Knobeln: Ergebnis falsch'
+  'knobel': 'Knobeln: Ergebnis falsch',
+  // Genauer eingeordnet (14.11., nur Protokoll)
+  'runden-zu-frueh': 'Runden: auf zu wenige Stellen', 'runden-als-ziffer': 'Runden: „eine Stelle“ als Ziffer 1 geschrieben', 'runden-hochgezaehlt': 'Runden: letzte Ziffer um eins verändert',
+  'runden-auf-statt-ab': 'Runden: aufgerundet statt abgerundet', 'runden-ab-statt-auf': 'Runden: abgerundet statt aufgerundet', 'runden-null': 'Runden: Null nach dem Komma übersprungen',
+  'runden-nicht-gerundet': 'Runden: nicht gerundet (abgeschrieben)', 'runden-uebertrag': 'Runden: aus 9 wird 0, Stelle davor nicht erhöht',
+  'tastenmuster': 'Tastenmuster (eher durchgeklickt)', 'komma-verschoben': 'Komma verschoben (×/÷ 10, 100, 1000)', 'anderer-teil': 'Ergebnis eines anderen Felds',
+  'um-eins': 'Um 1 daneben', 'knapp': 'Knapp daneben (unter 1 %)', 'zahlendreher': 'Zahlendreher',
+  'einmaleins-nachbar': 'Einmaleins: Nachbaraufgabe', 'einmaleins-reihe': 'Einmaleins: andere Zahl aus der Reihe', 'potenz-nachbarbasis': 'Potenz: Nachbarzahl gerechnet',
+  'zylinder-hoehe-vergessen': 'Zylinder-Mantel: Höhe vergessen', 'zylinder-grundflaeche-statt-mantel': 'Zylinder: Grundfläche statt Mantel', 'minus-betraege': 'Minus-Zahlen: Beträge addiert'
 };

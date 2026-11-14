@@ -17,7 +17,7 @@ import qrcode from './vendor/qrcode.mjs';
 import * as FB from '../js/feedback.js';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.63.0';
+export const ELTERN_VERSION = '1.63.1';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 

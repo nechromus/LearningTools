@@ -322,6 +322,145 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
   return null;
 }
 
+// ---------- Fehler genauer einordnen (Lernplattform, Okay Vater 14.11.) ----------
+// Nur für das Protokoll (versuch.fehler). Der gezeigte Tipp bleibt der alte, außer bei den drei Runden-Werten in NEUE_TIPPS.
+export const NEUE_TIPPS = {
+  'runden-als-ziffer': 'Auf eine Stelle heißt: eine Ziffer nach dem Komma bleibt stehen. Die Eins gehört nicht in die Antwort.',
+  'runden-null': 'Zähl die Stellen nach dem Komma ab, auch die Null.',
+  'runden-uebertrag': 'Aus 9 wird 0, die Stelle davor wird eins größer: 19,96 → 20,0.'
+};
+// Dezimalzahl als Ziffern (ohne Rundungsfehler): '35,8794' → { i: '35', f: '8794', m: 4 }
+function dezVon(s) {
+  const t = String(s == null ? '' : s).replace(/\s+/g, '').replace(/[−–]/g, '-').replace(',', '.');
+  if (!/^\d+(\.\d+)?$/.test(t)) return null;
+  const [i, f = ''] = t.split('.');
+  return { i, f, m: f.length };
+}
+const dezWert = (i, f) => Number(`${i}.${f || '0'}`);
+function dezGeschnitten(x, k) { return k >= x.m ? { i: x.i, f: x.f } : { i: x.i, f: x.f.slice(0, k) }; }
+function dezGerundet(x, k) {
+  if (k >= x.m) return { i: x.i, f: x.f };
+  let q = BigInt(x.i + x.f.slice(0, k)) + (Number(x.f[k]) >= 5 ? 1n : 0n);
+  const s = q.toString().padStart(k + 1, '0');
+  return { i: k ? s.slice(0, -k) : s, f: k ? s.slice(-k) : '' };
+}
+const dezZahl = (d) => dezWert(d.i, d.f);
+// Runden-Regeln (Abschnitt 1). x = Zahl vor dem Runden (Text), n = verlangte Stellen. Gibt die Liste der passenden Werte zurück.
+export function rundenArten(xText, n, eingabeText) {
+  const x = dezVon(xText), p = parseZahl(eingabeText);
+  if (!x || !p.ok || !Number.isInteger(n) || n < 0) return [];
+  const w = p.wert, k = p.nachkomma, richtig = dezZahl(dezGerundet(x, n));
+  if (gleich(w, richtig)) return [];
+  const treffer = new Set();
+  if (k < n && (gleich(w, dezZahl(dezGerundet(x, k))) || gleich(w, dezZahl(dezGeschnitten(x, k))))) treffer.add('runden-zu-frueh');
+  if (n >= 1 && gleich(w, Number(`${x.i}.${n}`))) treffer.add('runden-als-ziffer');
+  if (k === x.m && gleich(Math.abs(w - dezWert(x.i, x.f)), 10 ** -x.m)) treffer.add('runden-hochgezaehlt');
+  if (x.m > n) {
+    const ab = dezZahl(dezGeschnitten(x, n)), dahinter = Number(x.f[n]);
+    if (dahinter <= 4 && gleich(w, ab + 10 ** -n)) treffer.add('runden-auf-statt-ab');
+    if (dahinter >= 5 && gleich(w, ab)) treffer.add('runden-ab-statt-auf');
+    if (dahinter >= 5) {
+      const D = x.i + x.f.slice(0, n);
+      if (/9$/.test(D) && [D.slice(0, -1) + '0', D.replace(/9+$/, (m) => '0'.repeat(m.length))].some(D2 => gleich(w, Number(D2) / 10 ** n))) treffer.add('runden-uebertrag');
+    }
+  }
+  for (const b of [dezGerundet(x, n), dezGeschnitten(x, n)]) {
+    for (let j = 0; j < b.f.length; j++) if (b.f[j] === '0' && gleich(w, dezWert(b.i, b.f.slice(0, j) + b.f.slice(j + 1)))) treffer.add('runden-null');
+  }
+  if (k > n && (gleich(w, dezWert(x.i, x.f)) || gleich(w, dezZahl(dezGeschnitten(x, k))) || gleich(w, dezZahl(dezGerundet(x, k))))) treffer.add('runden-nicht-gerundet');
+  return [...treffer];
+}
+const ziffernVon = (s) => String(s).replace(/[^0-9]/g, '');
+const zahlZiffern = (z) => ziffernVon(String(Math.round(Math.abs(z) * 1e6) / 1e6)).replace(/^0+/, '');
+// Allgemeine Regeln (Abschnitt 2), ohne Tastenmuster
+export function allgemeineArten(w, ziel, andere = [], eingabeText = '') {
+  const t = new Set();
+  if (gleich(w, ziel)) return [];
+  if (ziel !== 0 && w !== 0) for (const f of [10, 100, 1000]) if (Math.abs(w - ziel * f) < 1e-9 * Math.max(1, Math.abs(ziel * f)) || Math.abs(w - ziel / f) < 1e-9 * Math.max(1, Math.abs(ziel))) t.add('komma-verschoben');
+  if (andere.some(v => Number.isFinite(v) && !gleich(v, ziel) && gleich(w, v))) t.add('anderer-teil');
+  if (gleich(Math.abs(w - ziel), 1)) t.add('um-eins');
+  if (ziel !== 0 && Math.abs(w - ziel) < Math.abs(ziel) * 0.01) t.add('knapp');
+  const a = ziffernVon(eingabeText).replace(/^0+/, ''), b = zahlZiffern(ziel);
+  if (a.length >= 2 && a !== b && a.length === b.length && [...a].sort().join('') === [...b].sort().join('')) t.add('zahlendreher');
+  return [...t];
+}
+// Tastenmuster: höchstens zwei verschiedene Ziffern, die sich wiederholen (55, 545, 2222). Ohne 0, damit runde Zahlen wie 100 nicht zählen.
+export function istTastenmuster(eingabeText) {
+  const z = ziffernVon(eingabeText), v = new Set(z);
+  return z.length >= 2 && v.size <= 2 && z.length > v.size && !v.has('0');
+}
+// Themen-Regeln (Abschnitt 3)
+export function themenArten(aufgabe, teil, w, ziel) {
+  const t = new Set();
+  if (gleich(w, ziel)) return [];
+  const rechnung = String(aufgabe.rechnung || '');
+  if (aufgabe.thema === 'einmaleins') {
+    const m = /^\s*(\d+)\s*[·×]\s*(\d+)\s*=?\s*$/.exec(rechnung), g = /^\s*(\d+)\s*:\s*(\d+)\s*=?\s*$/.exec(rechnung);
+    if (m) {
+      const a = Number(m[1]), b = Number(m[2]);
+      const nachbar = [(a - 1) * b, (a + 1) * b, a * (b - 1), a * (b + 1)].some(v => gleich(w, v));
+      // Nachbaraufgabe liegt immer auch in der Reihe: dann nur „nachbar“
+      if (nachbar) t.add('einmaleins-nachbar');
+      else if (Number.isInteger(w) && w > 0 && ((w % a === 0 && w / a <= 10) || (w % b === 0 && w / b <= 10))) t.add('einmaleins-reihe');
+    } else if (g && (gleich(w, ziel - 1) || gleich(w, ziel + 1))) t.add('einmaleins-nachbar');
+  }
+  const pot = potenzWert(rechnung);
+  if (pot && pot.exp >= 2 && [pot.basis - 1, pot.basis + 1].some(b => gleich(w, b ** pot.exp))) t.add('potenz-nachbarbasis');
+  if (aufgabe.thema === 'zylinder' && teil && /^A_M/.test(teil.text || '')) {
+    const bild = aufgabe.bild || {}, r = bild.r != null ? bild.r : bild.d != null ? bild.d / 2 : null;
+    const nah = (a, b) => Math.abs(a - b) <= Math.max(Math.abs(b) * 0.01, 0.05);
+    if (r != null) {
+      if (nah(w, 2 * Math.PI * r) || nah(w, Math.PI * r)) t.add('zylinder-hoehe-vergessen');
+      if (nah(w, Math.PI * r * r)) t.add('zylinder-grundflaeche-statt-mantel');
+    }
+  }
+  if (aufgabe.thema === 'minus-zahlen' && rechnung && !/[()]/.test(rechnung)) {
+    const s = rechnung.replace(/[−–]/g, '-').replace(/=.*$/, '');
+    const terme = [...s.matchAll(/([+-])?\s*(\d+(?:[.,]\d+)?)/g)].map(m => (m[1] === '-' ? -1 : 1) * Number(m[2].replace(',', '.')));
+    if (terme.length >= 2 && terme.some(v => v < 0)) {
+      const summe = terme.reduce((x, v) => x + Math.abs(v), 0);
+      if (gleich(Math.abs(w), summe)) t.add('minus-betraege');
+    }
+  }
+  return [...t];
+}
+// Zahl vor dem Runden: Runden-Aufgabe (parameter[0]), Dreierblock (Zahl im Fragetext), sonst der Schritt davor
+export function rundenXVon(aufgabe, teil) {
+  if (aufgabe.generator === 'runden' && Array.isArray(aufgabe.parameter)) return [String(aufgabe.parameter[0])];
+  const ft = teil && /^\s*([\d.,]+)\s*≈/.exec(String(teil.frage || ''));
+  if (ft) return [ft[1]];
+  const fr = !teil && /^\s*([\d.,]+)\s*≈/.exec(String(aufgabe.rechnung || ''));
+  if (fr) return [fr[1]];
+  const sch = Array.isArray(aufgabe.schritte) ? aufgabe.schritte : [];
+  const i = teil ? sch.indexOf(teil) : -1, v = i > 0 ? sch[i - 1] : null;
+  return v && Number.isFinite(v.wert) ? [String(v.wert)] : [];
+}
+// Neuer, genauerer Wert für versuch.fehler oder null (= alter Wert bleibt).
+// alt = Ergebnis von erkenneFehler. ctx: { x: weitere Zahlen vor dem Runden (Text), andere: Soll der anderen Felder }
+// Reihenfolge: vorhandener Typ > Themen-Regel > Runden-Regel > allgemeine Regel > Tastenmuster; zwei Treffer gleichen Ranges → alter Wert.
+export function feinerFehler(aufgabe, teil, eingabeText, alt, ctx = {}) {
+  if (alt && alt.typ !== 'runden') return null;
+  const p = parseZahl(eingabeText);
+  if (!p.ok) return null;
+  const w = p.wert, ziel = teil ? teil.wert : aufgabe.antwort && aufgabe.antwort.wert;
+  if (!Number.isFinite(ziel) || gleich(w, ziel)) return null;
+  const eins = (l) => (l.length === 1 ? l[0] : l.length > 1 ? false : undefined);
+  let r = eins(themenArten(aufgabe, teil, w, ziel));
+  if (r !== undefined) return r || null;
+  if (alt && alt.typ === 'runden') {
+    const fq = String(aufgabe.frage || '');
+    const n = aufgabe.generator === 'runden' ? aufgabe.parameter[1] : teil && teil.runden != null ? teil.runden
+      : /ganze Zahl/.test(fq) ? 0 : /auf (\d) Stellen/.test(fq) ? Number(/auf (\d) Stellen/.exec(fq)[1]) : 1;
+    const xs = [...new Set([...rundenXVon(aufgabe, teil), ...(ctx.x || [])].map(String))];
+    const arten = new Set(xs.flatMap(x => rundenArten(x, n, eingabeText)));
+    r = eins([...arten]);
+    if (r !== undefined) return r || null;
+  }
+  r = eins(allgemeineArten(w, ziel, ctx.andere || [], eingabeText));
+  if (r !== undefined) return r || null;
+  return istTastenmuster(eingabeText) ? 'tastenmuster' : null;
+}
+
 // ---------- Spielzeit ----------
 
 export const BASIS_SEKUNDEN = 180;

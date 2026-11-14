@@ -35,7 +35,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.46.0';
+export const APP_VERSION = '2.47.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -2160,10 +2160,13 @@ function startInfoVon(A, extra = {}) {
   const aufgabe = A.aufgabe;
   const startInfo = { id: aufgabe.id, thema: aufgabe.thema, stufe: aufgabe.stufe, aufgabenTyp: aufgabe.typ, kategorie: A.kategorie, serienPos: A.serienPos, bonus: !!aufgabe.bonus, wiederholung: A.wdh || 0, ...(A.nachLoesung ? { nach_loesung: A.nachLoesung } : {}), ...(A.nachLoesungSchritt ? { nach_loesung_schritt: A.nachLoesungSchritt } : {}),
     ...(A.paket ? { paket: A.paket } : {}), ...(A.etappe != null ? { etappe: A.etappe } : {}), ...(A.ausgleich ? { ausgleich: true } : {}), ...(A.wp ? { wochenplan: A.wp.grund, ...(A.wp.art ? { wp_art: A.wp.art } : {}) } : {}), ...(aufgabe.grenze_bis ? { grenze_bis: aufgabe.grenze_bis } : {}), ...extra };
+  const sollJeFeld = () => A.teile.map(t => t.art === 'zahl' && t.ziel ? [t.label || null, t.ziel.wert] : t.art === 'bruch' && t.antwort ? [t.antwort.zaehler, t.antwort.nenner] : t.art === 'wahl' ? [t.label, t.richtig] : null);
   if (aufgabe.generator) Object.assign(startInfo, {
     generator: aufgabe.generator, parameter: aufgabe.parameter, rechnung: aufgabe.rechnung, geschichte: aufgabe.geschichte,
-    teile: A.teile.map(t => t.art === 'zahl' ? [t.label || null, t.ziel.wert] : t.art === 'bruch' ? [t.antwort.zaehler, t.antwort.nenner] : t.art === 'wahl' ? [t.label, t.richtig] : null)
+    teile: sollJeFeld()
   });
+  // Feste Aufgaben (14.11.): Soll je Feld wie „teile“ beim Baukasten, aber eigenes Feld (die Eltern-App zählt Teilaufgaben aus „teile“)
+  else startInfo.soll = sollJeFeld();
   // Erzeugte oder hinzugefügte Aufgaben vollständig mitschreiben, damit die Eltern-App sie zeigen kann
   if (!BASIS_IDS.has(aufgabe.id)) startInfo.aufgabe = aufgabe;
   // Auftrag 45: dieselbe Aufgabe mal in Schritten, mal gebündelt (Knobeln; doppeltes Minus mit/ohne Zwischenschritt)
@@ -3677,7 +3680,13 @@ function antwortGeben() {
       else if (t.knobel) fehler = { typ: 'knobel', text: 'Probier es noch einmal. Oder tippe auf „In Schritten rechnen“.' };
       else {
         const pseudo = t.rechnung ? { ...a, rechnung: t.rechnung } : a;
-        fehler = L.erkenneFehler(pseudo, t.quelle || (t.rechnung ? { wert: t.ziel.wert } : null), t.eingabe);
+        const quelle = t.quelle || (t.rechnung ? { wert: t.ziel.wert } : null);
+        fehler = L.erkenneFehler(pseudo, quelle, t.eingabe);
+        // Fehler genauer einordnen (14.11.): nur fürs Protokoll, der Tipp bleibt der alte (außer drei Runden-Tipps)
+        if (a.typ !== 'detektiv') {
+          const fein = L.feinerFehler(pseudo, quelle, t.eingabe, fehler, feinKontext(t));
+          if (fein) fehler = L.NEUE_TIPPS[fein] ? { typ: fein, text: L.NEUE_TIPPS[fein] } : { typ: fein, nurProtokoll: true, alt: fehler };
+        }
       }
     }
   } else if (t.art === 'bruch' && t.pf) {
@@ -3722,6 +3731,14 @@ function antwortGeben() {
     return zeigeAufgabe();
   }
   versuchMerken(t, eingabe, richtig, fehler);
+}
+
+// Für feinerFehler: Soll der anderen Zahlenfelder und die eigene richtige Eingabe im Schritt davor (Zahl vor dem Runden)
+function feinKontext(t) {
+  const andere = A.teile.filter((x, i) => i !== A.idx && x.ziel && Number.isFinite(x.ziel.wert)).map(x => x.ziel.wert);
+  const v = A.idx > 0 ? A.teile[A.idx - 1] : null;
+  const ok = v && v.art === 'zahl' && v.versuche ? [...v.versuche].reverse().find(x => x.richtig) : null;
+  return { andere, x: ok && /^\d+(\.\d+)?$/.test(String(ok.eingabe)) ? [String(ok.eingabe)] : [] };
 }
 
 // Auftrag 44: Ist das der Runden-Schritt am Schluss einer Körper-Aufgabe aus dem Baukasten, und hatte die richtige Eingabe
@@ -3792,20 +3809,22 @@ function versuchMerken(t, eingabe, richtig, fehler) {
   if (t.knobel && t.versuche.length >= 2) return schritteAn(true);
   const maxVersuche = t.art === 'wahl' && !t.detektiv && !t.zweiVersuche ? 1 : 2; // Detektiv Schritt 1 und „Was ist gesucht?“ in zwei Schritten: 2 Versuche
   const fz = fsAufgabe() && t.art === 'zahl' && !t.merk ? fsZiel(t) : null;
+  // Genauer eingeordnete Fehler (14.11.) nur im Protokoll: gezeigt wird der Tipp des alten Werts (null bzw. runden)
+  const sicht = fehler && fehler.nurProtokoll ? fehler.alt : fehler;
   if (t.versuche.length < maxVersuche) {
-    t.tipp = fehler ? fehler.text : fz ? 'Rechne noch einmal.' : 'Schau dir den Hinweis an und rechne noch einmal.';
-    t.tippId = fehler ? 'tipp.' + fehler.typ : fz ? 'tipp.formelsammlung' : 'tipp.allgemein';
+    t.tipp = sicht ? sicht.text : fz ? 'Rechne noch einmal.' : 'Schau dir den Hinweis an und rechne noch einmal.';
+    t.tippId = sicht ? 'tipp.' + sicht.typ : fz ? 'tipp.formelsammlung' : 'tipp.allgemein';
     if (fz) t.tipp += ' Schau in die Formelsammlung.';
-    t.tafel = fehler && fehler.tafel ? fehler.tafel : null; // Stellentafel bei Mal 10 (Auftrag 36)
+    t.tafel = sicht && sicht.tafel ? sicht.tafel : null; // Stellentafel bei Mal 10 (Auftrag 36)
     // Ohne „Verstanden“ (Schalter pro Kind): der Tipp bleibt stehen, bis weitergetippt wird
     A.phase = bed('verstanden') ? 'tipp' : 'eingabe';
     A.meldung = t.tipp;
     t.eingabe = ''; t.z = ''; t.n = t.nennerFest ? String(t.antwort.nenner) : ''; t.e = ''; t.tokens = []; t.gelegt = [];
   } else {
     t.status = 'loesung';
-    t.loesungTipp = fehler ? fehler.loesung || fehler.text : null;
+    t.loesungTipp = sicht ? sicht.loesung || sicht.text : null;
     if (fz) t.fsZeile = fsZeile(fz); // Formelsammlung: Kasten und Zeile mit der Lösung
-    t.tafel = fehler && fehler.tafel ? fehler.tafel : t.tafel || null;
+    t.tafel = sicht && sicht.tafel ? sicht.tafel : t.tafel || null;
     A.phase = 'aufgeloest';
     protokoll(S, 'loesung_gezeigt', { id: a.id, teil: A.idx, loesung_schritt: A.idx, loesung_label: t.label || null, ...hb('loesung.schritt') });
   }
