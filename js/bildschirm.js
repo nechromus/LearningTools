@@ -78,6 +78,9 @@ export function kontoVon(b, tag) {
     tag,
     heute: gleicherTag && Number.isFinite(k.heute) && k.heute > 0 ? Math.round(k.heute) : 0,
     aufgaben: Number.isInteger(k.aufgaben) && k.aufgaben > 0 ? k.aufgaben : 0,
+    // Übungszeit seit dem letzten Abschicken in ms (je Aufgabe höchstens 10 Min.); msVoll = seit 0 Aufgaben mitgezählt (15.11.)
+    ms: Number.isFinite(k.ms) && k.ms > 0 ? Math.round(k.ms) : 0,
+    msVoll: k.msVoll === true || !(Number.isInteger(k.aufgaben) && k.aufgaben > 0),
     code: typeof k.code === 'string' && /^[A-Z0-9]{4}$/.test(k.code) ? k.code : null,
     gesendet: codesVon(k.gesendet),
     // Auftrag 49: Übungszeit heute in ms (je Aufgabe höchstens 10 Min.) und Übungszeit beim Start der Extra-Runde
@@ -100,7 +103,7 @@ export function schonGesendetPruefen(konto, lokaleCodes) {
   if (!konto.code || !konto.gesendet.includes(konto.code) || !(konto.stand > 0)) return null;
   const weg = { sekunden: konto.stand, aufgaben: konto.aufgaben, code: konto.code };
   konto.stand = 0;
-  konto.aufgaben = 0;
+  konto.aufgaben = 0; konto.ms = 0; konto.msVoll = true;
   konto.code = null;
   return weg;
 }
@@ -113,7 +116,7 @@ export const restSek = (konto, regeln) => Math.max(0, grenzeSek(regeln, konto.ta
 
 // Spielzeit-Sekunden einer Aufgabe in Bildschirmzeit umrechnen und gutschreiben (höchstens bis zur Tagesgrenze).
 // Gibt { plus, voll } zurück. voll = Tagesgrenze jetzt erreicht.
-export function gutschreiben(konto, spielSek, regeln, stufenFaktor = 1) {
+export function gutschreiben(konto, spielSek, regeln, stufenFaktor = 1, ms = 0) {
   const r = bzRegeln(regeln, konto.tag);
   const roh = Math.round(Math.max(0, spielSek) * r.faktor * stufenFaktor);
   const ex = r.extra && r.extra.tag === konto.tag ? r.extra : null;
@@ -121,7 +124,9 @@ export function gutschreiben(konto, spielSek, regeln, stufenFaktor = 1) {
   const plus = g.plus;
   konto.stand += plus;
   konto.heute += plus;
+  if (!(konto.aufgaben > 0)) { konto.msVoll = true; konto.ms = 0; }
   konto.aufgaben += 1;
+  konto.ms = (konto.ms || 0) + Math.max(0, Math.min(Math.round(ms) || 0, 10 * 60 * 1000));
   return { plus, voll: restSek(konto, r) <= 0, extra: g.extra, verbraucht: g.verbraucht };
 }
 
@@ -211,18 +216,23 @@ export function minText(sek) {
   return `${String(m).replace('.', ',')} Min.`;
 }
 
+// Übungszeit für die Aufgaben seit dem letzten Abschicken: „42 Min. geübt“ (nur wenn vollständig mitgezählt)
+export function geuebtText(konto) {
+  return konto && konto.msVoll && konto.ms > 0 ? `${Math.max(1, Math.round(konto.ms / 60000))} Min. geübt` : '';
+}
+
 // Text für die Nachricht an die Eltern
 export function nachrichtText(konto, jetzt) {
-  const a = konto.aufgaben;
-  return `📺 Bildschirmzeit: ${minText(konto.stand)}\n${zeitpunktText(jetzt)} · ${a} ${a === 1 ? 'Aufgabe' : 'Aufgaben'}\nCode: ${konto.code}`;
+  const a = konto.aufgaben, g = geuebtText(konto);
+  return `📺 Bildschirmzeit: ${minText(konto.stand)}\n${zeitpunktText(jetzt)} · ${a} ${a === 1 ? 'Aufgabe' : 'Aufgaben'}${g ? ' · ' + g : ''}\nCode: ${konto.code}`;
 }
 
 // Nach dem Teilen: Konto auf 0, Eintrag für das Protokoll zurückgeben
 export function abschicken(konto) {
-  const eintrag = { sekunden: konto.stand, aufgaben: konto.aufgaben, code: konto.code };
+  const eintrag = { sekunden: konto.stand, aufgaben: konto.aufgaben, code: konto.code, ...(konto.msVoll && konto.ms > 0 ? { uebung_ms: konto.ms } : {}) };
   if (konto.code) konto.gesendet = codesVon([...(konto.gesendet || []), konto.code]);
   konto.stand = 0;
-  konto.aufgaben = 0;
+  konto.aufgaben = 0; konto.ms = 0; konto.msVoll = true;
   konto.code = null;
   return eintrag;
 }

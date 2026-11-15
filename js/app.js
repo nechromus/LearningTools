@@ -35,7 +35,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.48.0';
+export const APP_VERSION = '2.48.1';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1378,7 +1378,7 @@ function zeigeBildschirmzeit() {
   const jetzt = new Date();
   // Bild für die Nachricht schon jetzt zeichnen: Beim Tippen auf „Teilen“ muss das Teilen-Fenster sofort aufgehen (iPhone)
   bzBildDatei = null;
-  if (BS.kannAbschicken(k, BZ())) bildschirmBild({ sekunden: k.stand, aufgaben: k.aufgaben, code: k.code, name: S.einstellungen.name || '' }, jetzt).then(f => { bzBildDatei = f; });
+  if (BS.kannAbschicken(k, BZ())) bildschirmBild({ sekunden: k.stand, aufgaben: k.aufgaben, code: k.code, name: S.einstellungen.name || '', geuebt: BS.geuebtText(k) }, jetzt).then(f => { bzBildDatei = f; });
   $app.innerHTML = `
   <div class="screen bz-screen">
     <header class="topbar"><button class="btn-text" data-act="start">‹ Zurück</button></header>
@@ -1386,7 +1386,7 @@ function zeigeBildschirmzeit() {
     <div class="bz-gross">${BS.minText(k.stand)}</div>
     <p class="bz-mitte bz-label">Bildschirmzeit</p>
     ${BS.kannAbschicken(k, BZ()) ? `
-    <p class="gedaempft bz-mitte">${esc(BS.zeitpunktText(jetzt))} Uhr<br>${k.aufgaben} ${k.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'} geschafft</p>
+    <p class="gedaempft bz-mitte">${esc(BS.zeitpunktText(jetzt))} Uhr<br>${k.aufgaben} ${k.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'} geschafft${BS.geuebtText(k) ? '<br>' + esc(BS.geuebtText(k)) : ''}</p>
     <div><p class="gedaempft bz-mitte bz-code-label">Dein Code</p><div class="bz-code">${esc(k.code.split('').join(' '))}</div></div>
     <button class="btn btn-bz btn-gross" data-act="bzTeilen">Teilen</button>
     <p class="gedaempft bz-mitte">Schick die Nachricht an deine Eltern.<br>Danach steht hier wieder 0.</p>
@@ -3885,7 +3885,7 @@ function abschliessen() {
     const st = A.bzStart && A.bzStart.an ? A.bzStart : null;
     const sf = st ? st.faktor : 1;
     A.bzSt = st;
-    const g = BS.gutschreiben(k, sek, BZ(), sf);
+    const g = BS.gutschreiben(k, sek, BZ(), sf, Date.now() - A.start);
     A.bild = { plus: g.plus, voll: g.voll, stand: k.stand, rest: BS.restSek(k, BZ()) };
     if (g.extra != null && g.plus > 0) A.extra = g.extra;
     // Bildschirmzeit voll: Rest dieser Aufgabe und alle weiteren Aufgaben gehen zur Spielzeit im Schrein
@@ -3953,7 +3953,7 @@ function abschliessen() {
   // Wissenspunkte (nur Gestaltung Sternzeit)
   A.wp = sternzeit() && !A.test ? L.wissenspunkteFuer(a, { ergebnis, schritte: !!A.schritteAn && !A.ufSofort }) : 0;
   S.serie.letzteAktivitaet = Date.now();
-  S.serie.erledigt = (S.serie.erledigt || 0) + 1; // für die Abschlussfrage
+  S.serie.erledigt = (S.serie.erledigt || 0) + 1; S.abschlussAufgabe = Date.now(); // für die Abschlussfrage
   protokoll(S, 'aufgabe_ende', {
     id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: A.sekunden, serienPos: A.serienPos,
     ...(L.teilschrittAufgabe(a) ? { teilschritt: L.teilschrittAufgabe(a) } : {}),
@@ -5435,11 +5435,13 @@ function schliesseModal() {
 
 // ============ Klicks ============
 
-const ABSCHLUSS_ACTS = ['zumSpiel', 'bzSeite', 'uebungszeit', 'beenden'];
+const ABSCHLUSS_ACTS = ['zumSpiel', 'bzSeite', 'uebungszeit', 'beenden', 'bzTeilen'];
 const ABSCHLUSS_ANTWORTEN = [['zu_leicht', 'Zu leicht'], ['passte', 'Passte'], ['schwer', 'War schwer'], ['weiss_nicht', 'Weiß nicht']];
 let abschlussWeiter = null;
 // Fällig: Schalter an, in dieser Sitzung mindestens eine Aufgabe fertig, noch nicht gefragt
-function abschlussFaellig() {
+function abschlussFaellig(act) {
+  // Bildschirmzeit teilen (Wunsch Vater 15.11.): fragen, wenn seit der letzten Antwort eine Aufgabe fertig wurde
+  if (act === 'bzTeilen') return bed('abschlussfrage') && (S.abschlussAufgabe || 0) > (S.abschlussAntwort || 0);
   return bed('abschlussfrage') && ansicht === 'aufgabe' && S.serie && S.serie.pos > 0 && !S.serie.gefragt && (S.serie.erledigt || 0) > 0
     && Date.now() - (S.serie.letzteAktivitaet || 0) < 20 * 60 * 1000;
 }
@@ -5458,7 +5460,7 @@ function klick(e) {
     return;
   }
   // Abschlussfrage (LK-094, Okay Eltern 15.11.): am Ende einer Übungssitzung einmal „Wie war es heute?“
-  if (ABSCHLUSS_ACTS.includes(act) && !el.dataset.abschlussOk && abschlussFaellig() && !(act === 'beenden' && A && !A.fertig)) {
+  if (ABSCHLUSS_ACTS.includes(act) && !el.dataset.abschlussOk && abschlussFaellig(act) && !(act === 'beenden' && A && !A.fertig)) {
     S.serie.gefragt = true;
     protokoll(S, 'abschlussfrage_gezeigt', { anlass: act, aufgaben: S.serie.erledigt || 0 }); // gezeigt − beantwortet = übersprungen
     sichern();
@@ -5471,6 +5473,7 @@ function klick(e) {
   }
   if (act === 'abschlussAntwort') {
     const antwort = el.dataset.a || null;
+    if (antwort) S.abschlussAntwort = Date.now();
     if (antwort) protokoll(S, 'abschlussfrage', { antwort, tag_lokal: L.tagKey(), app_version: APP_VERSION, geraet: S.geraetId || null });
     sichern(); schliesseModal(); // geht über modalSchliessen weiter
     return;
