@@ -17,7 +17,7 @@ import qrcode from './vendor/qrcode.mjs';
 import * as FB from '../js/feedback.js';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.64.0';
+export const ELTERN_VERSION = '1.65.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -2253,7 +2253,7 @@ function splitterSeite() {
 // Welches Thema die Häufigkeit eines Baukastens steuert. Geschichten hängen an einem anderen Baukasten-Thema.
 const GEN_THEMA = {
   'minus-plus': 'minus-zahlen', 'reihenfolge': 'reihenfolge', 'potenz': 'potenzen', 'einmaleins': 'einmaleins', 'mal10': 'mal-10',
-  'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'prozent-formel': 'prozent-formel', 'runden': 'runden', 'bruch-bild': 'bruch-bild', 'kugel': 'kugel', 'zylinder': 'zylinder', 'kegel': 'kegel', 'pyramide': 'pyramide', 'kreisdiagramm': 'kreisdiagramm', 'quader': 'quader', 'zusammengesetzt': 'zusammengesetzt'
+  'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'prozent-formel': 'prozent-formel', 'runden': 'runden', 'bruch-bild': 'bruch-bild', 'kugel': 'kugel', 'zylinder': 'zylinder', 'kegel': 'kegel', 'pyramide': 'pyramide', 'kreisdiagramm': 'kreisdiagramm', 'quader': 'quader', 'zusammengesetzt': 'zusammengesetzt', 'daten': 'daten', 'saeulen': 'diagramm'
 };
 const GEN_WIE = { 'geld-geschichte': ['minus-zahlen'], 'rabatt-geschichte': ['rabatt', 'neuer-preis'] };
 
@@ -2263,6 +2263,12 @@ const FREIGABE_TEXTE = { minusminus: ['Doppeltes Minus und Minus in Klammern', '
   prozent_formel_2: ['Prozent mit Formel, Stufe 2 und 3', 'Formel im Text (jedes G, Geld mit 2 Stellen) und Rabatt mit Formel. Gilt erst, wenn auch „Prozent mit Formel“ frei ist.'],
   halbkugel: ['Halbe Kugel', 'Kugel Stufe 1: auch eine halbe Kugel (Volumen der Kugel : 2).'],
   fs_suchen: ['Formelsammlung: Kasten selbst finden', 'Die Formelsammlung öffnet bei der Übersicht aller Kästen statt beim Kasten des Körpers.'],
+  daten: ['Daten: Minimum, Maximum, Spannweite', 'Tabelle mit 5–8 ganzen Zahlen: Minimum, Maximum, Spannweite (Stufe 1). Steht die Art im Wochenplan unter „gesperrt“, wird sie ab diesem Tag frei.'],
+  daten_2: ['Daten, Stufe 2', 'Temperaturen mit Minus und Laufzeiten mit Komma („Wer war am schnellsten?“). Gilt erst, wenn auch „Daten“ frei ist.'],
+  diagramm: ['Säulendiagramm ablesen', 'Am meisten/wenigsten, Wert ablesen, Unterschied (Stufe 1). Steht die Art im Wochenplan unter „gesperrt“, wird sie ab diesem Tag frei.'],
+  diagramm_2: ['Säulendiagramm ergänzen und beschriften', 'Fehlende Säule setzen (Tippen auf eine Linie oder + / −) und die Achse beschriften. Gilt erst, wenn auch „Säulendiagramm“ frei ist.'],
+  prozent_p: ['Prozent mit Formel: p gesucht', 'Etwa jede 3. Aufgabe „Prozent mit Formel“: 1 % = G : 100, dann p = W : 1 %. Danach die Kontrolle W/p = G/100. Auch bei „Was ist G, p und W?“ kann p gesucht sein.'],
+  prozent_g: ['Prozent mit Formel: G gesucht', 'Etwa jede 3. Aufgabe „Prozent mit Formel“ (mit p zusammen): 1 % = W : p, dann G = 1 % · 100. Danach die Kontrolle W/p = G/100.'],
   zusammengesetzt: ['Quader mit ausgeschnittenem Kegel', 'Zusammengesetzter Körper: Quader, oben ein Kegel ausgeschnitten. Zerlegen, V_Quader, V_Kegel, abziehen, runden. Steht die Art im Wochenplan unter „gesperrt“, wird sie ab diesem Tag frei.'] };
 // Befristete Hilfen (Auftrag 41): gelten bis einschließlich Datum, ohne Datum aus
 const HILFEN_TEXTE = { malzeichen_hilfe: ['Formel mit Malzeichen', 'Unter einer angehefteten Formel aus der Formelsammlung steht klein „mit Malzeichen: …“.'],

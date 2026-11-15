@@ -6,7 +6,7 @@ export const THEMA_NAMEN = {
   'prozent-baukasten': 'Prozent-Baukasten', 'prozent-formel': 'Prozent mit Formel', 'rabatt': 'Rabatt', 'neuer-preis': 'Neuer Preis',
   'kreisdiagramm': 'Kreisdiagramm', 'runden': 'Runden', 'kugel': 'Kugel',
   'einmaleins': 'Einmaleins', 'mal-10': 'Mal 10 und durch 10',
-  'zylinder': 'Zylinder', 'kegel': 'Kegel', 'pyramide': 'Pyramide', 'quader': 'Quader', 'zusammengesetzt': 'Quader mit ausgeschnittenem Kegel',
+  'zylinder': 'Zylinder', 'kegel': 'Kegel', 'pyramide': 'Pyramide', 'quader': 'Quader', 'zusammengesetzt': 'Quader mit ausgeschnittenem Kegel', 'daten': 'Daten (Minimum, Maximum, Spannweite)', 'diagramm': 'Säulendiagramm',
   'zehnerpotenzen': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Masse und Gewichtskraft', 'umstellen': 'Gleichungen umstellen', 'dichte': 'Dichte',
   'formelsammlung': 'Formelsammlung: Finde es'
 };
@@ -15,7 +15,7 @@ export const GEN_NAMEN = {
   'minus-plus': 'Minus-Zahlen', 'reihenfolge': 'Reihenfolge', 'potenz': 'Potenzen', 'einmaleins': 'Einmaleins',
   'mal10': 'Mal 10 / durch 10', 'prozent': 'Prozent von …', 'baukasten': 'Prozent-Baukasten', 'runden': 'Runden',
   'bruch-bild': 'Bruch aus Bild', 'kugel': 'Kugel', 'zylinder': 'Zylinder', 'geld-geschichte': 'Geld-Geschichten', 'rabatt-geschichte': 'Rabatt-Geschichten', 'prozent-formel': 'Prozent mit Formel', 'kegel': 'Kegel', 'pyramide': 'Pyramide', 'quader': 'Quader', 'zusammengesetzt': 'Quader − Kegel', 'kreisdiagramm': 'Kreisdiagramm',
-  'zehnerpotenz': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Gewichtskraft', 'gleichung': 'Gleichungen', 'formel-umstellen': 'Formeln umstellen', 'dichte': 'Dichte'
+  'zehnerpotenz': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Gewichtskraft', 'gleichung': 'Gleichungen', 'formel-umstellen': 'Formeln umstellen', 'dichte': 'Dichte', 'daten': 'Daten (Tabelle)', 'saeulen': 'Säulendiagramm'
 };
 
 export const FEHLER_NAMEN = {
@@ -38,5 +38,11 @@ export const FEHLER_NAMEN = {
   'tastenmuster': 'Tastenmuster (eher durchgeklickt)', 'komma-verschoben': 'Komma verschoben (×/÷ 10, 100, 1000)', 'anderer-teil': 'Ergebnis eines anderen Felds',
   'um-eins': 'Um 1 daneben', 'knapp': 'Knapp daneben (unter 1 %)', 'zahlendreher': 'Zahlendreher',
   'einmaleins-nachbar': 'Einmaleins: Nachbaraufgabe', 'einmaleins-reihe': 'Einmaleins: andere Zahl aus der Reihe', 'potenz-nachbarbasis': 'Potenz: Nachbarzahl gerechnet',
+  // Auftrag 54
+  'spannweite-max': 'Spannweite: nur das Maximum', 'spannweite-summe': 'Spannweite: Maximum + Minimum', 'spannweite-minusminus': 'Spannweite: Minus minus nicht plus',
+  'daten-erster-letzter': 'Daten: erster/letzter Wert statt Min./Max.', 'daten-min-ohne-minus': 'Daten: Minimum ohne Minus',
+  'diagramm-nachbar': 'Diagramm: Säule daneben abgelesen', 'diagramm-strich': 'Diagramm: um eine Linie daneben', 'diagramm-summe-statt-unterschied': 'Diagramm: addiert statt abgezogen',
+  'saeule-hoehe': 'Säule falsch hoch', 'achse-beschriftung': 'Achse falsch beschriftet',
+  'formel-p-mal-statt-geteilt': 'p gesucht: mal statt geteilt', 'formel-p-w-durch-g': 'p gesucht: W : G ohne · 100', 'formel-g-ist-1prozent': 'G gesucht: 1 % als Ergebnis', 'formel-g-w-mal-p': 'G gesucht: W · p statt W : p', 'formel-gesucht': 'Prozent: falsch gewählt, was gesucht ist',
   'zylinder-hoehe-vergessen': 'Zylinder-Mantel: Höhe vergessen', 'zylinder-grundflaeche-statt-mantel': 'Zylinder: Grundfläche statt Mantel', 'minus-betraege': 'Minus-Zahlen: Beträge addiert'
 };

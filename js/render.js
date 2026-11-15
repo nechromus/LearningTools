@@ -366,3 +366,45 @@ export function stellentafelHtml({ x, mal, stellen = 1 }, mitErgebnis = false) {
   const ganzX = Number.isInteger(x) ? `<p>${z(x)} ist ${z(x)},0. Das Komma steht hinter der ${String(x).slice(-1)}.</p>` : '';
   return `<div class="komma-tipp">${ganzX}${svg}<p>${mal ? 'Mal' : 'Durch'} ${f}: Das Komma rutscht ${wie}. Die Ziffern bleiben.</p>${mitErgebnis ? `<p><b>${z(x)} ${mal ? '·' : ':'} ${f} = ${z(res)}</b></p>` : ''}</div>`;
 }
+
+// ---------- Daten und Säulendiagramm (Auftrag 54) ----------
+const zahlAnz = (x) => String(x).replace('-', '−').replace('.', ',');
+// Tabelle mit Kopfzeile. Kurze Überschriften (Spiel 1, Mo …) quer, Namen hochkant. mark: Werte, die gelb markiert werden.
+export function tabelleHtml(bild, mark = []) {
+  const sp = bild.spalten || [], ws = bild.werte || [];
+  const m = (x) => mark.some(y => Math.abs(y - x) < 1e-9) ? ' class="tab-mark"' : '';
+  // Quer nur, wenn alles auf ein Handy passt (sonst würde ein Wert aus dem Bild geschoben)
+  const quer = sp.every(x => String(x).length <= 3) && (sp.length <= 6 || bild.kopf === 'Tag');
+  if (quer) return `<table class="daten-tabelle quer"><tr><th scope="row">${esc(bild.kopf)}</th>${sp.map(x => `<th scope="col">${esc(x)}</th>`).join('')}</tr>
+    <tr><th scope="row">${esc(bild.zeile)}</th>${ws.map(x => `<td${m(x)}>${esc(zahlAnz(x))}</td>`).join('')}</tr></table>`;
+  return `<table class="daten-tabelle hoch"><tr><th scope="col">${esc(bild.kopf)}</th><th scope="col">${esc(bild.zeile)}</th></tr>
+    ${sp.map((x, i) => `<tr><th scope="row">${esc(x)}</th><td${m(ws[i])}>${esc(zahlAnz(ws[i]))}</td></tr>`).join('')}</table>`;
+}
+// Säulendiagramm: Linie bei jedem Wert, Zahlen bei jedem 2. Wert. fehlt: Index der fehlenden Säule (gestrichelt, Höhe h).
+// tippbar: jede Linie ist eine Tippfläche (data-act="saeuleTippen"). achseZeigen: Beschriftung links, sonst „?“.
+export function saeulenSvg(bild, { h = null, tippbar = false, achseZeigen = true } = {}) {
+  const kat = bild.kategorien || [], ws = bild.werte || [], oben = bild.oben || 10, n = kat.length;
+  const W = 330, H = 250, x0 = 46, y0 = 205, yTop = 22, u = (y0 - yTop) / oben, bw = Math.min(46, (W - x0 - 14) / n - 14);
+  const xs = (i) => x0 + 10 + i * ((W - x0 - 10) / n) + ((W - x0 - 10) / n - bw) / 2;
+  let s = '';
+  for (let v = 0; v <= oben; v++) {
+    const y = y0 - v * u;
+    s += `<line x1="${x0}" x2="${W - 4}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${v === 0 ? LINIE : '#C9D3D3'}" stroke-width="${v === 0 ? 1.6 : 1}"/>`;
+    if (v % 2 === 0) s += `<text x="${x0 - 6}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="12" fill="${LINIE}">${v}</text>`;
+  }
+  s += `<line x1="${x0}" x2="${x0}" y1="${y0}" y2="${yTop - 6}" stroke="${LINIE}" stroke-width="1.6"/>`;
+  kat.forEach((k, i) => {
+    const x = xs(i), fehlt = bild.fehlt === i;
+    const wert = fehlt ? h : ws[i];
+    if (fehlt) s += `<rect x="${x.toFixed(1)}" y="${yTop}" width="${bw.toFixed(1)}" height="${(y0 - yTop).toFixed(1)}" fill="none" stroke="#C98A2C" stroke-dasharray="4 3" stroke-width="1.4"/>`;
+    if (wert > 0) s += `<rect x="${x.toFixed(1)}" y="${(y0 - wert * u).toFixed(1)}" width="${bw.toFixed(1)}" height="${(wert * u).toFixed(1)}" fill="${fehlt ? '#E3A94B' : '#5AA89C'}" stroke="${LINIE}" stroke-width="1"/>`;
+    s += `<text x="${(x + bw / 2).toFixed(1)}" y="${y0 + 16}" text-anchor="middle" font-size="${k.length > 8 ? 10 : 11.5}" fill="${LINIE}">${esc(k)}</text>`;
+  });
+  s += `<text x="13" y="${((y0 + yTop) / 2).toFixed(1)}" text-anchor="middle" font-size="12" fill="${LINIE}" transform="rotate(-90 13 ${((y0 + yTop) / 2).toFixed(1)})">${achseZeigen ? esc(bild.achse) : '?'}</text>`;
+  if (tippbar) for (let v = 1; v <= oben; v++) {
+    const y = y0 - v * u;
+    s += `<rect class="saeule-tipp" data-act="saeuleTippen" data-v="${v}" x="${x0}" y="${(y - u / 2).toFixed(1)}" width="${W - x0 - 4}" height="${u.toFixed(1)}" fill="transparent"><title>Höhe ${v}</title></rect>`;
+  }
+  const titel = bild.titel ? `<div class="saeulen-titel">${esc(bild.titel)}</div>` : '';
+  return `${titel}<svg class="saeulen-svg" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Säulendiagramm: ${esc(kat.map((k, i) => `${k} ${bild.fehlt === i ? 'fehlt' : ws[i]}`).join(', '))}">${s}</svg>`;
+}

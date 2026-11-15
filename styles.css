@@ -1261,3 +1261,22 @@ body:has(.aufgabe-screen.bz-warm) { background: #FAF1DE; }
 .abschluss-knoepfe { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 6px; }
 .abschluss-knoepfe .btn { min-height: 52px; font-size: 1.05rem; }
 .abschluss-weiter { margin-top: 6px; }
+
+/* Daten und Säulendiagramm (Auftrag 54) */
+.bild-tabelle { display: block; overflow-x: auto; }
+.daten-tabelle { border-collapse: collapse; margin: 0 auto; font-variant-numeric: tabular-nums; font-size: 17px; }
+.daten-tabelle th, .daten-tabelle td { border: 1px solid #C9D3D3; padding: 6px 8px; text-align: center; min-width: 30px; }
+.daten-tabelle th { background: var(--teal-hell); color: var(--teal-dunkel); font-weight: 700; }
+.daten-tabelle.hoch td { min-width: 70px; }
+.daten-tabelle td.tab-mark { background: #FBEFC9; outline: 2px solid #C98A2C; outline-offset: -2px; font-weight: 700; }
+.bild .saeulen-titel { text-align: center; font-weight: 700; margin-bottom: 4px; }
+.bild:has(.saeulen-svg) { flex-direction: column; align-items: stretch; }
+.saeulen-svg { max-width: 420px; margin: 0 auto; display: block; }
+.saeulen-svg .saeule-tipp { cursor: pointer; }
+.saeule-knoepfe { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 10px; }
+.saeule-pm { min-width: 64px; min-height: 52px; font-size: 26px; font-weight: 700; }
+.saeule-wert { font-size: 26px; font-weight: 700; min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; }
+.saeule-stand { font-size: 17px; }
+.pf-kontrolle { margin: 10px 0 4px; padding: 8px 10px; border-radius: 10px; background: #FBEFC9; font-size: 17px; }
+.pf-kontrolle .ok-haken { color: var(--teal); font-weight: 700; }
+.nowrap { white-space: nowrap; }

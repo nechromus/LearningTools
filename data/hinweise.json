@@ -1,5 +1,5 @@
 {
-  "info": "Hinweise (Sheikah-Zeichen). Kopie von app-uebergabe/02-hinweise.json aus dem Claude-Projekt. Reihenfolge ist fest. Neue Hinweise nur hinten anfügen. Stand 17.10.2026 (Hinweise 12, 13 und 14 neu). Stand 18.10.2026: Hinweise 15 (Zylinder) und 16 (Bruch von einer Zahl) aus dem Woche-5-Chat. Aussehen in der App wie die Karten aus 07-hinweiskarten.html (js/hinweiskarten.js). Hinweise 17 (Kegel) und 18 (Pyramide) aus dem Aufgaben-Chat. 22.10.2026: Hinweis 22 Dichte.",
+  "info": "Hinweise (Sheikah-Zeichen). Kopie von app-uebergabe/02-hinweise.json aus dem Claude-Projekt. Reihenfolge ist fest. Neue Hinweise nur hinten anfügen. Stand 17.10.2026 (Hinweise 12, 13 und 14 neu). Stand 18.10.2026: Hinweise 15 (Zylinder) und 16 (Bruch von einer Zahl) aus dem Woche-5-Chat. Aussehen in der App wie die Karten aus 07-hinweiskarten.html (js/hinweiskarten.js). Hinweise 17 (Kegel) und 18 (Pyramide) aus dem Aufgaben-Chat. 22.10.2026: Hinweis 22 Dichte. Stand 15.11.2026: Hinweis 24 (Daten) aus Auftrag 54.",
   "icon_form": {
     "beschreibung": "Sechseck, viewBox 0 0 24 24, Füllung = farbe_hell, Rand = farbe (1.6 px), Symbol mittig in farbe_text, Schrift Atkinson Hyperlegible fett",
     "polygon": "12,1.5 21.5,7 21.5,17 12,22.5 2.5,17 2.5,7"
@@ -455,6 +455,24 @@
         "So rechnest du: G : 100 = 1 %, dann mal p."
       ],
       "beispiel": "15 % von 200 € → W/15 = 200/100 → 200 : 100 = 2 → 2 · 15 = 30 → W = 30 €",
+      "fach": "mathe"
+    },
+    {
+      "nr": 24,
+      "id": "daten",
+      "titel": "Daten: Minimum, Maximum, Spannweite",
+      "symbol": "max",
+      "farbe": "#6D28D9",
+      "farbe_hell": "#EDE4FB",
+      "farbe_text": "#4C1D95",
+      "regeln": [
+        "Minimum = der kleinste Wert",
+        "Maximum = der größte Wert",
+        "Spannweite = Maximum − Minimum",
+        "Schau jede Zahl an. Die größte steht nicht immer am Ende.",
+        "Mit Minus: 6 − (−3) = 6 + 3 = 9"
+      ],
+      "beispiel": "6, 3, 8, 4 → Minimum 3, Maximum 8 → Spannweite 8 − 3 = 5",
       "fach": "mathe"
     }
   ]

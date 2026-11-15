@@ -3,7 +3,7 @@ import * as L from './logic.js';
 import * as G from './gen.js';
 import * as U from './sync.js';
 import * as FU from './formeluebersicht.js';
-import { esc, mathe, bruchHtml, bildSvg, linienSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck, stellentafelHtml } from './render.js';
+import { esc, mathe, bruchHtml, bildSvg, linienSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck, stellentafelHtml, tabelleHtml, saeulenSvg } from './render.js';
 import * as GF from './gefaerbt.js';
 import { THEMA_NAMEN, GEN_NAMEN, FEHLER_NAMEN } from './namen.js';
 import * as P from './paket.js';
@@ -35,7 +35,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.48.1';
+export const APP_VERSION = '2.49.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1488,6 +1488,8 @@ function schritteVon(liste, thema) {
     ? { art: 'bruch', label: s.text, antwort: { zaehler: s.bruch.zaehler, nenner: s.bruch.nenner }, nennerFest: !!s.bruch.nenner_fest, quelle: s }
     : s.karten
     ? { art: 'legen', label: s.text, karten: s.karten, wahl: s.karten.map(() => null), quelle: s }
+    : Number.isInteger(s.saeule_setzen)
+    ? { art: 'saeule', label: s.text, ziel: { wert: s.wert }, quelle: s }
     : s.optionen
     ? { art: 'wahl', label: s.text, optionen: L.KOERPER_THEMEN.includes(thema) ? s.optionen.map(L.mitKuerzel) : s.optionen, richtig: s.richtig, quelle: s, formel: !s.fs_html && s.optionen.every(o => /=/.test(o)), ...(s.fs_html ? { fsHtml: s.fs_html } : {}), ...(s.zwei_versuche ? { zweiVersuche: true } : {}) }
     : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden, gueltige: s.gueltige_ziffern || undefined, genau: s.genau, varianten: s.varianten, abgeschnitten: s.abgeschnitten, auch: s.auch }, einheit: s.einheit || '', quelle: s });
@@ -1548,7 +1550,9 @@ function fokusOptionen() {
 // Doppeltes Minus und Minus vor Klammer (Auftrag 21): nur mit Freigabe ab ihrem Datum; die ersten 5 je Form mit Zwischenschritt
 const formOpts0 = (g) => ((g === 'minus-plus' || g === 'reihenfolge') && L.freigegeben(S, 'minusminus', S.tag.key) ? { minusminus: true, formZaehler: S.verlauf.formZaehler || {} } : {});
 // Nachtrag 47b: „Was ist G, p und W?“ zuerst etwa jede 2. Aufgabe, nach 5 richtigen hintereinander etwa jede 4.
-const formOpts = (g) => g === 'prozent-formel' ? { gpwAnteil: S.verlauf.gpwSelten ? 0.25 : 0.5 } : formOpts0(g);
+// Auftrag 54: p gesucht ab freigaben.prozent_p, G gesucht ab freigaben.prozent_g (etwa jede 3. Aufgabe), Prozentsätze wie die befristete Grenze
+const pgFormen = () => [L.freigegeben(S, 'prozent_p', L.tagKey()) ? 'p' : null, L.freigegeben(S, 'prozent_g', L.tagKey()) ? 'g' : null].filter(Boolean);
+const formOpts = (g) => g === 'prozent-formel' ? { gpwAnteil: S.verlauf.gpwSelten ? 0.25 : 0.5, pg: pgFormen(), ...(BEF() && BEF().prozent ? { saetze: BEF().prozent } : {}) } : formOpts0(g);
 function erzeuge(g, stufe, opts = {}) {
   const letzte = S.verlauf.letzteIds.slice(-15);
   // Etappe ohne „Was ist gesucht?“ (Zylinder, Etappe 3)
@@ -1560,6 +1564,9 @@ function erzeuge(g, stufe, opts = {}) {
   stufe = befStufe(g, stufe);
   // Prozent mit Formel (Auftrag 47): bis zur Freigabe „prozent_formel_2“ nur Stufe 1 (G nur Hunderter)
   if (g === 'prozent-formel' && !L.freigegeben(S, 'prozent_formel_2', L.tagKey())) stufe = 1;
+  // Auftrag 54: Daten und Säulendiagramm Stufe 2 erst ab freigaben.daten_2 / diagramm_2
+  if (g === 'daten' && !L.freigegeben(S, 'daten_2', L.tagKey())) stufe = 1;
+  if (g === 'saeulen' && !L.freigegeben(S, 'diagramm_2', L.tagKey())) stufe = 1;
   let a;
   for (let i = 0; i < 8; i++) {
     a = G.GENERATOREN[g](stufe, Math.random, opts);
@@ -1667,7 +1674,7 @@ const TEST_GEN = {
   'minus-zahlen': ['minus-plus', 'geld-geschichte'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'], 'bruch-bild': ['bruch-bild'],
   'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'prozent-formel': ['prozent-formel'], 'kreisdiagramm': ['kreisdiagramm'], 'rabatt': ['rabatt-geschichte'], 'neuer-preis': ['rabatt-geschichte'],
   'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'],
-  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
+  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte'], 'daten': ['daten'], 'diagramm': ['saeulen']
 };
 const testFokus = () => (S.upload.testgeraet && S.testFokus && (L.THEMEN.includes(S.testFokus.thema) || S.testFokus.thema === 'formelsammlung') ? S.testFokus : null);
 
@@ -1847,7 +1854,7 @@ function neueZahlen(a, schritt) {
   const k = L.artSchluessel(a);
   let ersatz = null;
   for (let i = 0; i < 40; i++) {
-    const b = erzeuge(a.generator, a.stufe || 1, a.variante ? { variante: a.variante } : {});
+    const b = erzeuge(a.generator, a.stufe || 1, { ...(a.variante ? { variante: a.variante } : {}), ...(a.generator === 'prozent-formel' && (a.form === 'p' || a.form === 'g') ? { form: a.form } : {}) });
     if (!b || b.id === a.id) continue;
     if (L.artSchluessel(b) === k) return b;
     ersatz = ersatz || b;
@@ -2161,7 +2168,7 @@ function startInfoVon(A, extra = {}) {
   const aufgabe = A.aufgabe;
   const startInfo = { id: aufgabe.id, thema: aufgabe.thema, stufe: aufgabe.stufe, aufgabenTyp: aufgabe.typ, kategorie: A.kategorie, serienPos: A.serienPos, bonus: !!aufgabe.bonus, wiederholung: A.wdh || 0, ...(A.nachLoesung ? { nach_loesung: A.nachLoesung } : {}), ...(A.nachLoesungSchritt ? { nach_loesung_schritt: A.nachLoesungSchritt } : {}),
     ...(A.paket ? { paket: A.paket } : {}), ...(A.etappe != null ? { etappe: A.etappe } : {}), ...(A.ausgleich ? { ausgleich: true } : {}), ...(A.wp ? { wochenplan: A.wp.grund, ...(A.wp.art ? { wp_art: A.wp.art } : {}) } : {}), ...(aufgabe.grenze_bis ? { grenze_bis: aufgabe.grenze_bis } : {}), ...extra };
-  const sollJeFeld = () => A.teile.map(t => t.art === 'zahl' && t.ziel ? [t.label || null, t.ziel.wert] : t.art === 'bruch' && t.antwort ? [t.antwort.zaehler, t.antwort.nenner] : t.art === 'wahl' ? [t.label, t.richtig] : null);
+  const sollJeFeld = () => A.teile.map(t => (t.art === 'zahl' || t.art === 'saeule') && t.ziel ? [t.label || null, t.ziel.wert] : t.art === 'bruch' && t.antwort ? [t.antwort.zaehler, t.antwort.nenner] : t.art === 'wahl' ? [t.label, t.richtig] : null);
   if (aufgabe.generator) Object.assign(startInfo, {
     generator: aufgabe.generator, parameter: aufgabe.parameter, rechnung: aufgabe.rechnung, geschichte: aufgabe.geschichte,
     teile: sollJeFeld()
@@ -2173,6 +2180,9 @@ function startInfoVon(A, extra = {}) {
   // Auftrag 45: dieselbe Aufgabe mal in Schritten, mal gebündelt (Knobeln; doppeltes Minus mit/ohne Zwischenschritt)
   const dar = darstellungVon(A);
   if (dar) startInfo.darstellung = dar;
+  // LK-095: oberster Teilschritt der Aufgabe schon beim Start (wie aufgabe_ende.teilschritt)
+  const ts = L.teilschrittAufgabe(aufgabe);
+  if (ts) startInfo.teilschritt = ts;
   return startInfo;
 }
 function darstellungVon(A) {
@@ -2307,7 +2317,7 @@ if (typeof location !== 'undefined' && location.hostname === 'localhost') window
 
 function aktuellerTeil() { return A && A.teile[A.idx]; }
 function teileStarten(teile) {
-  teile.forEach(t => { t.versuche = []; t.status = 'offen'; t.eingabe = ''; t.z = ''; t.n = t.nennerFest ? String(t.antwort.nenner) : ''; t.e = ''; t.tokens = []; t.gelegt = []; t.seit = Date.now(); t.hilfeStart = Date.now(); if (t.art === 'linien') { t.linien = []; t.fest = null; } });
+  teile.forEach(t => { t.versuche = []; t.status = 'offen'; t.eingabe = ''; t.z = ''; t.n = t.nennerFest ? String(t.antwort.nenner) : ''; t.e = ''; t.tokens = []; t.gelegt = []; t.seit = Date.now(); t.hilfeStart = Date.now(); if (t.art === 'linien') { t.linien = []; t.fest = null; } if (t.art === 'saeule') { t.h = 0; t.artEingabe = null; } });
 }
 
 // ---------- „In Schritten umformen“ (Auftrag 14, Teil 4) ----------
@@ -2721,11 +2731,12 @@ function zeigeAufgabe() {
         ${a.typ === 'detektiv' ? '<div class="detektiv-kopf"><span class="detektiv-marke">🔍 Fehler-Detektiv</span><button class="detektiv-hilfe" data-act="detektivHilfe" aria-label="Was ist der Fehler-Detektiv?">?</button></div>' : ''}
         ${a.geschichte ? geschichteHtml(a) : ''}
         ${a.rechnung ? `<div class="rechnung${a.rechnung.length > 22 ? ' lang' : ''}">${rechnungHtml(a)}</div>` : ''}
-        ${a.bild ? `<div class="bild">${a.bild.linien ? linienBild(a) : bildSvg(a.bild)}</div>` : ''}
+        ${a.bild ? `<div class="bild${a.bild.form === 'tabelle' ? ' bild-tabelle' : ''}">${a.bild.linien ? linienBild(a) : a.bild.form === 'tabelle' ? tabelleBild(a) : a.bild.form === 'saeulen' ? saeulenBild(a) : bildSvg(a.bild)}</div>` : ''}
         ${a.typ === 'detektiv' && !liestNoch() ? fremdeRechnungHtml(a) : ''}
         ${liestNoch() ? '' : `${!(a.typ === 'auswahl' || (a.typ === 'formel' && a.eingabe === 'auswahl')) || (A.uf && !A.fertig) ? `<p class="frage">${a.typ === 'detektiv' ? `<b>${mathe(a.frage)}</b>` : A.signal ? L.signalMarkieren(mathe(a.frage)) : mathe(a.frage)}</p>` : ''}
         ${A.knobeln && !A.fertig ? '<div class="knobel-zeile">✦ Knobel erst selbst.</div>' : ''}
         <div class="teile">${teileHtml()}</div>
+        ${a.kontrolle && A.fertig ? pfKontrolleHtml(a.kontrolle) : ''}
         ${ufAngebot() ? `<button class="btn knobel-schritte" data-act="ufAn">In Schritten umformen${sternzeit() && !A.test ? ` <small>· dann ${wpMoeglich ? wpMoeglich.schritte : 1} WP</small>` : ''}</button>`
           : A.knobeln && !A.fertig && A.phase === 'eingabe' ? `<button class="btn knobel-schritte" data-act="schritteAn">In Schritten rechnen${wpMoeglich ? ` <small>· dann ${wpMoeglich.schritte} WP</small>` : ''}</button>` : ''}`}
         ${tippInKarte ? `<div class="meldung meldung-in-karte${A.meldung === SCHNELL_TIPP ? ' schnell' : ''}">${meldungHtml()}</div>` : ''}
@@ -2814,6 +2825,45 @@ function linienPruefen() {
   if (r.richtig) t.fest = t.linien.slice();
   else if (t.versuche.length + 1 >= 2) t.fest = t.richtig.slice(); // nach dem 2. Versuch zeigt das Bild die richtigen Linien
   versuchMerken(t, eingabe, r.richtig, r.fehler);
+}
+// ---------- Daten und Säulendiagramm (Auftrag 54) ----------
+// Tabelle: Werte, die schon richtig bestimmt sind (Minimum, Maximum, Schnellste), gelb markieren
+function tabelleBild(a) {
+  const mark = A.teile.filter(t => t.quelle && t.quelle.markiere != null && t.status && t.status !== 'offen').map(t => t.quelle.markiere);
+  return tabelleHtml(a.bild, mark);
+}
+// Säulendiagramm: bei „Säule ergänzen“ zum Antippen; Achse links erst nach dem Beschriften
+function saeulenBild(a) {
+  const t = aktuellerTeil();
+  const dran = !A.fertig && t && t.art === 'saeule';
+  const st = A.teile.find(x => x.art === 'saeule');
+  const h = !st ? null : st.status === 'loesung' ? st.ziel.wert : st.status && st.status !== 'offen' ? st.ziel.wert : st.h;
+  const achse = A.teile.find(x => x.quelle && x.quelle.achse);
+  const achseZeigen = !a.bild.achseVersteckt || (achse && achse.status && achse.status !== 'offen');
+  return saeulenSvg(a.bild, { h, tippbar: dran && A.phase === 'eingabe', achseZeigen });
+}
+function saeuleSetzen(v, weg) {
+  const t = aktuellerTeil();
+  if (!t || t.art !== 'saeule' || A.phase !== 'eingabe' || !Number.isFinite(v)) return;
+  const oben = (A.aufgabe.bild || {}).oben || 10;
+  t.h = Math.max(0, Math.min(oben, Math.round(v))); t.artEingabe = weg; A.meldung = null;
+  zeigeAufgabe();
+}
+function saeulePruefen() {
+  const t = aktuellerTeil();
+  if (!t || t.art !== 'saeule' || A.phase !== 'eingabe') return;
+  if (!(t.h > 0)) { A.meldung = 'Setz zuerst die Höhe der Säule.'; return zeigeAufgabe(); }
+  const eingabe = String(t.h);
+  if (t.versuche.some(v => v.eingabe === eingabe)) { A.meldung = 'Das hattest du schon. Zähl die Linien noch einmal.'; return zeigeAufgabe(); }
+  const richtig = t.h === t.ziel.wert;
+  const schnell = !richtig && L.zuSchnell(A.aufgabe, t, Date.now() - t.seit);
+  if (schnell) return zuSchnellMelden(t, eingabe, schnell);
+  versuchMerken(t, eingabe, richtig, richtig ? null : { typ: 'saeule-hoehe', text: 'Lies die Zahl im Text. Zähl dann die Linien von 0 nach oben.' });
+}
+// Prozent rückwärts: Kontrolle mit der Formel (nur Anzeige, kein Schritt)
+function pfKontrolleHtml(k) {
+  const q = String(Math.round(k.G / 100 * 1000) / 1000).replace('.', ',');
+  return `<div class="pf-kontrolle"><span class="gedaempft klein">Kontrolle mit der Formel</span><div>${mathe(`W/p = G/100 → ${k.W}/${k.p} = ${k.G}/100 → `)}<span class="nowrap">${q} = ${q} <span class="ok-haken">✓</span></span></div></div>`;
 }
 // Wort für die Teile in einer Gefärbt-Aufgabe (Hälften oder Viertel)
 function gefaerbtWort(a) {
@@ -3285,6 +3335,10 @@ function teileHtml() {
       inhalt = formelTeilHtml(t, aktiv);
     } else if (t.art === 'umformen') {
       inhalt = umformHtml(t, aktiv);
+    } else if (t.art === 'saeule') {
+      inhalt = `<div class="teil-label">${nr}<span>${aktiv ? `<b>${mathe(t.label)}</b>` : mathe(t.label)}</span></div>${aktiv
+        ? `<p class="gedaempft klein">Tippe auf eine Linie im Diagramm oder nimm + und −. Dann „Prüfen“.</p><div class="feld-zeile"><span class="saeule-stand">Höhe: <b>${t.h}</b></span></div>`
+        : `<div class="feld-zeile">${erledigtWert(t, String(t.status === 'loesung' ? t.ziel.wert : (t.versuche.find(v => v.richtig) || {}).eingabe ?? t.ziel.wert))}</div>`}`;
     } else if (t.art === 'linien') {
       inhalt = `<div class="teil-label">${nr}<span>${aktiv ? `<b>${mathe(t.label)}</b>` : mathe(t.label.split('.')[0] + '.')}</span></div>${aktiv
         ? '<p class="gedaempft klein">Tippe eine Linie an. Noch mal tippen nimmt sie zurück.</p>'
@@ -3386,6 +3440,7 @@ function loesungText(t) {
   if (t.art === 'bruch' && t.pf) return `${bruchHtml('W', t.antwort.nenner)} = ${bruchHtml(t.antwort.zaehler, '100')}`;
   if (t.art === 'bruch') return bruchHtml(t.antwort.zaehler, t.antwort.nenner);
   if (t.art === 'linien') return 'Die Linien siehst du jetzt im Bild.';
+  if (t.art === 'saeule') return `${esc(String(t.ziel.wert))}. Die Säule siehst du jetzt im Bild.`;
   if (t.art === 'wahl') return t.formel ? formelText(t.optionen[t.richtig]) : mathe(t.optionen[t.richtig]);
   if (t.art === 'legen') return mathe(t.karten.map(k => k.optionen[k.richtig]).join(' '));
   return 'siehe unten';
@@ -3415,6 +3470,11 @@ function fussHtml() {
   if (A.phase === 'tipp') return `<button class="btn btn-haupt btn-gross" data-act="verstanden">Verstanden</button>`;
   if (A.phase === 'aufgeloest') return `<button class="btn btn-haupt btn-gross" data-act="weiter">Weiter</button>`;
   if (t.art === 'linien') return `<button class="btn btn-haupt btn-gross" data-act="linienPruefen" ${t.linien.length ? '' : 'disabled'}>Linien prüfen</button>`;
+  if (t.art === 'saeule') {
+    const oben = (A.aufgabe.bild || {}).oben || 10;
+    return `<div class="saeule-knoepfe"><button class="btn saeule-pm" data-act="saeuleMinus" ${t.h <= 0 ? 'disabled' : ''} aria-label="Säule eins niedriger">−</button><span class="saeule-wert" aria-live="polite">${t.h}</span><button class="btn saeule-pm" data-act="saeulePlus" ${t.h >= oben ? 'disabled' : ''} aria-label="Säule eins höher">+</button></div>
+    <button class="btn btn-haupt btn-gross" data-act="saeulePruefen" ${t.h > 0 ? '' : 'disabled'}>Prüfen</button>`;
+  }
   if (t.art === 'wahl' && t.detektiv) return '';
   if (A.rechnerOffen && A.rechner && t.art !== 'zuordnung') return rechnerPanelHtml(t);
   const aufklappen = A.rechner && !A.rechnerOffen ? '<button class="r-aufklappen" data-act="rAufklappen">Taschenrechner ▲</button>' : '';
@@ -3650,6 +3710,7 @@ function antwortGeben() {
   if (!t || A.phase !== 'eingabe') return;
   const a = A.aufgabe;
   if (t.art === 'zuordnung') return zuordnungAntwort();
+  if (t.art === 'saeule') return saeulePruefen();
   let eingabe, richtig, fehler = null;
   if (t.art === 'zp' || (t.art === 'zahl' && t.zp)) {
     if (!L.parseZahl(t.eingabe).ok || !/^-?\d+$/.test(t.e)) { A.meldung = t.e ? 'Tippe zuerst die Zahl ein.' : 'Tippe noch die Hochzahl ein.'; A.feld = t.eingabe ? 'e' : 'z'; return zeigeAufgabe(); }
@@ -3795,7 +3856,8 @@ function versuchMerken(t, eingabe, richtig, fehler) {
     id: a.id, thema: a.thema, teil: A.idx, label: t.label || null, merk: !!t.merk, versuch: t.versuche.length, eingabe, richtig,
     fehler: fehler ? fehler.typ : null, ms, schnell: !!a.geschichte && ms < 4000,
     hinweiseOffen: A.hinweise.slice(), ...(a.typ === 'detektiv' ? { detektiv_schritt: A.idx + 1 } : {}),
-    ...(t.gesuchtModus ? { gesucht_modus: t.gesuchtModus } : {}), ...(A.fsPin ? { fs_angeheftet: `${A.fsPin.kasten}|${A.fsPin.zeile}` } : {})
+    ...(t.gesuchtModus ? { gesucht_modus: t.gesuchtModus } : {}), ...(A.fsPin ? { fs_angeheftet: `${A.fsPin.kasten}|${A.fsPin.zeile}` } : {}),
+    ...(t.art === 'saeule' ? { art_eingabe: t.artEingabe || null } : {})
   });
   if (t.gesuchtModus) gesuchtGezaehlt(t, richtig);
   t.seit = Date.now();
@@ -3919,7 +3981,7 @@ function abschliessen() {
   } else {
     // Einmaleins-Dreierblöcke (außer auf dem Einstiegsplatz) zählen für die Stufe des Einmaleins
     const g = a.generator === 'block-einmaleins' && a.stufeZaehlt ? 'einmaleins' : a.generator;
-    if (!a.bonus && !A.test && !a.etappeMindest && a.form !== 'gpw' && !g.startsWith('block') && G.GENERATOREN[g]) {
+    if (!a.bonus && !A.test && !a.etappeMindest && !['gpw', 'p', 'g'].includes(a.form) && !g.startsWith('block') && G.GENERATOREN[g]) {
       const st = S.genStufen[g] || (S.genStufen[g] = { stufe: 1, folge: 0 });
       if (ergebnis === 'erst' && A.hilfeGenutzt) st.folge = 0; // mit „Hilf mir“: Stufe bleibt
       else if (ergebnis === 'erst') { st.folge++; if (st.folge >= 3 && st.stufe < stufeGrenze(g)) { st.stufe++; st.folge = 0; stufeHoch = { generator: g, stufe: st.stufe }; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } }
@@ -4099,7 +4161,7 @@ function hinweisOeffnen(id) {
   }
   // Stufe „Gleich lang“: sofort der lange Hinweis, ohne Kosten.
   // Hinweis 23 „Prozent mit Formel“ (Auftrag 47): immer gleich die Karte, denn die Formelübersicht zeigt W/G = p/100, die Formelsammlung W/p = G/100.
-  if (langStufe() === 0 || id === 'formel') {
+  if (langStufe() === 0 || id === 'formel' || id === 'daten') {
     protokoll(S, 'hinweis_lang', { hinweis: id, stufe: 0, kosten: 'keine', id: aufgabeId(), ...hb(id) });
     sichern();
     return oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);
@@ -5628,6 +5690,10 @@ function klick(e) {
     }
     case 'linie': linieTippen(Number(el.dataset.i)); break;
     case 'linienPruefen': linienPruefen(); break;
+    case 'saeuleTippen': saeuleSetzen(Number(el.dataset.v), 'tippen'); break;
+    case 'saeulePlus': saeuleSetzen((aktuellerTeil() || {}).h + 1, 'knoepfe'); break;
+    case 'saeuleMinus': saeuleSetzen((aktuellerTeil() || {}).h - 1, 'knoepfe'); break;
+    case 'saeulePruefen': saeulePruefen(); break;
     case 'detektivHilfe': protokoll(S, 'detektiv_hilfe', { id: A && A.aufgabe.id }); detektivEinfuehrung(); break;
     case 'verstanden':
       protokoll(S, 'tipp_bestaetigt', { id: A.aufgabe.id, teil: A.idx, ...hb((aktuellerTeil() || {}).tippId || 'tipp.allgemein') });

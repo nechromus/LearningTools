@@ -85,11 +85,18 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
   if (aufgabe.thema === 'zusammengesetzt' && /^Wie hoch ist der Kegel/.test(frage)) return { typ: 'kegel-hoehe-bild', text: `Schau ins Bild: Die Spitze berührt den Boden. Also ist der Kegel so hoch wie der ${aufgabe.form === 'wuerfel-kegel' ? 'Würfel' : 'Quader'}.` };
   // „Was ist G, p und W?“ (Auftrag 47)
   if (aufgabe.form === 'gpw') {
-    const zu = teil.richtig, g = gewaehlt;
+    // Reihenfolge der Knöpfe immer G, p, W; „? (gesucht)“ steht beim Gesuchten (Auftrag 54: auch p oder G)
+    const zu = teil.richtig, g = gewaehlt, q = teil.optionen.findIndex(x => /gesucht/.test(String(x)));
     if ((zu === 0 && g === 1) || (zu === 1 && g === 0)) return PF_VERTAUSCHT;
-    if (g === 2) return { typ: 'formel-gpw', text: zu === 0 ? 'G steht im Text: das Ganze, 100 %.' : 'p steht im Text: die Zahl vor dem %.' };
-    return { typ: 'formel-gpw', text: 'W ist der Teil, den die Frage sucht. Er steht nicht im Text.' };
+    if (g === q) return { typ: 'formel-gpw', text: ['G steht im Text: das Ganze, 100 %.', 'p steht im Text: die Zahl vor dem %.', 'W steht im Text: der Teil vom Ganzen.'][zu] };
+    if (zu === q) return { typ: 'formel-gpw', text: ['G ist gesucht: das Ganze. Es steht nicht im Text.', 'p ist gesucht: „Wie viel Prozent?“ Es steht nicht im Text.', 'W ist der Teil, den die Frage sucht. Er steht nicht im Text.'][zu] };
+    return { typ: 'formel-gpw', text: 'W ist der Teil vom Ganzen. G ist das Ganze, 100 %.' };
   }
+  // Prozent rückwärts (Auftrag 54): „Was ist gesucht?“
+  if (aufgabe.thema === 'prozent-formel' && (aufgabe.form === 'p' || aufgabe.form === 'g') && /gesucht/.test(frage))
+    return { typ: 'formel-gesucht', text: aufgabe.form === 'p' ? '„Wie viel Prozent?“ → p ist gesucht.' : 'Gesucht ist das Ganze, 100 %. Das ist G.' };
+  // Säulendiagramm: Achse beschriften (Auftrag 54)
+  if (aufgabe.thema === 'diagramm' && teil.achse) return { typ: 'achse-beschriftung', text: 'An der Achse links stehen die Zahlen. Sie zählen, wie viele es sind.' };
   // Zylinder „Was wird gesucht?“ mit vier Möglichkeiten (Auftrag 30)
   if (aufgabe.form === 'gesucht4' && /gesucht/.test(frage)) return { typ: 'zylinder-gesucht', text: '„passt hinein“ → V (Volumen). „rund herum“ → A_M (Mantel). „alles außen, mit Deckel und Boden“ → A_O (Oberfläche). „der Boden“ → A_G (Grundfläche).' };
   return null;
@@ -98,7 +105,7 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
 const PF_VERTAUSCHT = { typ: 'formel-g-p-vertauscht', text: 'G ist das Ganze: die Zahl nach „von“, zum Beispiel der Preis.' };
 function pfGp(a) {
   const par = a.parameter || [];
-  if (par[0] === 'text' || par[0] === 'gpw') return [par[2], par[3]];
+  if (par[0] === 'text' || par[0] === 'gpw' || par[0] === 'p' || par[0] === 'g') return [par[2], par[3]];
   if (par[0] === 'direkt' || par[0] === 'rabatt') return [par[1], par[2]];
   return null;
 }
@@ -139,13 +146,53 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
     if (gleich(w, a - (c - b)) || (/^Klammer/.test(ttx) && gleich(w, c - b))) return { typ: 'klammer-negativ', text: 'Erst die Klammer ausrechnen. Was kommt in der Klammer heraus?' };
   }
 
+  // Daten (Auftrag 54): Minimum, Maximum, Spannweite aus einer Tabelle
+  if (aufgabe.thema === 'daten' && aufgabe.bild && Array.isArray(aufgabe.bild.werte) && teil) {
+    const ws = aufgabe.bild.werte, mn = Math.min(...ws), mx = Math.max(...ws), rand = [ws[0], ws[ws.length - 1]];
+    const zt = (x) => String(x).replace('-', '−').replace('.', ',');
+    if (/^Spannweite/.test(ttx)) {
+      if (gleich(w, mx)) return { typ: 'spannweite-max', text: 'Spannweite = Maximum − Minimum.' };
+      if (gleich(w, mx + mn) && mn !== 0) return mn < 0 && gleich(w, mx - Math.abs(mn))
+        ? { typ: 'spannweite-minusminus', text: `${zt(mx)} − (${zt(mn)}): Minus minus wird plus.` }
+        : { typ: 'spannweite-summe', text: 'Spannweite = Maximum − Minimum. Abziehen, nicht zusammenzählen.' };
+      if (mn < 0 && gleich(w, mx - Math.abs(mn))) return { typ: 'spannweite-minusminus', text: `${zt(mx)} − (${zt(mn)}): Minus minus wird plus.` };
+    }
+    if (/^Minimum/.test(ttx) && mn < 0 && !gleich(w, mn)) {
+      const ohne = Math.min(...ws.filter(x => x >= 0));
+      if (gleich(w, Math.abs(mn)) || gleich(w, ohne)) return { typ: 'daten-min-ohne-minus', text: 'Zahlen mit Minus sind kleiner als 0. Je größer die Zahl nach dem Minus, desto kleiner.' };
+    }
+    if (/^(Minimum|Maximum)/.test(ttx) && !gleich(w, ziel) && rand.some(x => gleich(w, x)))
+      return { typ: 'daten-erster-letzter', text: `Schau jede Zahl an. Die ${/^Minimum/.test(ttx) ? 'kleinste' : 'größte'} steht nicht immer am Anfang oder am Ende.` };
+  }
+  // Säulendiagramm ablesen (Auftrag 54)
+  if (aufgabe.thema === 'diagramm' && aufgabe.bild && Array.isArray(aufgabe.bild.werte) && teil) {
+    const ws = aufgabe.bild.werte;
+    if (Array.isArray(teil.unterschied)) {
+      const [a, b] = teil.unterschied;
+      if (gleich(w, ws[a] + ws[b])) return { typ: 'diagramm-summe-statt-unterschied', text: '„Wie viele mehr“ heißt abziehen: größere Zahl minus kleinere.' };
+    }
+    if (Number.isInteger(teil.saeule) && !gleich(w, ziel)) {
+      const i = teil.saeule;
+      if ([ws[i - 1], ws[i + 1]].some(x => x != null && gleich(w, x))) return { typ: 'diagramm-nachbar', text: 'Das ist die Säule daneben. Fahr von der richtigen Säule oben nach links zur Achse.' };
+      if (gleich(Math.abs(w - ziel), 1)) return { typ: 'diagramm-strich', text: 'Zähl die Linien noch einmal von 0 nach oben.' };
+    }
+  }
+
   // Prozent mit Formel (Auftrag 30): ohne : 100, G und p vertauscht, Rabatt statt neuer Preis
   if (aufgabe.generator === 'prozent-formel') {
     const gp = pfGp(aufgabe);
     if (gp) {
       const [G, p] = gp;
-      if (/^G =/.test(ttx) && gleich(w, p)) return PF_VERTAUSCHT;
-      if (/^p =/.test(ttx) && gleich(w, G)) return PF_VERTAUSCHT;
+      if (/^G =\s*$/.test(ttx) && gleich(w, p)) return PF_VERTAUSCHT;
+      if (/^p =\s*$/.test(ttx) && gleich(w, G)) return PF_VERTAUSCHT;
+      // Auftrag 54: p gesucht (1 % = G : 100, p = W : 1 %) und G gesucht (1 % = W : p, G = 1 % · 100)
+      const Wr = G * p / 100, eins = G / 100;
+      if (/^p = W : 1 %/.test(ttx) && !gleich(w, p)) {
+        if (gleich(w, Wr * eins)) return { typ: 'formel-p-mal-statt-geteilt', text: 'p = W : 1 %. Teilen, nicht mal.' };
+        if (gleich(w, Wr / G)) return { typ: 'formel-p-w-durch-g', text: 'Teile W durch 1 %, nicht durch G.' };
+      }
+      if (/^1 % = W : p/.test(ttx) && !gleich(w, eins) && gleich(w, Wr * p)) return { typ: 'formel-g-w-mal-p', text: '1 % = W : p. Teilen, nicht mal.' };
+      if (/^G = 1 % · 100/.test(ttx) && !gleich(w, G) && gleich(w, eins)) return { typ: 'formel-g-ist-1prozent', text: 'Das ist 1 %. G sind 100 %: mal 100.' };
       if (/W = G/.test(ttx) && gleich(w, G * p)) return { typ: 'formel-ohne-100', text: 'Hast du durch 100 geteilt?' };
       // Auftrag 47: 1 % = G : 100 mit falschem Komma; mal p ohne : 100
       if (/^1 % = G : 100/.test(ttx) && !gleich(w, G / 100) && ziffernGleich(w, G / 100)) return { typ: 'formel-1prozent', text: 'Durch 100: Das Komma rutscht zwei Stellen nach links.', tafel: { x: G, mal: false, stellen: 2 } };
@@ -537,6 +584,7 @@ export function muehGruppe(a, { umformen = false, gruppen = null } = {}) {
   if (a.thema === 'formelsammlung') return 'kurz';                         // „Finde es“ (Auftrag 40)
   if (a.form === 'gpw') return 'kurz';                                      // „Was ist G, p und W?“ (Auftrag 47)
   if (a.thema === 'quader') return 'normal';                               // Quader-Volumen (Auftrag 43)
+  if (a.thema === 'daten' || a.thema === 'diagramm') return (a.stufe || 1) >= 2 ? 'normal' : 'kurz'; // Auftrag 54
   if (KOERPER.includes(a.thema) || a.typ === 'detektiv' || a.modus === 'knobeln') return 'schwer';
   if (a.typ === 'auswahl') return 'normal';
   if (a.fach === 'physik' && a.geschichte) return 'schwer';                 // Physik-Geschichten
@@ -823,13 +871,13 @@ export function hoechsteKachel(feld) {
 // ---------- Aufgaben aus JSON kontrollieren (Elternbereich, Tools) ----------
 
 export const TYPEN = ['zahl', 'auswahl', 'bruch', 'schritte', 'zuordnung', 'mehrfrage', 'zehnerpotenz', 'formel', 'detektiv'];
-export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'prozent-formel', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte', 'quader', 'zusammengesetzt'];
+export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'prozent-formel', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte', 'quader', 'zusammengesetzt', 'daten', 'diagramm'];
 // Fach je Thema (Auftrag 13). Fehlt das Feld fach an der Aufgabe, gilt das Fach des Themas.
 export const PHYSIK_THEMEN = ['zehnerpotenzen', 'einheiten', 'gewichtskraft', 'dichte'];
 export const fachVon = (a) => (a && (a.fach || (PHYSIK_THEMEN.includes(a.thema) ? 'physik' : 'mathe'))) || 'mathe';
 // Körper mit Taschenrechner: eigene Plätze (Schritte und Abschluss), nicht bei Text und Struktur aus dem allgemeinen Pool
 export const KOERPER = ['kugel', 'zylinder', 'kegel', 'pyramide', 'quader', 'zusammengesetzt'];
-export const BILDFORMEN = ['streifen', 'kreis', 'quadrat', 'rechteck', 'kreisdiagramm', 'kugel', 'zylinder', 'kegel', 'pyramide', 'quader', 'quader-kegel'];
+export const BILDFORMEN = ['streifen', 'kreis', 'quadrat', 'rechteck', 'kreisdiagramm', 'kugel', 'zylinder', 'kegel', 'pyramide', 'quader', 'quader-kegel', 'tabelle', 'saeulen'];
 
 export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
   const f = [];
@@ -1009,6 +1057,7 @@ export function ergebnisWerte(a) {
 }
 export function kopfGlatt(a) {
   if (!a) return true;
+  if (a.thema === 'daten') return false; // Auftrag 54: Rechner frei, im Kopf gerechnet Kopf-Bonus
   if (GLATT_UNTER_100.includes(a.thema)) return groessteZahl(a) < 100;
   if (GLATT_GANZ.includes(a.thema)) return ergebnisWerte(a).every(x => Number.isInteger(Math.round(x * 1e6) / 1e6));
   return true;
@@ -1016,7 +1065,7 @@ export function kopfGlatt(a) {
 export const rechnerFrei = (a) => !!(a && (a.taschenrechner || fachVon(a) === 'physik' || !kopfGlatt(a)));
 // Freiwilliger Rechner wird bei jeder Aufgabe angeboten (kostet Spielzeit), außer dort, wo er ohnehin erlaubt ist
 export function rechnerAnbieten(a) {
-  return !rechnerFrei(a) && !['auswahl', 'zuordnung', 'formel'].includes(a.typ) && a.thema !== 'formelsammlung';
+  return !rechnerFrei(a) && !['auswahl', 'zuordnung', 'formel'].includes(a.typ) && a.thema !== 'formelsammlung' && a.thema !== 'diagramm';
 }
 // Kopf-Bonus: Rechner erlaubt, nicht geöffnet, App nicht verlassen, Aufgabe gelöst
 export function kopfBonus({ aufgabe, rechnerGenutzt, verlassen, ergebnis }) {
@@ -1065,7 +1114,7 @@ export function kuerzelAufgabe(a) {
   const lw = a.loesungsweg.map(z => typeof z === 'string' ? z.replace(/→\s*(Volumen|Oberfläche|Mantel|Grundfläche)\b(?!\s*\()/g, (_, w) => `→ ${KUERZEL_VON[w]} (${w})`) : z);
   return lw.some((z, i) => z !== a.loesungsweg[i]) ? { ...a, loesungsweg: lw } : a;
 }
-export const FREIGABEN = ['minusminus', 'prozent_formel', 'prozent_formel_2', 'halbkugel', 'fs_suchen', 'zusammengesetzt'];
+export const FREIGABEN = ['minusminus', 'prozent_formel', 'prozent_formel_2', 'halbkugel', 'fs_suchen', 'zusammengesetzt', 'daten', 'daten_2', 'diagramm', 'diagramm_2', 'prozent_p', 'prozent_g'];
 // Befristete Hilfen (Auftrag 41): gelten bis einschließlich Datum, ohne Datum aus
 export const HILFEN_BIS = ['malzeichen_hilfe', 'malzeichen_merk'];
 export const hilfeAn = (z, k, heute) => !!(z && z.hilfenBis && z.hilfenBis[k] && heute <= z.hilfenBis[k]);
@@ -1154,6 +1203,7 @@ export function teilschrittVon(a, t) {
     // LK-051: Formel für Mantel oder Oberfläche → zyl.oformel
     return a.parameter[1] === 'Volumen' ? 'zyl.formel@1' : /^(Mantelfläche|Oberfläche)$/.test(a.parameter[1]) ? 'zyl.oformel@1' : 'hilf.formel@1';
   }
+  if (a.typ !== 'detektiv') { const n = teilschrittNeu(a, t, l); if (n !== undefined) return n; }
   if (a.thema !== 'zylinder' || a.typ === 'detektiv') return null;
   if (t.merk) return a.geschichte ? 'zyl.angaben@1' : 'zyl.erkennen@1';
   if (t.gesuchtModus === 'wort') return 'zyl.gesucht@1';
@@ -1178,7 +1228,40 @@ export function teilschrittVon(a, t) {
 const zylDezimal = (a) => [a.bild && a.bild.r, a.bild && a.bild.d, a.bild && a.bild.h, ...(a.gegeben || []).map(g => g.wert)].some(x => typeof x === 'number' && !Number.isInteger(x));
 // Oberster Schritt der ganzen Aufgabe für aufgabe_ende (Nachtrag 50): aus dem Runden-Schritt am Schluss.
 // V gesucht → zyl.volumen@2, nur A_G → kreis.flaeche, A_M → zyl.mantel, A_O → zyl.oberflaeche (LK-051).
+// LK-095 (Auftrag 54 und weitere): Daten, Säulendiagramm, Prozent mit Formel, Kreisdiagramm. undefined = nicht zuständig.
+function teilschrittNeu(a, t, l) {
+  const q = t.quelle || {};
+  if (a.thema === 'daten') return 'mittel.spann@2';                       // Werte ungeordnet in einer Tabelle
+  if (a.thema === 'diagramm') {
+    if (Number.isInteger(q.saeule_setzen) || t.art === 'saeule') return 'daten.zeichnen@1';
+    if (q.achse) return 'daten.zeichnen@3';
+    if (Array.isArray(q.unterschied)) return 'daten.rechnen@1';
+    return 'daten.lesen@1';                                                // Linien in Einerschritten
+  }
+  if (a.thema === 'prozent-formel' && a.generator === 'prozent-formel') {
+    if (a.form === 'gpw') return 'prozent.gesucht@2';
+    if (a.form === 'p') return /gesucht/.test(l) ? 'prozent.gesucht@1' : 'prozent.psatz@2';
+    if (a.form === 'g') return /gesucht/.test(l) ? 'prozent.gesucht@2' : 'prozent.gwert@2';
+    const par0 = (a.parameter || [])[0];
+    if (par0 === 'rabatt') return /^Neuer Preis/.test(l) ? 'prozent.aenderung@2' : 'prozent.formel@2';
+    if (par0 === 'text') return 'prozent.formel@2';
+    if (par0 === 'direkt') return 'prozent.formel@1';
+    return null;
+  }
+  if (a.thema === 'kreisdiagramm' && a.generator === 'kreisdiagramm') return q.art === 'prozent' ? 'kreisdia.anteil@2' : 'kreisdia.lesen@1';
+  return undefined;
+}
 export function teilschrittAufgabe(a) {
+  if (a && a.typ !== 'detektiv') {
+    if (a.thema === 'daten') return 'mittel.spann@2';
+    if (a.thema === 'diagramm') return (a.stufe || 1) >= 2 ? 'daten.zeichnen@3' : 'daten.rechnen@1';
+    if (a.generator === 'prozent-formel') {
+      const par0 = (a.parameter || [])[0];
+      return a.form === 'gpw' ? 'prozent.gesucht@2' : a.form === 'p' ? 'prozent.psatz@2' : a.form === 'g' ? 'prozent.gwert@2'
+        : par0 === 'rabatt' ? 'prozent.aenderung@3' : par0 === 'text' ? 'prozent.formel@2' : par0 === 'direkt' ? 'prozent.formel@1' : null;
+    }
+    if (a.generator === 'kreisdiagramm') return (a.parameter || [])[1] === 'prozent' ? 'kreisdia.anteil@2' : 'kreisdia.lesen@1';
+  }
   if (!a || a.thema !== 'zylinder' || a.typ === 'detektiv' || !Array.isArray(a.schritte) || !a.schritte.length) return null;
   const l = String(a.schritte[a.schritte.length - 1].text || '');
   if (/\bV ≈/.test(l)) return 'zyl.volumen@2';
@@ -1252,7 +1335,7 @@ export function mal10Fehler(rechnung, w, ziel) {
   return { typ: 'mal10-ziffer-weg', text: 'Alle Ziffern bleiben. Nur das Komma rutscht.', tafel };
 }
 // Themen, die erst ab ihrem Freigabedatum kommen (Auftrag 30). Steht so ein Thema im Wochenplan unter „gesperrt“, wird es ab dem Datum frei.
-export const FREIGABE_THEMEN = { 'prozent-formel': 'prozent_formel', 'zusammengesetzt': 'zusammengesetzt' };
+export const FREIGABE_THEMEN = { 'prozent-formel': 'prozent_formel', 'zusammengesetzt': 'zusammengesetzt', 'daten': 'daten', 'diagramm': 'diagramm' };
 export const themaFreigegeben = (z, thema, heute) => !FREIGABE_THEMEN[thema] || freigegeben(z, FREIGABE_THEMEN[thema], heute);
 export const freigegeben = (z, k, heute) => !!(z && z.freigaben && z.freigaben[k] && z.freigaben[k] <= heute);
 export const bedienung = (e, k) => { const b = BEDIENUNG.find(x => x.k === k); return typeof (e || {})[b.f] === 'boolean' ? e[b.f] : b.std; };

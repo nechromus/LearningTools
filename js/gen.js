@@ -694,7 +694,11 @@ const pfWeg = (G, p, einheit, wName = 'W') => {
     `4 mal p → W = ${pfGeld2(pf1(G), e1)} · ${p} = ${pfMit(pfW(G, p), einheit)}`];
 };
 export function prozentFormel(stufe, rng, opts = {}) {
-  if (opts.gpw !== false && rng() < (opts.gpwAnteil ?? 0.25)) { const g = prozentGpw(rng); if (g) return g; }
+  // Auftrag 54: ab der Freigabe etwa jede 3. Aufgabe p oder G gesucht (opts.pg = erlaubte Formen)
+  const pg = (opts.pg || []).filter(f => f === 'p' || f === 'g');
+  if (opts.form && pg.includes(opts.form)) { const a = prozentRueck(opts.form, rng, opts); if (a) return a; }
+  if (pg.length && rng() < (opts.pgAnteil ?? 1 / 3)) { const a = prozentRueck(wahl(rng, pg), rng, opts); if (a) return a; }
+  if (opts.gpw !== false && rng() < (opts.gpwAnteil ?? 0.25)) { const g = prozentGpw(rng, pg.length && rng() < 0.5 ? wahl(rng, pg) : 'w', opts); if (g) return g; }
   for (let v = 0; v < 300; v++) {
     if (stufe === 1) {
       const p = rng() < 1 / 3 ? wahl(rng, [10, 25, 50]) : wahl(rng, PF_P);
@@ -739,8 +743,10 @@ export function prozentFormel(stufe, rng, opts = {}) {
   }
   return null;
 }
-// „Was ist G, p und W?“ (Auftrag 47): ein Satz aus Stufe 2, für G, p und W die passende Zahl wählen; W ist immer gesucht
-export function prozentGpw(rng) {
+// „Was ist G, p und W?“ (Auftrag 47): ein Satz aus Stufe 2, für G, p und W die passende Zahl wählen; W ist gesucht.
+// Auftrag 54: ab den Freigaben prozent_p / prozent_g auch p bzw. G gesucht (Sätze aus PG_TEXTE, parameter[6] = 'p' | 'g').
+export function prozentGpw(rng, gesucht = 'w', opts = {}) {
+  if (gesucht === 'p' || gesucht === 'g') return prozentGpwRueck(gesucht, rng, opts);
   for (let v = 0; v < 200; v++) {
     const t = wahl(rng, PF_TEXTE), d = wahl(rng, PF_DINGE), n = wahl(rng, NAMEN);
     const bereich = t.k === 'rabatt' ? d.preis : t.g;
@@ -761,6 +767,77 @@ export function prozentGpw(rng) {
     });
   }
   return null;
+}
+
+// ---------- Prozent rückwärts (Auftrag 54): p gesucht oder G gesucht, über 1 %, ohne Umstellen ----------
+// p: 1 % = G : 100, p = W : 1 %.  G: 1 % = W : p, G = 1 % · 100.  Danach zeigt die App die Kontrolle W/p = G/100.
+// Zahlen wie Stufe 1: G nur Hunderter (100–900), p aus opts.saetze (befristet) bzw. 10, 20, 25, 50, 15, 30, 40, 75.
+const PG_SAETZE = [10, 20, 25, 50, 15, 30, 40, 75];
+const PG_DINGE = [{ nom: 'Ein Fahrrad', kurz: 'das Fahrrad' }, { nom: 'Ein Handy', kurz: 'das Handy' }, { nom: 'Ein Laptop', kurz: 'der Laptop' }, { nom: 'Ein Sofa', kurz: 'das Sofa' }, { nom: 'Eine Spielkonsole', kurz: 'die Spielkonsole' }];
+const PG_TEXTE = {
+  p: [
+    { k: 'preis', einheit: '€', text: (G, p, W, d) => `${d.nom} kostet ${G} €. Im Angebot sparst du ${W} €.`, frage: 'Wie viel Prozent sparst du?' },
+    { k: 'schule', einheit: 'Kinder', text: (G, p, W) => `Eine Schule hat ${G} Kinder. ${W} Kinder fahren mit dem Bus.`, frage: 'Wie viel Prozent der Kinder fahren mit dem Bus?' },
+    { k: 'verein', einheit: 'Mitglieder', text: (G, p, W) => `Ein Sportverein hat ${G} Mitglieder. ${W} davon spielen Fußball.`, frage: 'Wie viel Prozent spielen Fußball?' },
+    { k: 'saft', einheit: 'g', pmax: 25, text: (G, p, W) => `Eine Flasche Saft hat ${G} g Inhalt. Davon sind ${W} g Zucker.`, frage: 'Wie viel Prozent sind Zucker?' }
+  ],
+  g: [
+    { k: 'schule', einheit: 'Kinder', text: (G, p, W) => `${p} % der Kinder einer Schule fahren mit dem Bus. Das sind ${W} Kinder.`, frage: 'Wie viele Kinder hat die Schule?' },
+    { k: 'verein', einheit: 'Mitglieder', text: (G, p, W) => `${p} % der Mitglieder eines Sportvereins spielen Fußball. Das sind ${W} Mitglieder.`, frage: 'Wie viele Mitglieder hat der Verein?' },
+    { k: 'preis', einheit: '€', text: (G, p, W, d) => `${d.nom} ist im Angebot. Du sparst ${p} %. Das sind ${W} €.`, frage: (d) => `Wie viel hat ${d.kurz} vorher gekostet?` },
+    { k: 'saft', einheit: 'g', pmax: 25, text: (G, p, W) => `In einer Flasche Saft sind ${p} % Zucker. Das sind ${W} g.`, frage: 'Wie viel Gramm Inhalt hat die Flasche?' }
+  ]
+};
+export const PG_GESUCHT_OPT = ['G (Grundwert, das Ganze)', 'p (Prozentsatz)', 'W (Prozentwert, der Teil)'];
+const pgZahlen = (rng, opts, pmax = 100) => {
+  const saetze = (opts.saetze && opts.saetze.length ? opts.saetze : PG_SAETZE).filter(x => PG_SAETZE.includes(x) && x <= pmax);
+  const p = wahl(rng, saetze.length ? saetze : PG_SAETZE), G = zufall(rng, 1, 9) * 100;
+  return { G, p, W: G * p / 100, eins: G / 100 };
+};
+export function prozentRueck(form, rng, opts = {}) {
+  const t = wahl(rng, PG_TEXTE[form]), d = wahl(rng, PG_DINGE);
+  const { G, p, W, eins } = pgZahlen(rng, opts, t.pmax);
+  const e = t.einheit, e1 = e === '€' || e === 'g' ? e : '';
+  const frage = typeof t.frage === 'function' ? t.frage(d) : t.frage;
+  const kontrolle = { W, p, G };
+  const kText = `W/p = G/100 → ${W}/${p} = ${G}/100 → ${zahlText(eins)} = ${zahlText(eins)}`;
+  const schritte = form === 'p'
+    ? [{ text: 'Was ist gesucht?', optionen: PG_GESUCHT_OPT, richtig: 1, zwei_versuche: true, gesucht: 'p' },
+      { text: '1 % = G : 100 =', wert: eins, einheit: e1 },
+      { text: 'p = W : 1 % =', wert: p, einheit: '%' }]
+    : [{ text: 'Was ist gesucht?', optionen: PG_GESUCHT_OPT, richtig: 0, zwei_versuche: true, gesucht: 'g' },
+      { text: '1 % = W : p =', wert: eins, einheit: e1 },
+      { text: 'G = 1 % · 100 =', wert: G, einheit: e }];
+  // Variante „Stimmt es?“ als eigener Schritt (nur Vorschau, Vater noch unsicher)
+  if (opts.kontrolleSchritt) schritte.push({ text: `Stimmt es? ${kText}`, optionen: ['Ja', 'Nein'], richtig: 0 });
+  const weg = form === 'p'
+    ? ['1 p ist gesucht: „Wie viel Prozent?“', `2 G : 100 = 1 % → ${G} : 100 = ${pfMit(eins, e1)}`, `3 W : 1 % = p → ${W} : ${zahlText(eins)} = ${p} %`, `Kontrolle: ${kText}`]
+    : ['1 G ist gesucht: das Ganze, 100 %', `2 W : p = 1 % → ${W} : ${p} = ${pfMit(eins, e1)}`, `3 1 % · 100 = G → ${zahlText(eins)} · 100 = ${pfMit(G, e)}`, `Kontrolle: ${kText}`];
+  return neu('prozent-formel', [form, t.k, G, p, PG_DINGE.indexOf(d)], {
+    thema: 'prozent-formel', form, typ: 'schritte', stufe: 1, kategorie: 'text', taschenrechner: true,
+    geschichte: t.text(G, p, W, d), frage, schritte, kontrolle,
+    hinweise: ['formel', 'text'], loesungsweg: weg,
+    erklaerung: form === 'p' ? 'Erst 1 %: G : 100. Dann W : 1 %. So oft passt 1 % in W. Das ist p.' : 'Erst 1 %: W : p. Dann mal 100. So bekommst du das Ganze, G.'
+  });
+}
+// gpw mit p oder G gesucht: der Satz nennt W und die andere Größe
+function prozentGpwRueck(form, rng, opts = {}) {
+  const t = wahl(rng, PG_TEXTE[form]), d = wahl(rng, PG_DINGE);
+  const { G, p, W } = pgZahlen(rng, opts, t.pmax);
+  const frage = typeof t.frage === 'function' ? t.frage(d) : t.frage;
+  const q = '? (gesucht)';
+  const opt = form === 'p' ? [pfMit(G, t.einheit), q, pfMit(W, t.einheit)] : [q, `${p}`, pfMit(W, t.einheit)];
+  return neu('prozent-formel', ['gpw', t.k, G, p, PG_DINGE.indexOf(d), -1, form], {
+    thema: 'prozent-formel', form: 'gpw', typ: 'schritte', stufe: 1, kategorie: 'text',
+    geschichte: t.text(G, p, W, d), frage: `${frage} Rechne nicht. Ordne nur zu.`,
+    schritte: [
+      { text: 'G (Grundwert, das Ganze) =', optionen: opt, richtig: 0, zwei_versuche: true },
+      { text: 'p (Prozentsatz, die Zahl vor dem %) =', optionen: opt, richtig: 1, zwei_versuche: true },
+      { text: 'W (Prozentwert, der Teil) =', optionen: opt, richtig: 2, zwei_versuche: true }
+    ],
+    hinweise: ['formel', 'text'], loesungsweg: form === 'p' ? [`G = ${opt[0]} (das Ganze)`, 'p ist gesucht: „Wie viel Prozent?“', `W = ${opt[2]} (der Teil)`] : ['G ist gesucht: das Ganze', `p = ${p} (die Zahl vor dem %)`, `W = ${opt[2]} (der Teil)`],
+    erklaerung: 'G ist das Ganze. p steht vor dem %. W ist der Teil vom Ganzen. Was die Frage sucht, steht nicht im Text.'
+  });
 }
 
 // ---------- Zylinder „Was wird gesucht?“ mit vier Möglichkeiten (Auftrag 30, Form gesucht4) ----------
@@ -1101,10 +1178,119 @@ export function block(gen, rng, stufe = 1, opts = {}) {
   };
 }
 
+// ---------- Daten: Minimum, Maximum, Spannweite (Auftrag 54, Thema „daten“) ----------
+// Stufe 1: Tabelle mit 5–8 ganzen Zahlen. Stufe 2: Temperaturen mit Minus oder Laufzeiten mit einer Nachkommastelle.
+// Das Maximum steht nie an erster oder letzter Stelle, das Minimum höchstens jede 3. Aufgabe.
+const DATEN_KONTEXTE = {
+  buecher: { stufe: 1, kopf: 'Kind', zeile: 'Bücher', text: (n) => `${n} Kinder haben gezählt, wie viele Bücher sie im Sommer gelesen haben.`, namen: true, bereich: [1, 15] },
+  tore: { stufe: 1, kopf: 'Spiel', zeile: 'Tore', text: (n) => `Ein Team hat in ${n} Spielen so viele Tore geschossen:`, bereich: [0, 7] },
+  punkte: { stufe: 1, kopf: 'Runde', zeile: 'Punkte', text: () => 'Bei einem Spiel gab es in jeder Runde Punkte:', bereich: [5, 30] },
+  highscore: { stufe: 1, kopf: 'Name', zeile: 'Punkte', text: () => 'Der Highscore in einem Handyspiel:', namen: true, bereich: [1000, 9999] },
+  temperatur: { stufe: 2, kopf: 'Tag', zeile: '°C', text: () => 'Temperatur am Morgen, eine Woche im Januar:', tage: true, bereich: [-9, 15], einheit: '°C' },
+  lauf: { stufe: 2, kopf: 'Name', zeile: 'Sekunden', text: () => 'Zeiten beim 50-m-Lauf:', namen: true, bereich: [80, 129], komma: true, einheit: 's' }
+};
+const TAGE = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+const DATEN_ZAHL = (x, komma) => zahlText(komma ? x / 10 : x, komma ? 1 : null);
+export function daten(stufe, rng, opts = {}) {
+  const st = stufe >= 2 ? 2 : 1;
+  const keys = Object.keys(DATEN_KONTEXTE).filter(k => DATEN_KONTEXTE[k].stufe === st && (!opts.kontext || opts.kontext === k));
+  const k = wahl(rng, keys), c = DATEN_KONTEXTE[k];
+  for (let v = 0; v < 400; v++) {
+    const n = c.tage ? 7 : zufall(rng, 5, c.namen ? 7 : 8);
+    const werte = Array.from({ length: n }, () => zufall(rng, c.bereich[0], c.bereich[1]));
+    const max = Math.max(...werte), min = Math.min(...werte);
+    if (max === min || werte.filter(x => x === max).length > 1 || werte.filter(x => x === min).length > 1) continue;
+    const iMax = werte.indexOf(max), iMin = werte.indexOf(min);
+    if (iMax === 0 || iMax === n - 1) continue;
+    if ((iMin === 0 || iMin === n - 1) && rng() > 1 / 3) continue;
+    if (c.tage && !werte.some(x => x < 0)) continue;
+    if (c.tage && !werte.some(x => x > 0)) continue;
+    const kopf = c.tage ? TAGE.slice(0, n) : c.namen ? mischen(rng, NAMEN.slice()).slice(0, n).map(x => x[0]) : Array.from({ length: n }, (_, i) => String(i + 1));
+    const z = (x) => DATEN_ZAHL(x, c.komma), wert = (x) => c.komma ? x / 10 : x;
+    const span = c.komma ? (max - min) / 10 : max - min;
+    const bild = { form: 'tabelle', kopf: c.kopf, spalten: kopf, zeile: c.zeile, werte: werte.map(wert), ...(c.einheit ? { einheit: c.einheit } : {}) };
+    const schritte = [];
+    const weg = [`Minimum = ${z(min)}, Maximum = ${z(max)}`, `Spannweite = ${z(max)} − ${min < 0 ? `(${z(min)})` : z(min)} = ${zahlText(span)}`];
+    if (k === 'lauf') {
+      const opt = mischen(rng, [kopf[iMin], kopf[iMax], kopf.find((_, i) => i !== iMin && i !== iMax)]);
+      schritte.push({ text: 'Wer war am schnellsten?', optionen: opt, richtig: opt.indexOf(kopf[iMin]), markiere: wert(min) });
+      weg.unshift(`Am schnellsten = die kleinste Zeit: ${kopf[iMin]} mit ${z(min)} s`);
+    }
+    const e = c.einheit || '';
+    schritte.push({ text: st === 1 ? 'Minimum (kleinster Wert) =' : 'Minimum =', wert: wert(min), einheit: e, markiere: wert(min) },
+      { text: st === 1 ? 'Maximum (größter Wert) =' : 'Maximum =', wert: wert(max), einheit: e, markiere: wert(max) },
+      { text: 'Spannweite = Maximum − Minimum =', wert: span, einheit: e === '°C' ? '°C' : e });
+    return neu('daten', [k, ...werte], {
+      thema: 'daten', typ: 'schritte', stufe: st, kategorie: 'text',
+      geschichte: c.text(n), frage: k === 'lauf' ? 'Wer war am schnellsten? Bestimme Minimum, Maximum und Spannweite.' : 'Bestimme Minimum, Maximum und Spannweite.',
+      bild, schritte, hinweise: min < 0 ? ['daten', 'euro'] : ['daten'], loesungsweg: weg,
+      erklaerung: 'Schau jede Zahl an. Minimum ist der kleinste Wert, Maximum der größte. Spannweite = Maximum − Minimum.' + (min < 0 ? ' Minus minus wird plus.' : '') + (k === 'lauf' ? ' Beim Laufen ist die kleinste Zeit die schnellste.' : '')
+    });
+  }
+  return null;
+}
+
+// ---------- Säulendiagramm (Auftrag 54, Thema „diagramm“) ----------
+// Stufe 1: ablesen (am meisten/wenigsten, Wert, Unterschied). Stufe 2: fehlende Säule ergänzen und die Achse beschriften.
+const SAEULEN_KONTEXTE = [
+  { k: 'sport', titel: 'Lieblingssport der Klasse 7b', kat: 'Sportart', achse: 'Anzahl Kinder', teile: ['Fußball', 'Schwimmen', 'Basketball', 'Reiten', 'Tennis'],
+    max: 'Welcher Sport ist am beliebtesten?', min: 'Welcher Sport ist am wenigsten beliebt?', wie: (x) => `Wie viele Kinder mögen ${x} am liebsten?`, mehr: (a, b) => `Wie viele Kinder mehr mögen ${a} als ${b}?` },
+  { k: 'essen', titel: 'Lieblingsessen der Klasse 8a', kat: 'Essen', achse: 'Anzahl Kinder', teile: ['Pizza', 'Nudeln', 'Döner', 'Salat', 'Burger'],
+    max: 'Welches Essen ist am beliebtesten?', min: 'Welches Essen ist am wenigsten beliebt?', wie: (x) => `Wie viele Kinder essen am liebsten ${x}?`, mehr: (a, b) => `Wie viele Kinder mehr essen am liebsten ${a} als ${b}?` },
+  { k: 'tiere', titel: 'Haustiere der Klasse 9c', kat: 'Haustier', achse: 'Anzahl Kinder', teile: ['Hund', 'Katze', 'Hase', 'Fisch', 'Vogel'],
+    max: 'Welches Haustier haben die meisten Kinder?', min: 'Welches Haustier haben die wenigsten Kinder?', wie: (x) => `Wie viele Kinder haben ${x === 'Katze' ? 'eine' : 'einen'} ${x}?`, mehr: (a, b) => `Wie viele Kinder mehr haben ${a === 'Katze' ? 'eine' : 'einen'} ${a} als ${b === 'Katze' ? 'eine' : 'einen'} ${b}?` }
+];
+export function saeulen(stufe, rng, opts = {}) {
+  const st = stufe >= 2 ? 2 : 1;
+  const c = wahl(rng, SAEULEN_KONTEXTE);
+  for (let v = 0; v < 400; v++) {
+    const n = zufall(rng, st === 1 ? 3 : 4, 5), oben = rng() < 0.5 ? 10 : 20;
+    const kat = mischen(rng, c.teile.slice()).slice(0, n);
+    const werte = kat.map(() => zufall(rng, 1, oben - 1));
+    const max = Math.max(...werte), min = Math.min(...werte);
+    if (werte.filter(x => x === max).length > 1 || werte.filter(x => x === min).length > 1 || new Set(werte).size < n - 1) continue;
+    const bild = { form: 'saeulen', titel: c.titel, kategorien: kat, werte, oben, achse: c.achse };
+    if (st === 1) {
+      const meist = rng() < 0.6, iZ = werte.indexOf(meist ? max : min);
+      const andere = mischen(rng, kat.filter((_, i) => i !== iZ)).slice(0, zufall(rng, 1, 2));
+      const opt = mischen(rng, [kat[iZ], ...andere]);
+      const iW = mischen(rng, kat.map((_, i) => i).filter(i => i !== iZ))[0];
+      const paar = mischen(rng, kat.map((_, i) => i)).slice(0, 2).sort((a, b) => werte[b] - werte[a]);
+      if (werte[paar[0]] === werte[paar[1]]) continue;
+      const [a, b] = paar;
+      return neu('saeulen', ['lesen', c.k, oben, ...kat.map(x => c.teile.indexOf(x)), ...werte], {
+        thema: 'diagramm', typ: 'schritte', stufe: 1, kategorie: 'text', bild, frage: 'Lies im Diagramm ab.',
+        schritte: [
+          { text: meist ? c.max : c.min, optionen: opt, richtig: opt.indexOf(kat[iZ]) },
+          { text: c.wie(kat[iW]), wert: werte[iW], saeule: iW },
+          { text: c.mehr(kat[a], kat[b]), wert: werte[a] - werte[b], unterschied: [a, b] }
+        ],
+        hinweise: [], loesungsweg: [`${meist ? 'Höchste' : 'Niedrigste'} Säule: ${kat[iZ]}`, `${kat[iW]}: Säule bis ${werte[iW]}`, `${kat[a]} ${werte[a]}, ${kat[b]} ${werte[b]} → ${werte[a]} − ${werte[b]} = ${werte[a] - werte[b]}`],
+        erklaerung: 'Fahr mit dem Finger oben an der Säule nach links zur Achse. Dort steht der Wert. „Wie viele mehr“ heißt abziehen.'
+      });
+    }
+    // Stufe 2: eine Säule fehlt, ihr Wert steht im Text; danach die Achse beschriften
+    const iF = zufall(rng, 0, n - 1);
+    const achsenOpt = mischen(rng, [c.achse, c.kat, 'Prozent']);
+    return neu('saeulen', ['ergaenzen', c.k, oben, ...kat.map(x => c.teile.indexOf(x)), ...werte, iF], {
+      thema: 'diagramm', typ: 'schritte', stufe: 2, kategorie: 'text', bild: { ...bild, fehlt: iF, achseVersteckt: true },
+      geschichte: `In der Tabelle steht: ${kat[iF]} ${werte[iF]} ${werte[iF] === 1 ? 'Kind' : 'Kinder'}. Die Säule fehlt im Diagramm.`,
+      frage: 'Ergänze die Säule. Beschrifte die Achse.',
+      schritte: [
+        { text: `Wie hoch muss die Säule „${kat[iF]}“ sein?`, wert: werte[iF], saeule_setzen: iF },
+        { text: 'Was steht an der Achse links?', optionen: achsenOpt, richtig: achsenOpt.indexOf(c.achse), achse: true }
+      ],
+      hinweise: [], loesungsweg: [`${kat[iF]}: ${werte[iF]} → Säule bis zur Linie ${werte[iF]}`, `Achse links: ${c.achse}`],
+      erklaerung: 'Zähl die Linien von 0 nach oben bis zur Zahl aus dem Text. An der Achse links steht, was gezählt wird.'
+    });
+  }
+  return null;
+}
+
 export const GENERATOREN = {
   'minus-plus': minusPlus, 'reihenfolge': reihenfolge, 'potenz': potenz, 'einmaleins': einmaleins, 'mal10': mal10,
   'prozent': prozent, 'baukasten': baukasten, 'runden': runden, 'bruch-bild': bruchBild, 'kugel': kugel, 'zylinder': zylinder,
-  'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte, 'prozent-formel': prozentFormel, 'kegel': kegel, 'pyramide': pyramide, 'kreisdiagramm': kreisdiagramm, 'quader': quader, 'zusammengesetzt': zusammengesetzt,
+  'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte, 'prozent-formel': prozentFormel, 'kegel': kegel, 'pyramide': pyramide, 'kreisdiagramm': kreisdiagramm, 'quader': quader, 'zusammengesetzt': zusammengesetzt, 'daten': daten, 'saeulen': saeulen,
   'zehnerpotenz': zehnerpotenz, 'einheiten': einheiten, 'gewichtskraft': gewichtskraft, 'gleichung': gleichung, 'formel-umstellen': formelUmstellen, 'dichte': dichte
 };
 
@@ -1113,7 +1299,7 @@ export const THEMA_GENERATOREN = {
   'minus-zahlen': ['minus-plus', 'minus-plus', 'reihenfolge'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'],
   'bruch-bild': ['bruch-bild'], 'zuordnung': ['bruch-bild'], 'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'],
   'prozent-formel': ['prozent-formel'], 'rabatt': ['prozent', 'baukasten'], 'neuer-preis': ['prozent', 'baukasten'], 'kreisdiagramm': ['kreisdiagramm'],
-  'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'],
+  'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'daten': ['daten'], 'diagramm': ['saeulen'],
   'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
 };
 export const MIX_GENERATOREN = ['einmaleins', 'potenz', 'mal10', 'prozent', 'runden', 'bruch-bild', 'minus-plus', 'reihenfolge', 'baukasten', 'einmaleins'];

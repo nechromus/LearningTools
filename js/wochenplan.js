@@ -54,7 +54,9 @@ export function wpArten(wp, pakete = [], eingriffe = [], heute = '', freigaben =
   for (const e of aktiv) if (e.typ === 'aus') themenVon(e.art, pakete).forEach(t => aus.add(t));
   const gesperrt = new Set();
   for (const g of wp.gesperrt) if (!freiAb(g, freigaben, heute)) themenVon(g, pakete).forEach(t => gesperrt.add(t));
-  const weg = (t) => aus.has(t) || gesperrt.has(t);
+  // Auftrag 54: Themen mit Freigabedatum zählen erst ab der Freigabe (ihr Anteil geht vorher an die anderen Arten)
+  const nochNicht = (t) => !!FREIGABE_THEMEN[t] && !freiAb(t, freigaben, heute);
+  const weg = (t) => aus.has(t) || gesperrt.has(t) || nochNicht(t);
   const vergeben = new Set();
   const arten = [];
   const motiv = wp.motivation.themen.filter(t => !weg(t));
