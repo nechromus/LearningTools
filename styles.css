@@ -1255,3 +1255,9 @@ body:has(.aufgabe-screen.bz-warm) { background: #FAF1DE; }
 
 /* Auftrag 53: G zum Erinnern neben dem Feld „Neuer Preis“ */
 .feld-erinnerung { margin-left: 10px; padding: 4px 10px; border-radius: 8px; background: var(--amber-hell); color: var(--amber-dunkel); font-weight: 700; font-size: 16px; white-space: nowrap; }
+
+/* Abschlussfrage „Wie war es heute?“ (LK-094) */
+.abschluss-frage { text-align: center; }
+.abschluss-knoepfe { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 6px; }
+.abschluss-knoepfe .btn { min-height: 52px; font-size: 1.05rem; }
+.abschluss-weiter { margin-top: 6px; }

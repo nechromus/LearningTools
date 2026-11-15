@@ -35,7 +35,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.47.1';
+export const APP_VERSION = '2.48.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -2151,6 +2151,7 @@ function waehleIn(kategorie, g, ersatz, ohneDetektiv = false) {
 
 function serieWeiter() {
   if (Date.now() - S.serie.letzteAktivitaet > 20 * 60 * 1000) S.serie.pos = 0;
+  if (!S.serie.pos) { S.serie.erledigt = 0; S.serie.gefragt = false; } // neue Sitzung (Abschlussfrage)
   S.serie.pos++;
   S.serie.letzteAktivitaet = Date.now();
   return S.serie.pos;
@@ -3952,6 +3953,7 @@ function abschliessen() {
   // Wissenspunkte (nur Gestaltung Sternzeit)
   A.wp = sternzeit() && !A.test ? L.wissenspunkteFuer(a, { ergebnis, schritte: !!A.schritteAn && !A.ufSofort }) : 0;
   S.serie.letzteAktivitaet = Date.now();
+  S.serie.erledigt = (S.serie.erledigt || 0) + 1; // für die Abschlussfrage
   protokoll(S, 'aufgabe_ende', {
     id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: A.sekunden, serienPos: A.serienPos,
     ...(L.teilschrittAufgabe(a) ? { teilschritt: L.teilschrittAufgabe(a) } : {}),
@@ -5433,6 +5435,15 @@ function schliesseModal() {
 
 // ============ Klicks ============
 
+const ABSCHLUSS_ACTS = ['zumSpiel', 'bzSeite', 'uebungszeit', 'beenden'];
+const ABSCHLUSS_ANTWORTEN = [['zu_leicht', 'Zu leicht'], ['passte', 'Passte'], ['schwer', 'War schwer'], ['weiss_nicht', 'Weiß nicht']];
+let abschlussWeiter = null;
+// Fällig: Schalter an, in dieser Sitzung mindestens eine Aufgabe fertig, noch nicht gefragt
+function abschlussFaellig() {
+  return bed('abschlussfrage') && ansicht === 'aufgabe' && S.serie && S.serie.pos > 0 && !S.serie.gefragt && (S.serie.erledigt || 0) > 0
+    && Date.now() - (S.serie.letzteAktivitaet || 0) < 20 * 60 * 1000;
+}
+
 function klick(e) {
   const el = e.target.closest('[data-act]');
   if (!el || el.disabled) return;
@@ -5444,6 +5455,24 @@ function klick(e) {
       if (!el.isConnected) return;
       el.dataset.bogenOk = '1'; el.click(); delete el.dataset.bogenOk;
     });
+    return;
+  }
+  // Abschlussfrage (LK-094, Okay Eltern 15.11.): am Ende einer Übungssitzung einmal „Wie war es heute?“
+  if (ABSCHLUSS_ACTS.includes(act) && !el.dataset.abschlussOk && abschlussFaellig() && !(act === 'beenden' && A && !A.fertig)) {
+    S.serie.gefragt = true;
+    protokoll(S, 'abschlussfrage_gezeigt', { anlass: act, aufgaben: S.serie.erledigt || 0 }); // gezeigt − beantwortet = übersprungen
+    sichern();
+    abschlussWeiter = () => { if (el.isConnected) { el.dataset.abschlussOk = '1'; el.click(); delete el.dataset.abschlussOk; } else zeigeStart(); };
+    oeffneModal(`<div class="hinweis-text abschluss-frage"><h2 class="modal-titel">Wie war es heute?</h2>
+      <div class="abschluss-knoepfe">${ABSCHLUSS_ANTWORTEN.map(([k, t]) => `<button class="btn" data-act="abschlussAntwort" data-a="${k}">${t}</button>`).join('')}</div>
+      <button class="btn-text abschluss-weiter" data-act="abschlussAntwort" data-a="">Weiter</button></div>`);
+    modalSchliessen = () => { const w = abschlussWeiter; abschlussWeiter = null; if (w) w(); }; // auch ✕ geht weiter
+    return;
+  }
+  if (act === 'abschlussAntwort') {
+    const antwort = el.dataset.a || null;
+    if (antwort) protokoll(S, 'abschlussfrage', { antwort, tag_lokal: L.tagKey(), app_version: APP_VERSION, geraet: S.geraetId || null });
+    sichern(); schliesseModal(); // geht über modalSchliessen weiter
     return;
   }
   if (act === 'bogenNachsehen') { bogenPruefen(true).finally(() => { if (!bogenGesperrt()) zeigeStart(); }); return; }
