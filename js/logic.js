@@ -379,7 +379,8 @@ export function allgemeineArten(w, ziel, andere = [], eingabeText = '') {
   if (ziel !== 0 && w !== 0) for (const f of [10, 100, 1000]) if (Math.abs(w - ziel * f) < 1e-9 * Math.max(1, Math.abs(ziel * f)) || Math.abs(w - ziel / f) < 1e-9 * Math.max(1, Math.abs(ziel))) t.add('komma-verschoben');
   if (andere.some(v => Number.isFinite(v) && !gleich(v, ziel) && gleich(w, v))) t.add('anderer-teil');
   if (gleich(Math.abs(w - ziel), 1)) t.add('um-eins');
-  if (ziel !== 0 && Math.abs(w - ziel) < Math.abs(ziel) * 0.01) t.add('knapp');
+  // Entscheidung der Eltern 15.11. (LK-077): um-eins geht vor knapp
+  if (ziel !== 0 && Math.abs(w - ziel) < Math.abs(ziel) * 0.01 && !t.has('um-eins')) t.add('knapp');
   const a = ziffernVon(eingabeText).replace(/^0+/, ''), b = zahlZiffern(ziel);
   if (a.length >= 2 && a !== b && a.length === b.length && [...a].sort().join('') === [...b].sort().join('')) t.add('zahlendreher');
   return [...t];
