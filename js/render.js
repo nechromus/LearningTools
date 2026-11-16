@@ -424,6 +424,7 @@ export function dreieckLage(bild) {
   const dreh = (p, f) => [p[0] * Math.cos(f) - p[1] * Math.sin(f), p[0] * Math.sin(f) + p[1] * Math.cos(f)];
   const alle = (f) => { for (const k in P) P[k] = f(P[k]); };
   if (lage === 'sach') alle(p => [-p[0], p[1]]);
+  else if (lage === 'sach-oben') alle(p => dreh(p, Math.PI / 2));   // Winkel oben an der Wand, rechter Winkel unten rechts
   else if (lage === 8 || lage === 9) {
     const phi = Math.atan2(P.T[1] - P.W[1], P.T[0] - P.W[0]);
     alle(p => dreh(p, -phi));
@@ -463,10 +464,13 @@ function dreieckZeichnen(bild, P0, bx, by, s, ox, oy) {
   const seiten = { hyp: [P.W, P.T], an: [P.R, P.W], geg: [P.R, P.T] };
   let inhalt = '';
   // Deko: Boden (Rampe, Dach) bzw. Boden und Wand (Leiter)
+  // Boden = die Kathete unten (waagerecht), Wand = die Kathete am rechten Winkel nach oben
+  const bodenK = bild.lage === 'sach-oben' ? 'geg' : 'an', wandK = bodenK === 'an' ? 'geg' : 'an';
   if (bild.deko) {
-    const [a, b] = seiten.an, y = Math.max(a[1], b[1]) + 1.5;
+    const [a, b] = seiten[bodenK], y = Math.max(a[1], b[1]) + 1.5;
     inhalt += `<line x1="${f(Math.min(a[0], b[0]) - 22)}" y1="${f(y)}" x2="${f(Math.max(a[0], b[0]) + 22)}" y2="${f(y)}" stroke="#8A7F6A" stroke-width="3"/>`;
-    if (bild.deko === 'wand') inhalt += `<rect x="${f(P.R[0])}" y="${f(P.T[1] - 10)}" width="10" height="${f(P.R[1] - P.T[1] + 11)}" fill="#E7E1D3" stroke="#8A7F6A" stroke-width="1.5"/>`;
+    const oben = Math.min(...seiten[wandK].map(q => q[1]));
+    if (bild.deko === 'wand') inhalt += `<rect x="${f(P.R[0])}" y="${f(oben - 10)}" width="10" height="${f(P.R[1] - oben + 11)}" fill="#E7E1D3" stroke="#8A7F6A" stroke-width="1.5"/>`;
   }
   for (const k of ['geg', 'an', 'hyp']) {
     const [a, b] = seiten[k];
@@ -491,7 +495,7 @@ function dreieckZeichnen(bild, P0, bx, by, s, ox, oy) {
     let no = [-(b[1] - a[1]), b[0] - a[0]];
     const d = Math.hypot(...no) || 1; no = [no[0] / d, no[1] / d];
     if ((m[0] - M[0]) * no[0] + (m[1] - M[1]) * no[1] < 0) no = [-no[0], -no[1]];
-    const ab = bild.deko === 'wand' && k === 'geg' ? 26 : 14;
+    const ab = bild.deko === 'wand' && k === wandK ? 26 : 14;
     const x = m[0] + no[0] * ab, y = m[1] + no[1] * ab + 6 + (no[1] > 0.5 ? 6 : no[1] < -0.5 ? -4 : 0);
     const anker = no[0] > 0.35 ? 'start' : no[0] < -0.35 ? 'end' : 'middle';
     const txt = `<tspan font-style="italic">${esc(n[k])}</tspan>${L[k] ? ` = ${esc(String(L[k]))}` : ''}`;
@@ -500,6 +504,6 @@ function dreieckZeichnen(bild, P0, bx, by, s, ox, oy) {
     merke(x0 - 4, x0 + tw + 4, y - fs - 2, y + 6);
     inhalt += `<text x="${f(x)}" y="${f(y)}" text-anchor="${anker}" font-size="${fs}" font-weight="${bild.farbig && k !== 'geg' ? 700 : 400}" fill="${farbe[k] === LINIE ? LINIE : farbe[k]}">${txt}</text>`;
   }
-  if (bild.deko) merke(Math.min(P.R[0], P.W[0]) - 24, Math.max(P.R[0], P.W[0]) + (bild.deko === 'wand' ? 12 : 24), P.T[1] - 12, Math.max(P.R[1], P.W[1]) + 4);
+  if (bild.deko) { const bo = seiten[bodenK]; merke(Math.min(bo[0][0], bo[1][0]) - 24, Math.max(bo[0][0], bo[1][0]) + (bild.deko === 'wand' ? 12 : 24), Math.min(P.R[1], P.W[1], P.T[1]) - 12, Math.max(bo[0][1], bo[1][1]) + 4); }
   return { inhalt, box };
 }

@@ -1306,8 +1306,10 @@ function cosWerte(c) {
 const lt = (x, e) => `${zahlText(x)} ${e}`;
 const KOS_SACH = {
   rampe: { e: 'm', winkel: [6, 25], text: (an, hyp, geg) => `Eine Rampe ist ${lt(hyp, 'm')} lang. Waagerecht ist sie ${lt(an, 'm')} lang. Sie ist ${lt(geg, 'm')} hoch.`, frage: (w) => `Wie steil ist die Rampe? Berechne den Winkel ${w} zum Boden.`, deko: 'boden' },
-  leiter: { e: 'm', winkel: [60, 78], text: (an, hyp, geg) => `Eine Leiter ist ${lt(hyp, 'm')} lang. Ihr Fuß steht ${lt(an, 'm')} von der Wand weg. Sie reicht ${lt(geg, 'm')} hoch.`, frage: (w) => `Berechne den Winkel ${w} zwischen Leiter und Boden.`, deko: 'wand' },
-  dach: { e: 'm', winkel: [25, 55], text: (an, hyp, geg) => `Eine Dachschräge ist ${lt(hyp, 'm')} lang. Waagerecht darunter sind es ${lt(an, 'm')}. Das Dach ist ${lt(geg, 'm')} hoch.`, frage: (w) => `Berechne den Winkel ${w} zwischen Dachschräge und Boden.`, deko: 'boden' }
+  // Die gegebene Kathete berührt immer den gefragten Winkel (Ankathete zu genau diesem Winkel)
+  leiter: { e: 'm', winkel: [60, 78], text: (an, hyp, geg) => `Eine Leiter ist ${lt(hyp, 'm')} lang. Ihr Fuß steht ${lt(an, 'm')} von der Wand weg. Sie reicht ${lt(geg, 'm')} hoch.`, frage: (w) => `Berechne den Winkel ${w} unten zwischen Leiter und Boden.`, deko: 'wand' },
+  leiter_wand: { e: 'm', winkel: [12, 30], lage: 'sach-oben', text: (an, hyp, geg) => `Eine Leiter ist ${lt(hyp, 'm')} lang. Sie reicht an der Wand ${lt(an, 'm')} hoch. Ihr Fuß steht ${lt(geg, 'm')} von der Wand weg.`, frage: (w) => `Berechne den Winkel ${w} oben zwischen Leiter und Wand.`, deko: 'wand' },
+  dach: { e: 'm', winkel: [25, 55], text: (an, hyp, geg) => `Ein Haus ist ${lt(2 * an, 'm')} breit. Bis zur Mitte sind es ${lt(an, 'm')}. Eine Dachschräge ist ${lt(hyp, 'm')} lang. Das Dach ist ${lt(geg, 'm')} hoch.`, frage: (w) => `Berechne den Winkel ${w} unten an der Traufe.`, deko: 'boden' }
 };
 export function kosinus(stufe, rng, opts = {}) {
   const st = Math.min(3, Math.max(1, stufe || 1));
@@ -1335,7 +1337,7 @@ export function kosinus(stufe, rng, opts = {}) {
   const buchst = wahl(rng, KOS_BUCHSTABEN).split('');
   mischen(rng, buchst);
   const [bH, bA, bG] = buchst;                 // Hypotenuse, Ankathete, Gegenkathete
-  const lage = form === 'sach' ? 'sach' : zufall(rng, 0, KOS_LAGEN - 1);
+  let lage = form === 'sach' ? 'sach' : zufall(rng, 0, KOS_LAGEN - 1);
   const sortiert = (arr) => arr.slice().sort((x, y) => x.localeCompare(y));
   if (form === 'seiten') {
     let an, geg;
@@ -1358,6 +1360,7 @@ export function kosinus(stufe, rng, opts = {}) {
   // Winkel berechnen (Stufe 2 und 3)
   const sk = form === 'sach' ? wahl(rng, Object.keys(KOS_SACH)) : null;
   const e = sk ? 'm' : 'cm';
+  if (sk && KOS_SACH[sk].lage) lage = KOS_SACH[sk].lage;
   for (let v = 0; v < 500; v++) {
     const komma = rng() < 0.4;
     let an, hyp;
