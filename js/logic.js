@@ -1311,6 +1311,18 @@ function teilschrittNeu(a, t, l) {
     return null;
   }
   if (a.thema === 'kreisdiagramm' && a.generator === 'kreisdiagramm') return q.art === 'prozent' ? 'kreisdia.anteil@2' : 'kreisdia.lesen@1';
+  // Kosinus (LK-101, Thema trigo der Lernplattform)
+  if (a.thema === 'kosinus' && a.generator === 'kosinus') {
+    const k = q.kos;
+    if (k === 'hyp') return 'trigo.hypotenuse@1';
+    if (k === 'an') return (a.stufe || 1) >= 3 ? 'trigo.ankathete@2' : 'trigo.ankathete@1';
+    if (k === 'bruch') return 'trigo.cos@1';
+    if (k === 'wert') return 'trigo.cos@2';
+    if (k === 'winkel') return 'trigo.winkel@2';
+    if (k === 'cos') return 'trigo.rechner@1';
+    if (k === 'umkehr') return 'trigo.rechner@2';
+    return null;
+  }
   return undefined;
 }
 export function teilschrittAufgabe(a) {
@@ -1323,6 +1335,7 @@ export function teilschrittAufgabe(a) {
         : par0 === 'rabatt' ? 'prozent.aenderung@3' : par0 === 'text' ? 'prozent.formel@2' : par0 === 'direkt' ? 'prozent.formel@1' : null;
     }
     if (a.generator === 'kreisdiagramm') return (a.parameter || [])[1] === 'prozent' ? 'kreisdia.anteil@2' : 'kreisdia.lesen@1';
+    if (a.generator === 'kosinus') return a.form === 'sach' ? 'trigo.sache@1' : (a.stufe || 1) >= 3 ? 'trigo.cos@2' : a.stufe === 2 ? 'trigo.winkel@2' : 'trigo.cos@1';
   }
   if (!a || a.thema !== 'zylinder' || a.typ === 'detektiv' || !Array.isArray(a.schritte) || !a.schritte.length) return null;
   const l = String(a.schritte[a.schritte.length - 1].text || '');
