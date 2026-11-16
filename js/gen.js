@@ -1287,10 +1287,122 @@ export function saeulen(stufe, rng, opts = {}) {
   return null;
 }
 
+// ---------- Kosinus im rechtwinkligen Dreieck (Auftrag 55, Thema „kosinus“) ----------
+// Schreibweise der Schule: Hypotenuse, Ankathete zu α, Gegenkathete; cos α = Ankathete : Hypotenuse.
+// Stufe 1: Seiten finden (etwa jede 3. Aufgabe eine Rechner-Aufgabe cos 35° = … oder cos α = … → α).
+// Stufe 2: zwei Längen (Ankathete, Hypotenuse), Winkel berechnen. Stufe 3: drei Längen oder Sachtext (Rampe, Leiter, Dach).
+const KOS_BUCHSTABEN = ['abc', 'rst', 'xyz', 'klm', 'uvw', 'efg'];
+const KOS_LAGEN = 10;                 // Lagen des Dreiecks im Bild (Drehung und Spiegelung), siehe render.js dreieckLage
+const cosG = (g) => Math.cos(g * Math.PI / 180);
+const acosG = (x) => Math.acos(x) * 180 / Math.PI;
+const r4 = (x) => Math.round(x * 1e4) / 1e4;
+const z4 = (x) => zahlText(x, 4).replace(/,?0+$/, '');   // 0,75 statt 0,7500; sonst 4 Stellen
+// Richtige Eingaben für cos α: auf 4 Stellen gerundet; gerundet oder abgeschnitten mit 2–4 Stellen; genauer (Toleranz)
+function cosWerte(c) {
+  const auch = new Set();
+  for (const k of [2, 3, 4]) { auch.add(r9(rdK(c, k))); auch.add(r9(abK(c, k))); }
+  return [...auch];
+}
+const lt = (x, e) => `${zahlText(x)} ${e}`;
+const KOS_SACH = {
+  rampe: { e: 'm', winkel: [6, 25], text: (an, hyp, geg) => `Eine Rampe ist ${lt(hyp, 'm')} lang. Waagerecht ist sie ${lt(an, 'm')} lang. Sie ist ${lt(geg, 'm')} hoch.`, frage: (w) => `Wie steil ist die Rampe? Berechne den Winkel ${w} zum Boden.`, deko: 'boden' },
+  leiter: { e: 'm', winkel: [60, 78], text: (an, hyp, geg) => `Eine Leiter ist ${lt(hyp, 'm')} lang. Ihr Fuß steht ${lt(an, 'm')} von der Wand weg. Sie reicht ${lt(geg, 'm')} hoch.`, frage: (w) => `Berechne den Winkel ${w} zwischen Leiter und Boden.`, deko: 'wand' },
+  dach: { e: 'm', winkel: [25, 55], text: (an, hyp, geg) => `Eine Dachschräge ist ${lt(hyp, 'm')} lang. Waagerecht darunter sind es ${lt(an, 'm')}. Das Dach ist ${lt(geg, 'm')} hoch.`, frage: (w) => `Berechne den Winkel ${w} zwischen Dachschräge und Boden.`, deko: 'boden' }
+};
+export function kosinus(stufe, rng, opts = {}) {
+  const st = Math.min(3, Math.max(1, stufe || 1));
+  const w = rng() < 0.7 ? 'α' : 'β';
+  const form = opts.form || (st === 1 ? (rng() < 1 / 3 ? (rng() < 0.5 ? 'cos' : 'umkehr') : 'seiten') : st === 3 && rng() < 0.5 ? 'sach' : 'winkel');
+  const hinweise = ['kosinus'];
+  const fest = { thema: 'kosinus', typ: 'schritte', kategorie: 'text', hinweise };
+  if (form === 'cos' || form === 'umkehr') {
+    let g;
+    do g = zufall(rng, 10, 80); while (g === 60 || g % 10 === 0 && rng() < 0.5);
+    const c = r4(cosG(g));
+    if (form === 'cos') return neu('kosinus', ['cos', g], {
+      ...fest, form, stufe: 1, frage: 'Rechne mit dem Taschenrechner. Runde auf 4 Stellen nach dem Komma.',
+      schritte: [{ text: `cos ${g}° =`, wert: c, auch: cosWerte(cosG(g)), toleranz: 0.00005, stellen: 4, kos: 'cos', grad: g }],
+      loesungsweg: [`cos ${g} = → ${zahlText(cosG(g), 6)}…`, `cos ${g}° ≈ ${zahlText(c, 4)}`],
+      erklaerung: `Tippe cos, dann ${g}, dann =. Runde auf 4 Stellen.`
+    });
+    return neu('kosinus', ['umkehr', g], {
+      ...fest, form, stufe: 1, rechnung: `cos ${w} = ${zahlText(c, 4)}`, frage: `Wie groß ist der Winkel ${w}? Rechne mit dem Taschenrechner. Runde auf ganze Grad.`,
+      schritte: [{ text: `${w} ≈`, wert: g, toleranz: 0.06, einheit: '°', kos: 'umkehr', cos: c }],
+      loesungsweg: [`2nd cos ${zahlText(c, 4)} = → ${zahlText(acosG(c), 3)}…`, `${w} ≈ ${g}°`],
+      erklaerung: `Für den Winkel: 2nd, dann cos. Dann ${zahlText(c, 4)} und =.`
+    });
+  }
+  const buchst = wahl(rng, KOS_BUCHSTABEN).split('');
+  mischen(rng, buchst);
+  const [bH, bA, bG] = buchst;                 // Hypotenuse, Ankathete, Gegenkathete
+  const lage = form === 'sach' ? 'sach' : zufall(rng, 0, KOS_LAGEN - 1);
+  const sortiert = (arr) => arr.slice().sort((x, y) => x.localeCompare(y));
+  if (form === 'seiten') {
+    let an, geg;
+    do { an = zufall(rng, 3, 9); geg = zufall(rng, 3, 9); } while (geg / an < 0.45 || geg / an > 2.2);
+    const opt1 = sortiert(buchst), opt2 = sortiert([bA, bG]);
+    const br = [[bA, bH, 'richtig'], [bG, bH, 'geg'], [bH, bA, 'kehr'], [bA, bG, 'hyp']];
+    mischen(rng, br);
+    return neu('kosinus', ['seiten', bH, bA, bG, w === 'α' ? 'alpha' : 'beta', lage, an, geg], {
+      ...fest, form, stufe: 1, frage: `Schau vom Winkel ${w} aus.`,
+      bild: { form: 'dreieck', lage, an, geg, winkel: w, namen: { hyp: bH, an: bA, geg: bG } },
+      schritte: [
+        { text: 'Welche Seite ist die Hypotenuse?', optionen: opt1, richtig: opt1.indexOf(bH), rollen: opt1.map(x => x === bH ? 'hyp' : x === bA ? 'an' : 'geg'), kos: 'hyp', zwei_versuche: true },
+        { text: `Welche Seite ist die Ankathete zu ${w}?`, optionen: opt2, richtig: opt2.indexOf(bA), rollen: opt2.map(x => x === bA ? 'an' : 'geg'), kos: 'an' },
+        { text: `cos ${w} = ?`, optionen: br.map(([z, n]) => `${z}\u2044${n}`), richtig: br.findIndex(x => x[2] === 'richtig'), rollen: br.map(x => x[2]), kos: 'bruch', zwei_versuche: true }
+      ],
+      loesungsweg: [`Hypotenuse: ${bH} (gegenüber vom rechten Winkel)`, `Ankathete zu ${w}: ${bA} (berührt den Winkel ${w})`, `cos ${w} = ${bA}\u2044${bH}`],
+      erklaerung: `Die Hypotenuse liegt gegenüber vom rechten Winkel. Die Ankathete berührt den Winkel ${w}. cos ${w} = Ankathete : Hypotenuse.`
+    });
+  }
+  // Winkel berechnen (Stufe 2 und 3)
+  const sk = form === 'sach' ? wahl(rng, Object.keys(KOS_SACH)) : null;
+  const e = sk ? 'm' : 'cm';
+  for (let v = 0; v < 500; v++) {
+    const komma = rng() < 0.4;
+    let an, hyp;
+    if (sk) { hyp = zufall(rng, 25, 80) / 10; an = zufall(rng, 10, Math.round(hyp * 10) - 3) / 10; }
+    else if (komma) { hyp = zufall(rng, 50, 250) / 10; an = zufall(rng, 20, Math.round(hyp * 10) - 5) / 10; }
+    else { hyp = zufall(rng, 8, 40); an = zufall(rng, 3, hyp - 2); }
+    const c = an / hyp, g = acosG(c);
+    const wb = sk ? KOS_SACH[sk].winkel : [20, 70];
+    if (g < wb[0] || g > wb[1]) continue;
+    if (Number.isInteger(r9(c * 10)) && st >= 2 && rng() < 0.7) continue;    // nicht zu oft glatt (0,5; 0,8)
+    const geg = r1(Math.sqrt(hyp * hyp - an * an));
+    if (geg <= 0 || Math.abs(geg - an) < 0.3) continue;
+    const drei = st >= 3;
+    const L = { hyp: lt(hyp, e), an: lt(an, e), ...(drei ? { geg: lt(geg, e) } : {}) };
+    const gegeben = drei ? [[bH, hyp], [bA, an], [bG, geg]] : [[bH, hyp], [bA, an]];
+    const optL = gegeben.slice().sort((x, y) => x[0].localeCompare(y[0])).map(([b, z]) => `${b} = ${lt(z, e)}`);
+    const rolle = (o) => o.startsWith(bH + ' ') ? 'hyp' : o.startsWith(bA + ' ') ? 'an' : 'geg';
+    const cw = r4(c), auch = cosWerte(c);
+    const winkelVar = [...new Set([cw, ...auch].map(x => r9(acosG(x))))].filter(x => Math.abs(x - r9(g)) > 1e-9);
+    const gr = r1(g);
+    const geg0 = sk ? KOS_SACH[sk] : null;
+    const zuerst = sk ? geg0.text(an, hyp, geg) : null;
+    const bruchText = (z, n) => Number.isInteger(z) && Number.isInteger(n) ? `${z}/${n}` : `${zahlText(z)} : ${zahlText(n)}`;
+    return neu('kosinus', [sk || (drei ? 'drei' : 'zwei'), bH, bA, bG, w === 'α' ? 'alpha' : 'beta', lage, an, hyp, ...(drei ? [geg] : [])], {
+      ...fest, form, stufe: drei ? 3 : 2,
+      ...(zuerst ? { geschichte: zuerst } : {}),
+      frage: sk ? `${geg0.frage(w)} Runde auf 1 Stelle nach dem Komma.` : `Berechne den Winkel ${w}. Runde auf 1 Stelle nach dem Komma.`,
+      bild: { form: 'dreieck', lage, an, geg: Math.sqrt(hyp * hyp - an * an), winkel: w, namen: { hyp: bH, an: bA, geg: bG }, laengen: L, ...(sk ? { deko: geg0.deko } : {}) },
+      schritte: [
+        { text: 'Welche Länge ist die Hypotenuse?', optionen: optL, richtig: optL.findIndex(o => rolle(o) === 'hyp'), rollen: optL.map(rolle), kos: 'hyp', ...(drei ? { zwei_versuche: true } : {}) },
+        { text: `Welche Länge ist die Ankathete zu ${w}?`, optionen: optL, richtig: optL.findIndex(o => rolle(o) === 'an'), rollen: optL.map(rolle), kos: 'an', ...(drei ? { zwei_versuche: true } : {}) },
+        { text: `cos ${w} = Ankathete : Hypotenuse =`, wert: cw, auch, toleranz: 0.00005, stellen: 4, kos: 'wert', an, hyp, ...(drei ? { gegl: geg } : {}) },
+        { text: `${w} ≈`, wert: gr, stellen: 1, genau: r9(g), ...(winkelVar.length ? { varianten: winkelVar } : {}), einheit: '°', kos: 'winkel', cos: c }
+      ],
+      loesungsweg: [`(1) cos ${w} = ${bA}\u2044${bH}`, `(2) cos ${w} = ${bruchText(an, hyp)} ${Number.isInteger(r9(c * 1e4)) ? '=' : '≈'} ${z4(cw)}`, `(3) 2nd cos ${z4(cw)} → ${w} ≈ ${zahlText(gr, 1)}°`],
+      erklaerung: `Die Hypotenuse liegt gegenüber vom rechten Winkel. Die Ankathete berührt den Winkel ${w}. cos ${w} = Ankathete : Hypotenuse. Für den Winkel: 2nd, dann cos.`
+    });
+  }
+  return null;
+}
+
 export const GENERATOREN = {
   'minus-plus': minusPlus, 'reihenfolge': reihenfolge, 'potenz': potenz, 'einmaleins': einmaleins, 'mal10': mal10,
   'prozent': prozent, 'baukasten': baukasten, 'runden': runden, 'bruch-bild': bruchBild, 'kugel': kugel, 'zylinder': zylinder,
-  'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte, 'prozent-formel': prozentFormel, 'kegel': kegel, 'pyramide': pyramide, 'kreisdiagramm': kreisdiagramm, 'quader': quader, 'zusammengesetzt': zusammengesetzt, 'daten': daten, 'saeulen': saeulen,
+  'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte, 'prozent-formel': prozentFormel, 'kegel': kegel, 'pyramide': pyramide, 'kreisdiagramm': kreisdiagramm, 'quader': quader, 'zusammengesetzt': zusammengesetzt, 'daten': daten, 'saeulen': saeulen, 'kosinus': kosinus,
   'zehnerpotenz': zehnerpotenz, 'einheiten': einheiten, 'gewichtskraft': gewichtskraft, 'gleichung': gleichung, 'formel-umstellen': formelUmstellen, 'dichte': dichte
 };
 
@@ -1299,7 +1411,7 @@ export const THEMA_GENERATOREN = {
   'minus-zahlen': ['minus-plus', 'minus-plus', 'reihenfolge'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'],
   'bruch-bild': ['bruch-bild'], 'zuordnung': ['bruch-bild'], 'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'],
   'prozent-formel': ['prozent-formel'], 'rabatt': ['prozent', 'baukasten'], 'neuer-preis': ['prozent', 'baukasten'], 'kreisdiagramm': ['kreisdiagramm'],
-  'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'daten': ['daten'], 'diagramm': ['saeulen'],
+  'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'daten': ['daten'], 'diagramm': ['saeulen'], 'kosinus': ['kosinus'],
   'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
 };
 export const MIX_GENERATOREN = ['einmaleins', 'potenz', 'mal10', 'prozent', 'runden', 'bruch-bild', 'minus-plus', 'reihenfolge', 'baukasten', 'einmaleins'];

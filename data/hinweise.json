@@ -474,6 +474,24 @@
       ],
       "beispiel": "6, 3, 8, 4 → Minimum 3, Maximum 8 → Spannweite 8 − 3 = 5",
       "fach": "mathe"
+    },
+    {
+      "nr": 25,
+      "id": "kosinus",
+      "titel": "Kosinus im rechtwinkligen Dreieck",
+      "symbol": "cos",
+      "farbe": "#9D174D",
+      "farbe_hell": "#FBE4EF",
+      "farbe_text": "#701A3D",
+      "regeln": [
+        "cos α = Ankathete : Hypotenuse",
+        "Hypotenuse liegt gegenüber vom rechten Winkel. Sie ist die längste Seite.",
+        "Ankathete berührt den Winkel α.",
+        "1. Hypotenuse finden 2. Ankathete finden 3. cos α = Ankathete : Hypotenuse",
+        "Winkel: 2nd cos 0,75 = → α ≈ 41,4°"
+      ],
+      "beispiel": "Merke: cos 0° = 1, cos 60° = 0,5, cos 90° = 0",
+      "fach": "mathe"
     }
   ]
 }

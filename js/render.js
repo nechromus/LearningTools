@@ -15,6 +15,7 @@ export function bruchHtml(z, n, gross = false) {
 export function mathe(text) {
   return esc(text)
     .replace(/(\d+)\/(\d+)/g, (_, z, n) => bruchHtml(z, n))
+    .replace(/([A-Za-zÄÖÜäöü]+)\u2044([A-Za-zÄÖÜäöü]+)/g, (_, z, n) => bruchHtml(z, n))   // Buchstaben-Bruch mit ⁄ (Kosinus: b⁄c)
     .replace(/(^|[\s(→=])([WGp])\/(\d+|[WGp])(?![\w\/])/g, (_, v, z, n) => v + bruchHtml(z, n))   // Prozentformel W/p = G/100 (Auftrag 47)
     .replace(/\bA_([GMO])\b/g, 'A<sub>$1</sub>')
     .replace(/\bV_(Quader|Kegel|Würfel)(?![\wäöüß])/g, 'V<sub>$1</sub>')
@@ -23,9 +24,10 @@ export function mathe(text) {
     .replace(/(\d) (€|cm|m(?![a-zäöüß])|%|Min\.)/g, '$1\u00A0$2');
 }
 
-export function formatWert(wert, einheit) {
+export function formatWert(wert, einheit, stellen = null) {
   let t;
-  if (einheit === '€' && !Number.isInteger(wert)) t = wert.toFixed(2);
+  if (stellen != null) t = wert.toFixed(stellen);   // feste Stellen (Kosinus: 4 nach dem Komma)
+  else if (einheit === '€' && !Number.isInteger(wert)) t = wert.toFixed(2);
   else t = String(Math.round(wert * 1000) / 1000);
   t = t.replace('-', '−').replace('.', ',');
   return einheit ? `${t} ${einheit}` : t;
@@ -47,6 +49,7 @@ function torte(cx, cy, r, start, ende, fill) {
 export function bildSvg(bild, klein = false) {
   if (!bild) return '';
   const f = bild.form;
+  if (f === 'dreieck') return dreieckSvg(bild);
   if (f === 'streifen') {
     const n = bild.teile, w = klein ? 150 : 300, h = klein ? 30 : 48, tw = (w - 4) / n;
     let s = '';
@@ -407,4 +410,96 @@ export function saeulenSvg(bild, { h = null, tippbar = false, achseZeigen = true
   }
   const titel = bild.titel ? `<div class="saeulen-titel">${esc(bild.titel)}</div>` : '';
   return `${titel}<svg class="saeulen-svg" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Säulendiagramm: ${esc(kat.map((k, i) => `${k} ${bild.fehlt === i ? 'fehlt' : ws[i]}`).join(', '))}">${s}</svg>`;
+}
+
+// ---------- Rechtwinkliges Dreieck (Kosinus, Auftrag 55) ----------
+// bild: { form: 'dreieck', lage (0–9 oder 'sach'), an, geg (Längen fürs Bild), winkel ('α'), namen {hyp, an, geg},
+//         laengen? {hyp, an, geg} (Text neben dem Buchstaben), deko? ('boden' | 'wand'), farbig? (Merkbild: Hypotenuse blau, Ankathete rot) }
+// Lagen 0–3: um 0/90/180/270° gedreht, 4–7 dazu gespiegelt, 8/9: Hypotenuse waagerecht (rechter Winkel oben/unten), 'sach': Boden unten, rechter Winkel rechts.
+export const KOS_BLAU = '#1D4ED8', KOS_ROT = '#C2410C';
+export function dreieckLage(bild) {
+  const an = bild.an || 4, geg = bild.geg || 3;
+  let P = { R: [0, 0], W: [an, 0], T: [0, geg] };
+  const lage = bild.lage;
+  const dreh = (p, f) => [p[0] * Math.cos(f) - p[1] * Math.sin(f), p[0] * Math.sin(f) + p[1] * Math.cos(f)];
+  const alle = (f) => { for (const k in P) P[k] = f(P[k]); };
+  if (lage === 'sach') alle(p => [-p[0], p[1]]);
+  else if (lage === 8 || lage === 9) {
+    const phi = Math.atan2(P.T[1] - P.W[1], P.T[0] - P.W[0]);
+    alle(p => dreh(p, -phi));
+    const oben = P.R[1] > P.W[1];
+    if ((lage === 8) !== oben) alle(p => dreh(p, Math.PI));
+  } else {
+    const l = Number(lage) || 0;
+    if (l >= 4) alle(p => [-p[0], p[1]]);
+    alle(p => dreh(p, (l % 4) * Math.PI / 2));
+  }
+  return P;
+}
+export function dreieckSvg(bild, { breite = 330, hoehe = 220 } = {}) {
+  const P0 = dreieckLage(bild);
+  const xs = Object.values(P0).map(p => p[0]), ys = Object.values(P0).map(p => -p[1]);
+  const bx = Math.min(...xs), by = Math.min(...ys), bw = Math.max(...xs) - bx, bh = Math.max(...ys) - by;
+  // 1. Durchgang: wie weit ragen die Beschriftungen über das Dreieck hinaus? 2. Durchgang: so groß wie möglich
+  const s1 = Math.min((breite - 120) / bw, (hoehe - 60) / bh);
+  const z1 = dreieckZeichnen(bild, P0, bx, by, s1, 0, 0);
+  const ueL = Math.max(8, -z1.box[0]), ueR = Math.max(8, z1.box[1] - bw * s1), ueO = Math.max(8, -z1.box[2]), ueU = Math.max(8, z1.box[3] - bh * s1);
+  const s = Math.min((breite - ueL - ueR) / bw, (hoehe - ueO - ueU) / bh);
+  const z = dreieckZeichnen(bild, P0, bx, by, s, ueL, ueO);
+  const w = Math.round(bw * s + ueL + ueR), h = Math.round(bh * s + ueO + ueU);
+  const n = bild.namen || { hyp: 'c', an: 'b', geg: 'a' };
+  const label = `Rechtwinkliges Dreieck. Rechter Winkel zwischen ${n.an} und ${n.geg}. Winkel ${bild.winkel || 'α'} zwischen ${n.an} und ${n.hyp}.`;
+  return svg(w, h, z.inhalt, label);
+}
+function dreieckZeichnen(bild, P0, bx, by, s, ox, oy) {
+  const P = {}, box = [Infinity, -Infinity, Infinity, -Infinity];
+  const merke = (x0, x1, y0, y1) => { box[0] = Math.min(box[0], x0 - ox); box[1] = Math.max(box[1], x1 - ox); box[2] = Math.min(box[2], y0 - oy); box[3] = Math.max(box[3], y1 - oy); };
+  for (const k in P0) P[k] = [ox + (P0[k][0] - bx) * s, oy + (-P0[k][1] - by) * s];
+  const f = (x) => Math.round(x * 10) / 10;
+  const M = [(P.R[0] + P.W[0] + P.T[0]) / 3, (P.R[1] + P.W[1] + P.T[1]) / 3];
+  const einh = (a, b) => { const d = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / d, (b[1] - a[1]) / d]; };
+  const n = bild.namen || { hyp: 'c', an: 'b', geg: 'a' }, L = bild.laengen || {};
+  const farbe = { hyp: bild.farbig ? KOS_BLAU : LINIE, an: bild.farbig ? KOS_ROT : LINIE, geg: LINIE };
+  const seiten = { hyp: [P.W, P.T], an: [P.R, P.W], geg: [P.R, P.T] };
+  let inhalt = '';
+  // Deko: Boden (Rampe, Dach) bzw. Boden und Wand (Leiter)
+  if (bild.deko) {
+    const [a, b] = seiten.an, y = Math.max(a[1], b[1]) + 1.5;
+    inhalt += `<line x1="${f(Math.min(a[0], b[0]) - 22)}" y1="${f(y)}" x2="${f(Math.max(a[0], b[0]) + 22)}" y2="${f(y)}" stroke="#8A7F6A" stroke-width="3"/>`;
+    if (bild.deko === 'wand') inhalt += `<rect x="${f(P.R[0])}" y="${f(P.T[1] - 10)}" width="10" height="${f(P.R[1] - P.T[1] + 11)}" fill="#E7E1D3" stroke="#8A7F6A" stroke-width="1.5"/>`;
+  }
+  for (const k of ['geg', 'an', 'hyp']) {
+    const [a, b] = seiten[k];
+    inhalt += `<line x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(b[0])}" y2="${f(b[1])}" stroke="${farbe[k]}" stroke-width="${bild.farbig && k !== 'geg' ? 4.5 : 2.5}" stroke-linecap="round"/>`;
+  }
+  // rechter Winkel: kleines Quadrat mit Punkt
+  const u = einh(P.R, P.W), v = einh(P.R, P.T), q = 15;
+  const pt = (k1, k2) => `${f(P.R[0] + u[0] * k1 + v[0] * k2)},${f(P.R[1] + u[1] * k1 + v[1] * k2)}`;
+  inhalt += `<polyline points="${pt(q, 0)} ${pt(q, q)} ${pt(0, q)}" fill="none" stroke="${LINIE}" stroke-width="1.6"/>`;
+  const dp = pt(q / 2, q / 2).split(',');
+  inhalt += `<circle cx="${dp[0]}" cy="${dp[1]}" r="2" fill="${LINIE}"/>`;
+  // gesuchter Winkel: Bogen und Name
+  const a1 = einh(P.W, P.R), a2 = einh(P.W, P.T), rb = 28;
+  const kreuz = a1[0] * a2[1] - a1[1] * a2[0];
+  inhalt += `<path d="M ${f(P.W[0] + a1[0] * rb)} ${f(P.W[1] + a1[1] * rb)} A ${rb} ${rb} 0 0 ${kreuz > 0 ? 1 : 0} ${f(P.W[0] + a2[0] * rb)} ${f(P.W[1] + a2[1] * rb)}" fill="none" stroke="${LINIE}" stroke-width="1.6"/>`;
+  inhalt += `<path d="M ${f(P.W[0])} ${f(P.W[1])} L ${f(P.W[0] + a1[0] * rb)} ${f(P.W[1] + a1[1] * rb)} A ${rb} ${rb} 0 0 ${kreuz > 0 ? 1 : 0} ${f(P.W[0] + a2[0] * rb)} ${f(P.W[1] + a2[1] * rb)} Z" fill="#F6D88E" fill-opacity="0.55" stroke="none"/>`;
+  const bi = einh([0, 0], [a1[0] + a2[0], a1[1] + a2[1]]);
+  inhalt += `<text x="${f(P.W[0] + bi[0] * 44)}" y="${f(P.W[1] + bi[1] * 44 + 6)}" text-anchor="middle" font-size="19" font-style="italic" fill="${LINIE}">${esc(bild.winkel || 'α')}</text>`;
+  // Seiten beschriften: außen neben der Mitte
+  for (const k of ['hyp', 'an', 'geg']) {
+    const [a, b] = seiten[k], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    let no = [-(b[1] - a[1]), b[0] - a[0]];
+    const d = Math.hypot(...no) || 1; no = [no[0] / d, no[1] / d];
+    if ((m[0] - M[0]) * no[0] + (m[1] - M[1]) * no[1] < 0) no = [-no[0], -no[1]];
+    const ab = bild.deko === 'wand' && k === 'geg' ? 26 : 14;
+    const x = m[0] + no[0] * ab, y = m[1] + no[1] * ab + 6 + (no[1] > 0.5 ? 6 : no[1] < -0.5 ? -4 : 0);
+    const anker = no[0] > 0.35 ? 'start' : no[0] < -0.35 ? 'end' : 'middle';
+    const txt = `<tspan font-style="italic">${esc(n[k])}</tspan>${L[k] ? ` = ${esc(String(L[k]))}` : ''}`;
+    const fs = bild.farbig ? 15 : 17, tw = (String(n[k]).length + (L[k] ? String(L[k]).length + 3 : 0)) * fs * 0.56;
+    const x0 = anker === 'start' ? x : anker === 'end' ? x - tw : x - tw / 2;
+    merke(x0 - 4, x0 + tw + 4, y - fs - 2, y + 6);
+    inhalt += `<text x="${f(x)}" y="${f(y)}" text-anchor="${anker}" font-size="${fs}" font-weight="${bild.farbig && k !== 'geg' ? 700 : 400}" fill="${farbe[k] === LINIE ? LINIE : farbe[k]}">${txt}</text>`;
+  }
+  if (bild.deko) merke(Math.min(P.R[0], P.W[0]) - 24, Math.max(P.R[0], P.W[0]) + (bild.deko === 'wand' ? 12 : 24), P.T[1] - 12, Math.max(P.R[1], P.W[1]) + 4);
+  return { inhalt, box };
 }

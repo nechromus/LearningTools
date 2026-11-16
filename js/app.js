@@ -3,7 +3,7 @@ import * as L from './logic.js';
 import * as G from './gen.js';
 import * as U from './sync.js';
 import * as FU from './formeluebersicht.js';
-import { esc, mathe, bruchHtml, bildSvg, linienSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck, stellentafelHtml, tabelleHtml, saeulenSvg } from './render.js';
+import { esc, mathe, bruchHtml, bildSvg, linienSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck, stellentafelHtml, tabelleHtml, saeulenSvg, dreieckSvg } from './render.js';
 import * as GF from './gefaerbt.js';
 import { THEMA_NAMEN, GEN_NAMEN, FEHLER_NAMEN } from './namen.js';
 import * as P from './paket.js';
@@ -35,7 +35,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.49.0';
+export const APP_VERSION = '2.50.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1492,7 +1492,7 @@ function schritteVon(liste, thema) {
     ? { art: 'saeule', label: s.text, ziel: { wert: s.wert }, quelle: s }
     : s.optionen
     ? { art: 'wahl', label: s.text, optionen: L.KOERPER_THEMEN.includes(thema) ? s.optionen.map(L.mitKuerzel) : s.optionen, richtig: s.richtig, quelle: s, formel: !s.fs_html && s.optionen.every(o => /=/.test(o)), ...(s.fs_html ? { fsHtml: s.fs_html } : {}), ...(s.zwei_versuche ? { zweiVersuche: true } : {}) }
-    : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden, gueltige: s.gueltige_ziffern || undefined, genau: s.genau, varianten: s.varianten, abgeschnitten: s.abgeschnitten, auch: s.auch }, einheit: s.einheit || '', quelle: s });
+    : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden, gueltige: s.gueltige_ziffern || undefined, genau: s.genau, varianten: s.varianten, abgeschnitten: s.abgeschnitten, auch: s.auch, stellen: s.stellen }, einheit: s.einheit || '', quelle: s });
 }
 
 function hauptTeile(a) {
@@ -1567,6 +1567,8 @@ function erzeuge(g, stufe, opts = {}) {
   // Auftrag 54: Daten und Säulendiagramm Stufe 2 erst ab freigaben.daten_2 / diagramm_2
   if (g === 'daten' && !L.freigegeben(S, 'daten_2', L.tagKey())) stufe = 1;
   if (g === 'saeulen' && !L.freigegeben(S, 'diagramm_2', L.tagKey())) stufe = 1;
+  // Auftrag 55: Kosinus Stufe 3 (drei Längen, Sachtexte) erst ab freigaben.kosinus_2
+  if (g === 'kosinus' && !L.freigegeben(S, 'kosinus_2', L.tagKey())) stufe = Math.min(stufe, 2);
   let a;
   for (let i = 0; i < 8; i++) {
     a = G.GENERATOREN[g](stufe, Math.random, opts);
@@ -1674,7 +1676,7 @@ const TEST_GEN = {
   'minus-zahlen': ['minus-plus', 'geld-geschichte'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'], 'bruch-bild': ['bruch-bild'],
   'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'prozent-formel': ['prozent-formel'], 'kreisdiagramm': ['kreisdiagramm'], 'rabatt': ['rabatt-geschichte'], 'neuer-preis': ['rabatt-geschichte'],
   'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'],
-  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte'], 'daten': ['daten'], 'diagramm': ['saeulen']
+  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte'], 'daten': ['daten'], 'diagramm': ['saeulen'], 'kosinus': ['kosinus']
 };
 const testFokus = () => (S.upload.testgeraet && S.testFokus && (L.THEMEN.includes(S.testFokus.thema) || S.testFokus.thema === 'formelsammlung') ? S.testFokus : null);
 
@@ -2283,6 +2285,7 @@ function neueAufgabe() {
   zeigeAufgabe();
   malMerkzettel();
   bzErklaerungEinmal();
+  kosMerkzettel();
   // Fehler-Detektiv: beim ersten Mal die Einführungskarte, danach nur über „?“
   if (aufgabe.typ === 'detektiv' && !S.detektivGesehen) { S.detektivGesehen = true; protokoll(S, 'detektiv_einfuehrung', { id: aufgabe.id }); sichern(); detektivEinfuehrung(); }
 }
@@ -3214,6 +3217,22 @@ function malMerkzettel() {
     <p class="mal-falle">Und: r² heißt r · r. Nicht r · 2.</p>
     <button class="btn btn-haupt" data-act="malVerstanden">Verstanden</button></div>`);
 }
+// Merkzettel Kosinus (Auftrag 55): einmal vor der ersten Kosinus-Aufgabe, danach über den Hinweis (Karte 25)
+function kosMerkzettel() {
+  const a = A && A.aufgabe;
+  if (!a || a.thema !== 'kosinus' || S.verlauf.kosMerk || $modal.classList.contains('offen')) return;
+  S.verlauf.kosMerk = true;
+  protokoll(S, 'merkzettel', { art: 'kosinus', aktion: 'gezeigt', id: a.id, ...hb('merkzettel.kosinus') });
+  sichern();
+  const bild = dreieckSvg({ lage: 4, an: 6, geg: 3.5, winkel: 'α', farbig: true, namen: { hyp: 'Hypotenuse', an: 'Ankathete', geg: 'Gegenkathete' } });
+  oeffneModal(`<div class="hinweis-text kos-merk"><div class="merk-titel">Merkzettel</div><h2 class="modal-titel">Seiten im rechtwinkligen Dreieck</h2>
+    <div class="kos-bild">${bild}</div>
+    <p>Die <span class="kos-blau">Hypotenuse</span> liegt gegenüber vom rechten Winkel. Sie ist die längste Seite.</p>
+    <p>Die <span class="kos-rot">Ankathete</span> berührt den Winkel α.</p>
+    <p>Die Gegenkathete liegt gegenüber vom Winkel α.</p>
+    <p class="kos-regel"><b>cos α = ${bruchHtml('Ankathete', 'Hypotenuse')}</b></p>
+    <button class="btn btn-haupt" data-act="kosVerstanden">Verstanden</button></div>`);
+}
 function fsLoesen() {
   if (!A || !A.fsPin) return;
   protokoll(S, 'formelsammlung', { aktion: 'entfernen', kasten: A.fsPin.kasten, zeile: A.fsPin.zeile, aufgabe: A.aufgabe.id, schritt: A.idx });
@@ -3321,7 +3340,7 @@ function teileHtml() {
           + (t.rundenTipp && A.phase === 'eingabe' && !t.versuche.length ? '<div class="lese-tipp runden-tipp">Die Zahl hat schon 1 Stelle nach dem Komma. Sie ist fertig gerundet. Schreib sie noch einmal ab.</div>' : '');
       } else {
         const ok = t.versuche.find(v => v.richtig);
-        const zeigen = ok ? `${eingabeText(ok.eingabe)}${t.einheit ? ' ' + t.einheit : ''}` : formatWert(t.ziel.wert, t.einheit);
+        const zeigen = ok ? `${eingabeText(ok.eingabe)}${t.einheit ? ' ' + t.einheit : ''}` : formatWert(t.ziel.wert, t.einheit, t.ziel.stellen);
         inhalt = `${label}<div class="feld-zeile">${erledigtWert(t, zeigen)}${t.fsLob ? '<span class="fs-lob">Gut nachgeschlagen!</span>' : ''}</div>`;
       }
     } else if (t.art === 'zp') {
@@ -3436,7 +3455,7 @@ function loesungText(t) {
   if (t.art === 'zp') return esc(PH.potenzText(t.antwort.mantisse, t.antwort.exponent, t.antwort.gueltige_ziffern || null) + (t.einheit ? ' ' + t.einheit : ''));
   if (t.art === 'formel') return formelText(`${t.antwort.ziel} = ${t.antwort.formel}`);
   if (t.art === 'zahl' && t.ziel.gueltige) return esc(PH.potenzText(PH.zerlege(t.ziel.wert).m, PH.zerlege(t.ziel.wert).e, t.ziel.gueltige) + (t.einheit ? ' ' + t.einheit : '')) + ` <span class="klein">(≈ ${esc(formatWert(PH.aufZiffern(t.ziel.wert, t.ziel.gueltige), t.einheit))})</span>`;
-  if (t.art === 'zahl') return esc(formatWert(t.ziel.wert, t.einheit));
+  if (t.art === 'zahl') return esc(formatWert(t.ziel.wert, t.einheit, t.ziel.stellen));
   if (t.art === 'bruch' && t.pf) return `${bruchHtml('W', t.antwort.nenner)} = ${bruchHtml(t.antwort.zaehler, '100')}`;
   if (t.art === 'bruch') return bruchHtml(t.antwort.zaehler, t.antwort.nenner);
   if (t.art === 'linien') return 'Die Linien siehst du jetzt im Bild.';
@@ -4161,7 +4180,7 @@ function hinweisOeffnen(id) {
   }
   // Stufe „Gleich lang“: sofort der lange Hinweis, ohne Kosten.
   // Hinweis 23 „Prozent mit Formel“ (Auftrag 47): immer gleich die Karte, denn die Formelübersicht zeigt W/G = p/100, die Formelsammlung W/p = G/100.
-  if (langStufe() === 0 || id === 'formel' || id === 'daten') {
+  if (langStufe() === 0 || id === 'formel' || id === 'daten' || id === 'kosinus') {
     protokoll(S, 'hinweis_lang', { hinweis: id, stufe: 0, kosten: 'keine', id: aufgabeId(), ...hb(id) });
     sichern();
     return oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);
@@ -4214,6 +4233,10 @@ function rechnerOeffnen() {
 }
 
 const R_TASTEN = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', ',', 'π', '=', 'x²', 'x³', 'xⁿ', '√', '⌫'];
+// Kosinus (Auftrag 55): cos und cos⁻¹ (auf dem Schulrechner „2nd cos“) statt x³ und xⁿ, immer in Grad (DEG)
+const R_TASTEN_KOS = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', ',', 'π', '=', 'x²', 'cos', 'cos⁻¹', '√', '⌫'];
+const rTasten = () => (A && A.aufgabe && A.aufgabe.thema === 'kosinus' ? R_TASTEN_KOS : R_TASTEN);
+const rTasteText = (k) => (k === 'cos⁻¹' ? 'cos⁻¹<small>2nd cos</small>' : esc(k));
 // xⁿ: danach getippte Ziffern (und ein Minus am Anfang) werden hochgestellt, bis ein anderes Zeichen kommt
 const HOCH_Z = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
 
@@ -4227,7 +4250,7 @@ function rechnerPanelHtml(t) {
   <div class="rechner-panel">
     <div class="r-kopf">${schritt}<button class="r-einklappen" data-act="rEinklappen" aria-label="Taschenrechner einklappen">▼</button></div>
     <div class="rechner-anzeige"><div class="rechner-ausdruck">${esc(r.ausdruck) || '&nbsp;'}</div><div class="rechner-ergebnis">${esc(anzeige) || '&nbsp;'}</div></div>
-    <div class="rechner-tasten">${R_TASTEN.map(k => `<button class="r-taste${'÷×−+'.includes(k) && k.length === 1 ? ' r-op' : ''}${k === '=' ? ' r-gleich' : ''}" data-act="rTaste" data-k="${k}">${k}</button>`).join('')}
+    <div class="rechner-tasten">${rTasten().map(k => `<button class="r-taste${'÷×−+'.includes(k) && k.length === 1 ? ' r-op' : ''}${k === '=' ? ' r-gleich' : ''}${k.startsWith('cos') ? ' r-cos' : ''}" data-act="rTaste" data-k="${k}">${rTasteText(k)}</button>`).join('')}
       <button class="r-taste r-uebernehmen" data-act="rUebernehmen" ${rechnerWert() == null || !t || t.art !== 'zahl' ? 'disabled' : ''}>Eintragen</button>
     </div>
     ${t && t.art === 'zahl' ? '<button class="btn btn-haupt r-antwort" data-act="antwort">Antwort geben</button>' : ''}
@@ -4259,19 +4282,19 @@ function rechnerTaste(k) {
   if (!r) return;
   if (k !== 'xⁿ' && !(HOCH_Z[k] || k === '−') && k !== '⌫') r.hoch = false;
   if (k === 'C') { r.ausdruck = ''; r.ergebnis = null; r.hoch = false; }
-  else if (k === '⌫') { r.ausdruck = r.ausdruck.slice(0, -1); }
+  else if (k === '⌫') { r.ausdruck = /cos⁻¹\($|cos\($/.test(r.ausdruck) ? r.ausdruck.replace(/cos(⁻¹)?\($/, '') : r.ausdruck.slice(0, -1); }
   else if (k === '=') {
     r.ergebnis = L.rechne(r.ausdruck);
     protokoll(S, 'rechner', { id: A.aufgabe.id, teil: A.idx, ausdruck: r.ausdruck, ergebnis: r.ergebnis });
     sichern();
   } else {
-    if (r.ergebnis != null && /^[0-9,π(]$/.test(k)) r.ausdruck = '';
+    if (r.ergebnis != null && (/^[0-9,π(]$/.test(k) || k.startsWith('cos'))) r.ausdruck = '';
     else if (r.ergebnis != null && (/^[÷×−+]$/.test(k) || ['x²', 'x³', 'xⁿ'].includes(k))) r.ausdruck = L.formatRechnerZahl(r.ergebnis);
     r.ergebnis = null;
     if (k === 'xⁿ') { r.hoch = true; r.hochLeer = true; }
     else if (r.hoch && HOCH_Z[k]) { r.ausdruck += HOCH_Z[k]; r.hochLeer = false; }
     else if (r.hoch && k === '−' && r.hochLeer) { r.ausdruck += '⁻'; r.hochLeer = false; }
-    else { r.hoch = false; r.ausdruck += k === 'x²' ? '²' : k === 'x³' ? '³' : k; }
+    else { r.hoch = false; r.ausdruck += k === 'x²' ? '²' : k === 'x³' ? '³' : k === 'cos' ? 'cos(' : k === 'cos⁻¹' ? 'cos⁻¹(' : k; }
   }
   rechnerAnzeigeAktualisieren();
 }
@@ -5711,6 +5734,7 @@ function klick(e) {
     case 'bzInfo': bzErklaerung(true); break;
     case 'bzVerstanden': protokoll(S, 'merkzettel', { art: 'bildschirm_stufen', aktion: 'verstanden' }); sichern(); schliesseModal(); break;
     case 'bzFeierFertig': { const f = el.closest('.bz-feier') || el; f.classList.add('ende'); break; }
+    case 'kosVerstanden': protokoll(S, 'merkzettel', { art: 'kosinus', aktion: 'verstanden', id: A && A.aufgabe ? A.aufgabe.id : null }); sichern(); schliesseModal(); break;
     case 'malVerstanden': protokoll(S, 'merkzettel', { art: 'malzeichen', aktion: 'verstanden', id: A && A.aufgabe ? A.aufgabe.id : null }); sichern(); schliesseModal(); break;
     case 'mehrHilfe': mehrHilfe(el.dataset.id); break;
     case 'formelSeite': formelSeite(Number(el.dataset.s)); break;

@@ -83,6 +83,14 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
   if (aufgabe.thema === 'zusammengesetzt' && /^Wie breit ist der Kegel/.test(frage)) return { typ: 'kegel-breite-bild', text: 'Der größte Kegel geht oben von Rand zu Rand. Er ist so breit wie der Würfel: d = a.' };
   if (aufgabe.thema === 'zusammengesetzt' && /^Zusammenz/.test(frage)) return { typ: 'zusammen-statt-abziehen', text: 'Der Kegel ist ausgeschnitten. Er fehlt. Also abziehen.' };
   if (aufgabe.thema === 'zusammengesetzt' && /^Wie hoch ist der Kegel/.test(frage)) return { typ: 'kegel-hoehe-bild', text: `Schau ins Bild: Die Spitze berührt den Boden. Also ist der Kegel so hoch wie der ${aufgabe.form === 'wuerfel-kegel' ? 'Würfel' : 'Quader'}.` };
+  // Kosinus (Auftrag 55): Seite gewählt
+  if (aufgabe.thema === 'kosinus' && Array.isArray(teil.rollen)) {
+    const r = teil.rollen[gewaehlt];
+    if (teil.kos === 'hyp') return KOS_TIPP.hyp;
+    const n = (aufgabe.bild && aufgabe.bild.winkel) || 'α';
+    if (teil.kos === 'an') return r === 'hyp' ? KOS_TIPP.hyp : kosGeg(n);
+    if (teil.kos === 'bruch') return r === 'geg' ? kosGeg(n) : r === 'kehr' ? KOS_TIPP.kehr : KOS_TIPP.hyp;
+  }
   // „Was ist G, p und W?“ (Auftrag 47)
   if (aufgabe.form === 'gpw') {
     // Reihenfolge der Knöpfe immer G, p, W; „? (gesucht)“ steht beim Gesuchten (Auftrag 54: auch p oder G)
@@ -99,6 +107,42 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
   if (aufgabe.thema === 'diagramm' && teil.achse) return { typ: 'achse-beschriftung', text: 'An der Achse links stehen die Zahlen. Sie zählen, wie viele es sind.' };
   // Zylinder „Was wird gesucht?“ mit vier Möglichkeiten (Auftrag 30)
   if (aufgabe.form === 'gesucht4' && /gesucht/.test(frage)) return { typ: 'zylinder-gesucht', text: '„passt hinein“ → V (Volumen). „rund herum“ → A_M (Mantel). „alles außen, mit Deckel und Boden“ → A_O (Oberfläche). „der Boden“ → A_G (Grundfläche).' };
+  return null;
+}
+// Kosinus (Auftrag 55): Tipps kurz und wörtlich wie auf der Karte
+const KOS_TIPP = {
+  hyp: { typ: 'cos-hypotenuse', text: 'Die Hypotenuse liegt gegenüber vom rechten Winkel.' },
+  kehr: { typ: 'cos-kehrwert', text: 'cos = Ankathete : Hypotenuse. Die Hypotenuse steht unten.' },
+  wert: { typ: 'cos-wert-statt-winkel', text: 'Das ist der cos-Wert. Für den Winkel: 2nd, dann cos.' },
+  umkehr: { typ: 'cos-statt-umkehr', text: 'Für den Winkel: 2nd, dann cos.' },
+  rad: { typ: 'cos-rad', text: 'Dein Rechner rechnet nicht in Grad. Stell ihn auf DEG.' }
+};
+const kosGeg = (n = 'α') => ({ typ: 'cos-gegenkathete', text: `Die Ankathete berührt den Winkel ${n}.` });
+const kosNah = (a, b, d = 0.01) => Number.isFinite(b) && Math.abs(a - b) <= d;
+const KG = Math.PI / 180;
+function kosFehler(teil, w, n) {
+  if (teil.kos === 'wert' && teil.hyp) {
+    const an = teil.an, hyp = teil.hyp, geg = teil.gegl;
+    if (kosNah(w, teil.wert)) return null;
+    if (kosNah(w, hyp / an)) return KOS_TIPP.kehr;
+    if (geg != null && kosNah(w, geg / hyp)) return kosGeg(n);
+    if (geg != null && (kosNah(w, an / geg) || kosNah(w, geg / an))) return KOS_TIPP.hyp;
+    if (geg != null && kosNah(w, hyp / geg)) return KOS_TIPP.kehr;
+    return null;
+  }
+  if (teil.kos === 'winkel' || teil.kos === 'umkehr') {
+    const c = teil.cos, g = Math.acos(c) / KG;
+    if (kosNah(w, teil.wert, 0.06)) return null;
+    if (kosNah(w, c, 0.006)) return KOS_TIPP.wert;
+    if (kosNah(w, Math.cos(c * KG), 0.001) || kosNah(w, Math.cos(c), 0.001)) return KOS_TIPP.umkehr;
+    if (kosNah(w, Math.acos(c), 0.006)) return KOS_TIPP.rad;
+    if (teil.kos === 'winkel' && kosNah(w, 90 - g, 0.15)) return kosGeg(n);
+    return null;
+  }
+  if (teil.kos === 'cos' && teil.grad != null) {
+    if (kosNah(w, teil.wert, 0.006)) return null;
+    if (kosNah(w, Math.cos(teil.grad), 0.006)) return KOS_TIPP.rad;
+  }
   return null;
 }
 // Prozent mit Formel: G und p aus den Parametern (direkt|rabatt: [art, G, p, …], text: [art, k, G, p, …])
@@ -146,6 +190,11 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
     if (gleich(w, a - (c - b)) || (/^Klammer/.test(ttx) && gleich(w, c - b))) return { typ: 'klammer-negativ', text: 'Erst die Klammer ausrechnen. Was kommt in der Klammer heraus?' };
   }
 
+  // Kosinus (Auftrag 55)
+  if (aufgabe.thema === 'kosinus' && teil && teil.kos) {
+    const f = kosFehler(teil, w, (aufgabe.bild && aufgabe.bild.winkel) || 'α');
+    if (f) return f;
+  }
   // Daten (Auftrag 54): Minimum, Maximum, Spannweite aus einer Tabelle
   if (aufgabe.thema === 'daten' && aufgabe.bild && Array.isArray(aufgabe.bild.werte) && teil) {
     const ws = aufgabe.bild.werte, mn = Math.min(...ws), mx = Math.max(...ws), rand = [ws[0], ws[ws.length - 1]];
@@ -584,7 +633,7 @@ export function muehGruppe(a, { umformen = false, gruppen = null } = {}) {
   if (a.thema === 'formelsammlung') return 'kurz';                         // „Finde es“ (Auftrag 40)
   if (a.form === 'gpw') return 'kurz';                                      // „Was ist G, p und W?“ (Auftrag 47)
   if (a.thema === 'quader') return 'normal';                               // Quader-Volumen (Auftrag 43)
-  if (a.thema === 'daten' || a.thema === 'diagramm') return (a.stufe || 1) >= 2 ? 'normal' : 'kurz'; // Auftrag 54
+  if (a.thema === 'daten' || a.thema === 'diagramm' || a.thema === 'kosinus') return (a.stufe || 1) >= 2 ? 'normal' : 'kurz'; // Auftrag 54, 55
   if (KOERPER.includes(a.thema) || a.typ === 'detektiv' || a.modus === 'knobeln') return 'schwer';
   if (a.typ === 'auswahl') return 'normal';
   if (a.fach === 'physik' && a.geschichte) return 'schwer';                 // Physik-Geschichten
@@ -724,7 +773,10 @@ export function mischen(arr, rng = Math.random) {
 
 const HOCH = '⁰¹²³⁴⁵⁶⁷⁸⁹⁻';
 export function rechne(ausdruck) {
-  const s = (ausdruck || '').replace(/\s+/g, '');
+  let s = (ausdruck || '').replace(/\s+/g, '');
+  // offene Klammern am Ende schließen (cos(35 = cos(35))
+  const offen = (s.match(/\(/g) || []).length - (s.match(/\)/g) || []).length;
+  if (offen > 0 && /\(/.test(s)) s += ')'.repeat(offen);
   const tokens = [];
   let i = 0;
   while (i < s.length) {
@@ -737,6 +789,8 @@ export function rechne(ausdruck) {
       tokens.push({ t: 'n', v: Number(zahl) });
       i = j;
     } else if (c === 'π') { tokens.push({ t: 'n', v: Math.PI }); i++; }
+    else if (s.startsWith('cos⁻¹', i)) { tokens.push({ t: 'fn', f: 'acos' }); i += 5; }   // Kosinus in Grad (Auftrag 55)
+    else if (s.startsWith('cos', i)) { tokens.push({ t: 'fn', f: 'cos' }); i += 3; }
     else if (HOCH.includes(c)) {
       // Hochzahl aus hochgestellten Ziffern (x², x³ und xⁿ): ²³, ⁸, ¹², ⁻³
       let j = i, z = '';
@@ -755,7 +809,7 @@ export function rechne(ausdruck) {
   const mit = [];
   for (const tk of tokens) {
     const prev = mit[mit.length - 1];
-    if (prev && (prev.t === 'n' || prev.t === ')' || prev.t === 'post') && (tk.t === 'n' || tk.t === '(' || tk.t === 'wurzel')) {
+    if (prev && (prev.t === 'n' || prev.t === ')' || prev.t === 'post') && (tk.t === 'n' || tk.t === '(' || tk.t === 'wurzel' || tk.t === 'fn')) {
       mit.push({ t: 'op', v: '*' });
     }
     mit.push(tk);
@@ -772,6 +826,12 @@ export function rechne(ausdruck) {
     else if (tk.t === 'op' && tk.v === '-') return -primaer();
     else if (tk.t === 'op' && tk.v === '+') return primaer();
     else if (tk.t === 'wurzel') { const w = primaer(); if (w < 0) throw 0; return Math.sqrt(w); }
+    else if (tk.t === 'fn') {
+      const x = primaer();
+      if (tk.f === 'cos') return Math.round(Math.cos(x * Math.PI / 180) * 1e12) / 1e12;
+      if (x < -1 || x > 1) throw 0;
+      return Math.round(Math.acos(x) * 180 / Math.PI * 1e10) / 1e10;
+    }
     else throw 0;
     while (peek() && peek().t === 'post') v = v ** next().v;
     return v;
@@ -871,13 +931,13 @@ export function hoechsteKachel(feld) {
 // ---------- Aufgaben aus JSON kontrollieren (Elternbereich, Tools) ----------
 
 export const TYPEN = ['zahl', 'auswahl', 'bruch', 'schritte', 'zuordnung', 'mehrfrage', 'zehnerpotenz', 'formel', 'detektiv'];
-export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'prozent-formel', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte', 'quader', 'zusammengesetzt', 'daten', 'diagramm'];
+export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'prozent-formel', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte', 'quader', 'zusammengesetzt', 'daten', 'diagramm', 'kosinus'];
 // Fach je Thema (Auftrag 13). Fehlt das Feld fach an der Aufgabe, gilt das Fach des Themas.
 export const PHYSIK_THEMEN = ['zehnerpotenzen', 'einheiten', 'gewichtskraft', 'dichte'];
 export const fachVon = (a) => (a && (a.fach || (PHYSIK_THEMEN.includes(a.thema) ? 'physik' : 'mathe'))) || 'mathe';
 // Körper mit Taschenrechner: eigene Plätze (Schritte und Abschluss), nicht bei Text und Struktur aus dem allgemeinen Pool
 export const KOERPER = ['kugel', 'zylinder', 'kegel', 'pyramide', 'quader', 'zusammengesetzt'];
-export const BILDFORMEN = ['streifen', 'kreis', 'quadrat', 'rechteck', 'kreisdiagramm', 'kugel', 'zylinder', 'kegel', 'pyramide', 'quader', 'quader-kegel', 'tabelle', 'saeulen'];
+export const BILDFORMEN = ['streifen', 'kreis', 'quadrat', 'rechteck', 'kreisdiagramm', 'kugel', 'zylinder', 'kegel', 'pyramide', 'quader', 'quader-kegel', 'tabelle', 'saeulen', 'dreieck'];
 
 export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
   const f = [];
@@ -1042,6 +1102,7 @@ export function rechnerOptional(a) {
 // Taschenrechner wäre hier erlaubt (Körper-Aufgaben oder große Zahlen) → im Kopf gerechnet gibt einen Bonus
 export function rechnerZulaessig(a) {
   if (fachVon(a) === 'physik') return false; // Physik: Rechner frei, kein Kopf-Bonus
+  if (a && a.thema === 'kosinus') return false; // Kosinus: cos nur mit Rechner, kein Kopf-Bonus (Auftrag 55)
   return !!a.taschenrechner || rechnerOptional(a) || !kopfGlatt(a);
 }
 // Rechner frei (ohne Abzug): Aufgaben mit taschenrechner und alle Physik-Aufgaben
@@ -1058,6 +1119,7 @@ export function ergebnisWerte(a) {
 export function kopfGlatt(a) {
   if (!a) return true;
   if (a.thema === 'daten') return false; // Auftrag 54: Rechner frei, im Kopf gerechnet Kopf-Bonus
+  if (a.thema === 'kosinus') return !(a.schritte || []).some(x => x.wert != null); // Auftrag 55: mit Zahlen Rechner frei, Seiten finden ohne Rechner
   if (GLATT_UNTER_100.includes(a.thema)) return groessteZahl(a) < 100;
   if (GLATT_GANZ.includes(a.thema)) return ergebnisWerte(a).every(x => Number.isInteger(Math.round(x * 1e6) / 1e6));
   return true;
@@ -1065,7 +1127,7 @@ export function kopfGlatt(a) {
 export const rechnerFrei = (a) => !!(a && (a.taschenrechner || fachVon(a) === 'physik' || !kopfGlatt(a)));
 // Freiwilliger Rechner wird bei jeder Aufgabe angeboten (kostet Spielzeit), außer dort, wo er ohnehin erlaubt ist
 export function rechnerAnbieten(a) {
-  return !rechnerFrei(a) && !['auswahl', 'zuordnung', 'formel'].includes(a.typ) && a.thema !== 'formelsammlung' && a.thema !== 'diagramm';
+  return !rechnerFrei(a) && !['auswahl', 'zuordnung', 'formel'].includes(a.typ) && a.thema !== 'formelsammlung' && a.thema !== 'diagramm' && a.thema !== 'kosinus';
 }
 // Kopf-Bonus: Rechner erlaubt, nicht geöffnet, App nicht verlassen, Aufgabe gelöst
 export function kopfBonus({ aufgabe, rechnerGenutzt, verlassen, ergebnis }) {
@@ -1114,7 +1176,7 @@ export function kuerzelAufgabe(a) {
   const lw = a.loesungsweg.map(z => typeof z === 'string' ? z.replace(/→\s*(Volumen|Oberfläche|Mantel|Grundfläche)\b(?!\s*\()/g, (_, w) => `→ ${KUERZEL_VON[w]} (${w})`) : z);
   return lw.some((z, i) => z !== a.loesungsweg[i]) ? { ...a, loesungsweg: lw } : a;
 }
-export const FREIGABEN = ['minusminus', 'prozent_formel', 'prozent_formel_2', 'halbkugel', 'fs_suchen', 'zusammengesetzt', 'daten', 'daten_2', 'diagramm', 'diagramm_2', 'prozent_p', 'prozent_g'];
+export const FREIGABEN = ['minusminus', 'prozent_formel', 'prozent_formel_2', 'halbkugel', 'fs_suchen', 'zusammengesetzt', 'daten', 'daten_2', 'diagramm', 'diagramm_2', 'prozent_p', 'prozent_g', 'kosinus', 'kosinus_2'];
 // Befristete Hilfen (Auftrag 41): gelten bis einschließlich Datum, ohne Datum aus
 export const HILFEN_BIS = ['malzeichen_hilfe', 'malzeichen_merk'];
 export const hilfeAn = (z, k, heute) => !!(z && z.hilfenBis && z.hilfenBis[k] && heute <= z.hilfenBis[k]);
@@ -1335,7 +1397,7 @@ export function mal10Fehler(rechnung, w, ziel) {
   return { typ: 'mal10-ziffer-weg', text: 'Alle Ziffern bleiben. Nur das Komma rutscht.', tafel };
 }
 // Themen, die erst ab ihrem Freigabedatum kommen (Auftrag 30). Steht so ein Thema im Wochenplan unter „gesperrt“, wird es ab dem Datum frei.
-export const FREIGABE_THEMEN = { 'prozent-formel': 'prozent_formel', 'zusammengesetzt': 'zusammengesetzt', 'daten': 'daten', 'diagramm': 'diagramm' };
+export const FREIGABE_THEMEN = { 'prozent-formel': 'prozent_formel', 'zusammengesetzt': 'zusammengesetzt', 'daten': 'daten', 'diagramm': 'diagramm', 'kosinus': 'kosinus' };
 export const themaFreigegeben = (z, thema, heute) => !FREIGABE_THEMEN[thema] || freigegeben(z, FREIGABE_THEMEN[thema], heute);
 export const freigegeben = (z, k, heute) => !!(z && z.freigaben && z.freigaben[k] && z.freigaben[k] <= heute);
 export const bedienung = (e, k) => { const b = BEDIENUNG.find(x => x.k === k); return typeof (e || {})[b.f] === 'boolean' ? e[b.f] : b.std; };

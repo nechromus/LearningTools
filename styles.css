@@ -1280,3 +1280,10 @@ body:has(.aufgabe-screen.bz-warm) { background: #FAF1DE; }
 .pf-kontrolle { margin: 10px 0 4px; padding: 8px 10px; border-radius: 10px; background: #FBEFC9; font-size: 17px; }
 .pf-kontrolle .ok-haken { color: var(--teal); font-weight: 700; }
 .nowrap { white-space: nowrap; }
+/* Kosinus (Auftrag 55): Rechner-Tasten cos und cos⁻¹ */
+.r-taste.r-cos { font-size: 17px; line-height: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.r-taste.r-cos small { font-size: 10px; font-weight: 400; color: var(--gedaempft, #4F5E5E); }
+.kos-merk .kos-bild { margin: 6px auto 10px; max-width: 320px; }
+.kos-merk .kos-regel { font-size: 18px; }
+.kos-merk .kos-blau { color: #1D4ED8; font-weight: 700; }
+.kos-merk .kos-rot { color: #C2410C; font-weight: 700; }

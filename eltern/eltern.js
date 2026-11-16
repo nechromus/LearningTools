@@ -17,7 +17,7 @@ import qrcode from './vendor/qrcode.mjs';
 import * as FB from '../js/feedback.js';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.65.0';
+export const ELTERN_VERSION = '1.66.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -2253,7 +2253,7 @@ function splitterSeite() {
 // Welches Thema die Häufigkeit eines Baukastens steuert. Geschichten hängen an einem anderen Baukasten-Thema.
 const GEN_THEMA = {
   'minus-plus': 'minus-zahlen', 'reihenfolge': 'reihenfolge', 'potenz': 'potenzen', 'einmaleins': 'einmaleins', 'mal10': 'mal-10',
-  'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'prozent-formel': 'prozent-formel', 'runden': 'runden', 'bruch-bild': 'bruch-bild', 'kugel': 'kugel', 'zylinder': 'zylinder', 'kegel': 'kegel', 'pyramide': 'pyramide', 'kreisdiagramm': 'kreisdiagramm', 'quader': 'quader', 'zusammengesetzt': 'zusammengesetzt', 'daten': 'daten', 'saeulen': 'diagramm'
+  'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'prozent-formel': 'prozent-formel', 'runden': 'runden', 'bruch-bild': 'bruch-bild', 'kugel': 'kugel', 'zylinder': 'zylinder', 'kegel': 'kegel', 'pyramide': 'pyramide', 'kreisdiagramm': 'kreisdiagramm', 'quader': 'quader', 'zusammengesetzt': 'zusammengesetzt', 'daten': 'daten', 'saeulen': 'diagramm', 'kosinus': 'kosinus'
 };
 const GEN_WIE = { 'geld-geschichte': ['minus-zahlen'], 'rabatt-geschichte': ['rabatt', 'neuer-preis'] };
 
@@ -2269,6 +2269,8 @@ const FREIGABE_TEXTE = { minusminus: ['Doppeltes Minus und Minus in Klammern', '
   diagramm_2: ['Säulendiagramm ergänzen und beschriften', 'Fehlende Säule setzen (Tippen auf eine Linie oder + / −) und die Achse beschriften. Gilt erst, wenn auch „Säulendiagramm“ frei ist.'],
   prozent_p: ['Prozent mit Formel: p gesucht', 'Etwa jede 3. Aufgabe „Prozent mit Formel“: 1 % = G : 100, dann p = W : 1 %. Danach die Kontrolle W/p = G/100. Auch bei „Was ist G, p und W?“ kann p gesucht sein.'],
   prozent_g: ['Prozent mit Formel: G gesucht', 'Etwa jede 3. Aufgabe „Prozent mit Formel“ (mit p zusammen): 1 % = W : p, dann G = 1 % · 100. Danach die Kontrolle W/p = G/100.'],
+  kosinus: ['Kosinus im rechtwinkligen Dreieck', 'Stufe 1: Hypotenuse und Ankathete finden, cos α als Bruch; dazu Rechner-Aufgaben (cos 35° =, cos α = … → α). Stufe 2: Winkel aus Ankathete und Hypotenuse. Rechner mit cos und cos⁻¹ (in Grad).'],
+  kosinus_2: ['Kosinus, Stufe 3', 'Alle drei Seiten gegeben (die Gegenkathete lenkt ab) und Sachaufgaben: Rampe, Leiter, Dachschräge. Gilt erst, wenn auch „Kosinus“ frei ist.'],
   zusammengesetzt: ['Quader mit ausgeschnittenem Kegel', 'Zusammengesetzter Körper: Quader, oben ein Kegel ausgeschnitten. Zerlegen, V_Quader, V_Kegel, abziehen, runden. Steht die Art im Wochenplan unter „gesperrt“, wird sie ab diesem Tag frei.'] };
 // Befristete Hilfen (Auftrag 41): gelten bis einschließlich Datum, ohne Datum aus
 const HILFEN_TEXTE = { malzeichen_hilfe: ['Formel mit Malzeichen', 'Unter einer angehefteten Formel aus der Formelsammlung steht klein „mit Malzeichen: …“.'],

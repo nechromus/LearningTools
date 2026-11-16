@@ -6,7 +6,7 @@ export const THEMA_NAMEN = {
   'prozent-baukasten': 'Prozent-Baukasten', 'prozent-formel': 'Prozent mit Formel', 'rabatt': 'Rabatt', 'neuer-preis': 'Neuer Preis',
   'kreisdiagramm': 'Kreisdiagramm', 'runden': 'Runden', 'kugel': 'Kugel',
   'einmaleins': 'Einmaleins', 'mal-10': 'Mal 10 und durch 10',
-  'zylinder': 'Zylinder', 'kegel': 'Kegel', 'pyramide': 'Pyramide', 'quader': 'Quader', 'zusammengesetzt': 'Quader mit ausgeschnittenem Kegel', 'daten': 'Daten (Minimum, Maximum, Spannweite)', 'diagramm': 'Säulendiagramm',
+  'zylinder': 'Zylinder', 'kegel': 'Kegel', 'pyramide': 'Pyramide', 'quader': 'Quader', 'zusammengesetzt': 'Quader mit ausgeschnittenem Kegel', 'daten': 'Daten (Minimum, Maximum, Spannweite)', 'diagramm': 'Säulendiagramm', 'kosinus': 'Kosinus',
   'zehnerpotenzen': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Masse und Gewichtskraft', 'umstellen': 'Gleichungen umstellen', 'dichte': 'Dichte',
   'formelsammlung': 'Formelsammlung: Finde es'
 };
@@ -15,7 +15,7 @@ export const GEN_NAMEN = {
   'minus-plus': 'Minus-Zahlen', 'reihenfolge': 'Reihenfolge', 'potenz': 'Potenzen', 'einmaleins': 'Einmaleins',
   'mal10': 'Mal 10 / durch 10', 'prozent': 'Prozent von …', 'baukasten': 'Prozent-Baukasten', 'runden': 'Runden',
   'bruch-bild': 'Bruch aus Bild', 'kugel': 'Kugel', 'zylinder': 'Zylinder', 'geld-geschichte': 'Geld-Geschichten', 'rabatt-geschichte': 'Rabatt-Geschichten', 'prozent-formel': 'Prozent mit Formel', 'kegel': 'Kegel', 'pyramide': 'Pyramide', 'quader': 'Quader', 'zusammengesetzt': 'Quader − Kegel', 'kreisdiagramm': 'Kreisdiagramm',
-  'zehnerpotenz': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Gewichtskraft', 'gleichung': 'Gleichungen', 'formel-umstellen': 'Formeln umstellen', 'dichte': 'Dichte', 'daten': 'Daten (Tabelle)', 'saeulen': 'Säulendiagramm'
+  'zehnerpotenz': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Gewichtskraft', 'gleichung': 'Gleichungen', 'formel-umstellen': 'Formeln umstellen', 'dichte': 'Dichte', 'daten': 'Daten (Tabelle)', 'saeulen': 'Säulendiagramm', 'kosinus': 'Kosinus'
 };
 
 export const FEHLER_NAMEN = {
@@ -44,5 +44,8 @@ export const FEHLER_NAMEN = {
   'diagramm-nachbar': 'Diagramm: Säule daneben abgelesen', 'diagramm-strich': 'Diagramm: um eine Linie daneben', 'diagramm-summe-statt-unterschied': 'Diagramm: addiert statt abgezogen',
   'saeule-hoehe': 'Säule falsch hoch', 'achse-beschriftung': 'Achse falsch beschriftet',
   'formel-p-mal-statt-geteilt': 'p gesucht: mal statt geteilt', 'formel-p-w-durch-g': 'p gesucht: W : G ohne · 100', 'formel-g-ist-1prozent': 'G gesucht: 1 % als Ergebnis', 'formel-g-w-mal-p': 'G gesucht: W · p statt W : p', 'formel-gesucht': 'Prozent: falsch gewählt, was gesucht ist',
+  // Auftrag 55
+  'cos-hypotenuse': 'Kosinus: falsche Seite als Hypotenuse', 'cos-gegenkathete': 'Kosinus: Gegenkathete statt Ankathete', 'cos-kehrwert': 'Kosinus: Hypotenuse : Ankathete',
+  'cos-wert-statt-winkel': 'Kosinus: cos-Wert statt Winkel', 'cos-statt-umkehr': 'Kosinus: cos statt 2nd cos', 'cos-rad': 'Kosinus: Rechner nicht in Grad',
   'zylinder-hoehe-vergessen': 'Zylinder-Mantel: Höhe vergessen', 'zylinder-grundflaeche-statt-mantel': 'Zylinder: Grundfläche statt Mantel', 'minus-betraege': 'Minus-Zahlen: Beträge addiert'
 };
