@@ -35,7 +35,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.50.1';
+export const APP_VERSION = '2.50.2';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -456,6 +456,7 @@ async function fernHolen(erzwingen = false) {
     fsLaden();
   } catch (e) {
     S.fern = { ...S.fern, fehler: e.message || 'Unbekannter Fehler' };
+    schluesselStatus(e);
   } finally {
     fernLaeuft = false;
     sichern();
@@ -529,6 +530,17 @@ async function standAbgleich(erzwingen = false) {
 
 // Spielstand hochladen, wenn sich etwas geändert hat. Vorher prüfen, ob der Server eine neuere Fassung hat –
 // dann gewinnt der Server und es wird nichts hochgeladen.
+// Schlüssel abgelaufen oder ohne Rechte (GitHub 401/403/404): Hinweis auf dem Startbildschirm und in der Bildschirmzeit-Nachricht.
+// Keine Verbindung (Status 0) zählt nicht. Der nächste erfolgreiche Upload löscht den Hinweis.
+const SCHLUESSEL_STATUS = [401, 403, 404];
+function schluesselStatus(e) {
+  if (e && SCHLUESSEL_STATUS.includes(e.status) && !S.upload.testgeraet) S.upload.schluesselKaputt = { status: e.status, seit: (S.upload.schluesselKaputt && S.upload.schluesselKaputt.seit) || new Date().toISOString() };
+}
+const schluesselKaputt = () => !!(S.upload.token && S.upload.schluesselKaputt && !S.upload.testgeraet);
+const SCHLUESSEL_KIND = 'Deine Übungen werden gerade nicht gesichert. Sag bitte Mama oder Papa Bescheid.';
+function schluesselKarte() {
+  return schluesselKaputt() ? `<section class="info-karte schluessel-karte"><b>${esc(SCHLUESSEL_KIND)}</b><div class="gedaempft">Deine Zeit und deine Punkte bleiben auf dem Handy.</div></section>` : '';
+}
 async function standHochladen(erzwingen = false) {
   const u = S.upload;
   if (standLaeuft) { if (erzwingen) standNochmal = true; return false; } // läuft schon: danach noch einmal
@@ -551,9 +563,11 @@ async function standHochladen(erzwingen = false) {
     u.standKern = kern;
     u.standOnline = { gespeichert: datei.gespeichert, geraetId: S.geraetId };
     u.standFehler = null;
+    u.schluesselKaputt = null;
     return true;
   } catch (e) {
     u.standFehler = e.message || 'Unbekannter Fehler';
+    schluesselStatus(e);
     return false;
   } finally {
     standLaeuft = false;
@@ -612,8 +626,10 @@ async function syncen(erzwingen = false) {
     if (anzahl || erzwingen) await U.dateiSchreiben(u, `daten/${nutzerOrdner()}/${S.geraetId}/stand.json`, JSON.stringify(standDaten(), null, 1), 'Stand');
     u.letzter = new Date().toISOString();
     u.fehler = null;
+    u.schluesselKaputt = null;
   } catch (e) {
     u.fehler = e.message || 'Unbekannter Fehler';
+    schluesselStatus(e);
   } finally {
     syncLaeuft = false;
     sichern();
@@ -974,6 +990,7 @@ function zeigeStart() {
     </header>
 
     ${S.upload.testgeraet ? testLeisteHtml() : ''}
+    ${schluesselKarte()}
     ${bed('spielzeit_zeigen') ? `<section class="guthaben-karte">
       ${zeitSymbol(44)}
       <div><div class="guthaben-zahl">${L.formatZeit(S.guthaben)}</div><div class="gedaempft">Spielzeit</div></div>
@@ -1303,6 +1320,7 @@ function zeigeStartSternzeit({ bz, slot, serieAktiv }) {
     <div class="logo sz-logo-flaeche" id="logo">${szKopf()}</div>
     <p class="sz-gruss">Willkommen an Bord${nm ? `, <b>${nm}</b>` : ''}.</p>
     ${S.upload.testgeraet ? testLeisteHtml() : ''}
+    ${schluesselKaputt() ? `<div class="sz-panel orange"><b class="sz-pfirsich">${esc(SCHLUESSEL_KIND)}</b><div class="sz-matt">Deine Zeit und deine Punkte bleiben auf dem Handy.</div></div>` : ''}
     ${gesperrt ? `<div class="sz-panel orange"><b class="sz-pfirsich">Für heute hast du dein Pensum erreicht.</b><div class="sz-matt">Logbuch, Archiv${spz ? ' und Spiele sind' : ' sind'} weiter offen.</div></div>
     <button class="sz-knopf" data-act="uebungszeit">Eltern fragen <small>▶</small></button>`
       : `<button class="sz-knopf sz-start-knopf" data-act="aufgaben">${S.wartet ? 'Weiter mit deiner Aufgabe' : 'Aufgaben machen'} <small>▶</small></button>`}
@@ -1399,7 +1417,7 @@ let bzTeilenLaeuft = false, bzTeilenWeg = false;
 async function bzTeilen() {
   const k = bzKonto();
   if (!BS.kannAbschicken(k, BZ()) || !k.code) return;
-  const text = BS.nachrichtText(k, new Date());
+  const text = BS.nachrichtText(k, new Date()) + (schluesselKaputt() ? `\n⚠ Übertragung klappt nicht: ${S.upload.schluesselKaputt.status === 401 ? 'Schlüssel abgelaufen' : 'Schlüssel ohne Zugriff'} (seit ${new Date(S.upload.schluesselKaputt.seit).toLocaleDateString('de-DE')})` : '');
   let geteilt = false, mitBild = false;
   if (navigator.share) {
     mitBild = bzBildDatei && navigator.canShare && navigator.canShare({ files: [bzBildDatei], text });

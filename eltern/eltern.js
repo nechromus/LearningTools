@@ -17,7 +17,7 @@ import qrcode from './vendor/qrcode.mjs';
 import * as FB from '../js/feedback.js';
 import { Lernplan } from './lernplan.mjs';
 
-export const ELTERN_VERSION = '1.66.0';
+export const ELTERN_VERSION = '1.66.1';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -158,6 +158,7 @@ async function datenLaden() {
     try { for (const req of await cache.keys()) if (req.url.includes(`/daten/${n.ordner}/`) && !behalten.has(req.url)) await cache.delete(req); } catch (e) { /* egal */ }
   }
   const einst = await U.dateiLesen(C, `daten/${n.ordner}/einstellungen.json`);
+  const schluessel = await U.dateiLesen(C, `daten/${n.ordner}/schluessel.json`).catch(() => null);
   staende.sort((a, b) => (a.stand.stand || '') < (b.stand.stand || '') ? 1 : -1);
   // Teil-Lösung rückwirkend ab 17.10. (Auftrag 37): nur im Speicher, nur mit Schalter „Teil-Lösung getrennt werten“
   const aufgaben = A.alleAufgaben(proGeraet);
@@ -170,7 +171,7 @@ async function datenLaden() {
     staende, proGeraet, eintraege,
     aufgaben,
     spiele: A.alleSpiele(proGeraet),
-    einst, geladen: Date.now(), kennung: kennung.sort().join('|')
+    einst, schluessel, geladen: Date.now(), kennung: kennung.sort().join('|')
   };
   datenHinweisWeg();
   berichteLaden(n.ordner);
@@ -1574,6 +1575,20 @@ function speicherKarte() {
     <p>Die Lerndaten auf dem Server bleiben erhalten. Was noch nicht übertragen ist, kann fehlen. Bitte die App einmal ganz schließen und neu öffnen. Bleibt die Meldung, bitte im App-Chat Bescheid geben.</p></section>`;
 }
 
+// Keine neuen Lerndaten vom Handy (Wunsch Vater 16.11.: Schlüssel war abgelaufen, niemand hat es gemerkt).
+// stand.json schreibt die Übungs-App bei jedem Upload neuer Lerndaten. Ab 20 Std. ohne Upload ein Hinweis.
+const DATEN_ALT_STD = 20;
+function datenAltKarte() {
+  const s = neuesterStand();
+  if (!s || !s.stand || C.nur) return '';
+  const std = (Date.now() - new Date(s.stand).getTime()) / 36e5;
+  if (!(std >= DATEN_ALT_STD)) return '';
+  const zeit = std < 48 ? `${Math.floor(std)} Stunden` : `${Math.floor(std / 24)} Tagen`;
+  return `<section class="hinweis-box"><h2>Seit ${zeit} keine neuen Lerndaten</h2>
+    <p>Letzte Übertragung vom Handy: ${wann(s.stand)}${s.version ? ` (App ${esc(s.version)})` : ''}.</p>
+    <p>Hat ${esc(name())} seitdem geübt? Dann ist vielleicht der Schlüssel abgelaufen oder das Handy ohne Internet. Auf dem Handy in der Übungs-App das Zahnrad öffnen, bei „Automatische Übertragung“ steht der Grund. Abgelaufen: neuen Schlüssel anlegen und mit dem QR-Code einrichten.</p></section>`;
+}
+
 function uebersichtSeite() {
   const tage = A.letzteTage(C.zeitraum);
   const k = A.kennzahlen(D.daten.aufgaben, D.daten.eintraege, tage[0]);
@@ -1612,6 +1627,8 @@ function uebersichtSeite() {
 
   return `<div class="seite">
     ${breit.matches ? `<header class="kopf-breit"><h1>Übersicht · ${esc(name())}</h1>${nutzerWahl('nutzer-chip nur-hoch')}${zeitraumWahl()}</header>` : kopfSchmal('Übersicht') + zeitraumWahl()}
+    ${schluesselBaldKarte()}
+    ${datenAltKarte()}
     ${speicherKarte()}
     ${ticketHinweis()}
     ${liveKarte()}
@@ -2656,11 +2673,46 @@ function qrSeite() {
 }
 
 function schluesselKarte() {
+  const kind = D.daten && D.daten.ordner && !D.daten.leer;
+  const hb = (D.daten && D.daten.schluessel && D.daten.schluessel.handy_bis) || '';
   return `<section class="karte klein-karte geraet-karte">
     <h2>Diese Eltern-App</h2>
     <p class="klein">Repo <b>${esc(C.repo)}</b> · Schlüssel endet auf …${esc(C.token.slice(-4))} · Version ${ELTERN_VERSION}</p>
+    <h3 class="bg-h3">Schlüssel gültig bis</h3>
+    <p class="klein gedaempft">GitHub zeigt das Datum beim Anlegen des Schlüssels. Ab 7 Tagen vorher erscheint ein Hinweis in der Übersicht.</p>
+    <label class="feld-label">Diese Eltern-App<input type="date" id="schl-eltern" value="${esc(C.tokenBis || '')}"></label>
+    ${kind ? `<label class="feld-label">Handy von ${esc(name())} (für beide Eltern)<input type="date" id="schl-handy" value="${esc(hb)}"></label>` : ''}
+    <button class="knopf" data-act="schluesselBis">Datum speichern</button>${SCHL.meldung ? ` <span class="klein">${esc(SCHL.meldung)}</span>` : ''}
     <button class="knopf-text" data-act="abmelden">Schlüssel von diesem Gerät löschen</button>
   </section>`;
+}
+// Ablaufdatum der Schlüssel (16.11.): Eltern-App lokal (C.tokenBis), Handy des Kindes in daten/<kind>/schluessel.json (Format schluessel-1)
+const SCHL = { meldung: '' };
+const SCHL_TAGE = 7;
+async function schluesselBisSpeichern() {
+  const e = document.getElementById('schl-eltern'), h = document.getElementById('schl-handy');
+  if (e) { C.tokenBis = e.value || ''; konfigSichern(); }
+  SCHL.meldung = 'Gespeichert.';
+  if (h && D.daten && D.daten.ordner && h.value !== ((D.daten.schluessel && D.daten.schluessel.handy_bis) || '')) {
+    const datei = { format: 'schluessel-1', handy_bis: h.value || null, geaendert: new Date().toISOString() };
+    try {
+      await U.dateiSchreiben(C, `daten/${D.daten.ordner}/schluessel.json`, JSON.stringify(datei, null, 1), `${ordnerName(D.daten.ordner)}: Schlüssel gültig bis ${h.value || '–'}`);
+      D.daten.schluessel = datei;
+    } catch (x) { SCHL.meldung = 'Speichern hat nicht geklappt: ' + (x.message || ''); }
+  }
+  zeichne();
+}
+function schluesselBaldKarte() {
+  const heute = L.tagKey(), bald = (d) => d && (new Date(d) - new Date(heute)) / 864e5 <= SCHL_TAGE;
+  const tage = (d) => Math.round((new Date(d) - new Date(heute)) / 864e5);
+  const text = (wer, d) => tage(d) < 0 ? `${wer} ist seit ${datumKurz(d)} abgelaufen.` : tage(d) === 0 ? `${wer} läuft heute ab.` : `${wer} läuft am ${datumKurz(d)} ab (in ${tage(d)} ${tage(d) === 1 ? 'Tag' : 'Tagen'}).`;
+  const z = [];
+  if (bald(C.tokenBis)) z.push(text('Der Schlüssel dieser Eltern-App', C.tokenBis));
+  const hb = D.daten && D.daten.schluessel && D.daten.schluessel.handy_bis;
+  if (!C.nur && bald(hb)) z.push(text(`Der Schlüssel auf dem Handy von ${esc(name())}`, hb));
+  if (!z.length) return '';
+  return `<section class="hinweis-box"><h2>Schlüssel läuft bald ab</h2>${z.map(t => `<p>${t}</p>`).join('')}
+    <p>Neuen Schlüssel bei GitHub anlegen, auf dem Handy mit dem QR-Code einrichten und das neue Datum unter <a href="#einstellungen">Einstellungen</a> eintragen.</p></section>`;
 }
 
 async function speichern() {
@@ -3117,6 +3169,7 @@ document.addEventListener('click', (ev) => {
     case 'standardZeit': { const alt = entwurf.spielzeit || {}; entwurf.spielzeit = { ...L.spielzeitRegeln(null), durchklick: !!alt.durchklick, hilfeAb: alt.hilfeAb ?? 0, bonus: alt.bonus ?? L.SPIELZEIT_STANDARD.bonus, ...(alt.gruppen ? { gruppen: alt.gruppen } : {}) }; meldung = null; zeichne(); break; }
     case 'verwerfen': entwurf = null; geaenderteStufen = new Set(); meldung = null; zeichne(); break;
     case 'speichern': if (geaendert()) speichern(); break;
+    case 'schluesselBis': schluesselBisSpeichern(); break;
     case 'abmelden':
       if (!confirm('Schlüssel von diesem Gerät löschen? Danach musst du ihn neu eintragen.')) break;
       C = { ...C, token: '' }; konfigSichern(); D.daten = null; D.nutzer = null;
