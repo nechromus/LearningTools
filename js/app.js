@@ -35,7 +35,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.50.4';
+export const APP_VERSION = '2.50.5';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -478,6 +478,21 @@ const standPfad = () => `daten/${nutzerOrdner()}/spielstand.json`;
 let standLaeuft = false, standNochmal = false, standZuletztGeprueft = 0;
 const ruhigeAnsicht = () => ['start', 'eltern', 'anmeldung', 'bogenzeit'].includes(ansicht);
 const revVon = (d) => (d && Number(d.rev)) || 0;
+// Eigene Fassung auf dem Server (18.11.): Beim Teilen der Bildschirmzeit geht die App in den Hintergrund. Der Upload kommt an,
+// aber das Handy merkt sich die neue Nummer (rev) manchmal nicht mehr (App beendet, z. B. durch Qustodio). Danach galt die
+// eigene, ältere Fassung als „neuer“ und wurde übernommen: Bildschirmzeit, die seitdem verdient war, war weg (16.–18.11.).
+// Eine Fassung von diesem Handy (gleiche geraetId) ist nie neuer als das Handy selbst. Sie wird nie übernommen,
+// außer das Handy ist frisch eingerichtet. Andere Geräte: weiter „Server gewinnt“.
+function eigeneFassung(datei) {
+  const u = S.upload;
+  if (!datei || !S.geraetId || datei.geraetId !== S.geraetId || istFrisch(S)) return false;
+  if (revVon(datei) > (u.standRev || 0)) {
+    protokoll(S, 'spielstand_eigen', { rev: revVon(datei), vorher: u.standRev || 0, gespeichert: datei.gespeichert });
+    u.standRev = revVon(datei);
+    u.standKern = null; // gleich noch einmal hochladen (der Stand auf dem Handy ist neuer)
+  }
+  return true;
+}
 
 function standUebernehmen(datei, grund) {
   const warFrisch = istFrisch(S);
@@ -520,6 +535,7 @@ async function standAbgleich(erzwingen = false) {
   u.standGeprueft = true;
   if (!datei) { sichern(); return false; }
   u.standOnline = { gespeichert: datei.gespeichert, geraetId: datei.geraetId };
+  if (eigeneFassung(datei)) { u.standWartet = false; sichern(); return false; }
   if (revVon(datei) > (u.standRev || 0) || (!u.standRev && istFrisch(S))) {
     if (!ruhigeAnsicht()) { u.standWartet = true; sichern(); return false; }
     return standUebernehmen(datei, 'server-neuer');
@@ -552,7 +568,7 @@ async function standHochladen(erzwingen = false) {
   try {
     const server = await U.dateiLesen(u, standPfad());
     u.standGeprueft = true;
-    if (server && revVon(server) > (u.standRev || 0)) {
+    if (server && revVon(server) > (u.standRev || 0) && !eigeneFassung(server)) {
       if (ruhigeAnsicht()) standUebernehmen(server, 'server-neuer');
       else u.standWartet = true;
       return false;
