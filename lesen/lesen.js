@@ -12,7 +12,7 @@ import { einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 
-export const LESE_VERSION = '0.1.0';
+export const LESE_VERSION = '0.2.0';
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
 const $app = document.getElementById('app');
 const tagKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -27,7 +27,7 @@ function laden() {
   try { log = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch (e) { log = []; }
   return {
     name: s.name || '', geraetId: s.geraetId || neueId(), upload: { tage: {}, ...(s.upload || {}) },
-    einst: s.einst || null, kasse: s.kasse || null, tag: s.tag || null, log: Array.isArray(log) ? log : []
+    einst: s.einst || null, kasse: s.kasse || null, tag: s.tag || null, pin: s.pin || null, log: Array.isArray(log) ? log : []
   };
 }
 const S = laden();
@@ -49,16 +49,25 @@ function logKuerzen(voll = false) {
   try { localStorage.setItem(LOG_KEY, JSON.stringify(S.log)); } catch (e) { /* nichts zu machen */ }
 }
 
-const ordner = () => ordnerVon(S.name);
+// Testgerät (wie in der Mathe-App): es wird nichts geschrieben, nur Einstellungen gelesen. „Testen als“ wählt ein Kind
+// aus dem Daten-Repo. Lesen gilt auf dem Testgerät immer als freigeschaltet; Bildschirmzeit bleibt nur auf dem Gerät.
+const test = () => !!S.upload.testgeraet;
+const testAls = () => (test() && S.upload.testAls) || null;
+const gross = (o) => o ? o.charAt(0).toUpperCase() + o.slice(1) : '';
+const ordner = () => testAls() || ordnerVon(S.name);
 const W = () => (S.einst && S.einst.werte) || {};
-const R = () => LL.leseRegeln(W().lesen);
-const bereit = () => !!(S.name && S.upload.repo && S.upload.token);
-const offen = () => bereit() && R().an && W().kasse === true;
+const R = () => { const r = LL.leseRegeln(W().lesen); return test() ? { ...r, an: true } : r; };
+const bereit = () => !!(S.upload.repo && S.upload.token && (S.name || testAls()));
+const offen = () => bereit() && R().an && (W().kasse === true || test());
 function heute() { S.tag = LL.tagVon(S.tag, tagKey()); return S.tag; }
 function kasse() {
   if (!offen()) return null;
-  const quelle = K.quelleId('lesen', S.geraetId);
-  if (!S.kasse || S.kasse.quelle !== quelle) { S.kasse = K.kasseNeu('lesen', S.geraetId, null); protokoll('kasse_start', { quelle, uebertrag: 0 }); }
+  const quelle = test() ? `test-${S.geraetId}` : K.quelleId('lesen', S.geraetId);
+  if (!S.kasse || S.kasse.quelle !== quelle) {
+    S.kasse = K.kasseNeu('lesen', S.geraetId, null);
+    S.kasse.quelle = quelle;
+    if (!test()) protokoll('kasse_start', { quelle, uebertrag: 0 });
+  }
   return S.kasse;
 }
 const ablauf = kasseAblauf({
@@ -82,9 +91,10 @@ async function syncen(erzwingen = false) {
   syncLaeuft = true;
   try {
     const neu = await einstellungenHolen();
+    if (test()) return; // Testgerät: nur die Einstellungen lesen (das Test-Konto bleibt getrennt vom echten)
     if (kasse()) await ablauf.sync(erzwingen || neu);
-    // Protokoll je Tag, beim Hochladen mit dem Server zusammenführen (nie mit weniger überschreiben)
-    const tage = U.nachTagen(S.log, d => tagKey(d));
+    // Protokoll je Tag, beim Hochladen mit dem Server zusammenführen (nie mit weniger überschreiben). Einträge aus Testphasen nie.
+    const tage = U.nachTagen(U.ohneTestphasen(S.log), d => tagKey(d));
     for (const tag of Object.keys(tage).sort().filter(k => tage[k].length > (S.upload.tage[k] || 0)).slice(-14)) {
       const pfad = `daten/${ordner()}/lesen/${S.geraetId}/${tag}.json`;
       const server = await U.dateiLesen(S.upload, pfad);
@@ -118,14 +128,16 @@ function zeigeStart(syncJetzt = true) {
   const grenze = LL.grenzeSek(r, t.tag), voll = t.sek >= grenze;
   const m = k ? LL.matheHeute(k.fremd, W().bildschirm, t.tag) : { sek: 0, frei: 0 };
   const ab = BS.abSek(W().bildschirm);
-  const kopf = `<header class="start-kopf marke">${sechseck(56, '#E3E6F5', '#33408F', BUCH)}<div><h1>Archiv der Welten</h1><p class="gedaempft">Hallo, ${esc(S.name)}!</p></div></header>`;
+  const kopf = `<header class="start-kopf marke">${sechseck(56, '#E3E6F5', '#33408F', BUCH)}<div><h1>Archiv der Welten</h1><p class="gedaempft">Hallo${S.name ? ', ' + esc(S.name) : ''}!</p></div></header>`;
+  const testLeiste = test() ? `<button class="test-leiste" data-act="persona"><span class="test-leiste-marke">Testgerät</span>
+    <span class="test-leiste-text">Testen als <b>${testAls() ? esc(gross(testAls())) : '…'}</b><span class="klein block">Es wird nichts gesendet. Bildschirmzeit bleibt auf diesem Handy.</span></span><span class="test-leiste-pfeil">Ändern ›</span></button>` : '';
   if (!offen()) {
-    $app.innerHTML = `<div class="screen start">${kopf}<section class="info-karte bald"><b>Das Archiv öffnet bald.</b><div class="gedaempft">Deine Eltern schalten es frei.</div></section><p class="gedaempft bz-mitte klein">Version ${LESE_VERSION}</p></div>`;
+    $app.innerHTML = `<div class="screen start">${kopf}${testLeiste}<section class="info-karte bald"><b>Das Archiv öffnet bald.</b><div class="gedaempft">Deine Eltern schalten es frei.</div></section><p class="gedaempft bz-mitte klein">Version ${LESE_VERSION}</p></div>`;
     return;
   }
   $app.innerHTML = `
   <div class="screen start">
-    ${kopf}
+    ${kopf}${testLeiste}
     ${anz.sek > 0 ? `<section class="bz-karte">
       <span class="bz-icons">${VIDEO(40)}</span>
       <div class="bz-text"><div class="bz-zahl">${minTxt(anz.sek)}</div><div class="gedaempft">Bildschirmzeit gesammelt</div></div>
@@ -133,12 +145,13 @@ function zeigeStart(syncJetzt = true) {
     </section>` : ''}
     <button class="btn btn-haupt btn-gross lese-knopf" data-act="lesen" disabled>Weiterlesen<span class="unter">Die ersten Geschichten kommen bald.</span></button>
     <button class="btn btn-gross" data-act="anderes" disabled>Etwas anderes lesen</button>
+    ${test() ? '<button class="btn btn-bz-rand" data-act="testKarte">Test: eine Lesekarte mit 2 Min. buchen</button>' : ''}
     <section class="info-karte">
       <div class="info-zeile"><span>Heute gelesen</span><b>${t.karten} ${t.karten === 1 ? 'Karte' : 'Karten'}</b></div>
       <div class="info-zeile"><span>Lese-Zeit</span><b>${minTxt(t.sek)} von ${minTxt(grenze)}</b></div>
       <div class="balken"><i style="width:${Math.min(100, Math.round(100 * t.sek / Math.max(1, grenze)))}%"></i></div>
       ${voll ? '<div class="voll-zeile">Für heute ist deine Lese-Zeit voll. Weiterlesen geht, aber ohne Zeit.</div>' : ''}
-      ${W().bildschirm ? `<div class="info-zeile info-trenner"><span>Aus Mathe heute</span><b>${minTxt(m.sek)}</b></div>
+      ${W().bildschirm && !test() ? `<div class="info-zeile info-trenner"><span>Aus Mathe heute</span><b>${minTxt(m.sek)}</b></div>
       ${voll && m.frei > 0 ? `<div class="gedaempft klein">In Mathe ist heute noch Zeit frei.</div>` : ''}` : ''}
     </section>
     <p class="gedaempft bz-mitte klein">Version ${LESE_VERSION}${S.upload.fehler ? ' · Übertragung klappt gerade nicht' : ''}</p>
@@ -163,7 +176,10 @@ function zeigeAbschicken() {
   const k = kasse();
   if (!k) return zeigeStart();
   const anz = K.anzeige(k), ab = BS.abSek(W().bildschirm);
-  if (anz.sek >= ab && !ablauf.laeuft() && Date.now() - bzGeoeffnet > 20000) {
+  if (test() && anz.sek >= ab && !k.res) {
+    const r = K.reservieren(null, K.quellenStand(k, {}), { res: null, code: BS.neuerCode(), app: 'lesen', geraet: S.geraetId });
+    if (r.eintrag) { k.res = r.eintrag; k.bez = r.datei.bezahlt; sichern(); }
+  } else if (!test() && anz.sek >= ab && !ablauf.laeuft() && Date.now() - bzGeoeffnet > 20000) {
     bzGeoeffnet = Date.now();
     ablauf.reservieren().then(() => { if (ansicht === 'bz') zeigeAbschicken(); });
   }
@@ -196,7 +212,7 @@ let teilenLaeuft = false, teilenWeg = false;
 async function teilen() {
   const res = resDaten();
   if (!res) return;
-  const text = BS.nachrichtText({ ...res, aufgaben: res.aufgaben }, new Date(), res.teile).replace(/ · 0 Aufgaben| 0 Aufgaben · /, '');
+  const text = (test() ? 'TEST – nicht gültig\n' : '') + BS.nachrichtText({ ...res, aufgaben: res.aufgaben }, new Date(), res.teile).replace(/ · 0 Aufgaben| 0 Aufgaben · /, '');
   let geteilt = false, mitBild = false;
   if (navigator.share) {
     mitBild = !!(bzBild && navigator.canShare && navigator.canShare({ files: [bzBild], text }));
@@ -225,7 +241,7 @@ function nachfragen(mitBild) {
     <p>Hast du sie an deine Eltern geschickt?</p><div class="knopf-reihe"><button class="btn btn-haupt" data-act="angekommen" data-bild="${mitBild ? 1 : 0}">Ja, geschickt</button><button class="btn" data-act="nichtAngekommen">Nein</button></div></div></div>`;
 }
 function abgeschickt(mitBild, bestaetigt = false) {
-  const res = ablauf.geteilt();
+  const res = test() ? (() => { const r = S.kasse.res; S.kasse.res = null; sichern(); return r; })() : ablauf.geteilt();
   if (!res) return;
   protokoll('bildschirmzeit', { sekunden: res.sek, aufgaben: res.aufgaben || 0, lesekarten: res.lesekarten || 0, code: res.code, mathe: res.mathe || 0, lesen: res.lesen || 0, ...(res.uebung_ms ? { uebung_ms: res.uebung_ms } : {}), kasse: true, bild: !!mitBild, ...(bestaetigt ? { bestaetigt: true } : {}) });
   syncen();
@@ -240,7 +256,7 @@ function zeigeEinrichtung(meldung = '') {
   ansicht = 'einrichtung';
   $app.innerHTML = `<div class="screen einrichten">
     <header class="start-kopf marke">${sechseck(56, '#E3E6F5', '#33408F', BUCH)}<div><h1>Archiv der Welten</h1><p class="gedaempft">Einrichten</p></div></header>
-    <p>Scanne den QR-Code für das Kinder-Handy aus der Eltern-App.</p>
+    <p>Scanne den QR-Code für das Kinder-Handy aus der Eltern-App. Mit dem Code „Weitere Eltern-App“ wird dieses Handy ein Testgerät.</p>
     <button class="btn btn-haupt btn-gross" data-act="scannen">QR-Code scannen</button>
     <video id="kamera" playsinline muted hidden></video>
     <details><summary>Link einfügen</summary><textarea id="link" aria-label="Link aus der Eltern-App"></textarea><button class="btn" data-act="linkOk">Übernehmen</button></details>
@@ -249,17 +265,81 @@ function zeigeEinrichtung(meldung = '') {
 }
 async function einrichten(text) {
   const d = einrichtungLesen(text);
-  if (!d || d.art !== 'kind' || !d.name) { zeigeEinrichtung('Das ist kein Code für das Kinder-Handy.'); return false; }
+  if (!d || !(d.art === 'eltern' || (d.art === 'kind' && d.name))) { zeigeEinrichtung('Diesen Code kennt die Lese-App nicht. Nimm den Code für das Kinder-Handy.'); return false; }
   try {
     await U.verbindungTesten({ repo: d.repo, token: d.token });
   } catch (e) { zeigeEinrichtung(e.message || 'Keine Verbindung.'); return false; }
-  S.name = d.name; S.upload = { ...S.upload, repo: d.repo, token: d.token };
-  protokoll('einrichtung_qr', { app: 'archiv' });
+  S.name = d.art === 'kind' ? d.name : ''; S.upload = { ...S.upload, repo: d.repo, token: d.token };
+  if (d.art === 'eltern') { S.upload.testgeraet = true; protokoll('testgeraet', { an: true }); }
+  protokoll('einrichtung_qr', { app: 'archiv', art: d.art });
   history.replaceState(null, '', location.pathname);
   await einstellungenHolen().catch(() => {});
+  if (test() && !testAls()) { zeigeStart(false); personaWahl(); return true; }
   zeigeStart();
   return true;
 }
+
+// ---------- Elternbereich (Logo 2 Sekunden gedrückt halten, eigener PIN dieser App) ----------
+function modal(html) {
+  const m = document.getElementById('modal');
+  m.classList.add('offen');
+  m.innerHTML = `<div class="modal-hinter" data-act="modalZu"></div><div class="modal-box" role="dialog" aria-modal="true"><button class="modal-x" data-act="modalZu" aria-label="Schließen">✕</button>${html}</div>`;
+  setTimeout(() => { const i = m.querySelector('input'); if (i) i.focus(); }, 50);
+}
+function elternZugang() {
+  if (!S.pin) modal(`<div class="pin-form"><h2 class="modal-titel">Elternbereich einrichten</h2>
+    <p>Lege einen PIN fest (4 bis 8 Ziffern). Damit kommst du später in den Elternbereich: Logo 2 Sekunden gedrückt halten.</p>
+    <input id="pin1" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="PIN">
+    <input id="pin2" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="PIN wiederholen">
+    <p class="fehler-text" id="pin-fehler"></p><button class="btn btn-haupt" data-act="pinSetzen">Speichern</button></div>`);
+  else modal(`<div class="pin-form"><h2 class="modal-titel">Elternbereich</h2>
+    <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="PIN">
+    <p class="fehler-text" id="pin-fehler"></p><button class="btn btn-haupt" data-act="pinPruefen">Öffnen</button></div>`);
+}
+let kinder = null;
+async function personaWahl() {
+  modal(`<div class="hinweis-text persona-wahl"><h2 class="modal-titel">Testen als …</h2><p class="gedaempft klein">Liest die Einstellungen dieses Kindes. Es wird nichts gesendet.</p><p class="gedaempft">Wird geladen …</p></div>`);
+  try {
+    if (!kinder) {
+      const dirs = (await U.ordnerLesen(S.upload, 'daten')).filter(f => f.type === 'dir').map(f => f.name);
+      kinder = [];
+      for (const o of dirs) { try { if (await U.dateiLesen(S.upload, `daten/${o}/einstellungen.json`)) kinder.push(o); } catch (e) { /* weiter */ } }
+    }
+  } catch (e) { kinder = []; }
+  modal(`<div class="hinweis-text persona-wahl"><h2 class="modal-titel">Testen als …</h2><p class="gedaempft klein">Liest die Einstellungen dieses Kindes. Es wird nichts gesendet.</p>
+    <div class="persona-liste">${kinder.map(o => `<button class="btn${testAls() === o ? ' btn-haupt' : ''}" data-act="personaSetzen" data-o="${esc(o)}">${esc(gross(o))}</button>`).join('') || '<p>Keine Kinder im Daten-Repo gefunden.</p>'}</div></div>`);
+}
+function zeigeEltern(meldung = '') {
+  ansicht = 'eltern';
+  const r = R(), w = W();
+  const lesenText = w.lesen ? `${LL.leseRegeln(w.lesen).an ? 'an' : 'aus'} · ${r.max} Min. am Tag · Faktor ${String(r.faktor).replace('.', ',')}` : 'noch nicht eingestellt';
+  $app.innerHTML = `<div class="screen eltern-seite">
+    <header class="topbar"><button class="btn-text" data-act="start">‹ Zum Start</button></header>
+    <h2>Elternbereich</h2>
+    ${meldung ? `<p class="meldung">${esc(meldung)}</p>` : ''}
+    <section class="info-karte">
+      <div class="info-zeile"><span>Name</span><b>${esc(S.name || '–')}</b></div>
+      <div class="info-zeile"><span>Lesen für ${esc(gross(ordner()) || '–')}</span><b>${esc(lesenText)}</b></div>
+      <div class="info-zeile"><span>Konto gemeinsam</span><b>${w.kasse ? 'an' : 'aus'}</b></div>
+      <div class="info-zeile"><span>Übertragung</span><b>${test() ? 'aus (Testgerät)' : S.upload.fehler ? esc(S.upload.fehler) : 'in Ordnung'}</b></div>
+      <div class="info-zeile"><span>Version</span><b>${LESE_VERSION}</b></div>
+    </section>
+    <section class="info-karte">
+      <label class="schalter-zeile"><input type="checkbox" data-act="testAn"${test() ? ' checked' : ''}><span><b>Dieses Handy ist ein Testgerät</b><br><span class="gedaempft klein">Es wird nichts gesendet. Lesen ist zum Ausprobieren immer offen. Bildschirmzeit bleibt auf diesem Handy, der Code gilt nicht.</span></span></label>
+      ${test() ? `<button class="btn" data-act="persona">Testen als: ${esc(gross(testAls()) || 'bitte wählen')}</button>
+      <button class="btn" data-act="testZurueck">Test-Lese-Zeit und Test-Konto löschen</button>` : ''}
+    </section>
+    <button class="btn" data-act="neuEinrichten">Neu einrichten (QR-Code)</button>
+    <p class="gedaempft klein">Lese-Zeit, Lohnfaktor und „Nur heute mehr“ stellt ihr in der Eltern-App ein.</p>
+  </div>`;
+}
+let druckZeit = null;
+document.addEventListener('pointerdown', (e) => {
+  if (!e.target.closest('.marke svg')) return;
+  druckZeit = setTimeout(() => { druckZeit = null; elternZugang(); }, 1500);
+});
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => document.addEventListener(ev, () => { if (druckZeit) { clearTimeout(druckZeit); druckZeit = null; } }));
+document.addEventListener('contextmenu', (e) => { if (e.target.closest('.marke')) e.preventDefault(); });
 
 function modalZu() { const m = document.getElementById('modal'); m.classList.remove('offen'); m.innerHTML = ''; }
 
@@ -281,6 +361,28 @@ document.addEventListener('click', async (ev) => {
       break;
     }
     case 'linkOk': einrichten(document.getElementById('link').value); break;
+    case 'pinSetzen': {
+      const a = document.getElementById('pin1').value, b = document.getElementById('pin2').value;
+      if (!/^\d{4,8}$/.test(a)) { document.getElementById('pin-fehler').textContent = 'Bitte 4 bis 8 Ziffern.'; break; }
+      if (a !== b) { document.getElementById('pin-fehler').textContent = 'Die beiden PINs sind nicht gleich.'; break; }
+      S.pin = a; sichern(); modalZu(); zeigeEltern(); break;
+    }
+    case 'pinPruefen': if (document.getElementById('pin').value === S.pin) { modalZu(); zeigeEltern(); } else document.getElementById('pin-fehler').textContent = 'Der PIN stimmt nicht.'; break;
+    case 'modalZu': modalZu(); break;
+    case 'testAn': {
+      const an = el.checked;
+      S.upload.testgeraet = an; if (!an) S.upload.testAls = null;
+      S.kasse = null; S.einst = null; // Test-Konto und Einstellungen verwerfen
+      protokoll('testgeraet', { an }); sichern();
+      await einstellungenHolen().catch(() => {});
+      zeigeEltern(); break;
+    }
+    case 'persona': personaWahl(); break;
+    case 'personaSetzen': S.upload.testAls = el.dataset.o; S.einst = null; sichern(); modalZu(); await einstellungenHolen().catch(() => {}); if (ansicht === 'eltern') zeigeEltern(); else zeigeStart(); break;
+    case 'testKarte': { const k = kasse(); if (k) { LL.verdienen(k, heute(), 120, R()); sichern(); zeigeStart(false); } break; }
+    case 'testZurueck': { if (S.kasse && test()) { S.kasse = null; S.tag = null; sichern(); } zeigeEltern('Test-Lese-Zeit und Test-Konto sind gelöscht.'); break; }
+    case 'neuEinrichten': S.name = ''; S.upload = { tage: {} }; S.einst = null; S.kasse = test() ? null : S.kasse; sichern(); zeigeEinrichtung(); break;
+    case 'eltern': zeigeEltern(); break;
   }
 });
 document.addEventListener('visibilitychange', () => {

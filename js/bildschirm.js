@@ -224,7 +224,7 @@ export function geuebtText(konto) {
 // Text für die Nachricht an die Eltern
 // teile (Kassenbuch, Auftrag 59): { mathe, lesen (Sekunden), karten } – nur mit Lese-Zeit kommt die Zeile „Mathe … · Lesen …“
 export function teileText(teile) {
-  return teile && teile.lesen > 0 ? `Mathe ${minText(teile.mathe || 0)} · Lesen ${minText(teile.lesen)}` : '';
+  return teile && teile.lesen > 0 && teile.mathe > 0 ? `Mathe ${minText(teile.mathe || 0)} · Lesen ${minText(teile.lesen)}` : '';
 }
 export function nachrichtText(konto, jetzt, teile = null) {
   const a = konto.aufgaben, g = geuebtText(konto), t = teileText(teile), kn = (teile && teile.karten) || 0;
