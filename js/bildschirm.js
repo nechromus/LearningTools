@@ -222,9 +222,13 @@ export function geuebtText(konto) {
 }
 
 // Text für die Nachricht an die Eltern
-export function nachrichtText(konto, jetzt) {
-  const a = konto.aufgaben, g = geuebtText(konto);
-  return `📺 Bildschirmzeit: ${minText(konto.stand)}\n${zeitpunktText(jetzt)} · ${a} ${a === 1 ? 'Aufgabe' : 'Aufgaben'}${g ? ' · ' + g : ''}\nCode: ${konto.code}`;
+// teile (Kassenbuch, Auftrag 59): { mathe, lesen (Sekunden), karten } – nur mit Lese-Zeit kommt die Zeile „Mathe … · Lesen …“
+export function teileText(teile) {
+  return teile && teile.lesen > 0 ? `Mathe ${minText(teile.mathe || 0)} · Lesen ${minText(teile.lesen)}` : '';
+}
+export function nachrichtText(konto, jetzt, teile = null) {
+  const a = konto.aufgaben, g = geuebtText(konto), t = teileText(teile), kn = (teile && teile.karten) || 0;
+  return `📺 Bildschirmzeit: ${minText(konto.stand)}\n${t ? t + '\n' : ''}${zeitpunktText(jetzt)} · ${a} ${a === 1 ? 'Aufgabe' : 'Aufgaben'}${kn ? ` · ${kn} ${kn === 1 ? 'Lesekarte' : 'Lesekarten'}` : ''}${g ? ' · ' + g : ''}\nCode: ${konto.code}`;
 }
 
 // Nach dem Teilen: Konto auf 0, Eintrag für das Protokoll zurückgeben

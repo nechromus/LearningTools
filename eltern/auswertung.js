@@ -632,6 +632,8 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
       ...(alt && alt.werte && alt.werte.wochenplan ? { wochenplan: alt.werte.wochenplan } : {}),
       // Befristete Grenzen (Auftrag 36): setzt der App-Chat, die Eltern-App übernimmt sie unverändert
       ...(alt && alt.werte && alt.werte.befristet ? { befristet: alt.werte.befristet } : {}),
+      // Kassenbuch der Bildschirmzeit (Auftrag 59): setzt der App-Chat, die Eltern-App übernimmt es unverändert
+      ...(alt && alt.werte && typeof alt.werte.kasse === 'boolean' ? { kasse: alt.werte.kasse } : {}),
       ...(eingriffeDatei(werte.eingriffe, jetzt).length ? { eingriffe: eingriffeDatei(werte.eingriffe, jetzt) } : {}),
       ...(werte.splitter ? { splitter: { preise: werte.splitter.preise, boni: werte.splitter.boni.slice(-50), frei: werte.splitter.frei } } : {}) }
   };

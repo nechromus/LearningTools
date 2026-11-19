@@ -64,6 +64,26 @@ export async function dateiSchreiben(cfg, pfad, inhalt, nachricht) {
   return false;
 }
 
+// Datei mit ihrer Kennung (sha) lesen. Für Dateien, die nur geschrieben werden dürfen, wenn sie sich nicht geändert haben.
+// Gibt { inhalt (JSON oder null), sha (oder null) } zurück.
+export async function dateiMitSha(cfg, pfad) {
+  const r = await anfrage(cfg, 'GET', pfadUrl(cfg, pfad));
+  if (r.status === 404) return { inhalt: null, sha: null };
+  if (!r.ok) throw new UploadFehler(r.status, fehlerText(r.status));
+  const j = await r.json();
+  const bin = atob(String(j.content || '').replace(/\s/g, ''));
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  return { inhalt: JSON.parse(new TextDecoder().decode(bytes)), sha: j.sha };
+}
+// Nur schreiben, wenn die Datei noch die Kennung sha hat (sha null = Datei darf es noch nicht geben).
+// Gibt true zurück, wenn geschrieben; false, wenn jemand anderes schneller war.
+export async function dateiSchreibenWenn(cfg, pfad, inhalt, sha, nachricht) {
+  const p = await anfrage(cfg, 'PUT', pfadUrl(cfg, pfad), { message: nachricht, content: base64(inhalt), ...(sha ? { sha } : {}) });
+  if (p.ok) return true;
+  if (p.status === 409 || p.status === 422) return false;
+  throw new UploadFehler(p.status, fehlerText(p.status));
+}
+
 // Neue Datei mit fertigem Base64-Inhalt anlegen (Bilder fürs Feedback). Der Name ist neu, deshalb ohne sha.
 export async function dateiNeuBase64(cfg, pfad, b64, nachricht) {
   const p = await anfrage(cfg, 'PUT', pfadUrl(cfg, pfad), { message: nachricht, content: b64 });

@@ -21,6 +21,7 @@ import * as RGF from './runengruft-freischalten.js';
 import { koboldMalen } from './kobold-bild.js';
 import * as SP from './splitter.js';
 import * as BS from './bildschirm.js';
+import * as K from './kasse.js';
 import * as BZS from './bz-stufen.js';
 import * as LP from './lernplan.js';
 import * as W from './wochenplan.js';
@@ -35,7 +36,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.50.7';
+export const APP_VERSION = '2.51.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -381,7 +382,7 @@ function standDaten() {
     etappeAnzeigen: !!S.etappeAnzeigen, gestaltung: S.gestaltung || 'schrein',
     ...(S.wissen ? { wissen: { stand: SZ.wissenVon(S.wissen).stand, archiv: SZ.archivVon(S.archiv).gekauft } } : {}),
     ...(UZ().an ? { uebung: uzKonto() } : {}),
-    ...(BZ().an ? { bildschirm: (k => ({ stand: k.stand, tag: k.tag, heute: k.heute }))(bzKonto()) } : {}), statistik: S.statistik, zusammenfassung7Tage: zusammenfassung(7), letzterExport: S.letzterExport,
+    ...(BZ().an ? { bildschirm: (k => ({ stand: k.stand, tag: k.tag, heute: k.heute, ...(kasse() ? { kasse: { quelle: S.kasse.quelle, n: S.kasse.n, kum: S.kasse.kum, ...(S.kasse.res ? { reserviert: S.kasse.res.code } : {}) } } : {}) }))(bzKonto()) } : {}), statistik: S.statistik, zusammenfassung7Tage: zusammenfassung(7), letzterExport: S.letzterExport,
     speicher: speicherInfo(S)
   };
 }
@@ -434,7 +435,7 @@ async function testAlsSetzen(ordner) {
   await fernHolen(true);
 }
 function personaZuruecksetzen(z) {
-  for (const f of ['gestaltung', 'ansichtName', 'uzRegeln', 'bzRegeln', 'szRegeln', 'etappeAnzeigen', 'fernEtappen', 'feedbackAn', 'liveAn', 'freigaben', 'wochenplan', 'eingriffe', 'wp', 'zuletzt']) delete z[f];
+  for (const f of ['gestaltung', 'ansichtName', 'uzRegeln', 'bzRegeln', 'szRegeln', 'etappeAnzeigen', 'fernEtappen', 'feedbackAn', 'liveAn', 'kasseAn', 'freigaben', 'wochenplan', 'eingriffe', 'wp', 'zuletzt']) delete z[f];
   delete z.einstellungen.umformStufe;
   for (const b of L.BEDIENUNG) delete z.einstellungen[b.f];
 }
@@ -510,6 +511,7 @@ function standUebernehmen(datei, grund) {
   const ueb = BS.uebungBehalten(bzKonto(), kontoVorher);
   if (ueb) { protokoll(S, 'uebung_behalten', { server_min: Math.round(ueb.vorher / 6000) / 10, lokal_min: Math.round(ueb.nachher / 6000) / 10, rev: u.standRev }); standNochmal = true; }
   if (stufenGesehen && S.verlauf) S.verlauf.bzStufenGesehen = true;
+  kasseStand(); // Kassenbuch (Auftrag 59): das Konto kommt nie aus dem Spielstand
   u.standOnline = { gespeichert: datei.gespeichert, geraetId: datei.geraetId };
   u.standWartet = false;
   protokoll(S, 'spielstand_geladen', { von: datei.geraetId, gespeichert: datei.gespeichert, rev: u.standRev, grund });
@@ -593,6 +595,121 @@ async function standHochladen(erzwingen = false) {
   }
 }
 
+// ---------- Kassenbuch der Bildschirmzeit (Auftrag 59) ----------
+// Mit Schalter werte.kasse (Tobias): Die verdiente Zeit steht als Buchungen in daten/<name>/konto/mathe-<handy>.json,
+// abgeschickt wird über daten/<name>/konto/auszahlungen.json (nur schreiben, wenn unverändert). Das Konto auf dem Handy
+// (S.bildschirm.stand) wird daraus berechnet und kommt nie aus einem übernommenen Spielstand. Ohne Schalter: wie bisher.
+let kasseGeprueft = null; // einmal geprüftes Kassenbuch (immer dasselbe Objekt, damit laufende Abläufe es nicht verlieren)
+const kasseAn = () => !!(S.kasseAn && BZ().an && S.geraetId && S.einstellungen.name && !S.upload.testgeraet && !S.upload.testAls);
+function kasse() {
+  if (!kasseAn()) return null;
+  const quelle = K.quelleId('mathe', S.geraetId);
+  if (S.kasse && S.kasse === kasseGeprueft && S.kasse.quelle === quelle) return S.kasse;
+  const k = K.kasseVon(S.kasse);
+  if (k && k.quelle === quelle) { S.kasse = kasseGeprueft = k; return k; }
+  const konto = bzKonto();
+  S.kasse = kasseGeprueft = K.kasseNeu('mathe', S.geraetId, konto);
+  protokoll(S, 'kasse_start', { quelle, uebertrag: S.kasse.kum, aufgaben: S.kasse.kumA });
+  sichern();
+  return S.kasse;
+}
+// Konto für Anzeige und Abschicken aus dem Kassenbuch berechnen
+function kasseStand() {
+  const k = kasse();
+  if (!k) return null;
+  const a = K.anzeige(k), konto = bzKonto(), m = a.je.mathe || { a: 0, ms: 0 };
+  konto.stand = a.sek; konto.aufgaben = m.a; konto.ms = Object.values(a.je).reduce((s, x) => s + x.ms, 0); konto.msVoll = true;
+  if (k.res) konto.code = k.res.code;
+  return a;
+}
+const kassePfadA = () => K.auszahlungsPfad(nutzerOrdner());
+// Eigene Buchungen hochladen (nie mit weniger überschreiben)
+let kasseHochLaeuft = null;
+function kasseHochladen() {
+  if (!kasseHochLaeuft) kasseHochLaeuft = kasseHochladenJetzt().finally(() => { kasseHochLaeuft = null; });
+  return kasseHochLaeuft;
+}
+async function kasseHochladenJetzt() {
+  const k = kasse(), u = S.upload;
+  if (!k || !u.repo || !u.token) return false;
+  if (k.n <= k.hochN) return true;
+  const pfad = K.quellPfad(nutzerOrdner(), k.quelle);
+  const server = await U.dateiLesen(u, pfad);
+  if (!K.darfSchreiben(k, server)) {
+    // Auf dem Server stehen mehr Buchungen als hier (sollte nicht vorkommen): nichts verlieren, Summen übernehmen
+    protokoll(S, 'kasse_server_mehr', { server_n: server.n, lokal_n: k.n });
+    Object.assign(k, { n: server.n, kum: Math.max(k.kum, server.kum || 0), kumA: Math.max(k.kumA, server.kumA || 0), kumMs: Math.max(k.kumMs, server.kumMs || 0) });
+  }
+  const konto = bzKonto(), nVorher = k.n;
+  await U.dateiSchreiben(u, pfad, JSON.stringify(K.quellDatei(k, S.geraetId, { tag: konto.tag, sek: konto.heute })), `Konto ${k.quelle} ${k.n}`);
+  k.hochN = Math.max(k.hochN, nVorher);
+  sichern();
+  if (k.n > k.hochN) return kasseHochladenJetzt(); // während des Hochladens neu gebucht
+  return true;
+}
+// Auszahlungen und die anderen Quellen (z. B. Lese-App) lesen. Gibt { inhalt, sha } der Auszahlungen zurück.
+async function kasseLesen() {
+  const k = kasse(), u = S.upload, o = nutzerOrdner();
+  const a = await U.dateiMitSha(u, kassePfadA());
+  const liste = await U.ordnerLesen(u, `daten/${o}/${K.ORDNER}`);
+  const fremd = [];
+  for (const f of liste) {
+    if (f.type !== 'file' || !f.name.endsWith('.json') || f.name === 'auszahlungen.json' || f.name === `${k.quelle}.json`) continue;
+    try { fremd.push(await U.dateiLesen(u, f.path)); } catch (e) { /* diese Quelle später */ }
+  }
+  K.serverStand(k, a.inhalt, fremd);
+  return a;
+}
+// Reservieren (beim Öffnen des Abschicken-Bildschirms): Auszahlung mit Code, noch nicht geteilt.
+let kasseRes = { laeuft: false, fehler: null };
+async function kasseReservieren() {
+  const k = kasse(), u = S.upload;
+  if (!k || kasseRes.laeuft) return;
+  kasseRes = { laeuft: true, fehler: null };
+  try {
+    await kasseHochladen();
+    for (let versuch = 0; versuch < 4; versuch++) {
+      const a = await kasseLesen();
+      const code = (k.res && k.res.code) || bzKonto().code || BS.neuerCode();
+      const r = K.reservieren(a.inhalt, K.quellenStand(k, k.fremd), { res: k.res, code, app: 'mathe', geraet: S.geraetId });
+      if (r.schonGeteilt) { k.res = null; continue; }
+      if (!r.datei) break; // nichts Neues zu buchen
+      if (await U.dateiSchreibenWenn(u, kassePfadA(), JSON.stringify(r.datei, null, 1), a.sha, `Bildschirmzeit ${r.eintrag.code}`)) {
+        k.res = r.eintrag; k.bez = r.datei.bezahlt;
+        protokoll(S, 'kasse_reserviert', { code: r.eintrag.code, sekunden: r.eintrag.sek, mathe: r.eintrag.mathe, lesen: r.eintrag.lesen });
+        break;
+      }
+      // jemand anderes (z. B. die Lese-App) war schneller: neu lesen und noch einmal
+    }
+  } catch (e) {
+    kasseRes.fehler = e && e.status === 0 ? 'offline' : 'fehler';
+    schluesselStatus(e);
+  } finally {
+    kasseRes.laeuft = false;
+    kasseStand(); sichern();
+    if (ansicht === 'bildschirm') zeigeBildschirmzeit();
+  }
+}
+// Nach dem Teilen: Status „geteilt“ eintragen (Eltern-App zählt nur geteilte als eingelöst). Wird bis zum Erfolg wiederholt.
+async function kasseMelden() {
+  const k = kasse(), u = S.upload;
+  if (!k || !k.melden.length || !u.repo || !u.token) return;
+  for (let versuch = 0; versuch < 4 && k.melden.length; versuch++) {
+    const a = await U.dateiMitSha(u, kassePfadA());
+    let d = a.inhalt;
+    for (const c of k.melden) { const neu = K.alsGeteilt(d, c); if (neu) d = neu; }
+    if (d === a.inhalt || await U.dateiSchreibenWenn(u, kassePfadA(), JSON.stringify(d, null, 1), a.sha, `Bildschirmzeit geteilt ${k.melden.join(', ')}`)) { k.melden = []; break; }
+  }
+  sichern();
+}
+let kasseSyncZuletzt = 0;
+async function kasseSync() {
+  if (!kasse()) return;
+  await kasseHochladen();
+  await kasseMelden();
+  if (Date.now() - kasseSyncZuletzt > 5 * 60 * 1000) { kasseSyncZuletzt = Date.now(); await kasseLesen(); kasseStand(); sichern(); }
+}
+
 // ---------- Live-Anzeige für die Eltern-App ----------
 // Nur Ereignisse: „startet Übung“, „startet Spiel“, „verlässt die App“. Ein Commit nur, wenn sich der Zustand ändert.
 // Das Lebenszeichen dazwischen sind die normalen Lerndaten (höchstens alle 10 Minuten).
@@ -621,6 +738,7 @@ async function syncen(erzwingen = false) {
   try { wpEingriffeMelden(); wpPlanIst('sync'); } catch (e) { /* egal */ }
   try { await standAbgleich(erzwingen); } catch (e) { /* später nochmal */ }
   standHochladen(erzwingen);
+  kasseSync().catch(() => {});
   if (syncLaeuft) return null;
   if (!erzwingen && Date.now() - (u.versuch || 0) < 10 * 60 * 1000) return null;
   syncLaeuft = true;
@@ -1408,6 +1526,7 @@ function zeigeBildschirmzeit() {
     </div>`;
     return;
   }
+  if (kasse()) { zeigeBildschirmzeitKasse(); return; }
   if (!k.code && k.stand > 0) { k.code = BS.neuerCode(); sichern(); }
   const jetzt = new Date();
   // Bild für die Nachricht schon jetzt zeichnen: Beim Tippen auf „Teilen“ muss das Teilen-Fenster sofort aufgehen (iPhone)
@@ -1428,12 +1547,56 @@ function zeigeBildschirmzeit() {
   </div>`;
 }
 
+// Abschicken mit Kassenbuch (Auftrag 59): Beim Öffnen wird reserviert, danach kann geteilt werden.
+// Gleiches Aussehen wie bisher. Neu nur: mit Lese-Zeit zwei Kästen „aus Mathe / aus Lesen“.
+let bzResGeoeffnet = 0;
+function bzResDaten() {
+  const r = S.kasse && S.kasse.res;
+  if (!r) return null;
+  return { stand: r.sek, aufgaben: r.aufgaben || 0, ms: r.uebung_ms || 0, msVoll: true, code: r.code, teile: { mathe: r.mathe || 0, lesen: r.lesen || 0, karten: r.lesekarten || 0 } };
+}
+function zeigeBildschirmzeitKasse() {
+  const k = bzKonto(), r = BZ();
+  // Beim Öffnen (höchstens alle 20 s neu) reservieren bzw. ergänzen
+  if (BS.kannAbschicken(k, r) && !kasseRes.laeuft && Date.now() - bzResGeoeffnet > 20000) { bzResGeoeffnet = Date.now(); kasseReservieren(); }
+  const res = bzResDaten();
+  const jetzt = new Date();
+  const bereit = res && res.stand >= BS.abSek(r);
+  bzBildDatei = null;
+  if (bereit) bildschirmBild({ sekunden: res.stand, aufgaben: res.aufgaben, code: res.code, name: S.einstellungen.name || '', geuebt: BS.geuebtText(res), teile: BS.teileText(res.teile), karten: res.teile.karten }, jetzt).then(f => { bzBildDatei = f; });
+  const zeig = bereit ? res : k;
+  const teile = bereit && res.teile.lesen > 0
+    ? `<div class="bz-teile"><div><b>${BS.minText(res.teile.mathe)}</b><span>aus Mathe</span></div><div><b>${BS.minText(res.teile.lesen)}</b><span>aus Lesen</span></div></div>` : '';
+  const mehr = bereit && k.stand > res.stand + 30 ? `<p class="gedaempft bz-mitte">Dazu kommen gleich noch ${BS.minText(k.stand - res.stand)}.</p>` : '';
+  let unten;
+  if (bereit) unten = `
+    <p class="gedaempft bz-mitte">${esc(BS.zeitpunktText(jetzt))} Uhr<br>${res.aufgaben} ${res.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}${res.teile.karten ? ` · ${res.teile.karten} ${res.teile.karten === 1 ? 'Lesekarte' : 'Lesekarten'}` : ' geschafft'}${BS.geuebtText(res) ? '<br>' + esc(BS.geuebtText(res)) : ''}</p>
+    <div><p class="gedaempft bz-mitte bz-code-label">Dein Code</p><div class="bz-code">${esc(res.code.split('').join(' '))}</div></div>
+    <button class="btn btn-bz btn-gross" data-act="bzTeilen">Teilen</button>
+    <p class="gedaempft bz-mitte">Schick die Nachricht an deine Eltern.<br>Danach steht hier wieder 0.</p>${mehr}
+    <p class="meldung-bz" id="bz-meldung" hidden></p>`;
+  else if (!BS.kannAbschicken(k, r)) unten = `<p class="bz-mitte">${k.stand > 0 ? abText(k) : 'Gerade ist nichts zum Abschicken da.'}</p>`;
+  else if (kasseRes.fehler === 'offline') unten = `<p class="bz-mitte">Zum Abschicken braucht die App Internet.<br>Versuch es gleich noch einmal.</p><button class="btn btn-bz btn-gross" data-act="bzNeu">Noch einmal versuchen</button>`;
+  else if (kasseRes.fehler) unten = `<p class="bz-mitte">Das hat gerade nicht geklappt.</p><button class="btn btn-bz btn-gross" data-act="bzNeu">Noch einmal versuchen</button>`;
+  else unten = `<p class="gedaempft bz-mitte bz-code-label">Dein Code</p><div class="bz-code bz-code-warten">· · · ·</div><button class="btn btn-bz btn-gross" disabled>Einen Moment …</button>`;
+  $app.innerHTML = `
+  <div class="screen bz-screen">
+    <header class="topbar"><button class="btn-text" data-act="start">‹ Zurück</button></header>
+    <div class="bz-gross-icon">${videoSymbol(64)}</div>
+    <div class="bz-gross">${BS.minText(zeig.stand)}</div>
+    <p class="bz-mitte bz-label">Bildschirmzeit</p>
+    ${teile}${unten}
+  </div>`;
+}
+
 // Teilen läuft: Geht die App dabei in den Hintergrund, war eine andere App offen (z. B. WhatsApp).
 let bzTeilenLaeuft = false, bzTeilenWeg = false;
 async function bzTeilen() {
-  const k = bzKonto();
+  const res = kasse() ? bzResDaten() : null;
+  if (kasse() && !res) return;
+  const k = res || bzKonto();
   if (!BS.kannAbschicken(k, BZ()) || !k.code) return;
-  const text = BS.nachrichtText(k, new Date()) + (schluesselKaputt() ? `\n⚠ Übertragung klappt nicht: ${S.upload.schluesselKaputt.status === 401 ? 'Schlüssel abgelaufen' : 'Schlüssel ohne Zugriff'} (seit ${new Date(S.upload.schluesselKaputt.seit).toLocaleDateString('de-DE')})` : '');
+  const text = BS.nachrichtText(k, new Date(), res && res.teile) + (schluesselKaputt() ? `\n⚠ Übertragung klappt nicht: ${S.upload.schluesselKaputt.status === 401 ? 'Schlüssel abgelaufen' : 'Schlüssel ohne Zugriff'} (seit ${new Date(S.upload.schluesselKaputt.seit).toLocaleDateString('de-DE')})` : '');
   let geteilt = false, mitBild = false;
   if (navigator.share) {
     mitBild = bzBildDatei && navigator.canShare && navigator.canShare({ files: [bzBildDatei], text });
@@ -1466,12 +1629,34 @@ function bzNachfragen(mitBild) {
 }
 
 function bzAbgeschickt(k, mitBild, bestaetigt = false) {
+  if (kasse()) { bzAbgeschicktKasse(mitBild, bestaetigt); return; }
   const eintrag = BS.abschicken(k);
   protokoll(S, 'bildschirmzeit', { ...eintrag, faktor: BZ().faktor, bild: !!mitBild, ...(bestaetigt ? { bestaetigt: true } : {}) });
   sichern();
   standHochladen(true); // Konto mit 0 sicher auf den Server (läuft gerade ein Upload vom Teilen-Fenster: danach)
   syncen();
   bzGeschickt = { sekunden: eintrag.sekunden };
+  zeigeBildschirmzeit();
+  bzGeschickt = null;
+}
+
+// Kassenbuch: geteilt. Reservierung erledigt, Code als geteilt melden (auch später, falls gerade kein Netz).
+function bzAbgeschicktKasse(mitBild, bestaetigt) {
+  const kb = kasse(), res = kb && kb.res;
+  if (!res) return;
+  const konto = bzKonto();
+  protokoll(S, 'bildschirmzeit', { sekunden: res.sek, aufgaben: res.aufgaben || 0, code: res.code, ...(res.uebung_ms ? { uebung_ms: res.uebung_ms } : {}),
+    mathe: res.mathe || 0, lesen: res.lesen || 0, ...(res.lesekarten ? { lesekarten: res.lesekarten } : {}), kasse: true,
+    faktor: BZ().faktor, bild: !!mitBild, ...(bestaetigt ? { bestaetigt: true } : {}) });
+  kb.melden = [...kb.melden, res.code];
+  konto.gesendet = [...(konto.gesendet || []), res.code].slice(-20);
+  kb.res = null; konto.code = null;
+  kasseStand();
+  sichern();
+  standHochladen(true);
+  kasseMelden().catch(() => {});
+  syncen();
+  bzGeschickt = { sekunden: res.sek };
   zeigeBildschirmzeit();
   bzGeschickt = null;
 }
@@ -4010,11 +4195,13 @@ function abschliessen() {
   A.bild = null; A.sz = null; A.wechsel = false; A.extra = null;
   let spielSek = sek;
   if (istBild()) {
+    const kb = kasse(); // vor der Gutschrift anlegen: Ein Übertrag darf diese Aufgabe nicht schon enthalten
     const k = bzKonto();
     const st = A.bzStart && A.bzStart.an ? A.bzStart : null;
     const sf = st ? st.faktor : 1;
     A.bzSt = st;
     const g = BS.gutschreiben(k, sek, BZ(), sf, Date.now() - A.start);
+    if (kb) { K.buchen(kb, { sek: g.plus, a: 1, ms: Date.now() - A.start }); kasseStand(); }
     A.bild = { plus: g.plus, voll: g.voll, stand: k.stand, rest: BS.restSek(k, BZ()) };
     if (g.extra != null && g.plus > 0) A.extra = g.extra;
     // Bildschirmzeit voll: Rest dieser Aufgabe und alle weiteren Aufgaben gehen zur Spielzeit im Schrein
@@ -5628,8 +5815,10 @@ function klick(e) {
     case 'zweckBild': zweck = 'bild'; protokoll(S, 'zweck', { zweck, grund: 'spielzeit_voll' }); neueAufgabe(); break;
     case 'bzSeite': zeigeBildschirmzeit(); break;
     case 'bzTeilen': bzTeilen(); break;
+    case 'bzNeu': bzResGeoeffnet = 0; kasseRes.fehler = null; zeigeBildschirmzeit(); break;
     case 'bzAngekommen': {
       schliesseModal();
+      if (kasse()) { if (S.kasse.res) bzAbgeschicktKasse(el.dataset.bild === '1', true); break; }
       const k = bzKonto();
       if (BS.kannAbschicken(k, BZ()) && k.code) bzAbgeschickt(k, el.dataset.bild === '1', true);
       break;

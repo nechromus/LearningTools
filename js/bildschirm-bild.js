@@ -25,7 +25,7 @@ function rundRechteck(c, x, y, w, h, r) {
 }
 
 // Liefert eine PNG-Datei (File) oder null, wenn das Zeichnen nicht klappt.
-export async function bildschirmBild({ sekunden, aufgaben, code, name = '', geuebt = '' }, jetzt = new Date()) {
+export async function bildschirmBild({ sekunden, aufgaben, code, name = '', geuebt = '', teile = '', karten = 0 }, jetzt = new Date()) {
   try {
     const cv = document.createElement('canvas');
     cv.width = B; cv.height = H;
@@ -56,8 +56,8 @@ export async function bildschirmBild({ sekunden, aufgaben, code, name = '', geue
     // Name, Zeitpunkt, Aufgaben
     c.font = `500 48px ${schrift}`;
     c.fillStyle = '#3A4A6B';
-    const zeilen = [name ? `für ${name}` : '', `${zeitpunktText(jetzt)} Uhr`, `${aufgaben} ${aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'} geschafft`, geuebt || ''].filter(Boolean);
-    const dy = zeilen.length > 3 ? 58 : 66, y1 = zeilen.length > 3 ? 700 : 710; // mit Übungszeit: vier Zeilen enger
+    const zeilen = [name ? `für ${name}` : '', `${zeitpunktText(jetzt)} Uhr`, `${aufgaben} ${aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}${karten ? ` · ${karten} ${karten === 1 ? 'Lesekarte' : 'Lesekarten'}` : ' geschafft'}`, teile || '', geuebt || ''].filter(Boolean);
+    const dy = zeilen.length > 4 ? 50 : zeilen.length > 3 ? 58 : 66, y1 = zeilen.length > 4 ? 690 : zeilen.length > 3 ? 700 : 710; // mit Übungszeit: vier Zeilen enger
     zeilen.forEach((z, i) => c.fillText(z, B / 2, y1 + i * dy));
     // Code
     const cy = 950;
