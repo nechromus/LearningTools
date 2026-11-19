@@ -1,0 +1,15 @@
+/* Archiv der Welten: gleicher Aufbau wie der Schrein der Zahlen (../styles.css), eigene Farbe Tinte statt Teal */
+body.archiv { --teal: #33408F; --teal-dunkel: #262F70; --teal-hell: #E3E6F5; }
+.archiv .marke { display: flex; gap: 12px; align-items: center; }
+.archiv .marke h1 { font-family: Cinzel, Georgia, serif; color: var(--teal-dunkel); margin: 0; font-size: 26px; line-height: 1.15; }
+.archiv .marke p { margin: 2px 0 0; }
+.archiv .lese-knopf .unter { display: block; font-weight: 400; font-size: 15px; opacity: .92; margin-top: 2px; }
+.archiv .balken { height: 8px; background: var(--linie-hell, #E7E3D6); border-radius: 5px; overflow: hidden; margin: 2px 0 6px; }
+.archiv .balken i { display: block; height: 100%; background: var(--teal); }
+.archiv .voll-zeile { color: var(--teal-dunkel); font-weight: 700; padding: 4px 0; }
+.archiv .info-trenner { border-top: 1px solid var(--linie-hell, #E7E3D6); margin-top: 6px; padding-top: 6px; }
+.archiv .bald { text-align: center; }
+.archiv .einrichten video { width: 100%; border-radius: 12px; background: #000; }
+.archiv .einrichten textarea { width: 100%; min-height: 80px; font: inherit; font-size: 16px; border: 1px solid var(--linie); border-radius: 10px; padding: 8px; }
+.archiv .meldung { color: var(--amber, #9A5B06); }
+.archiv .btn[disabled] { opacity: .55; }

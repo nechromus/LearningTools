@@ -25,7 +25,7 @@ function rundRechteck(c, x, y, w, h, r) {
 }
 
 // Liefert eine PNG-Datei (File) oder null, wenn das Zeichnen nicht klappt.
-export async function bildschirmBild({ sekunden, aufgaben, code, name = '', geuebt = '', teile = '', karten = 0 }, jetzt = new Date()) {
+export async function bildschirmBild({ sekunden, aufgaben, code, name = '', geuebt = '', teile = '', karten = 0, fuss = 'Schrein der Zahlen' }, jetzt = new Date()) {
   try {
     const cv = document.createElement('canvas');
     cv.width = B; cv.height = H;
@@ -56,7 +56,7 @@ export async function bildschirmBild({ sekunden, aufgaben, code, name = '', geue
     // Name, Zeitpunkt, Aufgaben
     c.font = `500 48px ${schrift}`;
     c.fillStyle = '#3A4A6B';
-    const zeilen = [name ? `für ${name}` : '', `${zeitpunktText(jetzt)} Uhr`, `${aufgaben} ${aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}${karten ? ` · ${karten} ${karten === 1 ? 'Lesekarte' : 'Lesekarten'}` : ' geschafft'}`, teile || '', geuebt || ''].filter(Boolean);
+    const zeilen = [name ? `für ${name}` : '', `${zeitpunktText(jetzt)} Uhr`, (aufgaben || !karten ? `${aufgaben} ${aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}${karten ? ` · ${karten} ${karten === 1 ? 'Lesekarte' : 'Lesekarten'}` : ' geschafft'}` : `${karten} ${karten === 1 ? 'Lesekarte' : 'Lesekarten'}`), teile || '', geuebt || ''].filter(Boolean);
     const dy = zeilen.length > 4 ? 50 : zeilen.length > 3 ? 58 : 66, y1 = zeilen.length > 4 ? 690 : zeilen.length > 3 ? 700 : 710; // mit Übungszeit: vier Zeilen enger
     zeilen.forEach((z, i) => c.fillText(z, B / 2, y1 + i * dy));
     // Code
@@ -72,7 +72,7 @@ export async function bildschirmBild({ sekunden, aufgaben, code, name = '', geue
     // Fuß
     c.font = `600 36px Cinzel, Georgia, serif`;
     c.fillStyle = '#5B6B8C';
-    c.fillText('Schrein der Zahlen', B / 2, H - 110);
+    c.fillText(fuss, B / 2, H - 110);
     const blob = await new Promise(ok => cv.toBlob(ok, 'image/png'));
     if (!blob) return null;
     return new File([blob], `bildschirmzeit-${code || 'x'}.png`, { type: 'image/png' });
