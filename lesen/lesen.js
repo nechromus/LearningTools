@@ -1,4 +1,4 @@
-// Archiv der Welten: Lese-App (Auftrag 57–59). Schritt 2: Gerüst mit Einrichtung, Startbildschirm und Abschicken.
+// Archiv der Welten: Lese-App (Auftrag 57–59). Schritt 2: Gerüst, Einrichtung, Abschicken. Schritt 3: Lesekarten.
 // Gleiches Gefühl wie der Schrein der Zahlen, aber nur Bildschirmzeit (keine Spiele, keine Spielzeit, keine Splitter).
 // Eigener Speicher (auf dem iPhone hat jede Home-Bildschirm-App ihren eigenen), eigene Geräte-Id, eigenes Protokoll unter
 // daten/<name>/lesen/<geraet>/<tag>.json. Bildschirmzeit über das gemeinsame Kassenbuch (js/kasse.js), Quelle lesen-<geraet>.
@@ -11,8 +11,9 @@ import { bildschirmBild } from '../js/bildschirm-bild.js';
 import { einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
+import * as KL from './karte-logik.js';
 
-export const LESE_VERSION = '0.2.0';
+export const LESE_VERSION = '0.3.0';
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
 const $app = document.getElementById('app');
 const tagKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -27,7 +28,7 @@ function laden() {
   try { log = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch (e) { log = []; }
   return {
     name: s.name || '', geraetId: s.geraetId || neueId(), upload: { tage: {}, ...(s.upload || {}) },
-    einst: s.einst || null, kasse: s.kasse || null, tag: s.tag || null, pin: s.pin || null, log: Array.isArray(log) ? log : []
+    einst: s.einst || null, kasse: s.kasse || null, tag: s.tag || null, pin: s.pin || null, lese: s.lese || null, inhaltGemeldet: s.inhaltGemeldet || null, log: Array.isArray(log) ? log : []
   };
 }
 const S = laden();
@@ -91,6 +92,7 @@ async function syncen(erzwingen = false) {
   syncLaeuft = true;
   try {
     const neu = await einstellungenHolen();
+    if (offen()) await inhaltLaden();
     if (test()) return; // Testgerät: nur die Einstellungen lesen (das Test-Konto bleibt getrennt vom echten)
     if (kasse()) await ablauf.sync(erzwingen || neu);
     // Protokoll je Tag, beim Hochladen mit dem Server zusammenführen (nie mit weniger überschreiben). Einträge aus Testphasen nie.
@@ -119,10 +121,20 @@ const VIDEO = (h) => `<svg width="${h}" height="${h}" viewBox="0 0 40 40" aria-h
 const BUCH = `<path d="M7.2 9.2c1.6-.6 3-.4 4.8.7 1.8-1.1 3.2-1.3 4.8-.7v6.6c-1.6-.6-3-.4-4.8.7-1.8-1.1-3.2-1.3-4.8-.7z" fill="#fff" stroke="#262F70" stroke-width=".8" stroke-linejoin="round"/><path d="M12 9.9v6.6" stroke="#262F70" stroke-width=".7"/>`;
 const minTxt = (sek) => BS.minText(sek);
 
+function startKnoepfe() {
+  if (!INH || !INH.stories.length) return `<button class="btn btn-haupt btn-gross lese-knopf" disabled>Weiterlesen<span class="unter">${inhaltLaedt ? 'Die Geschichten werden geladen …' : inhaltFehler === 'offline' ? 'Zum ersten Laden braucht die App Internet.' : 'Die ersten Geschichten kommen bald.'}</span></button>`;
+  const f = fs();
+  const story = f.letzteStory && KL.naechsterText(INH, f, f.letzteStory) ? f.letzteStory : (INH.stories.find(s => KL.naechsterText(INH, f, s.id)) || {}).id;
+  if (!story) return '<section class="info-karte"><b>Alle Geschichten sind gelesen.</b><div class="gedaempft">Neue Folgen kommen bald.</div></section>';
+  const t = KL.naechsterText(INH, f, story), fo = KL.folgeVon(INH, t), s = storyVon(story);
+  return `<button class="btn btn-haupt btn-gross lese-knopf" data-act="lesen">Weiterlesen<span class="unter">${esc(s.titel)} · Folge ${fo.x} · ${esc(t.titel)}</span></button>
+    <button class="btn btn-gross" data-act="anderes">Etwas anderes lesen</button>`;
+}
 function zeigeStart(syncJetzt = true) {
   if (!bereit()) return zeigeEinrichtung();
   ansicht = 'start';
   if (syncJetzt) syncen();
+  if (offen() && !INH && !inhaltLaedt) inhaltLaden().then(() => { if (ansicht === 'start') zeigeStart(false); });
   const r = R(), t = heute(), k = kasse();
   const anz = k ? K.anzeige(k) : { sek: 0 };
   const grenze = LL.grenzeSek(r, t.tag), voll = t.sek >= grenze;
@@ -143,9 +155,7 @@ function zeigeStart(syncJetzt = true) {
       <div class="bz-text"><div class="bz-zahl">${minTxt(anz.sek)}</div><div class="gedaempft">Bildschirmzeit gesammelt</div></div>
       ${anz.sek >= ab ? '<button class="btn btn-bz" data-act="bz">Abschicken</button>' : `<div class="bz-ab gedaempft">Ab ${minTxt(ab)} kannst du abschicken. Noch ${minTxt(ab - anz.sek)}</div>`}
     </section>` : ''}
-    <button class="btn btn-haupt btn-gross lese-knopf" data-act="lesen" disabled>Weiterlesen<span class="unter">Die ersten Geschichten kommen bald.</span></button>
-    <button class="btn btn-gross" data-act="anderes" disabled>Etwas anderes lesen</button>
-    ${test() ? '<button class="btn btn-bz-rand" data-act="testKarte">Test: eine Lesekarte mit 2 Min. buchen</button>' : ''}
+    ${startKnoepfe()}
     <section class="info-karte">
       <div class="info-zeile"><span>Heute gelesen</span><b>${t.karten} ${t.karten === 1 ? 'Karte' : 'Karten'}</b></div>
       <div class="info-zeile"><span>Lese-Zeit</span><b>${minTxt(t.sek)} von ${minTxt(grenze)}</b></div>
@@ -156,6 +166,281 @@ function zeigeStart(syncJetzt = true) {
     </section>
     <p class="gedaempft bz-mitte klein">Version ${LESE_VERSION}${S.upload.fehler ? ' · Übertragung klappt gerade nicht' : ''}</p>
   </div>`;
+}
+
+// ---------- Lesekarten (Auftrag 57, Schritt 3) ----------
+// Inhalt aus daten/<name>/lesen/inhalt/ (nur lesen). Zwischengespeichert auf dem Gerät, neu geladen, wenn sich index.json ändert.
+const INHALT_KEY = 'archiv-v1-inhalt';
+let INH = null, inhaltFehler = null, inhaltLaedt = null;
+const inhaltPfad = (p) => `daten/${ordner()}/lesen/inhalt/${p}`;
+function inhaltCache() { try { return JSON.parse(localStorage.getItem(INHALT_KEY) || 'null'); } catch (e) { return null; } }
+function inhaltAnwenden(roh) {
+  INH = KL.inhaltPruefen(roh);
+  if (INH.fehler.length && roh.index && S.inhaltGemeldet !== roh.index.stand) { protokoll('lese_karte_fehler', { fehler: INH.fehler.slice(0, 30), stand: roh.index.stand }); S.inhaltGemeldet = roh.index.stand; }
+}
+async function inhaltLaden() {
+  if (!bereit()) return;
+  if (inhaltLaedt) return inhaltLaedt;
+  inhaltLaedt = (async () => {
+    const alt = inhaltCache();
+    if (alt && alt.ordner === ordner() && !INH) inhaltAnwenden(alt);
+    try {
+      const index = await U.dateiLesen(S.upload, inhaltPfad('index.json'));
+      if (!index) { INH = null; inhaltFehler = 'leer'; return; }
+      if (alt && alt.ordner === ordner() && alt.index && alt.index.stand === index.stand) { if (!INH) inhaltAnwenden(alt); return; }
+      const roh = { ordner: ordner(), index, storylines: await U.dateiLesen(S.upload, inhaltPfad('storylines.json')), texte: {}, fragen: {} };
+      const nimm = async (art, liste) => {
+        for (const { id, v } of liste || []) {
+          const a = alt && alt.ordner === ordner() && alt[art] && alt[art][id];
+          roh[art][id] = a && a.v === v ? a : await U.dateiLesen(S.upload, inhaltPfad(`${art}/${id}.json`));
+        }
+      };
+      await nimm('texte', index.texte); await nimm('fragen', index.fragen);
+      try { localStorage.setItem(INHALT_KEY, JSON.stringify(roh)); } catch (e) { /* zu groß: nur im Speicher */ }
+      inhaltAnwenden(roh);
+      inhaltFehler = null;
+    } catch (e) { inhaltFehler = INH ? null : (e.status === 0 ? 'offline' : 'fehler'); }
+  })().finally(() => { inhaltLaedt = null; });
+  return inhaltLaedt;
+}
+// Bilder und Icons aus dem Daten-Repo (mit Schlüssel), als Blob-Adresse
+const BILD_TYP = { svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
+const bildCache = {};
+function bildUrl(datei) {
+  if (!datei) return Promise.resolve(null);
+  if (!bildCache[datei]) bildCache[datei] = U.dateiBlob(S.upload, inhaltPfad(datei)).then(b => b ? URL.createObjectURL(new Blob([b], { type: BILD_TYP[datei.split('.').pop().toLowerCase()] || b.type })) : null).catch(() => { delete bildCache[datei]; return null; });
+  return bildCache[datei];
+}
+function bilderEinsetzen() {
+  document.querySelectorAll('img[data-datei]').forEach(img => bildUrl(img.dataset.datei).then(u => { if (u) img.src = u; else img.replaceWith(Object.assign(document.createElement('span'), { className: 'bild-fehlt', textContent: img.alt || '' })); }));
+}
+const fs = () => (S.lese = KL.fortschrittVon(S.lese));
+const storyVon = (id) => INH && INH.stories.find(s => s.id === id);
+const iconHtml = (story, gross) => { const s = storyVon(story); return s && s.icon ? `<img class="${gross ? 'icon-gross' : 'icon-klein'}" data-datei="${esc(s.icon)}" alt="">` : ''; };
+
+// Laufende Karte
+let A = null;
+function karteStarten(story, wahl) {
+  const f = fs();
+  const t = KL.naechsterText(INH, f, story);
+  if (!t) return zeigeWahl();
+  const q = KL.frageFuer(INH, f, t.id);
+  if (!f.runde || f.runde.karten >= KL.RUNDE) { f.runde = { nr: ((f.runde && f.runde.nr) || 0) + 1, karten: 0 }; protokoll('lese_runde', { aktion: 'start', nr: f.runde.nr }); }
+  const ts = KL.typStand(f, q.typ);
+  const st = KL.stufeFuer(q, ts.stufe);
+  f.karte += 1; f.letzteStory = story; f.runde.karten += 1;
+  const wieder = f.zurueck[q.id] || null;
+  A = { nr: f.karte, platz: f.runde.karten, story, text: t.id, frage: q.id, typ: q.typ, stufe: st.stufe, geruest: ts.geruest, phase: 'frage', versuch: 1, schonR: [], schonF: [],
+    start: Date.now(), belegHinweis: false, leiter: false, nachgeschlagen: [], antwortGegeben: false, zfNr: 0 };
+  neuZiehen(st.stufe);
+  protokoll('lese_karte_start', { karte: A.nr, text: t.id, frage: q.id, kv: q.kv, typ: q.typ, stufe: st.stufe, ...(st.ersatz ? { stufe_ersatz: ts.stufe } : {}), textstufe: t.textstufe, geruest: ts.geruest, story, beat: t.beat, platz: A.platz, neu_typ: ts.neu, wieder: !!wieder, ...(wieder ? { nach_karten: f.karte - wieder.karte } : {}), wahl });
+  if (wieder) protokoll('lese_wiederkehr', { frage: q.id, nach_karten: f.karte - wieder.karte, nach_min: Math.round((Date.now() - new Date(wieder.t)) / 60000) });
+  sichern();
+  zeigeKarte(true);
+}
+function neuZiehen(abstand) {
+  const q = INH.fragen[A.frage];
+  const z = KL.ziehen(q, { abstand, schonR: A.schonR, schonF: A.schonF });
+  A.zug = z.antworten; A.schonR.push(z.r); A.schonF.push(...z.f); A.gezeigt = Date.now();
+}
+const satzHtml = (t, i, mark) => t.saetze[i].map((s, j) => {
+  let h = esc(s);
+  return mark && mark.includes(j) ? `<mark>${h}</mark>` : h;
+}).join(' ');
+function glossiert(html, glossar) {
+  for (const w of Object.keys(glossar || {})) {
+    const e = esc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    html = html.replace(new RegExp(`(^|[^\\wäöüÄÖÜß])(${e})(?=[^\\wäöüÄÖÜß]|$)`), `$1<button class="gl" data-act="gl" data-w="${esc(w)}">$2</button>`);
+  }
+  return html;
+}
+function zeigeKarte(nachOben = false) {
+  ansicht = 'karte';
+  const q = INH.fragen[A.frage], t = INH.texte[A.text], f = fs();
+  const fo = KL.folgeVon(INH, t), s = storyVon(t.story) || {};
+  const b = q.beleg[0];
+  const um = ['leiter1', 'leiter2', 'leiterHinweis', 'merksatz', 'stopp', 'aufloesung', 'belegMarkiert'].includes(A.phase) || (A.geruest === 1 && A.phase !== 'fertig');
+  const satzMark = ['leiter2', 'leiterHinweis', 'merksatz', 'aufloesung'].includes(A.phase) ? q.belegSatz : null;
+  const tippbar = A.phase === 'beleg' || A.phase === 'belegHinweis' || A.phase === 'belegMarkiert';
+  const absaetze = t.absaetze.map((_, i) => {
+    const cls = ['abs', i === b && um ? 'um' : '', i === b && (A.phase === 'stopp' || A.geruest === 1) ? 'mark' : '', tippbar ? 'tippbar' : '', A.phase === 'belegMarkiert' && i !== b ? 'aus' : ''].filter(Boolean).join(' ');
+    const inner = glossiert(satzHtml(t, i, i === b ? satzMark : null), t.glossar);
+    return tippbar ? `<div class="${cls}" data-act="absatz" data-i="${i}" role="button" tabindex="0"><span class="nr">Absatz ${i + 1}</span>${inner}</div>` : `<p class="${cls}"><span class="nr">Absatz ${i + 1}</span>${inner}</p>`;
+  }).join('');
+  const kasten = t.kasten && t.kasten.length ? `<div class="kas"><div class="kt">Fakten</div>${t.kasten.map(([a, w]) => `<div class="kr"><span>${esc(a)}</span><b>${esc(w)}</b></div>`).join('')}</div>` : '';
+  const bild = t.bild ? `<figure class="${t.bild.glatt ? '' : 'pixel'}"><img data-datei="${esc(t.bild.datei)}" alt="${esc(t.bild.alt || '')}"><figcaption>${esc(t.bild.quelle || '')}</figcaption></figure>` : '';
+  const ersterText = !t.bisher;
+  const tipp = !f.nachschlagTipp && Object.keys(t.glossar || {}).length ? `<div class="tipp"><b>Tipp:</b> Wörter mit gestrichelter Linie kannst du antippen. Dann siehst du, was sie bedeuten.<br><button class="ctl-t" data-act="tippOk">Alles klar</button></div>` : '';
+  if (tipp && !A.tippGezeigt) { A.tippGezeigt = true; protokoll('lese_tipp', { aktion: 'gezeigt', karte: A.nr }); }
+  const dots = Array.from({ length: KL.RUNDE }, (_, i) => `<i class="${i < A.platz ? 'an' : ''}"></i>`).join('');
+  const ohneZeit = heute().sek >= LL.grenzeSek(R(), heute().tag);
+  $app.innerHTML = `<div class="screen les${test() ? ' test' : ''}">
+    <div class="top"><button class="ctl-t" data-act="start">‹ Start</button>${ohneZeit ? '<span class="ohnezeit">ohne Zeit</span>' : ''}<span class="dots">${dots}<span>Karte ${A.platz} von ${KL.RUNDE}</span></span></div>
+    ${tipp}
+    ${ersterText ? `<div class="shead">${iconHtml(t.story, true)}<span class="st">${esc(s.titel || '')}</span></div>` : ''}
+    <div class="meta">Folge ${fo.x} von ${fo.y}<span class="badge">${s.art === 'wahr' ? 'Wahr' : 'Erfunden'}</span></div>
+    ${t.bisher ? `<div class="bis">${iconHtml(t.story, false)}<div><b>Bisher:</b> ${esc(t.bisher)}</div></div>` : ''}
+    <h2 class="les-titel">${esc(t.titel)}</h2>
+    ${bild}${absaetze}${kasten}
+    ${frageTeil(q, t)}
+  </div>`;
+  bilderEinsetzen();
+  if (nachOben) window.scrollTo(0, 0);
+  else { const z = document.querySelector('[data-ziel]'); if (z) z.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  if (A.phase === 'stopp') stoppBalken();
+}
+function frageTeil(q, t) {
+  const b = q.beleg[0] + 1;
+  const ant = (liste, act) => liste.map(a => `<button class="ant" data-act="${act}" data-id="${a.id}">${esc(a.t)}</button>`).join('');
+  const frage = `<div class="fr" data-ziel>${esc(q.frage)}</div>`;
+  switch (A.phase) {
+    case 'frage':
+      return `${A.geruest === 2 && A.versuch === 1 ? `<p class="gerust">Die Antwort steckt in Absatz ${b}.</p>` : ''}${frage}${ant(A.zug, 'antwort')}`;
+    case 'hinweis':
+      return `${frage}<div class="blatt nn" data-ziel><div class="t nn">Noch nicht.</div><p>${esc(A.hinweis)}</p><button class="weiter" data-act="verstanden">Verstanden</button></div>`;
+    case 'stopp':
+      return `${frage}<div class="blatt nn" data-ziel><div class="t nn">Noch nicht.</div><p>${esc(A.hinweis)}</p><p><b>Lies Absatz ${b} noch einmal.</b></p><div class="ruhe"><i id="stopp-balken"></i></div><button class="weiter" data-act="verstanden" id="stopp-weiter" disabled>Weiter</button></div>`;
+    case 'leiter1': case 'leiter2': {
+      const zf = q.zf[A.zfNr];
+      const opts = KL.mischen([{ id: 'ja', t: zf.richtig }, { id: 'nein', t: zf.falsch }]);
+      return `${frage}<div class="blatt" data-ziel><div class="t">${A.phase === 'leiter1' ? 'Wir suchen zusammen.' : 'Lies den markierten Satz.'}</div>${A.phase === 'leiter1' ? `<p>${esc(q.eingrenzen)}</p>` : ''}<p><b>${esc(zf.frage)}</b></p>${ant(opts, 'zf')}</div>`;
+    }
+    case 'leiterHinweis':
+      return `${frage}<div class="blatt nn" data-ziel><div class="t nn">Noch nicht.</div><p>${esc(q.zf[A.zfNr].hinweis)}</p><button class="weiter" data-act="leiterWeiter">Weiter</button></div>`;
+    case 'merksatz':
+      return `${frage}<div class="blatt ja" data-ziel><div class="t">Merk dir:</div><p>${esc(q.merksatz)}</p><button class="weiter" data-act="merksatzWeiter">Zur Frage</button></div>`;
+    case 'beleg':
+      return `${frage}<div class="blatt ja" data-ziel><div class="t ja">Richtig!</div><p><b>Wo steht das? Tippe den Absatz an.</b></p></div>`;
+    case 'belegHinweis':
+      return `${frage}<div class="blatt nn" data-ziel><div class="t nn">Noch nicht.</div><p>${esc(q.belegHinweis)}</p><p><b>Tippe den Absatz an.</b></p></div>`;
+    case 'belegMarkiert':
+      return `${frage}<div class="blatt" data-ziel><p>${esc(q.belegHinweis)}</p><p><b>Er ist markiert. Tippe ihn an.</b></p></div>`;
+    case 'aufloesung':
+      return `${frage}<div class="blatt" data-ziel><div class="t">Hier steht es: Absatz ${b}.</div><p>Das heißt: ${esc(q.aufloesung)}</p><button class="weiter" data-act="aufloesungWeiter">Weiter</button></div>`;
+    case 'fertig': return endeTeil(q, t);
+  }
+  return '';
+}
+function endeTeil(q, t) {
+  const f = fs();
+  const lohn = A.lohnPlus > 0 ? `<span class="lohn">+${minTxt(A.lohnPlus)}</span>` : (A.ergebnis === 'voll' || A.ergebnis === 'hinweis') ? '<span class="lohn aus">ohne Zeit</span>' : '';
+  const kopf = A.ergebnis === 'aufloesung' ? `<div class="blatt" data-ziel style="position:static"><div class="t">Diese Karte kommt später noch einmal.</div><p>Lies jetzt etwas anderes.</p></div>`
+    : A.ergebnis === 'leiter' ? `<div class="blatt ja" data-ziel style="position:static"><div class="t ja">Geschafft!</div><p>Diese Karte kommt später noch einmal.</p></div>`
+    : `<div class="blatt ja" data-ziel style="position:static"><div class="t ja">Geschafft!</div>${lohn}</div>`;
+  const voll = A.vollJetzt ? `<div class="tipp"><b>Für heute ist deine Lese-Zeit voll.</b><br>Weiterlesen geht. Es bringt heute aber keine Zeit mehr.${LL.matheHeute(S.kasse && S.kasse.fremd, W().bildschirm, heute().tag).frei > 0 && !test() ? '<br><span class="gedaempft">In Mathe ist heute noch Zeit frei.</span>' : ''}</div>` : '';
+  const rundeFertig = f.runde && f.runde.karten >= KL.RUNDE ? `<div class="runde-fertig"><b>Runde geschafft!</b> 5 von 5 Karten.</div>` : '';
+  const weiter = A.ergebnis !== 'aufloesung' ? KL.naechsterText(INH, f, A.story) : null;
+  const letzte = weiter == null && t.beat === KL.folgeVon(INH, t).y;
+  const andere = KL.andere(INH, f, A.story);
+  if (!weiter && !andere.length && !A.engpass) { A.engpass = true; protokoll('lese_engpass', { story: A.story }); }
+  return `${kopf}${voll}${rundeFertig}
+    ${weiter ? `<button class="wahl" data-act="weiter"><b>Wie geht es weiter?</b>${letzte ? '' : esc(t.teaser || '')}</button>` : ''}
+    ${letzte && t.teaser ? `<p class="gedaempft">${esc(t.teaser)}</p>` : ''}
+    ${andere.length ? `<p class="wahl-kopf"><b>Etwas anderes</b></p>${andere.map(s => `<button class="wahl" data-act="storyWahl" data-s="${esc(s.id)}"><span class="mini">${iconHtml(s.id, false)}<span><b>${esc(s.titel)}</b>${esc(s.kurz || '')}</span></span></button>`).join('')}`
+      : (!weiter ? '<p>Neue Folgen kommen bald.</p>' : '')}
+    <button class="btn" data-act="start">Zum Start</button>`;
+}
+let stoppTimer = null;
+function stoppBalken() {
+  const bar = document.getElementById('stopp-balken'), knopf = document.getElementById('stopp-weiter');
+  const bis = A.stoppBis;
+  clearInterval(stoppTimer);
+  stoppTimer = setInterval(() => {
+    const rest = bis - Date.now();
+    if (bar) bar.style.width = `${Math.min(100, 100 - (rest / KL.STOPP_MS) * 100)}%`;
+    if (rest <= 0) { clearInterval(stoppTimer); if (knopf) knopf.disabled = false; }
+  }, 100);
+}
+// Antwort auf die Hauptfrage
+function antworten(id) {
+  const q = INH.fragen[A.frage];
+  const a = A.zug.find(x => x.id === id);
+  if (!a) return;
+  const ms = Date.now() - A.gezeigt;
+  A.antwortGegeben = true;
+  protokoll('lese_versuch', { karte: A.nr, versuch: A.versuch, gezeigt: A.zug.map(x => x.id), gewaehlt: id, richtig: a.richtig, ...(a.richtig ? {} : { fehlertyp: q.falsch[a.f].fehlertyp }), ms });
+  if (a.richtig) {
+    A.ergebnis = A.versuch === 1 ? 'voll' : A.versuch === 2 ? 'hinweis' : 'leiter';
+    if (A.geruest === 1 || A.versuch === 3) return karteFertig();
+    A.phase = 'beleg'; A.belegVersuch = 1; return zeigeKarte();
+  }
+  if (A.versuch >= 3) { A.phase = 'aufloesung'; A.ergebnis = 'aufloesung'; protokoll('lese_aufloesung', { karte: A.nr }); return zeigeKarte(); }
+  A.hinweis = q.falsch[a.f].hinweis;
+  if (A.versuch === 2) { A.leiter = true; A.phase = 'leiter1'; A.zfNr = 0; protokoll('lese_leiter', { karte: A.nr, stufe: 'absatz' }); A.gezeigt = Date.now(); return zeigeKarte(); }
+  if (ms < KL.SCHNELL_MS) { A.phase = 'stopp'; A.stoppBis = Date.now() + KL.STOPP_MS; protokoll('lese_lesestopp', { karte: A.nr, absatz: q.beleg[0] }); }
+  else A.phase = 'hinweis';
+  zeigeKarte();
+}
+function naechsterVersuch(abstand) {
+  A.versuch += 1; A.phase = 'frage';
+  neuZiehen(abstand);
+  zeigeKarte();
+}
+function zfAntwort(ok) {
+  const zf = INH.fragen[A.frage].zf[A.zfNr];
+  protokoll('lese_zf', { karte: A.nr, nr: A.zfNr + 1, richtig: ok, ms: Date.now() - A.gezeigt });
+  if (ok) { A.phase = 'merksatz'; return zeigeKarte(); }
+  if (A.zfNr === 0) { A.phase = 'leiterHinweis'; return zeigeKarte(); }
+  A.phase = 'leiterHinweis'; A.zfZweiterFehler = true; zeigeKarte();
+  void zf;
+}
+function belegAntwort(i) {
+  const q = INH.fragen[A.frage];
+  const ok = i === q.beleg[0];
+  if (A.phase === 'belegMarkiert' && !ok) return;
+  protokoll('lese_beleg', { karte: A.nr, versuch: A.belegVersuch, absatz: i, richtig: ok });
+  if (ok) return karteFertig();
+  A.belegHinweis = true;
+  if (A.belegVersuch === 1) { A.belegVersuch = 2; A.phase = 'belegHinweis'; }
+  else { A.belegVersuch = 3; A.phase = 'belegMarkiert'; }
+  zeigeKarte();
+}
+function karteFertig() {
+  const f = fs(), q = INH.fragen[A.frage];
+  const ms = Math.min(Date.now() - A.start, KL.KARTE_MAX_MS);
+  const k = kasse();
+  const roh = KL.lohnSek(A.ergebnis, A.belegHinweis);
+  const vorher = heute().sek;
+  const g = k ? LL.verdienen(k, heute(), roh, R(), { ms }) : { plus: 0, voll: false };
+  A.lohnPlus = g.plus; A.vollJetzt = g.voll && vorher < LL.grenzeSek(R(), heute().tag);
+  if (A.ergebnis === 'voll' || A.ergebnis === 'hinweis') { f.erledigt[q.id] = true; delete f.zurueck[q.id]; }
+  else { f.zurueck[q.id] = { karte: A.nr, t: new Date().toISOString() }; protokoll('lese_zurueckgelegt', { karte: A.nr, frage: q.id }); }
+  const erstUndBeleg = A.ergebnis === 'voll' && !A.belegHinweis;
+  const wechsel = KL.typNachKarte(f, q.typ, { erstUndBeleg, leiter: A.leiter });
+  protokoll('lese_karte_ende', { karte: A.nr, frage: q.id, ergebnis: A.ergebnis, beleg_erst: A.geruest === 1 ? null : !A.belegHinweis, lohn: g.plus, lohn_roh: roh, sekunden: Math.round(ms / 1000), nachgeschlagen: A.nachgeschlagen.length, ...(wechsel ? { typ_stufe: wechsel } : {}) });
+  if (f.runde && f.runde.karten >= KL.RUNDE) protokoll('lese_runde', { aktion: 'ende', nr: f.runde.nr, karten: f.runde.karten });
+  A.phase = 'fertig';
+  sichern();
+  if (!test()) syncen();
+  zeigeKarte();
+}
+// „Etwas anderes“ vom Start aus
+function zeigeWahl() {
+  ansicht = 'wahl';
+  const f = fs();
+  const liste = INH.stories.filter(s => KL.naechsterText(INH, f, s.id));
+  if (!liste.length) protokoll('lese_engpass', { story: null });
+  $app.innerHTML = `<div class="screen les">
+    <div class="top"><button class="ctl-t" data-act="start">‹ Start</button></div>
+    <h2 class="les-titel">Was willst du lesen?</h2>
+    ${liste.map(s => { const t = KL.naechsterText(INH, f, s.id), fo = KL.folgeVon(INH, t); return `<button class="wahl" data-act="storyWahl" data-s="${esc(s.id)}"><span class="mini">${iconHtml(s.id, false)}<span><b>${esc(s.titel)}</b>${esc(s.kurz || '')}<span class="gedaempft block">Folge ${fo.x} von ${fo.y}</span></span></span></button>`; }).join('') || '<p>Gerade sind alle Geschichten gelesen. Neue Folgen kommen bald.</p>'}
+  </div>`;
+  bilderEinsetzen();
+}
+function lesenWeiter() {
+  const f = fs();
+  const story = f.letzteStory && KL.naechsterText(INH, f, f.letzteStory) ? f.letzteStory : (INH.stories.find(s => KL.naechsterText(INH, f, s.id)) || {}).id;
+  if (!story) return zeigeWahl();
+  karteStarten(story, 'start');
+}
+function glossarZeigen(w, el) {
+  const t = INH.texte[A.text];
+  const m = document.getElementById('modal');
+  protokoll('lese_nachschlagen', { karte: A.nr, wort: w, vor_antwort: !A.antwortGegeben });
+  if (!A.nachgeschlagen.includes(w)) A.nachgeschlagen.push(w);
+  m.classList.add('offen');
+  m.innerHTML = `<div class="modal-hinter" data-act="modalZu"></div><div class="modal-box gl-box" role="dialog" aria-modal="true"><button class="modal-x" data-act="modalZu" aria-label="Schließen">✕</button><h2 class="modal-titel">${esc(w)}</h2><p>${esc(t.glossar[w])}</p></div>`;
+  void el;
 }
 
 // Abschicken: wie in der Mathe-App. Beim Öffnen reservieren, dann teilen.
@@ -348,7 +633,20 @@ document.addEventListener('click', async (ev) => {
   const el = ev.target.closest('[data-act]');
   if (!el || el.disabled) return;
   switch (el.dataset.act) {
-    case 'start': zeigeStart(); break;
+    case 'start': clearInterval(stoppTimer); zeigeStart(); break;
+    case 'lesen': if (INH) lesenWeiter(); break;
+    case 'anderes': if (INH) zeigeWahl(); break;
+    case 'storyWahl': if (ansicht === 'karte' && A) protokoll('lese_wahl', { art: 'anders', story: el.dataset.s }); karteStarten(el.dataset.s, ansicht === 'karte' ? 'anders' : 'start'); break;
+    case 'weiter': protokoll('lese_wahl', { art: 'weiter', story: A.story }); karteStarten(A.story, 'weiter'); break;
+    case 'antwort': if (A && A.phase === 'frage') antworten(el.dataset.id); break;
+    case 'verstanden': if (A && (A.phase === 'hinweis' || A.phase === 'stopp')) naechsterVersuch(Math.max(1, A.stufe - 1)); break;
+    case 'zf': if (A && (A.phase === 'leiter1' || A.phase === 'leiter2')) zfAntwort(el.dataset.id === 'ja'); break;
+    case 'leiterWeiter': if (A.zfNr === 0) { A.zfNr = 1; A.phase = 'leiter2'; protokoll('lese_leiter', { karte: A.nr, stufe: 'satz' }); A.gezeigt = Date.now(); } else A.phase = 'merksatz'; zeigeKarte(); break;
+    case 'merksatzWeiter': naechsterVersuch(1); break;
+    case 'absatz': if (A && ['beleg', 'belegHinweis', 'belegMarkiert'].includes(A.phase)) belegAntwort(Number(el.dataset.i)); break;
+    case 'aufloesungWeiter': karteFertig(); break;
+    case 'tippOk': fs().nachschlagTipp = true; protokoll('lese_tipp', { aktion: 'alles_klar' }); sichern(); zeigeKarte(); break;
+    case 'gl': if (A) glossarZeigen(el.dataset.w, el); break;
     case 'bz': zeigeAbschicken(); break;
     case 'bzNeu': bzGeoeffnet = 0; ablauf.status.fehler = null; zeigeAbschicken(); break;
     case 'teilen': teilen(); break;
@@ -379,7 +677,6 @@ document.addEventListener('click', async (ev) => {
     }
     case 'persona': personaWahl(); break;
     case 'personaSetzen': S.upload.testAls = el.dataset.o; S.einst = null; sichern(); modalZu(); await einstellungenHolen().catch(() => {}); if (ansicht === 'eltern') zeigeEltern(); else zeigeStart(); break;
-    case 'testKarte': { const k = kasse(); if (k) { LL.verdienen(k, heute(), 120, R()); sichern(); zeigeStart(false); } break; }
     case 'testZurueck': { if (S.kasse && test()) { S.kasse = null; S.tag = null; sichern(); } zeigeEltern('Test-Lese-Zeit und Test-Konto sind gelöscht.'); break; }
     case 'neuEinrichten': S.name = ''; S.upload = { tage: {} }; S.einst = null; S.kasse = test() ? null : S.kasse; sichern(); zeigeEinrichtung(); break;
     case 'eltern': zeigeEltern(); break;

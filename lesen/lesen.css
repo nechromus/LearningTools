@@ -13,3 +13,65 @@ body.archiv { --teal: #33408F; --teal-dunkel: #262F70; --teal-hell: #E3E6F5; }
 .archiv .einrichten textarea { width: 100%; min-height: 80px; font: inherit; font-size: 16px; border: 1px solid var(--linie); border-radius: 10px; padding: 8px; }
 .archiv .meldung { color: var(--amber, #9A5B06); }
 .archiv .btn[disabled] { opacity: .55; }
+
+/* ---------- Lesekarte (Schritt 3, neutral; Welten-Styles folgen in Schritt 4) ---------- */
+.archiv .les { --papier: #FFFDF7; --tinte: #23263A; --mark: #FFE9A8; --um: #33408F; --ja: #2E6B4A; --nn: #9A5B06; padding-bottom: 40px; }
+.archiv .les .top { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; }
+.archiv .ctl-t { background: none; border: 1px solid var(--linie-hell, #D8D4C6); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 15px; color: var(--tinte); }
+.archiv .les .dots { margin-left: auto; display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--gedaempft); }
+.archiv .les .dots i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--um); }
+.archiv .les .dots i.an { background: var(--um); }
+.archiv .les .dots span { margin-left: 6px; }
+.archiv .les .ohnezeit { font-size: 13px; color: var(--gedaempft); border: 1px dashed var(--linie); border-radius: 999px; padding: 2px 8px; }
+.archiv .les .shead { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.archiv .les .shead .st { font-family: Cinzel, Georgia, serif; font-size: 20px; color: var(--teal-dunkel); }
+.archiv .icon-gross { width: 48px; height: 48px; }
+.archiv .icon-klein { width: 28px; height: 28px; flex: none; }
+.archiv .les .meta { font-size: 14px; color: var(--gedaempft); display: flex; gap: 8px; align-items: center; }
+.archiv .les .badge { border: 1px solid var(--linie); border-radius: 999px; padding: 1px 8px; font-size: 12px; }
+.archiv .les .bis { display: flex; gap: 8px; align-items: flex-start; background: var(--teal-hell); border-radius: 10px; padding: 8px 10px; margin: 8px 0; font-size: 16px; }
+.archiv .les-titel { font-size: 23px; margin: 10px 0 8px; color: var(--tinte); }
+.archiv .les figure { margin: 8px 0 12px; }
+.archiv .les figure img { width: 100%; border-radius: 8px; display: block; background: #eee; }
+.archiv .les figure.pixel img { image-rendering: pixelated; }
+.archiv .les figcaption { font-size: 12px; color: var(--gedaempft); margin-top: 3px; }
+.archiv .bild-fehlt { display: block; font-size: 13px; color: var(--gedaempft); }
+.archiv .les .abs { background: var(--papier); color: var(--tinte); font-size: 19px; line-height: 1.6; margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; border: 2px solid transparent; }
+.archiv .les .abs .nr { display: block; font-size: 12px; color: var(--gedaempft); letter-spacing: .03em; }
+.archiv .les .abs.um { border-color: var(--um); }
+.archiv .les .abs.mark { background: #FFF6D6; }
+.archiv .les .abs.aus { opacity: .45; }
+.archiv .les .abs.tippbar { cursor: pointer; border-style: dashed; border-color: var(--linie); }
+.archiv .les .abs.tippbar.um { border-style: solid; border-color: var(--um); }
+.archiv .les mark { background: var(--mark); padding: 0 2px; border-radius: 3px; }
+.archiv .les .gl { font: inherit; color: inherit; background: none; border: none; padding: 0; border-bottom: 2px dashed var(--um); cursor: pointer; }
+.archiv .les .kas { border: 1px solid var(--linie); border-radius: 10px; padding: 8px 12px; margin: 4px 0 14px; background: var(--flaeche); }
+.archiv .les .kt { font-weight: 700; font-size: 14px; color: var(--gedaempft); margin-bottom: 4px; }
+.archiv .les .kr { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-top: 1px solid #EEE9DA; font-size: 16px; }
+.archiv .les .kr:first-of-type { border-top: none; }
+.archiv .les .kr b { text-align: right; }
+.archiv .les .gerust { font-weight: 700; color: var(--um); margin: 12px 0 4px; }
+.archiv .les .fr { font-weight: 700; font-size: 19px; margin: 16px 0 8px; }
+.archiv .les .ant, .archiv .les .wahl { display: block; width: 100%; text-align: left; font: inherit; font-size: 17px; background: var(--flaeche); color: var(--tinte); border: 2px solid var(--linie-hell, #D8D4C6); border-radius: 12px; padding: 12px 14px; margin: 0 0 8px; }
+.archiv .les .ant:active, .archiv .les .wahl:active { border-color: var(--um); }
+.archiv .les .wahl b { display: block; }
+.archiv .les .wahl .mini { display: flex; gap: 10px; align-items: flex-start; }
+.archiv .les .wahl-kopf { margin: 16px 0 6px; }
+.archiv .les .blatt { background: var(--karte); border: 2px solid var(--um); border-radius: 12px; padding: 12px 14px; margin: 10px 0; }
+.archiv .les .blatt.nn { border-color: var(--nn); }
+.archiv .les .blatt.ja { border-color: var(--ja); }
+.archiv .les .blatt p { margin: 6px 0; }
+.archiv .les .blatt .t { font-weight: 700; font-size: 18px; }
+.archiv .les .t.nn { color: var(--nn); }
+.archiv .les .t.ja { color: var(--ja); }
+.archiv .les .weiter { display: block; width: 100%; margin-top: 8px; font: inherit; font-weight: 700; font-size: 17px; padding: 12px; border-radius: 12px; border: none; background: var(--um); color: #fff; }
+.archiv .les .weiter[disabled] { opacity: .45; }
+.archiv .les .ruhe { height: 6px; background: #EEE9DA; border-radius: 4px; overflow: hidden; margin: 8px 0 2px; }
+.archiv .les .ruhe i { display: block; height: 100%; width: 0; background: var(--um); transition: width .1s linear; }
+.archiv .les .lohn { display: inline-block; margin-top: 4px; font-weight: 700; color: var(--ja); font-size: 18px; }
+.archiv .les .lohn.aus { color: var(--gedaempft); font-weight: 400; font-size: 15px; }
+.archiv .les .tipp { background: var(--teal-hell); border-radius: 12px; padding: 10px 12px; margin: 8px 0; }
+.archiv .les .tipp .ctl-t { margin-top: 6px; background: var(--flaeche); }
+.archiv .les .runde-fertig { text-align: center; font-size: 18px; padding: 10px; margin: 8px 0; border-radius: 12px; background: #EAF3EC; }
+.archiv .gl-box p { font-size: 18px; }
+.archiv .block { display: block; }
