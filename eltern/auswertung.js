@@ -1,4 +1,5 @@
 // Auswertung der Lerndaten für die Eltern-App. Reine Funktionen, ohne DOM (testbar mit node).
+import { leseRegeln } from '../lesen/lesen-logik.js';
 import { tagKey, potenzWert, SPIELZEIT_STANDARD, spielzeitRegeln, BEDIENUNG, FREIGABEN, HILFEN_BIS } from '../js/logic.js';
 import { THEMA_NAMEN, FEHLER_NAMEN, GEN_NAMEN } from '../js/namen.js';
 import * as P from '../js/paket.js';
@@ -485,6 +486,9 @@ export function startWerte(einst, stand, paketVon = () => null) {
     ...Object.fromEntries(BEDIENUNG.map(b => [b.k, typeof w[b.k] === 'boolean' ? w[b.k] : b.std])),
     ...(typeof w.ansicht_name === 'string' ? { ansicht_name: w.ansicht_name } : {}),
     uebungszeit: uzWerte(w.uebungszeit),
+    // Lese-App (Auftrag 59): nur mit Kassenbuch; ohne Feld bleibt Lesen aus
+    kasse: w.kasse === true,
+    lesen: w.lesen && typeof w.lesen === 'object' ? leseRegeln(w.lesen) : null,
     ...mitPaketen(paketTeil(w, stand, e, paketVon), w, paketVon)
   };
 }
@@ -634,9 +638,16 @@ export function einstellungsDatei(alt, werte, geaenderteStufen, jetzt = new Date
       ...(alt && alt.werte && alt.werte.befristet ? { befristet: alt.werte.befristet } : {}),
       // Kassenbuch der Bildschirmzeit (Auftrag 59): setzt der App-Chat, die Eltern-App übernimmt es unverändert
       ...(alt && alt.werte && typeof alt.werte.kasse === 'boolean' ? { kasse: alt.werte.kasse } : {}),
+      ...(werte.lesen ? { lesen: lesenDatei(werte.lesen, tagKey(jetzt)) } : {}),
       ...(eingriffeDatei(werte.eingriffe, jetzt).length ? { eingriffe: eingriffeDatei(werte.eingriffe, jetzt) } : {}),
       ...(werte.splitter ? { splitter: { preise: werte.splitter.preise, boni: werte.splitter.boni.slice(-50), frei: werte.splitter.frei } } : {}) }
   };
+}
+
+// Lese-Regeln für die Datei: „Nur heute mehr“ nur, solange der Tag noch läuft
+export function lesenDatei(l, heute) {
+  const r = leseRegeln(l);
+  return { an: r.an, faktor: r.faktor, max: r.max, ...(r.extra && r.extra.tag >= heute ? { extra: r.extra } : {}) };
 }
 
 // Ein Paket beim Kind für die Datei: Rolle, Anteil, Etappe, nächste Etappe und eine Kopie des Inhalts (die Übungs-App liest keine Paket-Dateien)

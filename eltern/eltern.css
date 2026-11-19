@@ -754,3 +754,31 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .bg-warn-box p { margin: 0 0 10px; line-height: 1.45; }
 .bg-warn-box .knopf-reihe { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
 @media (max-width: 500px) { .bg-warn-box .knopf-reihe { flex-direction: column-reverse; } .bg-warn-box .knopf-reihe .knopf { width: 100%; } }
+
+/* ---------- Variante C (Auftrag 59 Schritt 5): Mathe-Umschalter, Lesen, Kontingente ---------- */
+.mathe-wahl { display: flex; gap: 4px; padding: 4px; margin: 0 0 12px; background: var(--linie-hell); border-radius: var(--radius); overflow-x: auto; scrollbar-width: none; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4; }
+.mathe-wahl::-webkit-scrollbar { display: none; }
+.mathe-wahl .mw { flex: 1 0 auto; text-align: center; padding: 7px 10px; border-radius: 8px; color: var(--gedaempft); text-decoration: none; font-weight: 600; font-size: 14.5px; white-space: nowrap; }
+.mathe-wahl .mw.an { background: var(--karte); color: var(--teal-dunkel); box-shadow: 0 1px 2px rgba(0, 0, 0, .12); }
+.inhalt-schmal > .mathe-wahl { margin: 8px 12px 4px; }
+.inhalt-breit > .mathe-wahl { margin: 16px 24px 4px; max-width: 640px; }
+.nav-zahl.inline { position: static; display: inline-block; margin-left: 6px; vertical-align: middle; }
+.zurueck-link { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 8px; font-weight: 600; text-decoration: none; }
+.summe-karte { border: 2px solid var(--teal); background: var(--teal-hell); }
+.summe-karte .summe-wert { font-size: 22px; color: var(--teal-dunkel); }
+.summe-karte p { margin: 4px 0; }
+.kontingent-karte .kt-zeile { display: grid; grid-template-columns: 72px 1fr auto; gap: 10px; align-items: center; padding: 5px 0; border-top: 1px solid var(--linie-hell); }
+.kontingent-karte .kt-zeile:first-of-type { border-top: 0; }
+.kontingent-karte .kt-balken { height: 8px; background: var(--linie-hell); border-radius: 5px; overflow: hidden; }
+.kontingent-karte .kt-balken i { display: block; height: 100%; background: var(--teal); }
+.kontingent-karte .kt-lesen .kt-balken i { background: #33408F; }
+.kontingent-karte .kt-summe { font-weight: 700; }
+.kontingent-karte .knopf-reihe { margin-top: 8px; }
+.lz-zahlen { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 8px; }
+.lz-zahlen div { background: var(--weiss); border: 1px solid var(--linie-hell); border-radius: 10px; padding: 8px 10px; }
+.lz-zahlen b { display: block; font-size: 22px; color: var(--teal-dunkel); }
+.lz-zahlen span { font-size: 13px; color: var(--gedaempft); }
+.lz-balken { height: 8px; background: var(--linie-hell); border-radius: 5px; overflow: hidden; align-self: center; }
+.lz-balken i { display: block; height: 100%; background: #33408F; }
+.lz-typ .themen-name { white-space: normal; overflow: visible; text-overflow: clip; }
+.kontingent-karte .knopf { text-decoration: none; }

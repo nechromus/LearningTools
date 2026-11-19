@@ -13,7 +13,7 @@ import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 
-export const LESE_VERSION = '0.4.0';
+export const LESE_VERSION = '0.5.0';
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
 const $app = document.getElementById('app');
 const tagKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -253,7 +253,7 @@ function karteStarten(story, wahl) {
   A = { nr: f.karte, platz: f.runde.karten, story, text: t.id, frage: q.id, typ: q.typ, stufe: st.stufe, geruest: ts.geruest, phase: 'frage', versuch: 1, schonR: [], schonF: [],
     start: Date.now(), belegHinweis: false, leiter: false, nachgeschlagen: [], antwortGegeben: false, zfNr: 0 };
   neuZiehen(st.stufe);
-  protokoll('lese_karte_start', { karte: A.nr, text: t.id, frage: q.id, kv: q.kv, typ: q.typ, stufe: st.stufe, ...(st.ersatz ? { stufe_ersatz: ts.stufe } : {}), textstufe: t.textstufe, geruest: ts.geruest, story, beat: t.beat, platz: A.platz, neu_typ: ts.neu, wieder: !!wieder, ...(wieder ? { nach_karten: f.karte - wieder.karte } : {}), wahl });
+  protokoll('lese_karte_start', { karte: A.nr, text: t.id, frage: q.id, kv: q.kv, fragetyp: q.typ, stufe: st.stufe, ...(st.ersatz ? { stufe_ersatz: ts.stufe } : {}), textstufe: t.textstufe, geruest: ts.geruest, story, beat: t.beat, platz: A.platz, neu_typ: ts.neu, wieder: !!wieder, ...(wieder ? { nach_karten: f.karte - wieder.karte } : {}), wahl });
   if (wieder) protokoll('lese_wiederkehr', { frage: q.id, nach_karten: f.karte - wieder.karte, nach_min: Math.round((Date.now() - new Date(wieder.t)) / 60000) });
   sichern();
   zeigeKarte(true);

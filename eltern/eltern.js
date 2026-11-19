@@ -16,8 +16,10 @@ import { einrichtungsLink, einrichtungLesen, kameraScan } from '../js/einrichtun
 import qrcode from './vendor/qrcode.mjs';
 import * as FB from '../js/feedback.js';
 import { Lernplan } from './lernplan.mjs';
+import * as LA from './lesen-auswertung.js';
+import * as LL from '../lesen/lesen-logik.js';
 
-export const ELTERN_VERSION = '1.67.0';
+export const ELTERN_VERSION = '1.68.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -57,6 +59,9 @@ const icon = {
   boegen: '<path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M15 3v4h4M9 12h7M9 16h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   tickets: '<path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   einstellungen: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="16" cy="7" r="2" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="10" cy="17" r="2" stroke="currentColor" stroke-width="2" fill="none"/>',
+  mathe: '<path d="M17 5H7l6 7-6 7h10" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  lesen: '<path d="M3 5.5h6a3 3 0 0 1 3 3V20a2.5 2.5 0 0 0-2.5-2.5H3zM21 5.5h-6a3 3 0 0 0-3 3V20a2.5 2.5 0 0 1 2.5-2.5H21z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/>',
+  mehr: '<circle cx="5" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="19" cy="12" r="1.8" fill="currentColor"/>',
   zurueck: '<path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
   weiter: '<path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
   uhr: '<circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
@@ -248,11 +253,33 @@ function nutzerWahl(klasse) {
   return `<label class="${klasse}"><span class="unsichtbar">Kind auswählen</span><select name="nutzer-wahl">${opts}</select></label>`;
 }
 
+// Navigation Variante C (Auftrag 59 Schritt 5): Heute · Verlauf · Mathe · Lesen · Mehr.
+// „Mathe“ bündelt Trend, Lernplan, Bögen, Berichte und Pakete (Umschalter oben), „Mehr“ Bildschirmzeit, Einstellungen, Tickets.
+// „Lesen“ gibt es nur mit Kassenbuch (werte.kasse).
+const MATHE_SEITEN = ['mathe', 'trend', 'lernplan', 'boegen', 'berichte', 'pakete', 'paket', 'einheit', 'gewichte'];
+const MEHR_SEITEN = ['mehr', 'tickets', 'ticket', 'einstellungen', 'spielzeit', 'splitter', 'qr', 'bildschirmzeit'];
+function lesenAn() { const w = D.daten && D.daten.einst && D.daten.einst.werte; return !!(w && w.kasse === true); }
 function navLinks(art) {
-  const aktiv = route.seite === 'aufgabe' || route.seite === 'spiel' ? 'verlauf' : route.seite === 'ticket' ? 'tickets' : ['spielzeit', 'gewichte', 'pakete', 'paket', 'qr', 'einheit', 'splitter'].includes(route.seite) ? 'einstellungen' : route.seite;
+  const s = route.seite;
+  const aktiv = s === 'aufgabe' || s === 'spiel' || s === 'verlauf' ? 'verlauf' : MATHE_SEITEN.includes(s) ? 'mathe' : MEHR_SEITEN.includes(s) ? 'mehr' : s === 'lesen' ? 'lesen' : 'uebersicht';
   if (C.nur === 'boegen') return `<a href="#boegen" class="${art} aktiv" aria-current="page">${svg('boegen', 24)}<span>Bögen</span></a>`;
-  return [['uebersicht', 'Übersicht'], ...(trendAn() ? [['trend', 'Trend']] : []), ['verlauf', 'Verlauf'], ['lernplan', 'Lernplan'], ...(boegenAn() ? [['boegen', 'Bögen']] : []), ...(berichteAn() ? [['berichte', 'Berichte']] : []), ['tickets', 'Tickets'], ['einstellungen', 'Einstellungen']].map(([k, t]) =>
-    `<a href="#${k}" class="${art}${aktiv === k ? ' aktiv' : ''}"${aktiv === k ? ' aria-current="page"' : ''}>${svg(k, 24)}<span>${t}</span>${k === 'tickets' && ticketsNeu().length ? `<i class="nav-zahl" aria-label="${ticketsNeu().length} neu">${ticketsNeu().length}</i>` : ''}</a>`).join('');
+  const neu = ticketsNeu().length;
+  return [['uebersicht', 'Heute'], ['verlauf', 'Verlauf'], ['mathe', 'Mathe'], ...(lesenAn() ? [['lesen', 'Lesen']] : []), ['mehr', 'Mehr']].map(([k, t]) =>
+    `<a href="#${k}" class="${art}${aktiv === k ? ' aktiv' : ''}"${aktiv === k ? ' aria-current="page"' : ''}>${svg(k, 24)}<span>${t}</span>${k === 'mehr' && neu ? `<i class="nav-zahl" aria-label="${neu} neue Tickets">${neu}</i>` : ''}</a>`).join('');
+}
+function matheSeiten() {
+  return [...(trendAn() ? [['trend', 'Trend']] : []), ['lernplan', 'Lernplan'], ...(boegenAn() ? [['boegen', 'Bögen']] : []), ...(berichteAn() ? [['berichte', 'Berichte']] : []), ['pakete', 'Pakete']];
+}
+function matheZiel() {
+  let z = null; try { z = localStorage.getItem('eltern-mathe'); } catch (e) { /* egal */ }
+  const l = matheSeiten().map(x => x[0]);
+  return l.includes(z) ? z : l[0];
+}
+function matheUmschalter() {
+  if (C.nur) return '';
+  const s = route.seite === 'paket' || route.seite === 'einheit' ? 'pakete' : route.seite;
+  try { if (matheSeiten().some(x => x[0] === s)) localStorage.setItem('eltern-mathe', s); } catch (e) { /* egal */ }
+  return `<nav class="mathe-wahl" aria-label="Mathe">${matheSeiten().map(([k, t]) => `<a href="#${k}" class="mw${s === k ? ' an' : ''}"${s === k ? ' aria-current="page"' : ''}>${t}</a>`).join('')}</nav>`;
 }
 
 function standZeile() {
@@ -429,6 +456,8 @@ function seiteHtml() {
   if (!D.daten) return `<div class="seite lade-seite">${logo(64)}<p>Lerndaten werden geladen …</p></div>`;
   if (D.daten.leer) return `<div class="seite"><h1>Noch keine Daten</h1><p>Im Daten-Repo gibt es noch keinen Ordner mit Namen. Sobald sich jemand in der Übungs-App mit Namen angemeldet hat und Daten übertragen wurden, erscheinen sie hier.</p><button class="knopf haupt" data-act="neuLaden">Neu laden</button>${schluesselKarte()}</div>`;
   if (C.nur === 'boegen' && route.seite !== 'boegen') { history.replaceState(null, '', location.pathname + '#boegen'); route = { seite: 'boegen', arg: '' }; }
+  if (route.seite === 'mathe') { const z = matheZiel(); history.replaceState(null, '', location.pathname + '#' + z); route = { seite: z, arg: '' }; }
+  if (route.seite === 'lesen' && !lesenAn()) { history.replaceState(null, '', location.pathname + '#uebersicht'); route = { seite: 'uebersicht', arg: '' }; }
   switch (route.seite) {
     case 'verlauf': return breit.matches ? verlaufBreit() : (route.arg ? tagSeite(route.arg) : tageListe());
     case 'aufgabe': return breit.matches ? verlaufBreit() : aufgabeSeite(route.arg);
@@ -437,15 +466,18 @@ function seiteHtml() {
     case 'spielzeit': return spielzeitSeite();
     case 'gewichte': return gewichteSeite();
     case 'splitter': return splitterSeite();
-    case 'pakete': return paketeSeite();
-    case 'paket': return paketSeite(route.arg);
-    case 'einheit': return einheitSeite(route.arg);
+    case 'pakete': return matheUmschalter() + paketeSeite();
+    case 'paket': return matheUmschalter() + paketSeite(route.arg);
+    case 'einheit': return matheUmschalter() + einheitSeite(route.arg);
+    case 'mehr': return mehrSeite();
+    case 'lesen': return lesenSeite();
+    case 'bildschirmzeit': return bildschirmzeitSeite();
     case 'qr': return qrSeite();
-    case 'lernplan': return lernplanSeite();
-    case 'trend': return trendSeite();
+    case 'lernplan': return matheUmschalter() + lernplanSeite();
+    case 'trend': return matheUmschalter() + trendSeite();
     case 'tickets': return ticketsSeite();
-    case 'boegen': return boegenSeite();
-    case 'berichte': return berichteSeite();
+    case 'boegen': return (C.nur ? '' : matheUmschalter()) + boegenSeite();
+    case 'berichte': return matheUmschalter() + berichteSeite();
     case 'ticket': return ticketSeite(route.arg);
     default: return uebersichtSeite();
   }
@@ -1626,12 +1658,13 @@ function uebersichtSeite() {
   const leer = !k.aufgaben ? `<p class="gedaempft">In diesem Zeitraum wurden keine Aufgaben gemacht.</p>` : '';
 
   return `<div class="seite">
-    ${breit.matches ? `<header class="kopf-breit"><h1>Übersicht · ${esc(name())}</h1>${nutzerWahl('nutzer-chip nur-hoch')}${zeitraumWahl()}</header>` : kopfSchmal('Übersicht') + zeitraumWahl()}
+    ${breit.matches ? `<header class="kopf-breit"><h1>Heute · ${esc(name())}</h1>${nutzerWahl('nutzer-chip nur-hoch')}${zeitraumWahl()}</header>` : kopfSchmal('Heute') + zeitraumWahl()}
     ${schluesselBaldKarte()}
     ${datenAltKarte()}
     ${speicherKarte()}
     ${ticketHinweis()}
     ${liveKarte()}
+    ${kontingentKarte()}
     ${berichtKachel()}
     ${bogenKachel()}
     <div class="kacheln">${kacheln}</div>
@@ -2168,8 +2201,142 @@ function bzEinstellungen(w) {
       ${maxBlock('bz', b, BS.HOECHSTWERTE, 'Minuten.')}
       <div class="einstell-block"><span>Abschicken ab</span>${seg('bzAb', BS.MINDESTWERTE, b.ab)}<span class="klein gedaempft">Minuten. Vorher kann ${esc(name())} noch nichts abschicken.</span></div>
       ${extraBlock('bzExtra', b, A.minutenText(heute), esc(name()))}` : ''}
+    </section>
+    ${lesenAn() ? leseKontingent(w) : ''}
+    ${lesenAn() ? summeKarte(w) : ''}`;
+}
+// Lese-Kontingent (Auftrag 59): Höchstens am Tag und „Nur heute mehr“. Lohnfaktor und „Lesen an“ stehen im Reiter „Lesen“.
+function leseWerte(w) { return w.lesen || { ...LL.LESEN_STD }; }
+function leseKontingent(w) {
+  const l = leseWerte(w), heute = L.tagKey();
+  const seg = (act, werte, akt, text = (x) => x) => `<div class="segmente" role="group">${werte.map(x => `<button class="segment${x === akt ? ' an' : ''}" data-act="${act}" data-w="${x}" aria-pressed="${x === akt}">${text(x)}</button>`).join('')}</div>`;
+  const extra = l.extra && l.extra.tag === heute ? l.extra.min : 0;
+  return `<h2 class="abschnitt">Bildschirmzeit aus Lesen</h2>
+    <section class="karte liste-karte">
+      ${l.an ? '' : `<p class="klein gedaempft pad">Lesen ist noch aus. Einschalten im Reiter <a href="#lesen">Lesen</a>.</p>`}
+      <div class="einstell-block"><span>Höchstens pro Tag</span>${seg('leseMax', [15, 20, 30, 45, 60], l.max)}<span class="klein gedaempft">Minuten Bildschirmzeit aus Lesekarten.</span></div>
+      <div class="einstell-block"><span>Nur heute mehr zulassen</span>${seg('leseExtra', [0, ...LL.LESE_EXTRAS], extra, x => '+' + x)}<span class="klein gedaempft">Heute: ${l.max + extra} Min. Morgen gilt wieder der normale Wert.</span></div>
     </section>`;
 }
+// Summe beider Kontingente: steht überall, wo ein Kontingent geändert wird (Entscheidung 19.11.: Grenzen addieren sich)
+function summeKarte(w) {
+  const b = w.bildschirm, l = leseWerte(w), heute = L.tagKey();
+  const m = b.an ? b.max : 0, le = l.an ? l.max : 0;
+  const mx = b.an ? (b.extraMin || 0) : 0, lx = l.an && l.extra && l.extra.tag === heute ? l.extra.min : 0;
+  return `<section class="karte summe-karte"><div class="karte-kopf"><h2>Zusammen am Tag</h2><b class="summe-wert">${m + le} Min.</b></div>
+    <p>Mathe ${b.an ? m : 'aus'} + Lesen ${l.an ? le : 'aus'}${mx + lx ? `. Heute mit „Nur heute mehr“: ${m + le + mx + lx} Min.` : '.'}</p>
+    <p class="klein gedaempft">Ändert sich sofort mit, wenn du oben etwas wählst. Es gibt keine gemeinsame Grenze: Jedes Fach hat seine eigene.</p></section>`;
+}
+function bildschirmzeitSeite() {
+  const w = entwurfHolen();
+  return `<div class="seite schmal-inhalt">
+    ${breit.matches ? `<header class="kopf-breit"><h1>Bildschirmzeit · ${esc(name())}</h1>${nutzerWahl('nutzer-chip nur-hoch')}</header>` : kopfSchmal('Bildschirmzeit')}
+    <a class="zurueck-link" href="#mehr">${svg('zurueck', 16)} Mehr</a>
+    ${bzEinstellungen(w)}
+    ${speicherLeiste()}
+  </div>`;
+}
+function mehrSeite() {
+  const neu = ticketsNeu().length;
+  const zeile = (href, titel, unter, extra = '') => `<a class="einstell-zeile" href="#${href}"><span>${titel}${extra}<span class="klein gedaempft block">${unter}</span></span>${svg('weiter', 16)}</a>`;
+  return `<div class="seite schmal-inhalt">
+    ${breit.matches ? `<header class="kopf-breit"><h1>Mehr · ${esc(name())}</h1>${nutzerWahl('nutzer-chip nur-hoch')}</header>` : kopfSchmal('Mehr')}
+    <section class="karte liste-karte">
+      ${zeile('bildschirmzeit', 'Bildschirmzeit', lesenAn() ? 'Mathe und Lesen, mit Summe' : 'Höchstens am Tag, Faktor, Stufen')}
+      ${zeile('einstellungen', 'Einstellungen', 'Pakete, Spielzeit, Bedienung, Handy einrichten')}
+      ${zeile('tickets', 'Tickets', 'Rückmeldungen aus den Apps', neu ? ` <i class="nav-zahl inline">${neu}</i>` : '')}
+    </section>
+  </div>`;
+}
+
+// ---------- Reiter „Lesen“ (Auftrag 59 Schritt 5, Variante C) ----------
+// Liest das Lese-Protokoll (daten/<name>/lesen/<geraet>/<tag>.json, 14 Tage), die Konto-Dateien und die Liste der Geschichten.
+const LS = { kind: null, eintraege: [], konto: [], storylines: null, geladen: 0, laedt: false, fehler: null };
+async function leseLaden(o, neu = false) {
+  if (LS.laedt || (!neu && LS.kind === o && Date.now() - LS.geladen < 5 * 60e3)) return;
+  LS.laedt = true;
+  try {
+    const ab = letzteTageKey(13), ein = [];
+    const ordner = await U.ordnerLesen(C, `daten/${o}/lesen`);
+    for (const d of ordner.filter(x => x.type === 'dir' && x.name !== 'inhalt')) {
+      for (const f of (await U.ordnerLesen(C, d.path)).filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f.name) && f.name.slice(0, 10) >= ab)) {
+        const j = await U.dateiLesen(C, f.path);
+        for (const e of (j && j.eintraege) || []) ein.push({ ...e, geraet: d.name });
+      }
+    }
+    const konto = [];
+    for (const f of (await U.ordnerLesen(C, `daten/${o}/konto`)).filter(f => f.name.endsWith('.json') && f.name !== 'auszahlungen.json')) {
+      try { const k = await U.dateiLesen(C, f.path); if (k) konto.push(k); } catch (e) { /* diese Quelle später */ }
+    }
+    let sl = null; try { sl = await U.dateiLesen(C, `daten/${o}/lesen/inhalt/storylines.json`); } catch (e) { /* ohne Liste */ }
+    Object.assign(LS, { kind: o, eintraege: ein, konto, storylines: sl && Array.isArray(sl.storylines) ? sl.storylines : [], geladen: Date.now(), fehler: null });
+  } catch (e) { LS.fehler = e.message || 'Laden hat nicht geklappt.'; LS.kind = o; LS.geladen = Date.now(); }
+  LS.laedt = false;
+  if (['lesen', 'uebersicht'].includes(route.seite)) zeichne();
+}
+// Heute verdient je Fach (aus den Quell-Dateien des Kassenbuchs)
+function kontoHeute() {
+  const heute = L.tagKey(), r = { mathe: 0, lesen: 0, stand: null };
+  for (const k of LS.konto) if (k && k.heute && k.heute.tag === heute && (k.app === 'mathe' || k.app === 'lesen')) { r[k.app] += k.heute.sek || 0; if (!r.stand || k.geaendert > r.stand) r.stand = k.geaendert; }
+  return r;
+}
+// „Heute“: beide Kontingente mit Summe (nur mit Lesen)
+function kontingentKarte() {
+  if (!lesenAn()) return '';
+  if (LS.kind !== C.nutzer) { leseLaden(C.nutzer); return ''; }
+  const w = (D.daten.einst && D.daten.einst.werte) || {}, b = A.startWerte(D.daten.einst, neuesterStand(), paketVon).bildschirm;
+  const l = w.lesen ? LL.leseRegeln(w.lesen) : { ...LL.LESEN_STD }, heute = L.tagKey();
+  const mMax = b.an ? b.max + (b.extraMin || 0) : 0, lMax = l.an ? LL.grenzeSek(l, heute) / 60 : 0;
+  const k = kontoHeute();
+  const zeile = (titel, sek, max, aus) => `<div class="kt-zeile${titel === 'Lesen' ? ' kt-lesen' : ''}"><span>${titel}</span><span class="kt-balken"><i style="width:${max ? Math.min(100, sek / 60 / max * 100) : 0}%"></i></span><b>${aus ? 'aus' : `${A.minutenText(sek)} von ${max}`}</b></div>`;
+  return `<section class="karte kontingent-karte"><div class="karte-kopf"><h2>Bildschirmzeit heute</h2>${k.stand ? `<span class="klein gedaempft">Stand ${uhr(k.stand)}</span>` : ''}</div>
+    ${zeile('Mathe', k.mathe, mMax, !b.an)}${zeile('Lesen', k.lesen, lMax, !l.an)}
+    <div class="kt-zeile kt-summe"><span>Zusammen</span><span></span><b>${A.minutenText(k.mathe + k.lesen)} von ${mMax + lMax}</b></div>
+    <div class="knopf-reihe"><a class="knopf" href="#bildschirmzeit">Kontingente ändern</a></div></section>`;
+}
+const pz = (a, b) => b ? Math.round(a / b * 100) : 0;
+function lesenSeite() {
+  const w = entwurfHolen(), l = leseWerte(w);
+  if (LS.kind !== C.nutzer || (!LS.geladen && !LS.fehler)) leseLaden(C.nutzer);
+  const kopf = breit.matches ? `<header class="kopf-breit"><h1>Lesen · ${esc(name())}</h1>${nutzerWahl('nutzer-chip nur-hoch')}</header>` : kopfSchmal('Lesen');
+  const seg = (act, werte, akt, text = (x) => x) => `<div class="segmente" role="group">${werte.map(x => `<button class="segment${x === akt ? ' an' : ''}" data-act="${act}" data-w="${x}" aria-pressed="${x === akt}">${text(x)}</button>`).join('')}</div>`;
+  const regler = `<h2 class="abschnitt">Regler Lesen</h2><section class="karte liste-karte">
+      <div class="einstell-block"><span>Lesen an<span class="klein gedaempft block">Archiv der Welten auf dem Handy von ${esc(name())}. Aus: „Das Archiv öffnet bald.“</span></span>${seg('leseAn', [true, false], l.an, x => x ? 'An' : 'Aus')}</div>
+      <div class="einstell-block"><span>Lohnfaktor<span class="klein gedaempft block">1 = 2 Min. Bildschirmzeit für eine Karte, die gleich richtig ist und den Absatz sofort findet.</span></span>${seg('leseFaktor', [0.5, 0.75, 1, 1.5, 2], l.faktor, x => ({ 0.5: '½', 0.75: '¾', 1: '1', 1.5: '1½', 2: '2' })[x])}</div>
+      <a class="einstell-zeile" href="#bildschirmzeit"><span>Höchstens am Tag<span class="klein gedaempft block">mit der Summe aus Mathe und Lesen</span></span><span class="wert">${l.max} Min.</span>${svg('weiter', 16)}</a>
+    </section>${geaendert() ? speicherLeiste() : ''}`;
+  if (LS.kind !== C.nutzer || LS.laedt && !LS.geladen) return `<div class="seite schmal-inhalt">${kopf}<p class="gedaempft">Lese-Daten werden geladen …</p>${regler}</div>`;
+  const r = LA.leseAuswertung(LS.eintraege, { ab: letzteTageKey(6), tagVon: (t) => L.tagKey(new Date(t)) });
+  const alle = LA.leseAuswertung(LS.eintraege, { tagVon: (t) => L.tagKey(new Date(t)) });
+  const storyName = (id) => (LS.storylines.find(x => x.id === id) || {}).titel || id;
+  const storyFolgen = (id) => (LS.storylines.find(x => x.id === id) || {}).folgen || '?';
+  const woche = `<section class="karte"><div class="karte-kopf"><h2>Letzte 7 Tage</h2>${r.letzte ? `<span class="klein gedaempft">zuletzt ${esc(wann(r.letzte))}</span>` : ''}</div>
+    ${r.karten ? `<div class="lz-zahlen">
+      <div><b>${r.karten}</b><span>Lesekarten</span></div>
+      <div><b>${pz(r.ergebnis.voll, r.karten)} %</b><span>gleich richtig mit Beleg</span></div>
+      <div><b>${A.minutenText(r.lohnSek)}</b><span>Bildschirmzeit verdient</span></div>
+      <div><b>${pz(r.ersteSchnell, r.ersteVersuche)} %</b><span>Antworten unter 3 s</span></div></div>
+      <p class="klein gedaempft">${r.ergebnis.voll} gleich richtig · ${r.ergebnis.hinweis} mit Hinweis · ${r.ergebnis.leiter} mit Leiter · ${r.ergebnis.aufloesung} Auflösung. ${r.zurueck ? `${r.zurueck} ${r.zurueck === 1 ? 'Karte kommt' : 'Karten kommen'} später noch einmal.` : ''}</p>`
+      : `<p class="gedaempft">${l.an ? 'In den letzten 7 Tagen keine Lesekarten.' : 'Noch keine Lesekarten. Lesen ist aus.'}</p>`}
+  </section>`;
+  const typen = Object.values(r.typen).sort((a, b) => b.n - a.n);
+  const typKarte = typen.length ? `<section class="karte liste-karte"><div class="karte-kopf"><h2>Fragetypen</h2><span class="klein gedaempft">gleich richtig</span></div>
+    ${typen.map(t => `<div class="themen-zeile lz-typ"><span class="themen-name">${esc(t.name)}</span><span class="lz-balken"><i style="width:${pz(t.voll, t.n)}%"></i></span><span class="themen-quote">${pz(t.voll, t.n)} %</span><span class="themen-info">${t.n} · St. ${t.stufe} · Gerüst ${t.geruest}</span></div>`).join('')}
+    <p class="klein gedaempft pad">Stufe 1–3: wie weit die richtige Antwort vom Text weg formuliert ist. Gerüst 1: Absatz markiert, 2: Absatz genannt, 3: allein.</p></section>` : '';
+  const stories = Object.values(alle.stories);
+  const storyKarte = stories.length ? `<section class="karte liste-karte"><div class="karte-kopf"><h2>Geschichten</h2><span class="klein gedaempft">14 Tage</span></div>
+    ${stories.map(x => `<div class="bz-zeile"><div><b>${esc(storyName(x.story))}</b><span class="klein gedaempft block">bis Folge ${x.folge} von ${storyFolgen(x.story)} · ${x.karten} ${x.karten === 1 ? 'Karte' : 'Karten'}</span></div></div>`).join('')}</section>` : '';
+  const wuensche = `<section class="karte liste-karte"><div class="karte-kopf"><h2>Wünsche nach einer Geschichte</h2></div>
+    ${alle.wuensche.length ? alle.wuensche.map(x => `<div class="bz-zeile"><div><span class="klein gedaempft block">${esc(tagKurz(L.tagKey(new Date(x.t))))} · ${x.gelesen} von ${x.folgen} Folgen gelesen</span><b>„${esc(x.knopf)}“</b><span class="klein gedaempft block">${esc(storyName(x.story))}</span></div></div>`).join('')
+      : '<p class="klein gedaempft pad">Kommt nach der letzten Folge einer Geschichte. Daraus plant der Lese-Chat neue Geschichten.</p>'}</section>`;
+  const nach = Object.entries(r.nachgeschlagen).sort((a, b) => b[1] - a[1]);
+  const nachKarte = nach.length ? `<section class="karte"><div class="karte-kopf"><h2>Nachgeschlagen</h2><span class="klein gedaempft">7 Tage</span></div><p>${nach.slice(0, 15).map(([wo, n]) => `${esc(wo)}${n > 1 ? ` (${n}×)` : ''}`).join(', ')}</p></section>` : '';
+  return `<div class="seite schmal-inhalt">${kopf}
+    ${LS.fehler ? `<p class="meldung fehler">${esc(LS.fehler)}</p>` : ''}
+    ${woche}${typKarte}${storyKarte}${wuensche}${nachKarte}${regler}
+  </div>`;
+}
+
 
 // Übersicht: Quote je Paket und je Etappe (Aufgaben ab Version 2.13.0 wissen, aus welchem Paket sie kamen)
 function paketQuotenKarte(vonTag) {
@@ -2942,7 +3109,7 @@ document.addEventListener('click', (ev) => {
     case 'bgBearbeiten': BG.bearbeiten = { ...(BG.bearbeiten || {}), [el.dataset.id]: true }; zeichne(); break;
     case 'bgVerwerfen': bgVerwerfen(el.dataset.id); break;
     case 'verbinden': verbinden(); break;
-    case 'neuLaden': allesLaden({ nutzerliste: true }); break;
+    case 'neuLaden': LS.geladen = 0; allesLaden({ nutzerliste: true }); break;
     case 'updateLaden': updateLaden(); break;
     case 'datenLaden': datenHinweisWeg(); allesLaden(); break;
     case 'datenSpaeter': datenHinweisWeg(); break;
@@ -3017,6 +3184,10 @@ document.addEventListener('click', (ev) => {
     case 'bzStufenAn': entwurf.bildschirm = { ...entwurf.bildschirm, stufenAn: el.dataset.w === 'true', schnitt: bzSchnitt(entwurf.bildschirm) }; meldung = null; zeichne(); break;
     case 'bzStufeNeu': { const st = entwurf.bildschirm.stufen.map(x => ({ ...x })); const l = st[st.length - 1]; st.push({ ab: Math.min(240, l.ab + 10), faktor: Math.min(2, Math.round((l.faktor + 0.25) * 20) / 20) }); entwurf.bildschirm = { ...entwurf.bildschirm, stufen: BS.stufenVon(st) }; meldung = null; zeichne(); break; }
     case 'bzStufeWeg': { const st = entwurf.bildschirm.stufen.filter((x, i) => i !== Number(el.dataset.i)); entwurf.bildschirm = { ...entwurf.bildschirm, stufen: BS.stufenVon(st) }; meldung = null; zeichne(); break; }
+    case 'leseAn': entwurf.lesen = { ...leseWerte(entwurf), an: el.dataset.w === 'true' }; meldung = null; zeichne(); break;
+    case 'leseFaktor': entwurf.lesen = { ...leseWerte(entwurf), faktor: Number(el.dataset.w) }; meldung = null; zeichne(); break;
+    case 'leseMax': entwurf.lesen = { ...leseWerte(entwurf), max: Number(el.dataset.w) }; meldung = null; zeichne(); break;
+    case 'leseExtra': { const m = Number(el.dataset.w); entwurf.lesen = { ...leseWerte(entwurf), extra: m ? { tag: L.tagKey(), min: m } : null }; meldung = null; zeichne(); break; }
     case 'bzMax': entwurf.bildschirm = { ...entwurf.bildschirm, max: Number(el.dataset.w), maxBis: '', maxDanach: null }; meldung = null; zeichne(); break;
     case 'maxEigen': { const k = el.dataset.art === 'bz' ? 'bildschirm' : 'spielzeitTag', w = entwurf[k]; const liste = el.dataset.art === 'bz' ? BS.HOECHSTWERTE : BS.SZ_HOECHSTWERTE;
       if (liste.includes(w.max)) entwurf[k] = { ...w, maxDanach: w.max, max: Math.min(BS.MAX_FREI.max, liste[liste.length - 1] + 30) }; meldung = null; zeichne(); break; }
