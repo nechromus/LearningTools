@@ -14,64 +14,135 @@ body.archiv { --teal: #33408F; --teal-dunkel: #262F70; --teal-hell: #E3E6F5; }
 .archiv .meldung { color: var(--amber, #9A5B06); }
 .archiv .btn[disabled] { opacity: .55; }
 
-/* ---------- Lesekarte (Schritt 3, neutral; Welten-Styles folgen in Schritt 4) ---------- */
-.archiv .les { --papier: #FFFDF7; --tinte: #23263A; --mark: #FFE9A8; --um: #33408F; --ja: #2E6B4A; --nn: #9A5B06; padding-bottom: 40px; }
-.archiv .les .top { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; }
-.archiv .ctl-t { background: none; border: 1px solid var(--linie-hell, #D8D4C6); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 15px; color: var(--tinte); }
-.archiv .les .dots { margin-left: auto; display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--gedaempft); }
-.archiv .les .dots i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--um); }
-.archiv .les .dots i.an { background: var(--um); }
+/* ---------- Schriften der Styles (eingebettet, OFL bzw. Apache 2.0, Lizenzen in schriften/) ---------- */
+@font-face { font-family: 'Plex Mono'; src: url(schriften/plex-mono-600.woff) format('woff'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Silkscreen'; src: url(schriften/silkscreen-400.woff) format('woff'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Orbitron'; src: url(schriften/orbitron.woff) format('woff'); font-weight: 400 900; font-display: swap; }
+@font-face { font-family: 'Oswald'; src: url(schriften/oswald.woff) format('woff'); font-weight: 200 700; font-display: swap; }
+@font-face { font-family: 'Special Elite'; src: url(schriften/special-elite-400.woff) format('woff'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Barlow Condensed'; src: url(schriften/barlow-condensed-700i.woff) format('woff'); font-weight: 700; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Cinzel Archiv'; src: url(schriften/cinzel.woff) format('woff'); font-weight: 400 900; font-display: swap; }
+
+/* ---------- Lesekarte (Schritt 3/4) ----------
+   Feste Teile: Aufbau, Fließtext (Schrift, Größe), alle Bedienelemente, Rückmeldefarben, Markierungen.
+   Der Style (Auftrag 58) ändert nur Hintergrund, Textfarbe, Akzent, Titelschrift, Faktenkasten, Bisher-Kasten, Bildrahmen, Ornament. */
+.archiv .les { --s-bg: #F4F1E8; --s-fg: #1E2A2B; --s-ak: #33408F; --s-ak-t: #33408F; --s-muted: #4F5E5E; --s-tf: 700 22px 'Cinzel Archiv', Georgia, serif; --s-fl: #FBFAF5;
+  --ok: #2E7D4F; --nn: #8A4F00; --dunkel: #1E2A2B;
+  background: var(--s-bg); color: var(--s-fg); min-height: 100vh; padding-bottom: 48px; }
+body.archiv[data-style] { background: var(--sbg, #F4F1E8); }
+.archiv .les .top { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; }
+.archiv .ctl-t { font: 600 15px 'Atkinson Hyperlegible', system-ui, sans-serif; background: #fff; color: var(--dunkel, #1E2A2B); border: 2px solid var(--dunkel, #1E2A2B); border-radius: 10px; padding: 5px 11px; }
+.archiv .les .dots { margin-left: auto; display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--s-muted); }
+.archiv .les .dots i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--s-fg); opacity: .75; }
+.archiv .les .dots i.an { background: var(--s-fg); opacity: 1; }
 .archiv .les .dots span { margin-left: 6px; }
-.archiv .les .ohnezeit { font-size: 13px; color: var(--gedaempft); border: 1px dashed var(--linie); border-radius: 999px; padding: 2px 8px; }
-.archiv .les .shead { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
-.archiv .les .shead .st { font-family: Cinzel, Georgia, serif; font-size: 20px; color: var(--teal-dunkel); }
-.archiv .icon-gross { width: 48px; height: 48px; }
-.archiv .icon-klein { width: 28px; height: 28px; flex: none; }
-.archiv .les .meta { font-size: 14px; color: var(--gedaempft); display: flex; gap: 8px; align-items: center; }
-.archiv .les .badge { border: 1px solid var(--linie); border-radius: 999px; padding: 1px 8px; font-size: 12px; }
-.archiv .les .bis { display: flex; gap: 8px; align-items: flex-start; background: var(--teal-hell); border-radius: 10px; padding: 8px 10px; margin: 8px 0; font-size: 16px; }
-.archiv .les-titel { font-size: 23px; margin: 10px 0 8px; color: var(--tinte); }
-.archiv .les figure { margin: 8px 0 12px; }
-.archiv .les figure img { width: 100%; border-radius: 8px; display: block; background: #eee; }
+.archiv .les .ohnezeit { font-weight: 700; font-size: 12px; background: #fff; color: var(--dunkel); border: 2px solid var(--dunkel); border-radius: 999px; padding: 2px 8px; }
+.archiv .les .shead { display: flex; align-items: center; gap: 12px; margin: 6px 0 8px; }
+.archiv .les .shead .st { font: var(--s-tf); font-size: 17px; color: var(--s-ak-t); line-height: 1.2; letter-spacing: var(--s-tl, 0); }
+.archiv .icon-gross { width: 64px; height: 64px; flex: none; object-fit: contain; }
+.archiv .icon-klein { width: 32px; height: 32px; flex: none; object-fit: contain; }
+.archiv .les .meta { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; letter-spacing: .03em; color: var(--s-muted); margin: 4px 0 2px; }
+.archiv .les .badge { font-weight: 700; font-size: 12.5px; letter-spacing: .04em; border: 1.5px solid var(--s-ak); color: var(--s-ak-t); border-radius: 999px; padding: 1px 9px; }
+.archiv .les-titel { font: var(--s-tf); font-size: var(--s-ts, 24px); line-height: 1.15; margin: 4px 0 10px; color: var(--s-titel, var(--s-fg)); letter-spacing: var(--s-tl, 0); }
+.archiv .les .trenner { text-align: center; color: var(--s-ak-t); font-size: 14px; margin: -4px 0 10px; letter-spacing: .4em; }
+.archiv .les figure { margin: 0 0 12px; }
+.archiv .les figure .rahmen { overflow: hidden; }
+.archiv .les figure img { display: block; width: 100%; height: auto; }
 .archiv .les figure.pixel img { image-rendering: pixelated; }
-.archiv .les figcaption { font-size: 12px; color: var(--gedaempft); margin-top: 3px; }
-.archiv .bild-fehlt { display: block; font-size: 13px; color: var(--gedaempft); }
-.archiv .les .abs { background: var(--papier); color: var(--tinte); font-size: 19px; line-height: 1.6; margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; border: 2px solid transparent; }
-.archiv .les .abs .nr { display: block; font-size: 12px; color: var(--gedaempft); letter-spacing: .03em; }
-.archiv .les .abs.um { border-color: var(--um); }
-.archiv .les .abs.mark { background: #FFF6D6; }
+.archiv .les figcaption { font-size: 12.5px; color: var(--s-muted); margin-top: 4px; line-height: 1.3; }
+.archiv .bild-fehlt { display: block; font-size: 13px; color: var(--s-muted, #4F5E5E); }
+/* Fließtext: in allen Styles gleich */
+.archiv .les .abs { font: 19px/1.6 'Atkinson Hyperlegible', system-ui, sans-serif; color: var(--s-fg); margin: 0 0 12px; padding: 6px 8px; border-radius: 8px; }
+.archiv .les .abs .nr { display: block; font-weight: 600; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--s-muted); }
+.archiv .les .abs.um { box-shadow: 0 0 0 2px #1E2A2B, 0 0 0 5px #FFD54A; }
+.archiv .les .abs.mark { background: rgba(255, 213, 74, .22); }
 .archiv .les .abs.aus { opacity: .45; }
-.archiv .les .abs.tippbar { cursor: pointer; border-style: dashed; border-color: var(--linie); }
-.archiv .les .abs.tippbar.um { border-style: solid; border-color: var(--um); }
-.archiv .les mark { background: var(--mark); padding: 0 2px; border-radius: 3px; }
-.archiv .les .gl { font: inherit; color: inherit; background: none; border: none; padding: 0; border-bottom: 2px dashed var(--um); cursor: pointer; }
-.archiv .les .kas { border: 1px solid var(--linie); border-radius: 10px; padding: 8px 12px; margin: 4px 0 14px; background: var(--flaeche); }
-.archiv .les .kt { font-weight: 700; font-size: 14px; color: var(--gedaempft); margin-bottom: 4px; }
-.archiv .les .kr { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-top: 1px solid #EEE9DA; font-size: 16px; }
-.archiv .les .kr:first-of-type { border-top: none; }
-.archiv .les .kr b { text-align: right; }
-.archiv .les .gerust { font-weight: 700; color: var(--um); margin: 12px 0 4px; }
-.archiv .les .fr { font-weight: 700; font-size: 19px; margin: 16px 0 8px; }
-.archiv .les .ant, .archiv .les .wahl { display: block; width: 100%; text-align: left; font: inherit; font-size: 17px; background: var(--flaeche); color: var(--tinte); border: 2px solid var(--linie-hell, #D8D4C6); border-radius: 12px; padding: 12px 14px; margin: 0 0 8px; }
-.archiv .les .ant:active, .archiv .les .wahl:active { border-color: var(--um); }
-.archiv .les .wahl b { display: block; }
-.archiv .les .wahl .mini { display: flex; gap: 10px; align-items: flex-start; }
-.archiv .les .wahl-kopf { margin: 16px 0 6px; }
-.archiv .les .blatt { background: var(--karte); border: 2px solid var(--um); border-radius: 12px; padding: 12px 14px; margin: 10px 0; }
-.archiv .les .blatt.nn { border-color: var(--nn); }
-.archiv .les .blatt.ja { border-color: var(--ja); }
+.archiv .les .abs.tippbar { cursor: pointer; outline: 2px dashed color-mix(in srgb, var(--s-fg) 45%, transparent); outline-offset: 0; }
+.archiv .les .abs.tippbar.um { outline: none; }
+.archiv .les mark { background: #FFE07A; color: #1E2A2B; border-radius: 3px; padding: 0 2px; }
+.archiv .les .gl { font: inherit; color: inherit; background: none; border: none; padding: 0; border-bottom: 2px dashed currentColor; cursor: pointer; }
+/* Faktenkasten (Grundform, Style ergänzt) */
+.archiv .les .kas { margin: 6px 0 14px; font-size: 16px; }
+.archiv .les .kas .kt { font-weight: 700; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--s-ak-t); margin-bottom: 4px; }
+.archiv .les .kas .kr { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-top: 1px solid color-mix(in srgb, var(--s-fg) 18%, transparent); }
+.archiv .les .kas .kr:first-of-type { border-top: 0; }
+.archiv .les .kas .kr span { color: var(--s-muted); }
+.archiv .les .kas .kr b { text-align: right; }
+.archiv .les .kas.k-neutral { border: 1px solid var(--s-ak); border-radius: 10px; padding: 8px 12px; background: var(--s-fl); }
+/* Bisher */
+.archiv .les .bis { font-size: 16px; line-height: 1.45; padding: 8px 10px; margin: 6px 0 12px; display: flex; gap: 10px; align-items: center; }
+.archiv .les .bis b { color: var(--s-ak-t); }
+.archiv .les .bis.b-neutral { background: var(--s-fl); border-left: 4px solid var(--s-ak); }
+/* Bedienelemente: überall gleich */
+.archiv .les .gerust { font-weight: 700; margin: 14px 0 4px; }
+.archiv .les .fr { font-weight: 700; font-size: 19px; line-height: 1.35; margin: 18px 0 10px; }
+.archiv .les .ant, .archiv .les .wahl { display: block; width: 100%; text-align: left; font: 17px/1.35 'Atkinson Hyperlegible', system-ui, sans-serif; background: #fff; color: #1E2A2B; border: 2px solid #1E2A2B; border-radius: 12px; padding: 12px 14px; margin: 0 0 9px; }
+.archiv .les .wahl b { display: block; font-size: 17.5px; }
+.archiv .les .wahl .mini { display: flex; gap: 10px; align-items: center; }
+.archiv .les .wahl-kopf { margin: 18px 0 6px; font-weight: 700; }
+.archiv .les .blatt { background: #fff; color: #1E2A2B; border: 2px solid #1E2A2B; border-top: 5px solid #33408F; border-radius: 14px; padding: 12px 14px; margin: 12px 0; font-size: 17px; }
+.archiv .les .blatt.nn { border-top-color: #B26A00; }
+.archiv .les .blatt.ja { border-top-color: #2E7D4F; }
 .archiv .les .blatt p { margin: 6px 0; }
 .archiv .les .blatt .t { font-weight: 700; font-size: 18px; }
-.archiv .les .t.nn { color: var(--nn); }
-.archiv .les .t.ja { color: var(--ja); }
-.archiv .les .weiter { display: block; width: 100%; margin-top: 8px; font: inherit; font-weight: 700; font-size: 17px; padding: 12px; border-radius: 12px; border: none; background: var(--um); color: #fff; }
-.archiv .les .weiter[disabled] { opacity: .45; }
-.archiv .les .ruhe { height: 6px; background: #EEE9DA; border-radius: 4px; overflow: hidden; margin: 8px 0 2px; }
-.archiv .les .ruhe i { display: block; height: 100%; width: 0; background: var(--um); transition: width .1s linear; }
-.archiv .les .lohn { display: inline-block; margin-top: 4px; font-weight: 700; color: var(--ja); font-size: 18px; }
-.archiv .les .lohn.aus { color: var(--gedaempft); font-weight: 400; font-size: 15px; }
-.archiv .les .tipp { background: var(--teal-hell); border-radius: 12px; padding: 10px 12px; margin: 8px 0; }
-.archiv .les .tipp .ctl-t { margin-top: 6px; background: var(--flaeche); }
-.archiv .les .runde-fertig { text-align: center; font-size: 18px; padding: 10px; margin: 8px 0; border-radius: 12px; background: #EAF3EC; }
+.archiv .les .t.nn { color: #8A4F00; }
+.archiv .les .t.ja { color: #2E7D4F; }
+.archiv .les .weiter { display: block; width: 100%; margin-top: 8px; font: 700 17px 'Atkinson Hyperlegible', system-ui, sans-serif; padding: 12px; border-radius: 12px; border: 0; background: #33408F; color: #fff; }
+.archiv .les .weiter[disabled] { background: #8A93C4; }
+.archiv .les .ruhe { height: 7px; background: #E3E6F5; border-radius: 4px; overflow: hidden; margin: 8px 0 2px; }
+.archiv .les .ruhe i { display: block; height: 100%; width: 0; background: #33408F; }
+.archiv .les .lohn { display: inline-block; margin-top: 4px; background: #DDF0E3; color: #1E5A37; border-radius: 999px; padding: 1px 10px; font-weight: 700; font-size: 15px; }
+.archiv .les .lohn.aus { background: #EEE; color: #4F5E5E; font-weight: 400; }
+.archiv .les .tipp { background: #fff; color: #1E2A2B; border: 2px solid #1E2A2B; border-radius: 12px; padding: 10px 12px; margin: 0 0 12px; font-size: 16px; }
+.archiv .les .tipp .ctl-t { margin-top: 6px; }
+.archiv .les .runde-fertig { text-align: center; font-size: 18px; padding: 10px; margin: 10px 0; border-radius: 12px; background: #fff; color: #1E2A2B; border: 2px solid #2E7D4F; }
+.archiv .les .gedaempft { color: var(--s-muted); }
+.archiv .les .btn { background: #fff; color: #1E2A2B; border: 2px solid #1E2A2B; }
 .archiv .gl-box p { font-size: 18px; }
 .archiv .block { display: block; }
+
+/* ---------- Die 7 Styles (Auftrag 58; Farben aus der Previz, Kontrast Fließtext ≥ 4,5 : 1) ---------- */
+.archiv .st-raumfahrt { --s-bg: #0E1726; --s-fg: #E8EDF5; --s-ak: #F2994A; --s-ak-t: #F2994A; --s-muted: #AEB9CC; --s-tf: 600 21px 'Plex Mono', monospace; --s-ts: 21px; --s-fl: #14213A; }
+.archiv .st-fantasy { --s-bg: #F3E7CC; --s-fg: #2E2213; --s-ak: #7A2A1C; --s-ak-t: #7A2A1C; --s-muted: #5E4A2E; --s-tf: 700 23px 'Cinzel Archiv', Georgia, serif; --s-fl: #EADBB8; }
+.archiv .st-videogames { --s-bg: #000000; --s-fg: #E9E9E9; --s-ak: #39D353; --s-ak-t: #39D353; --s-titel: #FF4FD8; --s-muted: #B5B5B5; --s-tf: 400 20px 'Silkscreen', monospace; --s-ts: 20px; --s-fl: #0B0B0B; }
+.archiv .st-scifi { --s-bg: #06222A; --s-fg: #D9F6FB; --s-ak: #3FE0F0; --s-ak-t: #3FE0F0; --s-muted: #9CC9D1; --s-tf: 700 19px 'Orbitron', sans-serif; --s-ts: 19px; --s-tl: .04em; --s-fl: #0A2F39; }
+.archiv .st-musik { --s-bg: #1B1416; --s-fg: #F3ECE6; --s-ak: #F5B041; --s-ak-t: #F5B041; --s-muted: #C9BDB4; --s-tf: 600 26px 'Oswald', sans-serif; --s-ts: 26px; --s-tl: .02em; --s-fl: #261C1F; }
+.archiv .st-seefahrt { --s-bg: #E6EEF2; --s-fg: #13293D; --s-ak: #1F6F78; --s-ak-t: #1F6F78; --s-muted: #3E556A; --s-tf: 400 23px 'Special Elite', monospace; --s-fl: #D8E4EA; }
+.archiv .st-rekord { --s-bg: #2B2D31; --s-fg: #F1F1F1; --s-ak: #E63946; --s-ak-t: #FF7A82; --s-muted: #C2C4C8; --s-tf: italic 700 28px 'Barlow Condensed', sans-serif; --s-ts: 28px; --s-fl: #33363B; }
+/* Faktenkasten je Style */
+.archiv .les .k-raumfahrt { border: 1px solid var(--s-ak); padding: 8px 12px; }
+.archiv .les .k-raumfahrt .kr b { font-family: 'Plex Mono', monospace; font-weight: 600; font-size: 14.5px; }
+.archiv .les .k-fantasy { background: var(--s-fl); border-top: 2px solid var(--s-ak); border-bottom: 2px solid var(--s-ak); padding: 8px 12px; }
+.archiv .les .k-fantasy .kt { font-family: 'Cinzel Archiv', serif; text-align: center; }
+.archiv .les .k-videogames { border: 3px solid var(--s-ak); box-shadow: 3px 3px 0 var(--s-ak); padding: 8px 12px; }
+.archiv .les .k-videogames .kt { font: 400 13px 'Silkscreen', monospace; letter-spacing: .06em; }
+.archiv .les .k-scifi { background: var(--s-fl); border: 1.5px solid var(--s-ak); padding: 8px 14px; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+.archiv .les .k-scifi .kt { font-family: 'Orbitron', sans-serif; }
+.archiv .les .k-musik { border: 2px dashed var(--s-ak); border-radius: 8px; padding: 8px 12px; }
+.archiv .les .k-musik .kt { font-family: 'Oswald', sans-serif; font-size: 14px; }
+.archiv .les .k-seefahrt { border-left: 3px solid var(--s-ak); padding: 6px 12px; background: var(--s-fl); }
+.archiv .les .k-seefahrt .kt { font: 400 14px 'Special Elite', monospace; text-transform: none; letter-spacing: 0; }
+.archiv .les .k-rekord { background: var(--s-fl); padding: 14px 12px 8px; position: relative; }
+.archiv .les .k-rekord::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 6px; background: repeating-conic-gradient(#F1F1F1 0 25%, #111 0 50%) 0 0 / 6px 6px; }
+.archiv .les .k-rekord .kt { font: italic 700 15px 'Barlow Condensed', sans-serif; }
+/* Bisher-Kasten je Style */
+.archiv .les .b-raumfahrt { border: 1px dashed var(--s-ak); }
+.archiv .les .b-fantasy { border: 3px double var(--s-ak); background: var(--s-fl); }
+.archiv .les .b-videogames { border: 2px solid var(--s-fg); }
+.archiv .les .b-scifi { background: var(--s-fl); clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+.archiv .les .b-musik { border-left: 4px solid var(--s-ak); background: var(--s-fl); }
+.archiv .les .b-seefahrt { border-left: 3px solid var(--s-ak); background: var(--s-fl); }
+.archiv .les .b-rekord { background: var(--s-fl); border-left: 5px solid var(--s-ak); }
+/* Bildrahmen je Style */
+.archiv .les .r-raumfahrt { border: 1px solid var(--s-ak); }
+.archiv .les .r-fantasy { border: 4px double var(--s-ak); }
+.archiv .les .r-videogames { border: 4px solid var(--s-ak); }
+.archiv .les .r-scifi { border: 1.5px solid var(--s-ak); clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+.archiv .les .r-musik { border: 2px solid var(--s-ak); border-radius: 6px; }
+.archiv .les .r-seefahrt { border: 1px solid var(--s-fg); padding: 4px; background: #fff; }
+.archiv .les .r-rekord { border-bottom: 5px solid var(--s-ak); }
+.archiv .les .r-neutral { border-radius: 8px; }
+/* Abschlussfrage nach der letzten Folge (Auftrag 61): Knöpfe wie Antworten, ohne Richtig/Falsch */
+.archiv .les .fb { margin: 12px 0; }
+.archiv .les .fb .fr { margin-top: 6px; }
+.archiv .les .fb .weissnicht { display: block; margin: 4px auto 0; background: none; border: none; font: 600 16px 'Atkinson Hyperlegible', system-ui, sans-serif; color: var(--s-fg); text-decoration: underline; padding: 8px 12px; }

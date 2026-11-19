@@ -57,7 +57,7 @@ export function inhaltPruefen(roh) {
 // fs = { erledigt: { frageId: true }, zurueck: { frageId: { karte, t } }, karte (laufende Nummer), typen: { typ: { lvl, hist } } }
 export function fortschrittVon(x) {
   const f = x && typeof x === 'object' ? x : {};
-  return { erledigt: f.erledigt || {}, zurueck: f.zurueck || {}, karte: f.karte || 0, typen: f.typen || {}, nachschlagTipp: !!f.nachschlagTipp, letzteStory: f.letzteStory || null, runde: f.runde || null };
+  return { erledigt: f.erledigt || {}, zurueck: f.zurueck || {}, karte: f.karte || 0, typen: f.typen || {}, nachschlagTipp: !!f.nachschlagTipp, letzteStory: f.letzteStory || null, runde: f.runde || null, gelesen: f.gelesen || {}, gefragt: f.gefragt || {} };
 }
 const textFragen = (inh, textId) => Object.values(inh.fragen).filter(q => q.text === textId).sort((a, b) => a.id < b.id ? -1 : 1);
 const storyTexte = (inh, story) => Object.values(inh.texte).filter(t => t.story === story).sort((a, b) => a.beat - b.beat || a.teil - b.teil);
@@ -134,4 +134,19 @@ export function mischen(l, rnd = Math.random) {
 export function lohnSek(ergebnis, belegHinweis, basis = LOHN_SEK) {
   const f = { voll: 1, hinweis: 0.5, leiter: 0, aufloesung: 0 }[ergebnis] ?? 0;
   return Math.round(basis * f * (belegHinweis ? 0.5 : 1));
+}
+
+// ---------- Abschlussfrage nach der letzten Folge (Auftrag 61) ----------
+// Nur nach der ersten fertigen Karte zum letzten Text (Folge Y von Y), einmal je Storyline und letzter Folge,
+// nur wenn die Storyline feedback {gleich, art, anders} hat.
+export function abschlussFrage(inh, fs, t) {
+  const s = inh.stories.find(x => x.id === t.story);
+  if (!s || !s.feedback || !s.feedback.gleich || !s.feedback.art || !s.feedback.anders) return null;
+  if (t.beat !== folgeVon(inh, t).y) return null;
+  if (fs.gefragt[t.story] === t.id) return null;
+  return s.feedback;
+}
+// Folgen dieser Storyline mit mindestens einer fertigen Karte
+export function folgenGelesen(inh, fs, story) {
+  return new Set(Object.values(inh.texte).filter(t => t.story === story && fs.gelesen[t.id]).map(t => t.beat)).size;
 }

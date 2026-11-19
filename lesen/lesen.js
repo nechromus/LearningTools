@@ -13,7 +13,7 @@ import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 
-export const LESE_VERSION = '0.3.0';
+export const LESE_VERSION = '0.4.0';
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
 const $app = document.getElementById('app');
 const tagKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -131,6 +131,7 @@ function startKnoepfe() {
     <button class="btn btn-gross" data-act="anderes">Etwas anderes lesen</button>`;
 }
 function zeigeStart(syncJetzt = true) {
+  bodyStyle(null);
   if (!bereit()) return zeigeEinrichtung();
   ansicht = 'start';
   if (syncJetzt) syncen();
@@ -187,7 +188,13 @@ async function inhaltLaden() {
     try {
       const index = await U.dateiLesen(S.upload, inhaltPfad('index.json'));
       if (!index) { INH = null; inhaltFehler = 'leer'; return; }
-      if (alt && alt.ordner === ordner() && alt.index && alt.index.stand === index.stand) { if (!INH) inhaltAnwenden(alt); return; }
+      if (alt && alt.ordner === ordner() && alt.index && alt.index.stand === index.stand) {
+        // storylines.json ist klein: immer neu lesen (Knopftexte, Style, Folgen können sich ohne neuen Stand ändern)
+        const sl = await U.dateiLesen(S.upload, inhaltPfad('storylines.json'));
+        if (sl && JSON.stringify(sl) !== JSON.stringify(alt.storylines)) { alt.storylines = sl; try { localStorage.setItem(INHALT_KEY, JSON.stringify(alt)); } catch (e) { /* egal */ } inhaltAnwenden(alt); }
+        else if (!INH) inhaltAnwenden(alt);
+        return;
+      }
       const roh = { ordner: ordner(), index, storylines: await U.dateiLesen(S.upload, inhaltPfad('storylines.json')), texte: {}, fragen: {} };
       const nimm = async (art, liste) => {
         for (const { id, v } of liste || []) {
@@ -215,6 +222,19 @@ function bilderEinsetzen() {
   document.querySelectorAll('img[data-datei]').forEach(img => bildUrl(img.dataset.datei).then(u => { if (u) img.src = u; else img.replaceWith(Object.assign(document.createElement('span'), { className: 'bild-fehlt', textContent: img.alt || '' })); }));
 }
 const fs = () => (S.lese = KL.fortschrittVon(S.lese));
+// Styles (Auftrag 58): Name des Faktenkastens, Trennornament und Hintergrund für den ganzen Bildschirm
+const STYLES = {
+  raumfahrt: { kasten: 'Telemetrie', orn: '— · —', bg: '#0E1726' }, fantasy: { kasten: 'Aus der Chronik', orn: '✦ ✦ ✦', bg: '#F3E7CC' },
+  videogames: { kasten: 'Highscore', orn: '▪ ▪ ▪', bg: '#000000' }, scifi: { kasten: 'Scan', orn: '◇ ◇ ◇', bg: '#06222A' },
+  musik: { kasten: 'Ticket', orn: '♪ ♪ ♪', bg: '#1B1416' }, seefahrt: { kasten: 'Logbuch', orn: '~ ~ ~', bg: '#E6EEF2' },
+  rekord: { kasten: 'Zeitnahme', orn: '› › ›', bg: '#2B2D31' }
+};
+const styleVon = (story) => { const k = (storyVon(story) || {}).style; return STYLES[k] ? k : 'neutral'; };
+function bodyStyle(k) {
+  const b = document.body, st = STYLES[k];
+  if (st) { b.dataset.style = k; b.style.setProperty('--sbg', st.bg); } else { delete b.dataset.style; b.style.removeProperty('--sbg'); }
+  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = st ? st.bg : '#F4F1E8';
+}
 const storyVon = (id) => INH && INH.stories.find(s => s.id === id);
 const iconHtml = (story, gross) => { const s = storyVon(story); return s && s.icon ? `<img class="${gross ? 'icon-gross' : 'icon-klein'}" data-datei="${esc(s.icon)}" alt="">` : ''; };
 
@@ -267,20 +287,23 @@ function zeigeKarte(nachOben = false) {
     const inner = glossiert(satzHtml(t, i, i === b ? satzMark : null), t.glossar);
     return tippbar ? `<div class="${cls}" data-act="absatz" data-i="${i}" role="button" tabindex="0"><span class="nr">Absatz ${i + 1}</span>${inner}</div>` : `<p class="${cls}"><span class="nr">Absatz ${i + 1}</span>${inner}</p>`;
   }).join('');
-  const kasten = t.kasten && t.kasten.length ? `<div class="kas"><div class="kt">Fakten</div>${t.kasten.map(([a, w]) => `<div class="kr"><span>${esc(a)}</span><b>${esc(w)}</b></div>`).join('')}</div>` : '';
-  const bild = t.bild ? `<figure class="${t.bild.glatt ? '' : 'pixel'}"><img data-datei="${esc(t.bild.datei)}" alt="${esc(t.bild.alt || '')}"><figcaption>${esc(t.bild.quelle || '')}</figcaption></figure>` : '';
+  const sk = styleVon(t.story), st = STYLES[sk] || { kasten: 'Fakten', orn: '' };
+  bodyStyle(sk);
+  const kasten = t.kasten && t.kasten.length ? `<div class="kas k-${sk}"><div class="kt">${esc(st.kasten)}</div>${t.kasten.map(([a, w]) => `<div class="kr"><span>${esc(a)}</span><b>${esc(w)}</b></div>`).join('')}</div>` : '';
+  const bild = t.bild ? `<figure class="${t.bild.glatt ? '' : 'pixel'}"><div class="rahmen r-${sk}"><img data-datei="${esc(t.bild.datei)}" alt="${esc(t.bild.alt || '')}"></div><figcaption>${esc(t.bild.quelle || '')}</figcaption></figure>` : '';
   const ersterText = !t.bisher;
   const tipp = !f.nachschlagTipp && Object.keys(t.glossar || {}).length ? `<div class="tipp"><b>Tipp:</b> Wörter mit gestrichelter Linie kannst du antippen. Dann siehst du, was sie bedeuten.<br><button class="ctl-t" data-act="tippOk">Alles klar</button></div>` : '';
   if (tipp && !A.tippGezeigt) { A.tippGezeigt = true; protokoll('lese_tipp', { aktion: 'gezeigt', karte: A.nr }); }
   const dots = Array.from({ length: KL.RUNDE }, (_, i) => `<i class="${i < A.platz ? 'an' : ''}"></i>`).join('');
   const ohneZeit = heute().sek >= LL.grenzeSek(R(), heute().tag);
-  $app.innerHTML = `<div class="screen les${test() ? ' test' : ''}">
+  $app.innerHTML = `<div class="screen les st-${sk}${test() ? ' test' : ''}">
     <div class="top"><button class="ctl-t" data-act="start">‹ Start</button>${ohneZeit ? '<span class="ohnezeit">ohne Zeit</span>' : ''}<span class="dots">${dots}<span>Karte ${A.platz} von ${KL.RUNDE}</span></span></div>
     ${tipp}
     ${ersterText ? `<div class="shead">${iconHtml(t.story, true)}<span class="st">${esc(s.titel || '')}</span></div>` : ''}
     <div class="meta">Folge ${fo.x} von ${fo.y}<span class="badge">${s.art === 'wahr' ? 'Wahr' : 'Erfunden'}</span></div>
-    ${t.bisher ? `<div class="bis">${iconHtml(t.story, false)}<div><b>Bisher:</b> ${esc(t.bisher)}</div></div>` : ''}
+    ${t.bisher ? `<div class="bis b-${sk}">${iconHtml(t.story, false)}<div><b>Bisher:</b> ${esc(t.bisher)}</div></div>` : ''}
     <h2 class="les-titel">${esc(t.titel)}</h2>
+    ${st.orn ? `<div class="trenner" aria-hidden="true">${st.orn}</div>` : ''}
     ${bild}${absaetze}${kasten}
     ${frageTeil(q, t)}
   </div>`;
@@ -328,6 +351,9 @@ function endeTeil(q, t) {
     : A.ergebnis === 'leiter' ? `<div class="blatt ja" data-ziel style="position:static"><div class="t ja">Geschafft!</div><p>Diese Karte kommt später noch einmal.</p></div>`
     : `<div class="blatt ja" data-ziel style="position:static"><div class="t ja">Geschafft!</div>${lohn}</div>`;
   const voll = A.vollJetzt ? `<div class="tipp"><b>Für heute ist deine Lese-Zeit voll.</b><br>Weiterlesen geht. Es bringt heute aber keine Zeit mehr.${LL.matheHeute(S.kasse && S.kasse.fremd, W().bildschirm, heute().tag).frei > 0 && !test() ? '<br><span class="gedaempft">In Mathe ist heute noch Zeit frei.</span>' : ''}</div>` : '';
+  if (A.fb) return `${kopf}<div class="fb" data-ziel><div class="fr">Das war die letzte Folge. Wie soll es weitergehen?</div>
+    ${['gleich', 'art', 'anders'].map(k => `<button class="ant" data-act="storyFb" data-a="${k}">${esc(A.fb[k])}</button>`).join('')}
+    <button class="weissnicht" data-act="storyFb" data-a="weiss_nicht">Weiß nicht</button></div>`;
   const rundeFertig = f.runde && f.runde.karten >= KL.RUNDE ? `<div class="runde-fertig"><b>Runde geschafft!</b> 5 von 5 Karten.</div>` : '';
   const weiter = A.ergebnis !== 'aufloesung' ? KL.naechsterText(INH, f, A.story) : null;
   const letzte = weiter == null && t.beat === KL.folgeVon(INH, t).y;
@@ -403,6 +429,9 @@ function karteFertig() {
   const vorher = heute().sek;
   const g = k ? LL.verdienen(k, heute(), roh, R(), { ms }) : { plus: 0, voll: false };
   A.lohnPlus = g.plus; A.vollJetzt = g.voll && vorher < LL.grenzeSek(R(), heute().tag);
+  f.gelesen[A.text] = true;
+  A.fb = KL.abschlussFrage(INH, f, INH.texte[A.text]);
+  if (A.fb) { A.fbSeit = Date.now(); protokoll('lese_story_feedback_gezeigt', { story: A.story, text: A.text }); }
   if (A.ergebnis === 'voll' || A.ergebnis === 'hinweis') { f.erledigt[q.id] = true; delete f.zurueck[q.id]; }
   else { f.zurueck[q.id] = { karte: A.nr, t: new Date().toISOString() }; protokoll('lese_zurueckgelegt', { karte: A.nr, frage: q.id }); }
   const erstUndBeleg = A.ergebnis === 'voll' && !A.belegHinweis;
@@ -416,6 +445,7 @@ function karteFertig() {
 }
 // „Etwas anderes“ vom Start aus
 function zeigeWahl() {
+  bodyStyle(null);
   ansicht = 'wahl';
   const f = fs();
   const liste = INH.stories.filter(s => KL.naechsterText(INH, f, s.id));
@@ -450,6 +480,7 @@ function resDaten() {
   return r ? { stand: r.sek, aufgaben: r.aufgaben || 0, ms: r.uebung_ms || 0, msVoll: true, code: r.code, teile: { mathe: r.mathe || 0, lesen: r.lesen || 0, karten: r.lesekarten || 0 } } : null;
 }
 function zeigeAbschicken() {
+  bodyStyle(null);
   ansicht = 'bz';
   if (bzGeschickt) {
     $app.innerHTML = `<div class="screen bz-screen"><header class="topbar"><button class="btn-text" data-act="start">‹ Zum Start</button></header>
@@ -538,6 +569,7 @@ function abgeschickt(mitBild, bestaetigt = false) {
 // Einrichtung: derselbe QR-Code wie für das Kinder-Handy in der Eltern-App (Einstellungen → „Handy mit QR-Code einrichten“)
 let scanStopp = null;
 function zeigeEinrichtung(meldung = '') {
+  bodyStyle(null);
   ansicht = 'einrichtung';
   $app.innerHTML = `<div class="screen einrichten">
     <header class="start-kopf marke">${sechseck(56, '#E3E6F5', '#33408F', BUCH)}<div><h1>Archiv der Welten</h1><p class="gedaempft">Einrichten</p></div></header>
@@ -638,6 +670,11 @@ document.addEventListener('click', async (ev) => {
     case 'anderes': if (INH) zeigeWahl(); break;
     case 'storyWahl': if (ansicht === 'karte' && A) protokoll('lese_wahl', { art: 'anders', story: el.dataset.s }); karteStarten(el.dataset.s, ansicht === 'karte' ? 'anders' : 'start'); break;
     case 'weiter': protokoll('lese_wahl', { art: 'weiter', story: A.story }); karteStarten(A.story, 'weiter'); break;
+    case 'storyFb': if (A && A.fb) {
+      const f = fs(), t = INH.texte[A.text];
+      protokoll('lese_story_feedback', { story: A.story, antwort: el.dataset.a, gelesen: KL.folgenGelesen(INH, f, A.story), folgen: KL.folgeVon(INH, t).y, ms: Date.now() - A.fbSeit, text: A.text, ...(el.dataset.a !== 'weiss_nicht' ? { knopf: A.fb[el.dataset.a] } : {}) });
+      f.gefragt[A.story] = A.text; A.fb = null; sichern(); zeigeKarte();
+    } break;
     case 'antwort': if (A && A.phase === 'frage') antworten(el.dataset.id); break;
     case 'verstanden': if (A && (A.phase === 'hinweis' || A.phase === 'stopp')) naechsterVersuch(Math.max(1, A.stufe - 1)); break;
     case 'zf': if (A && (A.phase === 'leiter1' || A.phase === 'leiter2')) zfAntwort(el.dataset.id === 'ja'); break;
