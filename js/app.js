@@ -35,7 +35,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.50.5';
+export const APP_VERSION = '2.50.6';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1526,7 +1526,7 @@ function schritteVon(liste, thema) {
     ? { art: 'saeule', label: s.text, ziel: { wert: s.wert }, quelle: s }
     : s.optionen
     ? { art: 'wahl', label: s.text, optionen: L.KOERPER_THEMEN.includes(thema) ? s.optionen.map(L.mitKuerzel) : s.optionen, richtig: s.richtig, quelle: s, formel: !s.fs_html && s.optionen.every(o => /=/.test(o)), ...(s.fs_html ? { fsHtml: s.fs_html } : {}), ...(s.zwei_versuche ? { zweiVersuche: true } : {}) }
-    : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden, gueltige: s.gueltige_ziffern || undefined, genau: s.genau, varianten: s.varianten, abgeschnitten: s.abgeschnitten, auch: s.auch, stellen: s.stellen }, einheit: s.einheit || '', quelle: s });
+    : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden, gueltige: s.gueltige_ziffern || undefined, genau: s.genau, varianten: s.varianten, abgeschnitten: s.abgeschnitten, auch: s.auch, stellen: s.stellen, rundenAuf: s.rundenAuf }, einheit: s.einheit || '', quelle: s });
 }
 
 function hauptTeile(a) {
@@ -2320,6 +2320,7 @@ function neueAufgabe() {
   malMerkzettel();
   bzErklaerungEinmal();
   kosMerkzettel();
+  if (KOS_TASTEN_AN) kosTasten();
   // Fehler-Detektiv: beim ersten Mal die Einführungskarte, danach nur über „?“
   if (aufgabe.typ === 'detektiv' && !S.detektivGesehen) { S.detektivGesehen = true; protokoll(S, 'detektiv_einfuehrung', { id: aufgabe.id }); sichern(); detektivEinfuehrung(); }
 }
@@ -3266,6 +3267,19 @@ function kosMerkzettel() {
     <p>Die Gegenkathete liegt gegenüber vom Winkel α.</p>
     <p class="kos-regel"><b>cos α = ${bruchHtml('Ankathete', 'Hypotenuse')}</b></p>
     <button class="btn btn-haupt" data-act="kosVerstanden">Verstanden</button></div>`);
+}
+const KOS_TASTEN_AN = false; // erst nach Okay des Vaters zur Vorschau
+// Tastenfolge einmal vor der ersten Kosinus-Aufgabe ab Stufe 2 (Nachtrag 56b): „cos α =“ ist nur der Name der Zahl
+function kosTasten() {
+  const a = A && A.aufgabe;
+  if (!a || a.thema !== 'kosinus' || (a.stufe || 1) < 2 || S.verlauf.kosTasten || $modal.classList.contains('offen')) return;
+  S.verlauf.kosTasten = true;
+  protokoll(S, 'merkzettel', { art: 'kosinus_tasten', aktion: 'gezeigt', id: a.id, ...hb('merkzettel.kosinus_tasten') });
+  sichern();
+  oeffneModal(`<div class="hinweis-text kos-merk"><div class="merk-titel">Merkzettel</div><h2 class="modal-titel">So tippst du den Winkel</h2>
+    <p>„cos α =“ ist nur der Name der Zahl. Hier noch kein cos drücken.</p>
+    <ol class="kos-tasten"><li><b>Ankathete ÷ Hypotenuse =</b> → 0,6875</li><li><b>2nd cos 0,6875 =</b> → α ≈ 46,6°</li></ol>
+    <button class="btn btn-haupt" data-act="kosTastenVerstanden">Verstanden</button></div>`);
 }
 function fsLoesen() {
   if (!A || !A.fsPin) return;
@@ -5768,6 +5782,7 @@ function klick(e) {
     case 'bzInfo': bzErklaerung(true); break;
     case 'bzVerstanden': protokoll(S, 'merkzettel', { art: 'bildschirm_stufen', aktion: 'verstanden' }); sichern(); schliesseModal(); break;
     case 'bzFeierFertig': { const f = el.closest('.bz-feier') || el; f.classList.add('ende'); break; }
+    case 'kosTastenVerstanden': protokoll(S, 'merkzettel', { art: 'kosinus_tasten', aktion: 'verstanden', id: A && A.aufgabe ? A.aufgabe.id : null }); sichern(); schliesseModal(); break;
     case 'kosVerstanden': protokoll(S, 'merkzettel', { art: 'kosinus', aktion: 'verstanden', id: A && A.aufgabe ? A.aufgabe.id : null }); sichern(); schliesseModal(); break;
     case 'malVerstanden': protokoll(S, 'merkzettel', { art: 'malzeichen', aktion: 'verstanden', id: A && A.aufgabe ? A.aufgabe.id : null }); sichern(); schliesseModal(); break;
     case 'mehrHilfe': mehrHilfe(el.dataset.id); break;

@@ -1289,3 +1289,4 @@ body:has(.aufgabe-screen.bz-warm) { background: #FAF1DE; }
 .kos-merk .kos-rot { color: #C2410C; font-weight: 700; }
 /* Schlüssel abgelaufen (16.11.): ruhiger Hinweis auf dem Startbildschirm */
 .schluessel-karte { border: 2px solid var(--amber, #C98A1B); background: var(--amber-hell, #F6E7C8); }
+.kos-merk .kos-tasten { font-size: 18px; line-height: 1.6; padding-left: 1.4em; }

@@ -1323,13 +1323,13 @@ export function kosinus(stufe, rng, opts = {}) {
     const c = r4(cosG(g));
     if (form === 'cos') return neu('kosinus', ['cos', g], {
       ...fest, form, stufe: 1, frage: 'Rechne mit dem Taschenrechner. Runde auf 4 Stellen nach dem Komma.',
-      schritte: [{ text: `cos ${g}° =`, wert: c, auch: cosWerte(cosG(g)), toleranz: 0.00005, stellen: 4, kos: 'cos', grad: g }],
+      schritte: [{ text: `cos ${g}° =`, wert: c, auch: cosWerte(cosG(g)), toleranz: 0.00005, stellen: 4, rundenAuf: 4, kos: 'cos', grad: g }],
       loesungsweg: [`cos ${g} = → ${zahlText(cosG(g), 6)}…`, `cos ${g}° ≈ ${zahlText(c, 4)}`],
       erklaerung: `Tippe cos, dann ${g}, dann =. Runde auf 4 Stellen.`
     });
     return neu('kosinus', ['umkehr', g], {
       ...fest, form, stufe: 1, rechnung: `cos ${w} = ${zahlText(c, 4)}`, frage: `Wie groß ist der Winkel ${w}? Rechne mit dem Taschenrechner. Runde auf ganze Grad.`,
-      schritte: [{ text: `${w} ≈`, wert: g, toleranz: 0.06, einheit: '°', kos: 'umkehr', cos: c }],
+      schritte: [{ text: `${w} ≈`, wert: g, toleranz: 0.06, rundenAuf: 0, einheit: '°', kos: 'umkehr', cos: c }],
       loesungsweg: [`2nd cos ${zahlText(c, 4)} = → ${zahlText(acosG(c), 3)}…`, `${w} ≈ ${g}°`],
       erklaerung: `Für den Winkel: 2nd, dann cos. Dann ${zahlText(c, 4)} und =.`
     });
@@ -1392,8 +1392,8 @@ export function kosinus(stufe, rng, opts = {}) {
       schritte: [
         { text: 'Welche Länge ist die Hypotenuse?', optionen: optL, richtig: optL.findIndex(o => rolle(o) === 'hyp'), rollen: optL.map(rolle), kos: 'hyp', ...(drei ? { zwei_versuche: true } : {}) },
         { text: `Welche Länge ist die Ankathete zu ${w}?`, optionen: optL, richtig: optL.findIndex(o => rolle(o) === 'an'), rollen: optL.map(rolle), kos: 'an', ...(drei ? { zwei_versuche: true } : {}) },
-        { text: `cos ${w} = Ankathete : Hypotenuse =`, wert: cw, auch, toleranz: 0.00005, stellen: 4, kos: 'wert', an, hyp, ...(drei ? { gegl: geg } : {}) },
-        { text: `${w} ≈`, wert: gr, stellen: 1, genau: r9(g), ...(winkelVar.length ? { varianten: winkelVar } : {}), einheit: '°', kos: 'winkel', cos: c }
+        { text: `cos ${w} = Ankathete : Hypotenuse =`, wert: cw, auch, toleranz: 0.00005, stellen: 4, rundenAuf: 4, kos: 'wert', an, hyp, ...(drei ? { gegl: geg } : {}) },
+        { text: `${w} ≈`, wert: gr, stellen: 1, rundenAuf: 1, genau: r9(g), ...(winkelVar.length ? { varianten: winkelVar } : {}), einheit: '°', kos: 'winkel', cos: c }
       ],
       loesungsweg: [`(1) cos ${w} = ${bA}\u2044${bH}`, `(2) cos ${w} = ${bruchText(an, hyp)} ${Number.isInteger(r9(c * 1e4)) ? '=' : '≈'} ${z4(cw)}`, `(3) 2nd cos ${z4(cw)} → ${w} ≈ ${zahlText(gr, 1)}°`],
       erklaerung: `Die Hypotenuse liegt gegenüber vom rechten Winkel. Die Ankathete berührt den Winkel ${w}. cos ${w} = Ankathete : Hypotenuse. Für den Winkel: 2nd, dann cos.`

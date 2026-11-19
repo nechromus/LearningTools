@@ -36,6 +36,11 @@ export function pruefeZahl(text, ziel) {
   const p = parseZahl(text);
   if (!p.ok) return false;
   if (ziel.gueltige) return pruefeGueltig(p.wert, ziel.wert, ziel.gueltige);
+  // Kosinus (Nachtrag 56b): Längere, ungerundete Eingaben zählen, wenn sie auf n Stellen gerundet stimmen
+  if (ziel.rundenAuf != null && p.nachkomma >= ziel.rundenAuf) {
+    const n = ziel.rundenAuf, r = (x) => Math.round((x + Math.sign(x) * 1e-9) * 10 ** n) / 10 ** n;
+    if ([ziel.wert, ziel.genau, ...(ziel.varianten || []), ...(ziel.auch || [])].some(c => typeof c === 'number' && gleich(r(p.wert), r(c)))) return true;
+  }
   // Körper-Baukästen: nur richtig gerundete Ergebnisse (auch mit gerundeten Zwischenwerten), nicht abgeschnitten
   if (ziel.genau != null) return kandidaten(ziel).some(c => rundetRichtig(p.wert, p.nachkomma, c));
   if (ziel.auch && ziel.auch.some(z => gleich(p.wert, z))) return true;
@@ -114,7 +119,8 @@ const KOS_TIPP = {
   hyp: { typ: 'cos-hypotenuse', text: 'Die Hypotenuse liegt gegenüber vom rechten Winkel.' },
   kehr: { typ: 'cos-kehrwert', text: 'cos = Ankathete : Hypotenuse. Die Hypotenuse steht unten.' },
   wert: { typ: 'cos-wert-statt-winkel', text: 'Das ist der cos-Wert. Für den Winkel: 2nd, dann cos.' },
-  umkehr: { typ: 'cos-statt-umkehr', text: 'Für den Winkel: 2nd, dann cos.' },
+  umkehr: { typ: 'cos-statt-umkehr', text: 'Für den Winkel: 2nd, dann cos. Dann die Zahl von oben.' },
+  vomBruch: { typ: 'cos-vom-bruch', text: 'Hier noch kein cos drücken. Erst teilen: Ankathete ÷ Hypotenuse.' },
   rad: { typ: 'cos-rad', text: 'Dein Rechner rechnet nicht in Grad. Stell ihn auf DEG.' }
 };
 const kosGeg = (n = 'α') => ({ typ: 'cos-gegenkathete', text: `Die Ankathete berührt den Winkel ${n}.` });
@@ -124,6 +130,7 @@ function kosFehler(teil, w, n) {
   if (teil.kos === 'wert' && teil.hyp) {
     const an = teil.an, hyp = teil.hyp, geg = teil.gegl;
     if (kosNah(w, teil.wert)) return null;
+    if (kosNah(w, Math.cos(an / hyp * KG), 0.0006) || kosNah(w, Math.cos(hyp / an * KG), 0.0006)) return KOS_TIPP.vomBruch;  // cos(Ankathete ÷ Hypotenuse) gerechnet (Nachtrag 56b)
     if (kosNah(w, hyp / an)) return KOS_TIPP.kehr;
     if (geg != null && kosNah(w, geg / hyp)) return kosGeg(n);
     if (geg != null && (kosNah(w, an / geg) || kosNah(w, geg / an))) return KOS_TIPP.hyp;

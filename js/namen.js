@@ -46,6 +46,6 @@ export const FEHLER_NAMEN = {
   'formel-p-mal-statt-geteilt': 'p gesucht: mal statt geteilt', 'formel-p-w-durch-g': 'p gesucht: W : G ohne · 100', 'formel-g-ist-1prozent': 'G gesucht: 1 % als Ergebnis', 'formel-g-w-mal-p': 'G gesucht: W · p statt W : p', 'formel-gesucht': 'Prozent: falsch gewählt, was gesucht ist',
   // Auftrag 55
   'cos-hypotenuse': 'Kosinus: falsche Seite als Hypotenuse', 'cos-gegenkathete': 'Kosinus: Gegenkathete statt Ankathete', 'cos-kehrwert': 'Kosinus: Hypotenuse : Ankathete',
-  'cos-wert-statt-winkel': 'Kosinus: cos-Wert statt Winkel', 'cos-statt-umkehr': 'Kosinus: cos statt 2nd cos', 'cos-rad': 'Kosinus: Rechner nicht in Grad',
+  'cos-wert-statt-winkel': 'Kosinus: cos-Wert statt Winkel', 'cos-statt-umkehr': 'Kosinus: cos statt 2nd cos', 'cos-rad': 'Kosinus: Rechner nicht in Grad', 'cos-vom-bruch': 'Kosinus: cos von Ankathete ÷ Hypotenuse gerechnet',
   'zylinder-hoehe-vergessen': 'Zylinder-Mantel: Höhe vergessen', 'zylinder-grundflaeche-statt-mantel': 'Zylinder: Grundfläche statt Mantel', 'minus-betraege': 'Minus-Zahlen: Beträge addiert'
 };
