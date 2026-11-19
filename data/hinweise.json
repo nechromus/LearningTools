@@ -488,7 +488,7 @@
         "Hypotenuse liegt gegenüber vom rechten Winkel. Sie ist die längste Seite.",
         "Ankathete berührt den Winkel α.",
         "1. Hypotenuse finden 2. Ankathete finden 3. cos α = Ankathete : Hypotenuse",
-        "Winkel: 2nd cos 0,75 = → α ≈ 41,4°"
+        "Winkel: 1. Ankathete ÷ Hypotenuse = → 0,75 2. 2nd cos 0,75 = → α ≈ 41,4°"
       ],
       "beispiel": "Merke: cos 0° = 1, cos 60° = 0,5, cos 90° = 0",
       "fach": "mathe"

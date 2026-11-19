@@ -35,7 +35,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.50.6';
+export const APP_VERSION = '2.50.7';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -3268,7 +3268,7 @@ function kosMerkzettel() {
     <p class="kos-regel"><b>cos α = ${bruchHtml('Ankathete', 'Hypotenuse')}</b></p>
     <button class="btn btn-haupt" data-act="kosVerstanden">Verstanden</button></div>`);
 }
-const KOS_TASTEN_AN = false; // erst nach Okay des Vaters zur Vorschau
+const KOS_TASTEN_AN = true; // Okay des Vaters 19.11.
 // Tastenfolge einmal vor der ersten Kosinus-Aufgabe ab Stufe 2 (Nachtrag 56b): „cos α =“ ist nur der Name der Zahl
 function kosTasten() {
   const a = A && A.aufgabe;
