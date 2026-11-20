@@ -13,7 +13,7 @@ export const ANTWORT_TEXT = { gleich: 'Mehr davon', art: 'Andere Geschichte ders
 export function leseAuswertung(eintraege, { ab = null, tagVon = (t) => String(t).slice(0, 10) } = {}) {
   const liste = (eintraege || []).filter(e => e && e.t && String(e.typ || '').startsWith('lese_') && (!ab || tagVon(e.t) >= ab))
     .sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
-  const r = { karten: 0, ergebnis: { voll: 0, hinweis: 0, leiter: 0, aufloesung: 0 }, lohnSek: 0, sekunden: 0, schnell: 0, ersteVersuche: 0, ersteSchnell: 0,
+  const r = { karten: 0, folge: { n: 0, voll: 0 }, ergebnis: { voll: 0, hinweis: 0, leiter: 0, aufloesung: 0 }, lohnSek: 0, sekunden: 0, schnell: 0, ersteVersuche: 0, ersteSchnell: 0,
     typen: {}, stufen: {}, stories: {}, nachgeschlagen: {}, zurueck: 0, wuensche: [], tage: {}, letzte: null };
   const start = {};                         // geraet|karte → lese_karte_start
   for (const e of liste) {
@@ -30,6 +30,7 @@ export function leseAuswertung(eintraege, { ab = null, tagVon = (t) => String(t)
       case 'lese_karte_ende': {
         const s = start[k] || {};
         r.karten++;
+        if (s.frage_im_text > 1) { r.folge.n++; if (e.ergebnis === 'voll') r.folge.voll++; }
         if (e.ergebnis in r.ergebnis) r.ergebnis[e.ergebnis]++;
         r.lohnSek += e.lohn || 0; r.sekunden += e.sekunden || 0;
         const tag = tagVon(e.t), d = r.tage[tag] || (r.tage[tag] = { karten: 0, voll: 0, lohnSek: 0 });
@@ -42,7 +43,8 @@ export function leseAuswertung(eintraege, { ab = null, tagVon = (t) => String(t)
         }
         // Je Fragestufe, sichere Karten und Eingewöhnung getrennt (Auftrag 63)
         if (s.stufe) {
-          const g = s.sicher ? 'sicher' : s.eingewoehnung ? 'ein' : 'normal';
+          // Folgefragen (Auftrag 64) zuerst: der Text ist gerade gelesen, das macht sie leichter
+          const g = s.frage_im_text > 1 ? 'folge' : s.sicher ? 'sicher' : s.eingewoehnung ? 'ein' : 'normal';
           const z = (r.stufen[s.stufe] || (r.stufen[s.stufe] = {}))[g] || (r.stufen[s.stufe][g] = { n: 0, voll: 0 });
           z.n++; if (e.ergebnis === 'voll') z.voll++;
         }

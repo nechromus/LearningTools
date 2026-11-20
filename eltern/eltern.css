@@ -782,7 +782,7 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .lz-balken i { display: block; height: 100%; background: #33408F; }
 .lz-typ .themen-name { white-space: normal; overflow: visible; text-overflow: clip; }
 .kontingent-karte .knopf { text-decoration: none; }
-.lz-stufen { width: 100%; border-collapse: collapse; font-size: 15px; }
+.lz-stufen { width: 100%; border-collapse: collapse; font-size: 14px; }
 .lz-stufen th, .lz-stufen td { text-align: left; padding: 6px 4px; border-top: 1px solid var(--linie-hell); vertical-align: top; }
 .lz-stufen thead th { border-top: 0; font-size: 12.5px; color: var(--gedaempft); font-weight: 600; }
 .lz-stufen td .klein { display: block; }

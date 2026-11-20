@@ -19,7 +19,7 @@ import { Lernplan } from './lernplan.mjs';
 import * as LA from './lesen-auswertung.js';
 import * as LL from '../lesen/lesen-logik.js';
 
-export const ELTERN_VERSION = '1.68.1';
+export const ELTERN_VERSION = '1.68.2';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -2316,7 +2316,7 @@ function lesenSeite() {
       <div><b>${pz(r.ergebnis.voll, r.karten)} %</b><span>gleich richtig mit Beleg</span></div>
       <div><b>${A.minutenText(r.lohnSek)}</b><span>Bildschirmzeit verdient</span></div>
       <div><b>${pz(r.ersteSchnell, r.ersteVersuche)} %</b><span>Antworten unter 3 s</span></div></div>
-      <p class="klein gedaempft">${r.ergebnis.voll} gleich richtig · ${r.ergebnis.hinweis} mit Hinweis · ${r.ergebnis.leiter} mit Leiter · ${r.ergebnis.aufloesung} Auflösung. ${r.zurueck ? `${r.zurueck} ${r.zurueck === 1 ? 'Karte kommt' : 'Karten kommen'} später noch einmal.` : ''}</p>`
+      <p class="klein gedaempft">${r.ergebnis.voll} gleich richtig · ${r.ergebnis.hinweis} mit Hinweis · ${r.ergebnis.leiter} mit Leiter · ${r.ergebnis.aufloesung} Auflösung.${r.folge.n ? ` Davon ${r.folge.n} als 2. oder 3. Frage zum Text (${pz(r.folge.voll, r.folge.n)} % gleich richtig).` : ''} ${r.zurueck ? `${r.zurueck} ${r.zurueck === 1 ? 'Karte kommt' : 'Karten kommen'} später noch einmal.` : ''}</p>`
       : `<p class="gedaempft">${l.an ? 'In den letzten 7 Tagen keine Lesekarten.' : 'Noch keine Lesekarten. Lesen ist aus.'}</p>`}
   </section>`;
   const typen = Object.values(r.typen).sort((a, b) => b.n - a.n);
@@ -2326,9 +2326,9 @@ function lesenSeite() {
   const stufenListe = Object.keys(r.stufen).sort();
   const sz = (z) => z && z.n ? `<b>${pz(z.voll, z.n)} %</b> <span class="klein gedaempft">${z.voll} von ${z.n}</span>` : '<span class="klein gedaempft">–</span>';
   const stufenKarte = stufenListe.length ? `<section class="karte"><div class="karte-kopf"><h2>Fragestufen</h2><span class="klein gedaempft">gleich richtig</span></div>
-    <table class="lz-stufen"><thead><tr><th></th><th>normal</th><th>Eingewöhnung</th><th>sicher</th></tr></thead><tbody>
-    ${stufenListe.map(st => { const x = r.stufen[st]; return `<tr><th>Stufe ${st}</th><td>${sz(x.normal)}</td><td>${sz(x.ein)}</td><td>${sz(x.sicher)}</td></tr>`; }).join('')}</tbody></table>
-    <p class="klein gedaempft">Eingewöhnung: die ersten 2 Karten eines Typs nach dem Aufstieg der Fragestufe, im 1. Versuch ohne Wortfallen. Sicher: Platz 1 und 5 jeder Runde, eine Stufe tiefer, zählt nicht für Auf- und Abstieg.</p></section>` : '';
+    <table class="lz-stufen"><thead><tr><th></th><th>normal</th><th>Eingewöhnung</th><th>sicher</th><th>2. Frage zum Text</th></tr></thead><tbody>
+    ${stufenListe.map(st => { const x = r.stufen[st]; return `<tr><th>Stufe ${st}</th><td>${sz(x.normal)}</td><td>${sz(x.ein)}</td><td>${sz(x.sicher)}</td><td>${sz(x.folge)}</td></tr>`; }).join('')}</tbody></table>
+    <p class="klein gedaempft">Eingewöhnung: die ersten 2 Karten eines Typs nach dem Aufstieg der Fragestufe, im 1. Versuch ohne Wortfallen. Sicher: Platz 1 und 5 jeder Runde, eine Stufe tiefer, zählt nicht für Auf- und Abstieg. 2. Frage zum Text: Folgefrage direkt nach der ersten, der Text ist gerade gelesen.</p></section>` : '';
   const stories = Object.values(alle.stories);
   const storyKarte = stories.length ? `<section class="karte liste-karte"><div class="karte-kopf"><h2>Geschichten</h2><span class="klein gedaempft">14 Tage</span></div>
     ${stories.map(x => `<div class="bz-zeile"><div><b>${esc(storyName(x.story))}</b><span class="klein gedaempft block">bis Folge ${x.folge} von ${storyFolgen(x.story)} · ${x.karten} ${x.karten === 1 ? 'Karte' : 'Karten'}</span></div></div>`).join('')}</section>` : '';

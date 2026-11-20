@@ -146,3 +146,4 @@ body.archiv[data-style] { background: var(--sbg, #F4F1E8); }
 .archiv .les .fb { margin: 12px 0; }
 .archiv .les .fb .fr { margin-top: 6px; }
 .archiv .les .fb .weissnicht { display: block; margin: 4px auto 0; background: none; border: none; font: 600 16px 'Atkinson Hyperlegible', system-ui, sans-serif; color: var(--s-fg); text-decoration: underline; padding: 8px 12px; }
+.archiv .les .frage-nr { font-size: 14px; font-weight: 600; color: var(--s-muted); margin: 18px 0 -10px; }

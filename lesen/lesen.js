@@ -13,7 +13,7 @@ import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 
-export const LESE_VERSION = '0.7.0';
+export const LESE_VERSION = '0.8.0';
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
 const $app = document.getElementById('app');
 const tagKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -240,21 +240,28 @@ const iconHtml = (story, gross) => { const s = storyVon(story); return s && s.ic
 
 // Laufende Karte
 let A = null;
-function karteStarten(story, wahl) {
+// textId: bestimmter Text („Wie geht es weiter?“ = nächste Folge, „Noch eine Frage zum Text“ = derselbe Text)
+function karteStarten(story, wahl, textId = null) {
   const f = fs();
-  const t = KL.naechsterText(INH, f, story);
+  const t = textId ? INH.texte[textId] : KL.naechsterText(INH, f, story);
   if (!t) return zeigeWahl();
   if (!f.runde || f.runde.karten >= KL.RUNDE) { f.runde = { nr: ((f.runde && f.runde.nr) || 0) + 1, karten: 0 }; protokoll('lese_runde', { aktion: 'start', nr: f.runde.nr }); }
   const pl = KL.kartePlanen(INH, f, t.id, f.runde.karten + 1, !!f.runde.neuTyp);
   const q = pl.q;
   f.karte += 1; f.letzteStory = story; f.runde.karten += 1;
   if (pl.neu) f.runde.neuTyp = true;
+  // Auftrag 64: die wievielte Frage zu diesem Text in dieser Sitzung, und ob der Text heute schon als Karte offen war
+  const imText = wahl === 'noch_eine' && A && A.text === t.id ? (A.imText || 1) + 1 : 1;
+  const tag = heute().tag;
+  if (!f.heute || f.heute.tag !== tag) f.heute = { tag, texte: {} };
+  const vorher = !!f.heute.texte[t.id];
+  f.heute.texte[t.id] = true;
   const wieder = f.zurueck[q.id] || null;
   A = { nr: f.karte, platz: f.runde.karten, story, text: t.id, frage: q.id, typ: q.typ, stufe: pl.stufe, geruest: pl.geruest, sicher: pl.sicher, eingewoehnung: pl.eingewoehnung,
-    phase: 'frage', versuch: 1, schonR: [], schonF: [], start: Date.now(), belegHinweis: false, leiter: false, nachgeschlagen: [], antwortGegeben: false, zfNr: 0 };
+    imText, phase: 'frage', versuch: 1, schonR: [], schonF: [], start: Date.now(), belegHinweis: false, leiter: false, nachgeschlagen: [], antwortGegeben: false, zfNr: 0 };
   neuZiehen(pl.stufe);
   protokoll('lese_karte_start', { karte: A.nr, text: t.id, frage: q.id, kv: q.kv, fragetyp: q.typ, stufe: pl.stufe, ...(pl.ersatz ? { stufe_ersatz: pl.gewuenscht } : {}), textstufe: t.textstufe, geruest: pl.geruest, typ_schritt: pl.schritt, story, beat: t.beat, platz: A.platz, neu_typ: pl.neu,
-    ...(pl.sicher ? { sicher: true } : {}), ...(pl.eingewoehnung ? { eingewoehnung: true } : {}), ...(pl.neuZweiter ? { neu_typ_zweiter: true } : {}), wieder: !!wieder, ...(wieder ? { nach_karten: f.karte - wieder.karte } : {}), wahl });
+    ...(pl.sicher ? { sicher: true } : {}), ...(pl.eingewoehnung ? { eingewoehnung: true } : {}), ...(pl.neuZweiter ? { neu_typ_zweiter: true } : {}), frage_im_text: imText, ...(vorher ? { text_gelesen_vorher: true } : {}), wieder: !!wieder, ...(wieder ? { nach_karten: f.karte - wieder.karte } : {}), wahl });
   if (wieder) protokoll('lese_wiederkehr', { frage: q.id, nach_karten: f.karte - wieder.karte, nach_min: Math.round((Date.now() - new Date(wieder.t)) / 60000) });
   sichern();
   zeigeKarte(true);
@@ -317,7 +324,7 @@ function zeigeKarte(nachOben = false) {
 function frageTeil(q, t) {
   const b = q.beleg[0] + 1;
   const ant = (liste, act) => liste.map(a => `<button class="ant" data-act="${act}" data-id="${a.id}">${esc(a.t)}</button>`).join('');
-  const frage = `<div class="fr" data-ziel>${esc(q.frage)}</div>`;
+  const frage = `${A.imText > 1 ? `<div class="frage-nr" data-ziel>Frage ${A.imText} zum Text</div>` : ''}<div class="fr"${A.imText > 1 ? '' : ' data-ziel'}>${esc(q.frage)}</div>`;
   switch (A.phase) {
     case 'frage':
       return `${A.geruest === 2 && A.versuch === 1 ? `<p class="gerust">Die Antwort steckt in Absatz ${b}.</p>` : ''}${frage}${ant(A.zug, 'antwort')}`;
@@ -357,11 +364,13 @@ function endeTeil(q, t) {
     ${['gleich', 'art', 'anders'].map(k => `<button class="ant" data-act="storyFb" data-a="${k}">${esc(A.fb[k])}</button>`).join('')}
     <button class="weissnicht" data-act="storyFb" data-a="weiss_nicht">Weiß nicht</button></div>`;
   const rundeFertig = f.runde && f.runde.karten >= KL.RUNDE ? `<div class="runde-fertig"><b>Runde geschafft!</b> 5 von 5 Karten.</div>` : '';
-  const weiter = A.ergebnis !== 'aufloesung' ? KL.naechsterText(INH, f, A.story) : null;
+  const weiter = A.ergebnis !== 'aufloesung' ? KL.weiterText(INH, f, t) : null;
+  const noch = A.ergebnis !== 'aufloesung' ? KL.nochEine(INH, f, A.text) : null;
   const letzte = weiter == null && t.beat === KL.folgeVon(INH, t).y;
   const andere = KL.andere(INH, f, A.story);
   if (!weiter && !andere.length && !A.engpass) { A.engpass = true; protokoll('lese_engpass', { story: A.story }); }
   return `${kopf}${voll}${rundeFertig}
+    ${noch ? `<button class="wahl" data-act="nochEine"><b>Noch eine Frage zum Text</b>Der Text bleibt stehen.</button>` : ''}
     ${weiter ? `<button class="wahl" data-act="weiter"><b>Wie geht es weiter?</b>${letzte ? '' : esc(t.teaser || '')}</button>` : ''}
     ${letzte && t.teaser ? `<p class="gedaempft">${esc(t.teaser)}</p>` : ''}
     ${andere.length ? `<p class="wahl-kopf"><b>Etwas anderes</b></p>${andere.map(s => `<button class="wahl" data-act="storyWahl" data-s="${esc(s.id)}"><span class="mini">${iconHtml(s.id, false)}<span><b>${esc(s.titel)}</b>${esc(s.kurz || '')}</span></span></button>`).join('')}`
@@ -673,7 +682,8 @@ document.addEventListener('click', async (ev) => {
     case 'lesen': if (INH) lesenWeiter(); break;
     case 'anderes': if (INH) zeigeWahl(); break;
     case 'storyWahl': if (ansicht === 'karte' && A) protokoll('lese_wahl', { art: 'anders', story: el.dataset.s }); karteStarten(el.dataset.s, ansicht === 'karte' ? 'anders' : 'start'); break;
-    case 'weiter': protokoll('lese_wahl', { art: 'weiter', story: A.story }); karteStarten(A.story, 'weiter'); break;
+    case 'weiter': { const w = KL.weiterText(INH, fs(), INH.texte[A.text]); protokoll('lese_wahl', { art: 'weiter', story: A.story }); karteStarten(A.story, 'weiter', w ? w.id : null); break; }
+    case 'nochEine': protokoll('lese_wahl', { art: 'noch_eine', story: A.story, text: A.text }); karteStarten(A.story, 'noch_eine', A.text); break;
     case 'storyFb': if (A && A.fb) {
       const f = fs(), t = INH.texte[A.text];
       protokoll('lese_story_feedback', { story: A.story, antwort: el.dataset.a, gelesen: KL.folgenGelesen(INH, f, A.story), folgen: KL.folgeVon(INH, t).y, ms: Date.now() - A.fbSeit, text: A.text, ...(el.dataset.a !== 'weiss_nicht' ? { knopf: A.fb[el.dataset.a] } : {}) });

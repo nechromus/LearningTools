@@ -57,7 +57,7 @@ export function inhaltPruefen(roh) {
 // fs = { erledigt: { frageId: true }, zurueck: { frageId: { karte, t } }, karte (laufende Nummer), typen: { typ: { lvl, hist } } }
 export function fortschrittVon(x) {
   const f = x && typeof x === 'object' ? x : {};
-  return { erledigt: f.erledigt || {}, zurueck: f.zurueck || {}, karte: f.karte || 0, typen: f.typen || {}, nachschlagTipp: !!f.nachschlagTipp, letzteStory: f.letzteStory || null, runde: f.runde || null, gelesen: f.gelesen || {}, gefragt: f.gefragt || {} };
+  return { erledigt: f.erledigt || {}, zurueck: f.zurueck || {}, karte: f.karte || 0, typen: f.typen || {}, nachschlagTipp: !!f.nachschlagTipp, letzteStory: f.letzteStory || null, runde: f.runde || null, gelesen: f.gelesen || {}, gefragt: f.gefragt || {}, heute: f.heute || null };
 }
 const textFragen = (inh, textId) => Object.values(inh.fragen).filter(q => q.text === textId).sort((a, b) => a.id < b.id ? -1 : 1);
 const storyTexte = (inh, story) => Object.values(inh.texte).filter(t => t.story === story).sort((a, b) => a.beat - b.beat || a.teil - b.teil);
@@ -68,6 +68,22 @@ const spielbar = (fs, q) => !fs.erledigt[q.id] && !(fs.zurueck[q.id] && fs.karte
 export function naechsterText(inh, fs, story) {
   for (const t of storyTexte(inh, story)) if (textFragen(inh, t.id).some(q => spielbar(fs, q))) return t;
   return null;
+}
+// „Wie geht es weiter?“ (Auftrag 64): die nächste Folge nach diesem Text, nicht derselbe Text mit seiner Folgefrage.
+// Gibt es danach nichts mehr, ein anderer offener Text der Geschichte (z. B. eine zurückgelegte Karte).
+export function weiterText(inh, fs, t) {
+  const l = storyTexte(inh, t.story).filter(x => x.id !== t.id && textFragen(inh, x.id).some(q => spielbar(fs, q)));
+  return l.find(x => x.beat > t.beat || (x.beat === t.beat && x.teil > t.teil)) || l[0] || null;
+}
+// „Noch eine Frage zum Text“ (Auftrag 64): nur wenn eine Frage zum Text spielbar ist, die Runde nicht voll ist und
+// eine Folgefrage auf Platz 5 die Bedingung für sichere Karten erfüllt. Gibt den Plan der Karte zurück oder null.
+export function nochEine(inh, fs, textId) {
+  if (!frageFuer(inh, fs, textId)) return null;
+  const k = (fs.runde && fs.runde.karten) || 0;
+  if (!fs.runde || k >= RUNDE) return null;
+  const pl = kartePlanen(inh, fs, textId, k + 1, !!fs.runde.neuTyp);
+  if (!pl || (SICHER_PLAETZE.includes(k + 1) && !pl.sicher)) return null;
+  return pl;
 }
 export function frageFuer(inh, fs, textId) {
   return textFragen(inh, textId).find(q => spielbar(fs, q)) || null;
