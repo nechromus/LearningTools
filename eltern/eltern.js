@@ -19,7 +19,7 @@ import { Lernplan } from './lernplan.mjs';
 import * as LA from './lesen-auswertung.js';
 import * as LL from '../lesen/lesen-logik.js';
 
-export const ELTERN_VERSION = '1.71.0';
+export const ELTERN_VERSION = '1.72.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -2252,7 +2252,7 @@ function mehrSeite() {
 
 // ---------- Reiter „Lesen“ (Auftrag 59 Schritt 5, Variante C) ----------
 // Liest das Lese-Protokoll (daten/<name>/lesen/<geraet>/<tag>.json, 14 Tage), die Konto-Dateien und die Liste der Geschichten.
-const LS = { kind: null, eintraege: [], ersterTag: null, fragen: {}, fragenLaedt: false, konto: [], storylines: null, geladen: 0, laedt: false, fehler: null };
+const LS = { kind: null, eintraege: [], ersterTag: null, fragen: {}, texte: {}, fragenLaedt: false, konto: [], storylines: null, geladen: 0, laedt: false, fehler: null };
 async function leseLaden(o, neu = false) {
   if (LS.laedt || (!neu && LS.kind === o && Date.now() - LS.geladen < 5 * 60e3)) return;
   LS.laedt = true;
@@ -2274,7 +2274,7 @@ async function leseLaden(o, neu = false) {
       try { const k = await U.dateiLesen(C, f.path); if (k) konto.push(k); } catch (e) { /* diese Quelle später */ }
     }
     let sl = null; try { sl = await U.dateiLesen(C, `daten/${o}/lesen/inhalt/storylines.json`); } catch (e) { /* ohne Liste */ }
-    Object.assign(LS, { kind: o, eintraege: ein, ersterTag, fragen: LS.kind === o ? LS.fragen : {}, konto, storylines: sl && Array.isArray(sl.storylines) ? sl.storylines : [], geladen: Date.now(), fehler: null });
+    Object.assign(LS, { kind: o, eintraege: ein, ersterTag, fragen: LS.kind === o ? LS.fragen : {}, texte: LS.kind === o ? LS.texte : {}, konto, storylines: sl && Array.isArray(sl.storylines) ? sl.storylines : [], geladen: Date.now(), fehler: null });
   } catch (e) { LS.fehler = e.message || 'Laden hat nicht geklappt.'; LS.kind = o; LS.geladen = Date.now(); }
   LS.laedt = false;
   if (['lesen', 'uebersicht', 'leseverlauf'].includes(route.seite)) zeichne();
@@ -2320,15 +2320,20 @@ const leseLegende = () => `<span class="erg-legende">${LE_ARTEN.map(([, k, t]) =
 const leMin = (sek) => sek < 60 ? `${Math.round(sek)} s` : `${Math.round(sek / 60)} Min.`;
 const leStory = (id) => ((LS.storylines || []).find(x => x.id === id) || {}).titel || id || '';
 // Frage-Dateien der gezeigten Karten nachladen (nur zum Anzeigen von Frage und Antworten)
-async function leseFragenLaden(ids) {
+async function leseFragenLaden(ids, texte = []) {
   const fehlt = [...new Set(ids)].filter(id => id && !(id in LS.fragen));
-  if (!fehlt.length || LS.fragenLaedt) return;
+  const fehltT = [...new Set(texte)].filter(id => id && !(id in LS.texte));
+  if ((!fehlt.length && !fehltT.length) || LS.fragenLaedt) return;
   LS.fragenLaedt = true;
   const o = LS.kind;
-  await Promise.all(fehlt.map(async id => { try { LS.fragen[id] = await U.dateiLesen(C, `daten/${o}/lesen/inhalt/fragen/${id}.json`); } catch (e) { LS.fragen[id] = null; } }));
+  await Promise.all([
+    ...fehlt.map(async id => { try { LS.fragen[id] = await U.dateiLesen(C, `daten/${o}/lesen/inhalt/fragen/${id}.json`); } catch (e) { LS.fragen[id] = null; } }),
+    ...fehltT.map(async id => { try { LS.texte[id] = await U.dateiLesen(C, `daten/${o}/lesen/inhalt/texte/${id}.json`); } catch (e) { LS.texte[id] = null; } })
+  ]);
   LS.fragenLaedt = false;
   if (route.seite === 'leseverlauf' || route.seite === 'lesen') zeichne();
 }
+const uhrSek = (iso) => new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 const LE_PHASE = (p) => ({ frage: 'der Frage', hinweis: 'dem Hinweis', stopp: 'dem Lesestopp', leiter1: 'der Leiter', leiter2: 'der Leiter', leiterHinweis: 'der Leiter', merksatz: 'der Leiter', beleg: 'dem Beleg', belegHinweis: 'dem Beleg', belegMarkiert: 'dem Beleg', aufloesung: 'der Auflösung' }[p] || p);
 // Geöffnete Karten bleiben offen, wenn die Seite neu gezeichnet wird (z. B. nach dem Laden der Fragen)
 const LV_OFFEN = new Set();
@@ -2339,31 +2344,21 @@ function leseKarteHtml(k) {
   const geaendert = q && s.v != null && q.v != null && q.v !== s.v;
   const at = (id) => geaendert ? null : LA.antwortText(q, id);
   const merk = [s.sicher ? 'sichere Karte' : '', s.eingewoehnung ? 'Eingewöhnung' : '', s.frage_im_text > 1 ? `${s.frage_im_text}. Frage zum Text` : '', s.neu_typ ? 'neuer Fragetyp' : '', s.wieder ? `kam wieder${s.nach_karten ? ` nach ${s.nach_karten} Karten` : ''}` : ''].filter(Boolean);
-  const versuche = k.versuche.map(v => {
-    const txt = at(v.gewaehlt);
-    return `<li class="lv-versuch ${v.richtig ? 'ok' : 'nein'}"><span class="lv-v">${v.versuch}.</span><span>${txt ? `„${esc(txt)}“` : esc(v.gewaehlt || '')}
-      <span class="klein gedaempft block">${v.richtig ? 'richtig' : esc(v.fehlertyp || 'falsch')} · ${(v.ms / 1000).toFixed(1).replace('.', ',')} s${v.abstand ? ` · Abstand ${v.abstand}` : ''}${v.wortfallen ? ` · ${v.wortfallen} Wortfalle${v.wortfallen > 1 ? 'n' : ''} gezeigt` : ''}</span></span></li>`;
-  }).join('');
+  const ab = q ? LA.leseAblauf(k, q, LS.texte[k.text]) : null;
+  const ablauf = ab ? `<ol class="lv-ablauf">${ab.schritte.map(x => `<li class="la la-${x.art}${x.ok === true ? ' ok' : x.ok === false ? ' nein' : ''}${x.klein ? ' klein-schritt' : ''}">
+      <span class="la-kopf">${x.t ? `<span class="la-zeit">${uhrSek(x.t)}</span>` : ''}<b>${esc(x.titel)}</b></span>
+      ${x.text ? `<span class="la-text">${esc(x.text)}</span>` : ''}${x.zusatz ? `<span class="klein gedaempft block">${esc(x.zusatz)}</span>` : ''}
+      ${x.andere && x.andere.length ? `<span class="klein gedaempft block">Außerdem zur Wahl: ${x.andere.map(o => `„${esc(o.t || o.id)}“${o.richtig ? ' (richtig)' : ''}`).join(' · ')}</span>` : ''}</li>`).join('')}</ol>` : '';
   const zeilen = [];
-  if (k.lesestopp) zeilen.push(['Lesestopp', `${k.lesestopp}-mal (Antwort unter 3 s)`]);
-  if (k.leiter.length || k.zf.length) zeilen.push(['Leiter', k.zf.length ? k.zf.map(z => `Zwischenfrage ${z.nr}: ${z.richtig ? 'richtig' : 'falsch'}`).join(' · ') : 'begonnen']);
-  if (k.aufloesung) zeilen.push(['Auflösung', 'gezeigt']);
-  if (k.beleg.length) {
-    const richtig = q && Array.isArray(q.beleg) ? q.beleg[0] + 1 : null;
-    zeilen.push(['Beleg', k.beleg.map(b => `Absatz ${b.absatz + 1}${b.richtig ? ' ✓' : ''}`).join(' → ') + (richtig && !k.beleg[0].richtig ? ` <span class="gedaempft">(richtig: Absatz ${richtig})</span>` : '')]);
-  } else if (e && e.beleg_erst === null) zeilen.push(['Beleg', '<span class="gedaempft">kein Beleg-Schritt (Gerüst 1)</span>']);
-  if (k.nachgeschlagen.length) zeilen.push(['Nachgeschlagen', k.nachgeschlagen.map(esc).join(', ')]);
-  if (k.hintergrundMs >= 5000) zeilen.push(['Unterbrochen', `${leMin(k.hintergrundMs / 1000)} andere App`]);
   if (e) zeilen.push(['Bildschirmzeit', `${leMin(e.lohn || 0)}${e.lohn_roh && e.lohn_roh !== e.lohn ? ` <span class="gedaempft">(ohne Grenze ${leMin(e.lohn_roh)})</span>` : ''}`]);
-  if (k.abbruch) zeilen.push(['Abgebrochen', `${esc({ start: 'über „Start“ verlassen', hintergrund: 'App im Hintergrund beendet', app_neu: 'App neu gestartet' }[k.abbruch.grund] || k.abbruch.grund)} · bei ${esc(LE_PHASE(k.abbruch.phase))}, Versuch ${k.abbruch.versuch}`]);
-  if (k.zurueckgelegt) zeilen.push(['Zurückgelegt', 'kommt nach 3 anderen Karten wieder']);
+  if (k.abbruch) zeilen.push(['Abgebrochen', `bei ${esc(LE_PHASE(k.abbruch.phase))}, Versuch ${k.abbruch.versuch}`]);
   if (e && e.typ_stufe) zeilen.push(['Fragetyp', e.typ_stufe > 0 ? `eine Stufe höher (Schritt ${e.typ_schritt})` : `eine Stufe tiefer (Schritt ${e.typ_schritt})`]);
   return `<details class="karte lv-karte" data-lv="${esc(k.id)}"${LV_OFFEN.has(k.id) ? ' open' : ''}>
     <summary><span class="lv-zeit">${uhr(k.t)}</span><span class="lv-titel"><b>${esc(leStory(k.story))}${s.beat ? ` · Folge ${s.beat}` : ''}</b><span class="klein gedaempft block">${esc((q && !geaendert && q.typ === s.fragetyp && q.typName) || LA.typName(s.fragetyp || ''))} · Stufe ${s.stufe || '–'} · Gerüst ${s.geruest || '–'}${merk.length ? ' · ' + merk.join(' · ') : ''}</span></span><span class="lv-erg lv-${leErgKlasse(k.ergebnis)}">${leErgName(k.ergebnis)}</span></summary>
     <div class="lv-inhalt">
-      ${q ? `<p class="lv-frage">${esc(q.frage)}</p>` : k.frage in LS.fragen ? `<p class="klein gedaempft">Frage ${esc(k.frage)} gibt es im Inhalt nicht mehr.</p>` : `<p class="klein gedaempft">Frage wird geladen …</p>`}
-      ${geaendert ? `<p class="klein gedaempft">Die Frage wurde seitdem geändert (Version ${s.v} → ${q.v}). Die Antworten stehen deshalb nur als Kennung.</p>` : ''}
-      ${versuche ? `<ol class="lv-versuche">${versuche}</ol>` : ''}
+      ${q ? '' : k.frage in LS.fragen ? `<p class="klein gedaempft">Frage ${esc(k.frage)} gibt es im Inhalt nicht mehr.</p>` : `<p class="klein gedaempft">Frage wird geladen …</p>`}
+      ${geaendert ? `<p class="klein gedaempft">Die Frage wurde seitdem geändert (Version ${s.v} → ${q.v}). Antworten und Hinweise stehen deshalb nur als Kennung.</p>` : ''}
+      ${ablauf}
       ${zeilen.length ? `<dl class="lv-zeilen">${zeilen.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl>` : ''}
       <p class="klein gedaempft">${k.sekunden ? `${leMin(k.sekunden)} · ` : ''}Karte ${k.nr} · ${esc(k.frage)}${s.v != null ? ` (Version ${s.v})` : ''}</p>
       <a class="knopf" href="${WERKSTATT}${encodeURIComponent(k.frage)}" target="_blank" rel="noopener">In der Werkstatt öffnen</a>
@@ -2382,7 +2377,7 @@ function leseVerlaufSeite(tag) {
   }
   const d = v.tage.find(x => x.tag === tag);
   if (!d) return `<div class="seite schmal-inhalt">${kopf}${verlaufWahl('lesen')}<p class="gedaempft pad">An diesem Tag keine Lesekarten.</p><a class="knopf lese-woche-knopf" href="#leseverlauf">Alle Tage</a></div>`;
-  leseFragenLaden(d.karten.map(k => k.frage));
+  leseFragenLaden(d.karten.map(k => k.frage), d.karten.map(k => k.text));
   const falsch = Object.entries(d.falsch).sort((a, b) => b[1] - a[1]);
   const idx = v.tage.indexOf(d), vor = v.tage[idx + 1], nach = v.tage[idx - 1];
   return `<div class="seite schmal-inhalt">${kopf}${verlaufWahl('lesen')}

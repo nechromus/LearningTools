@@ -844,3 +844,17 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .lf-zeile > div { width: 100%; }
 .lf-knopf { margin-top: 8px; display: inline-flex; }
 .lese-woche-knopf { display: inline-flex; align-items: center; justify-content: center; }
+/* Ablauf einer Lesekarte */
+.lv-ablauf { list-style: none; margin: 12px 0; padding: 0 0 0 14px; border-left: 2px solid var(--linie-hell); }
+.la { position: relative; padding: 6px 0 8px 10px; }
+.la::before { content: ''; position: absolute; left: -21px; top: 11px; width: 10px; height: 10px; border-radius: 50%; background: var(--linie); border: 2px solid var(--karte); }
+.la.ok::before { background: var(--teal); }
+.la.nein::before { background: #D9945A; }
+.la-hinweis::before, .la-stopp::before, .la-leiter::before, .la-merk::before, .la-aufloesung::before { background: var(--gold); }
+.la-kopf { display: block; }
+.la-zeit { font-variant-numeric: tabular-nums; color: var(--gedaempft); font-size: 12.5px; margin-right: 6px; }
+.la-text { display: block; margin-top: 2px; }
+.la-hinweis .la-text, .la-stopp .la-text, .la-leiter .la-text, .la-merk .la-text, .la-aufloesung .la-text { background: #F8EBCB; border-radius: 8px; padding: 6px 9px; margin-top: 4px; }
+.la-start .la-text { font-weight: 700; }
+.la.klein-schritt { font-size: 14px; }
+.la.klein-schritt b { font-weight: 600; }

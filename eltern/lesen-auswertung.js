@@ -92,13 +92,14 @@ export function leseVerlauf(eintraege, { tagVon = (t) => String(t).slice(0, 10) 
   for (const e of liste) {
     if (e.typ === 'lese_karte_start') {
       const k = { id: `${e.geraet || ''}-${e.karte}`, geraet: e.geraet || '', nr: e.karte, start: e, t: e.t, tag: tagVon(e.t), frage: e.frage, text: e.text, story: e.story,
-        versuche: [], zf: [], beleg: [], leiter: [], nachgeschlagen: [], hintergrundMs: 0, lesestopp: 0, aufloesung: false, zurueckgelegt: false, wiederkehr: null, ende: null, abbruch: null };
+        ereignisse: [e], versuche: [], zf: [], beleg: [], leiter: [], nachgeschlagen: [], hintergrundMs: 0, lesestopp: 0, aufloesung: false, zurueckgelegt: false, wiederkehr: null, ende: null, abbruch: null };
       karten[`${e.geraet || ''}|${e.karte}`] = k; reihe.push(k);
       continue;
     }
     if (e.typ === 'lese_wiederkehr') { const k = reihe.filter(x => x.frage === e.frage && x.geraet === (e.geraet || '')).pop(); if (k) k.wiederkehr = e; continue; }
     const k = e.karte != null ? karte(e) : null;
     if (!k) continue;
+    k.ereignisse.push(e); // ganzer Ablauf der Karte in zeitlicher Folge (Eltern-App: „Ablauf“)
     switch (e.typ) {
       case 'lese_versuch': k.versuche.push(e); break;
       case 'lese_zf': k.zf.push(e); break;
@@ -207,4 +208,89 @@ export function auffaelligeFragen(verlauf) {
     if (gruende.length) r.push({ ...x, gruende });
   }
   return r.sort((a, b) => a.letzte < b.letzte ? 1 : -1);
+}
+
+// ---------- Ablauf einer Karte (Wunsch Eltern 20.11.) ----------
+// Baut aus den Ereignissen einer Karte und den Inhalten (Frage q, Text t) die Schritte, wie das Kind sie gesehen hat.
+// Ohne q (Frage fehlt) oder mit anderer Version (start.v ≠ q.v) nur Ereignisse ohne Wortlaut (wortlaut: false).
+// Schritt: { art, t, titel, text?, zusatz?, ok? (true/false/undefined), klein? }
+export function leseAblauf(k, q, t) {
+  const s = k.start || {};
+  const wortlaut = !!q && (s.v == null || q.v == null || s.v === q.v);
+  const b = q && Array.isArray(q.beleg) ? q.beleg[0] + 1 : null;
+  const sek = (ms) => `${(ms / 1000).toFixed(1).replace('.', ',')} s`;
+  const r = [];
+  const geruestText = { 1: b ? `Absatz ${b} ist markiert.` : 'Der Absatz ist markiert.', 2: b ? `Über der Frage steht: „Die Antwort steckt in Absatz ${b}.“` : 'Der Absatz wird genannt.', 3: 'Ohne Hilfe zum Absatz.' }[s.geruest] || '';
+  r.push({ art: 'start', t: s.t, titel: 'Karte beginnt', text: wortlaut ? q.frage : null, zusatz: [`Stufe ${s.stufe || '–'}`, `Gerüst ${s.geruest || '–'}: ${geruestText}`, s.sicher ? 'sichere Karte' : '', s.eingewoehnung ? 'Eingewöhnung: im 1. Versuch keine Wortfalle' : '', s.frage_im_text > 1 ? `${s.frage_im_text}. Frage zum selben Text` : ''].filter(Boolean).join(' · ') });
+  let leiterAktiv = false, zfNr = 0, letzterFalsch = null, merkGezeigt = false;
+  for (const e of k.ereignisse.slice(1)) {
+    switch (e.typ) {
+      case 'lese_gelesen_bis': {
+        const n = e.absaetze || (t && t.absaetze ? t.absaetze.length : null);
+        r.push({ art: 'lesen', t: e.t, titel: 'Vor der 1. Antwort gesehen', text: e.absatz_max >= 0 ? `bis Absatz ${e.absatz_max + 1}${n ? ` von ${n}` : ''}` : 'noch kein Absatz', zusatz: e.beleg != null ? (e.absatz_max >= e.beleg ? `Der Antwort-Absatz ${e.beleg + 1} war zu sehen.` : `Der Antwort-Absatz ${e.beleg + 1} war noch nicht zu sehen.`) : '', ok: e.beleg != null ? e.absatz_max >= e.beleg : undefined, klein: true });
+        break;
+      }
+      case 'lese_nachschlagen': {
+        const erkl = t && t.glossar ? t.glossar[e.wort] : null;
+        r.push({ art: 'wort', t: e.t, titel: `Wort nachgeschlagen: „${e.wort}“`, text: erkl || null, klein: true });
+        break;
+      }
+      case 'lese_versuch': {
+        if (e.versuch === 3 && leiterAktiv && !merkGezeigt && wortlaut && q.merksatz) { r.push({ art: 'merk', titel: 'Merk dir', text: q.merksatz }); merkGezeigt = true; }
+        const txt = (id) => wortlaut ? antwortText(q, id) : null;
+        const andere = (e.gezeigt || []).filter(id => id !== e.gewaehlt).map(id => ({ id, t: txt(id), richtig: id.startsWith('r') }));
+        r.push({ art: 'antwort', t: e.t, titel: `${e.versuch}. Antwort nach ${sek(e.ms || 0)}`, text: txt(e.gewaehlt) ? `„${txt(e.gewaehlt)}“` : e.gewaehlt, ok: !!e.richtig,
+          zusatz: [e.richtig ? 'richtig' : (e.fehlertyp || 'falsch'), e.abstand ? `Abstand ${e.abstand}` : '', e.wortfallen ? `${e.wortfallen} Wortfalle${e.wortfallen > 1 ? 'n' : ''} gezeigt` : ''].filter(Boolean).join(' · '),
+          andere: wortlaut ? andere : [] });
+        letzterFalsch = e.richtig ? null : e;
+        if (!e.richtig && e.versuch === 1) {
+          const f = wortlaut ? (q.falsch || [])[Number(String(e.gewaehlt).slice(1))] : null;
+          const bis = (k.ereignisse.find(y => y.typ === 'lese_versuch' && y.versuch === 2) || {}).t || '9999';
+          const stopp = k.ereignisse.some(x => x.typ === 'lese_lesestopp' && x.t >= e.t && x.t <= bis);
+          const lies = f && /\bLies\b/.test(f.hinweis || '') ? '' : (b ? ` Lies Absatz ${b} noch einmal.` : '');
+          r.push({ art: stopp ? 'stopp' : 'hinweis', titel: stopp ? 'Lesestopp: „Noch nicht.“ (Antwort unter 3 s, kurz warten)' : 'Hinweis: „Noch nicht.“', text: f ? f.hinweis + (stopp ? lies : '') : null, zusatz: wortlaut ? '' : 'Wortlaut nicht bekannt (Frage geändert)' });
+        }
+        break;
+      }
+      case 'lese_leiter': {
+        leiterAktiv = true;
+        const zf = wortlaut && q.zf ? q.zf[e.stufe === 'satz' ? 1 : 0] : null;
+        if (e.stufe === 'satz') zfNr = 1; else zfNr = 0;
+        r.push({ art: 'leiter', t: e.t, titel: e.stufe === 'satz' ? 'Leiter, Schritt 2: „Lies den markierten Satz.“' : 'Leiter: „Wir suchen zusammen.“', text: [e.stufe !== 'satz' && wortlaut ? q.eingrenzen : '', zf ? `Zwischenfrage: ${zf.frage}` : ''].filter(Boolean).join(' '), zusatz: zf ? `Zur Wahl: „${zf.richtig}“ oder „${zf.falsch}“` : '' });
+        break;
+      }
+      case 'lese_zf': {
+        const zf = wortlaut && q.zf ? q.zf[(e.nr || 1) - 1] : null;
+        r.push({ art: 'zf', t: e.t, titel: `Zwischenfrage ${e.nr}: ${e.richtig ? 'richtig' : 'falsch'} nach ${sek(e.ms || 0)}`, text: zf ? `„${e.richtig ? zf.richtig : zf.falsch}“` : null, ok: !!e.richtig, klein: true });
+        if (!e.richtig && zf) r.push({ art: 'hinweis', titel: 'Hinweis: „Noch nicht.“', text: zf.hinweis });
+        if (e.richtig && wortlaut && q.merksatz) { r.push({ art: 'merk', titel: 'Merk dir', text: q.merksatz }); merkGezeigt = true; }
+        else if (!e.richtig && e.nr >= 2 && wortlaut && q.merksatz) { r.push({ art: 'merk', titel: 'Merk dir', text: q.merksatz }); merkGezeigt = true; }
+        break;
+      }
+      case 'lese_aufloesung':
+        r.push({ art: 'aufloesung', t: e.t, titel: `Auflösung: „Hier steht es${b ? `: Absatz ${b}` : ''}.“`, text: wortlaut && q.aufloesung ? `Das heißt: ${q.aufloesung}` : null });
+        break;
+      case 'lese_beleg':
+        if (e.versuch === 1) r.push({ art: 'beleg-frage', titel: '„Richtig! Wo steht das? Tippe den Absatz an.“', klein: true });
+        r.push({ art: 'beleg', t: e.t, titel: `Beleg: Absatz ${e.absatz + 1}`, ok: !!e.richtig, zusatz: e.richtig ? 'richtig' : (b ? `richtig wäre Absatz ${b}` : 'falsch'), klein: true });
+        if (!e.richtig) r.push({ art: 'hinweis', titel: e.versuch >= 2 ? 'Hinweis, Absatz jetzt markiert' : 'Hinweis: „Noch nicht.“', text: wortlaut ? q.belegHinweis : null });
+        break;
+      case 'lese_hintergrund':
+        r.push({ art: 'weg', t: e.t, titel: `${sek(e.ms || 0)} in einer anderen App`, klein: true });
+        break;
+      case 'lese_karte_abbruch':
+        r.push({ art: 'abbruch', t: e.t, titel: 'Abgebrochen', text: { start: 'über „Start“ verlassen', hintergrund: 'App im Hintergrund beendet', app_neu: 'App neu gestartet' }[e.grund] || e.grund });
+        break;
+      case 'lese_karte_ende':
+        r.push({ art: 'ende', t: e.t, titel: { voll: 'Geschafft: gleich richtig', hinweis: 'Geschafft mit Hinweis', leiter: 'Geschafft mit der Leiter', aufloesung: 'Mit Auflösung beendet' }[e.ergebnis] || e.ergebnis,
+          text: e.lohn ? `+${Math.round(e.lohn / 6) / 10} Min. Bildschirmzeit`.replace('.', ',') : 'ohne Bildschirmzeit', zusatz: `${e.sekunden || 0} s für die Karte`, ok: e.ergebnis === 'voll' || e.ergebnis === 'hinweis' });
+        break;
+      case 'lese_zurueckgelegt':
+        r.push({ art: 'zurueck', t: e.t, titel: 'Kommt später noch einmal (nach 3 anderen Karten)', klein: true });
+        break;
+    }
+  }
+  // „Kommt später noch einmal“ steht im Protokoll vor dem Ende, gehört aber dahinter
+  const z = r.filter(x => x.art === 'zurueck');
+  return { schritte: [...r.filter(x => x.art !== 'zurueck'), ...z], wortlaut };
 }
