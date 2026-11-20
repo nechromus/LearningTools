@@ -19,7 +19,7 @@ import { Lernplan } from './lernplan.mjs';
 import * as LA from './lesen-auswertung.js';
 import * as LL from '../lesen/lesen-logik.js';
 
-export const ELTERN_VERSION = '1.69.0';
+export const ELTERN_VERSION = '1.70.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -1665,7 +1665,7 @@ function uebersichtSeite() {
     ${speicherKarte()}
     ${ticketHinweis()}
     ${liveKarte()}
-    ${kontingentKarte()}
+    ${kontingentKarte()}${lesenAn() ? leseMarkerKarte(true) : ''}
     ${berichtKachel()}
     ${bogenKachel()}
     <div class="kacheln">${kacheln}</div>
@@ -2409,15 +2409,36 @@ function ersterLesetag(v) {
   const t = v.karten.map(k => k.tag).sort()[0];
   return t || null;
 }
-function matheLesenKarte(v) {
+const leseVerlaufJetzt = () => LA.leseVerlauf(LS.eintraege, { tagVon: (t) => L.tagKey(new Date(t)) });
+function matheLesenDaten(v) {
   const tage = []; for (let i = 13; i >= 0; i--) tage.push(letzteTageKey(i));
-  const mathe = A.appMinutenJeTag(D.daten.aufgaben || []), lesen = LA.leseMinutenJeTag(v);
+  const mathe = A.appMinutenJeTag((D.daten && D.daten.aufgaben) || []), lesen = LA.leseMinutenJeTag(v);
   const erster = ersterLesetag(v);
   let schnitt = null;
   if (erster) {
     const davor = []; const d0 = new Date(erster + 'T12:00'); for (let i = 7; i >= 1; i--) { const d = new Date(d0); d.setDate(d.getDate() - i); davor.push(L.tagKey(d)); }
     schnitt = davor[0] >= A.letzteTage(31)[0] ? LA.matheSchnittVorLesen(mathe, erster, davor) : null;
   }
+  return { tage, mathe, lesen, erster, schnitt };
+}
+// Markierungen (Auftrag 66, Abschnitt 3): kurze Sätze auf „Heute“ und im Reiter Lesen, ohne Rot und ohne Wertung
+function leseMarkerListe() {
+  if (LS.kind !== C.nutzer || !LS.geladen) return [];
+  const tagVon = (t) => L.tagKey(new Date(t));
+  const woche = LA.leseAuswertung(LS.eintraege, { ab: letzteTageKey(6), tagVon });
+  const { mathe, lesen, schnitt } = matheLesenDaten(leseVerlaufJetzt());
+  const tage7 = []; for (let i = 6; i >= 0; i--) tage7.push(letzteTageKey(i));
+  return LA.leseMarker({ woche, tage7, heute: L.tagKey(), matheMin: mathe, leseMin: lesen, schnitt });
+}
+function leseMarkerKarte(mitLink = false) {
+  const m = leseMarkerListe();
+  if (!m.length) return '';
+  return `<section class="karte lm-karte"><div class="karte-kopf"><h2>Lesen: zum Hinschauen</h2></div>
+    <ul class="lm-liste">${m.map(x => `<li>${esc(x.text)}</li>`).join('')}</ul>
+    ${mitLink ? '<div class="knopf-reihe"><a class="knopf lese-woche-knopf" href="#lesen">Zum Reiter Lesen</a></div>' : ''}</section>`;
+}
+function matheLesenKarte(v) {
+  const { tage, mathe, lesen, erster, schnitt } = matheLesenDaten(v);
   const max = Math.max(10, schnitt || 0, ...tage.map(t => Math.max(mathe[t] || 0, lesen[t] || 0)));
   const h = (m) => `${Math.round((m || 0) / max * 100)}%`;
   const summe = (o, l) => l.reduce((s, t) => s + (o[t] || 0), 0);
@@ -2458,14 +2479,26 @@ function lesenSeite() {
   </section>`;
   const typen = Object.values(r.typen).sort((a, b) => b.n - a.n);
   const typKarte = typen.length ? `<section class="karte liste-karte"><div class="karte-kopf"><h2>Fragetypen</h2><span class="klein gedaempft">gleich richtig</span></div>
-    ${typen.map(t => `<div class="themen-zeile lz-typ"><span class="themen-name">${esc(t.name)}</span><span class="lz-balken"><i style="width:${pz(t.voll, t.n)}%"></i></span><span class="themen-quote">${pz(t.voll, t.n)} %</span><span class="themen-info">${t.n} · St. ${t.stufe} · Gerüst ${t.geruest}</span></div>`).join('')}
+    ${typen.map(t => `<div class="themen-zeile lz-typ"><span class="themen-name">${esc(t.name)}</span><span class="lz-balken"><i style="width:${pz(t.voll, t.n)}%"></i></span><span class="themen-quote">${pz(t.voll, t.n)} %</span><span class="themen-info">${t.n} · ${t.schritt ? `Schritt ${t.schritt}/5` : `St. ${t.stufe} · Gerüst ${t.geruest}`}${t.auf ? ` · ${t.auf}× höher` : ''}${t.ab ? ` · ${t.ab}× tiefer` : ''}</span></div>`).join('')}
     <p class="klein gedaempft pad">Stufe 1–3: wie weit die richtige Antwort vom Text weg formuliert ist. Gerüst 1: Absatz markiert, 2: Absatz genannt, 3: allein.</p></section>` : '';
   const stufenListe = Object.keys(r.stufen).sort();
-  const sz = (z) => z && z.n ? `<b>${pz(z.voll, z.n)} %</b> <span class="klein gedaempft">${z.voll} von ${z.n}</span>` : '<span class="klein gedaempft">–</span>';
-  const stufenKarte = stufenListe.length ? `<section class="karte"><div class="karte-kopf"><h2>Fragestufen</h2><span class="klein gedaempft">gleich richtig</span></div>
+  const vw = LA.leseAuswertung(LS.eintraege, { ab: letzteTageKey(13), bis: letzteTageKey(7), tagVon: (t) => L.tagKey(new Date(t)) });
+  const sz = (z, v) => (z && z.n ? `<b>${pz(z.voll, z.n)} %</b> <span class="klein gedaempft">${z.voll} von ${z.n}</span>` : '<span class="klein gedaempft">–</span>') + (v && v.n ? `<span class="klein gedaempft lz-vorwoche">Vorwoche ${pz(v.voll, v.n)} %</span>` : '');
+  const stufenKarte = stufenListe.length ? `<section class="karte"><div class="karte-kopf"><h2>Fragestufen</h2><span class="klein gedaempft">gleich richtig · 7 Tage</span></div>
     <table class="lz-stufen"><thead><tr><th></th><th>normal</th><th>Eingewöhnung</th><th>sicher</th><th>2. Frage zum Text</th></tr></thead><tbody>
-    ${stufenListe.map(st => { const x = r.stufen[st]; return `<tr><th>Stufe ${st}</th><td>${sz(x.normal)}</td><td>${sz(x.ein)}</td><td>${sz(x.sicher)}</td><td>${sz(x.folge)}</td></tr>`; }).join('')}</tbody></table>
+    ${stufenListe.map(st => { const x = r.stufen[st], y = vw.stufen[st] || {}; return `<tr><th>Stufe ${st}</th><td>${sz(x.normal, y.normal)}</td><td>${sz(x.ein, y.ein)}</td><td>${sz(x.sicher, y.sicher)}</td><td>${sz(x.folge, y.folge)}</td></tr>`; }).join('')}</tbody></table>
     <p class="klein gedaempft">Eingewöhnung: die ersten 2 Karten eines Typs nach dem Aufstieg der Fragestufe, im 1. Versuch ohne Wortfallen. Sicher: Platz 1 und 5 jeder Runde, eine Stufe tiefer, zählt nicht für Auf- und Abstieg. 2. Frage zum Text: Folgefrage direkt nach der ersten, der Text ist gerade gelesen.</p></section>` : '';
+  const t14 = []; for (let i = 13; i >= 0; i--) t14.push(letzteTageKey(i));
+  const sch = alle.tagSchnell;
+  const schnellKarte = Object.keys(sch).length ? `<section class="karte"><div class="karte-kopf"><h2>Schnelle Antworten</h2><span class="klein gedaempft">1. Antworten unter 3 s · 14 Tage</span></div>
+    <div class="lr-diagramm" role="img" aria-label="Anteil schneller erster Antworten je Tag">
+      <span class="lr-linie" style="bottom:${LA.MARKER.raten * 100}%"><span>${LA.MARKER.raten * 100} %</span></span>
+      ${t14.map(t => { const d = sch[t]; const q = d && d.erste ? d.schnell / d.erste : 0; return `<span class="lr-tag${t === L.tagKey() ? ' heute' : ''}" title="${tagLang(t)}: ${d ? `${d.schnell} von ${d.erste} unter 3 s, ${d.stopp} Lesestopp${d.stopp === 1 ? '' : 's'}` : 'nicht gelesen'}">${d && d.erste ? `<span class="lr-zahl">${Math.round(q * 100)}</span>` : ''}<i style="height:${Math.round(q * 100)}%"></i>${d && d.stopp ? `<span class="lr-stopp">${d.stopp}</span>` : ''}<span class="ml-wt">${new Date(t + 'T12:00').toLocaleDateString('de-DE', { weekday: 'narrow' })}</span></span>`; }).join('')}
+    </div>
+    <p class="klein gedaempft">Balken: Anteil der 1. Antworten unter 3 s. Zahl unten: Lesestopps an dem Tag. Linie: ab hier steht „Viele schnelle Antworten“ auf „Heute“.</p></section>` : '';
+  const falsch = Object.entries(r.falsch).sort((a, b) => b[1] - a[1]);
+  const falschKarte = falsch.length ? `<section class="karte liste-karte"><div class="karte-kopf"><h2>Falsche Antworten nach Art</h2><span class="klein gedaempft">7 Tage · ${r.falschN}</span></div>
+    ${falsch.map(([ft, n]) => `<div class="themen-zeile lz-typ"><span class="themen-name">${esc(ft)}</span><span class="lz-balken"><i style="width:${pz(n, r.falschN)}%"></i></span><span class="themen-quote">${pz(n, r.falschN)} %</span><span class="themen-info">${n}</span></div>`).join('')}</section>` : '';
   const stories = Object.values(alle.stories);
   const storyKarte = stories.length ? `<section class="karte liste-karte"><div class="karte-kopf"><h2>Geschichten</h2><span class="klein gedaempft">14 Tage</span></div>
     ${stories.map(x => `<div class="bz-zeile"><div><b>${esc(storyName(x.story))}</b><span class="klein gedaempft block">bis Folge ${x.folge} von ${storyFolgen(x.story)} · ${x.karten} ${x.karten === 1 ? 'Karte' : 'Karten'}</span></div></div>`).join('')}</section>` : '';
@@ -2476,7 +2509,7 @@ function lesenSeite() {
   const nachKarte = nach.length ? `<section class="karte"><div class="karte-kopf"><h2>Nachgeschlagen</h2><span class="klein gedaempft">7 Tage</span></div><p>${nach.slice(0, 15).map(([wo, n]) => `${esc(wo)}${n > 1 ? ` (${n}×)` : ''}`).join(', ')}</p></section>` : '';
   return `<div class="seite schmal-inhalt">${kopf}
     ${LS.fehler ? `<p class="meldung fehler">${esc(LS.fehler)}</p>` : ''}
-    ${woche}${matheLesenKarte(LA.leseVerlauf(LS.eintraege, { tagVon: (t) => L.tagKey(new Date(t)) }))}${stufenKarte}${typKarte}${storyKarte}${wuensche}${nachKarte}${regler}
+    ${leseMarkerKarte()}${woche}${matheLesenKarte(leseVerlaufJetzt())}${stufenKarte}${typKarte}${schnellKarte}${falschKarte}${storyKarte}${wuensche}${nachKarte}${regler}
   </div>`;
 }
 
