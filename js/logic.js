@@ -1369,19 +1369,26 @@ export function signalMarkieren(html) {
   return String(html).split(/(<[^>]*>)/).map(t => (t.startsWith('<') ? t : t.replace(SIGNAL_RE, (m, v, w) => `${v}<mark class="signal">${w}</mark>`))).join('');
 }
 // Befristete Grenzen pro Kind (Auftrag 36), aus einstellungen.json → werte.befristet:
-// { bis: 'JJJJ-MM-TT', stufe_max: { <generator>: 1–3 }, einmaleins_geteilt: 0–3 (von 3 im Block), prozent: [Prozentsätze] }
+// { bis: 'JJJJ-MM-TT', stufe_max: { <generator>: 1–3 }, stufe_max_bis?: 'JJJJ-MM-TT', einmaleins_geteilt: 0–3 (von 3 im Block), prozent: [Prozentsätze] }
+// stufe_max_bis (Auftrag 63b): die Stufen-Grenze endet schon an diesem Tag, die anderen Grenzen erst mit „bis“.
 export function befristetNorm(b) {
   if (!b || typeof b !== 'object' || !/^\d{4}-\d{2}-\d{2}$/.test(b.bis || '')) return null;
   const n = { bis: b.bis };
   if (b.stufe_max && typeof b.stufe_max === 'object') {
     const sm = Object.fromEntries(Object.entries(b.stufe_max).filter(([k, v]) => /^[a-z0-9-]+$/.test(k) && [1, 2, 3].includes(v)));
     if (Object.keys(sm).length) n.stufe_max = sm;
+    if (n.stufe_max && /^\d{4}-\d{2}-\d{2}$/.test(b.stufe_max_bis || '')) n.stufe_max_bis = b.stufe_max_bis;
   }
   if ([0, 1, 2, 3].includes(b.einmaleins_geteilt)) n.einmaleins_geteilt = b.einmaleins_geteilt;
   if (Array.isArray(b.prozent)) { const l = [...new Set(b.prozent.filter(x => Number.isInteger(x) && x > 0 && x < 100))].sort((x, y) => x - y); if (l.length) n.prozent = l; }
   return n;
 }
-export const befristetAktiv = (z, heute) => (z && z.befristet && heute <= z.befristet.bis ? z.befristet : null);
+export function befristetAktiv(z, heute) {
+  const b = z && z.befristet;
+  if (!b || heute > b.bis) return null;
+  if (b.stufe_max && b.stufe_max_bis && heute > b.stufe_max_bis) { const { stufe_max, stufe_max_bis, ...rest } = b; return rest; }
+  return b;
+}
 // Feste Aufgabe in der befristeten Zeit erlaubt? Prozent/Rabatt nur mit den erlaubten Sätzen, Mal 10 ohne Zahlen mit zwei Nachkommastellen
 export function befristetErlaubt(a, bef) {
   if (!bef || !a) return true;

@@ -36,7 +36,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.51.2';
+export const APP_VERSION = '2.51.3';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1793,7 +1793,7 @@ function erzeuge(g, stufe, opts = {}) {
     a = G.GENERATOREN[g](stufe, Math.random, opts);
     if (a && !letzte.includes(a.id) && heuteOk(a)) break;
   }
-  if (a && BEF() && (befOpts(g).saetze || (BEF().stufe_max || {})[g])) a = { ...a, grenze_bis: BEF().bis };
+  if (a && BEF() && (befOpts(g).saetze || (BEF().stufe_max || {})[g])) a = { ...a, grenze_bis: befOpts(g).saetze ? BEF().bis : (BEF().stufe_max_bis || BEF().bis) };
   // Kreisdiagramm (Auftrag 33): ab der Freigabe von Prozent mit Formel auch Hinweis 23
   if (a && g === 'kreisdiagramm' && L.themaFreigegeben(S, 'prozent-formel', L.tagKey()) && !a.hinweise.includes('formel')) a = { ...a, hinweise: [...a.hinweise, 'formel'] };
   return a;
