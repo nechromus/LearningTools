@@ -13,7 +13,7 @@ import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 
-export const LESE_VERSION = '0.10.1';
+export const LESE_VERSION = '0.10.2';
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
 const $app = document.getElementById('app');
 const tagKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -398,11 +398,15 @@ function endeTeil(q, t) {
   const weiter = A.ergebnis !== 'aufloesung' ? KL.weiterText(INH, f, t) : null;
   const noch = A.ergebnis !== 'aufloesung' ? KL.nochEine(INH, f, A.text) : null;
   const letzte = weiter == null && t.beat === KL.folgeVon(INH, t).y;
+  // Nach der letzten offenen Folge springt „weiter“ zurück an eine frühere Folge mit offenen Fragen: dann nicht „Wie geht es weiter?“
+  const zurueckInStory = !!weiter && (weiter.beat < t.beat || (weiter.beat === t.beat && (weiter.teil || 0) < (t.teil || 0)));
   const andere = KL.andere(INH, f, A.story);
   if (!weiter && !andere.length && !A.engpass) { A.engpass = true; protokoll('lese_engpass', { story: A.story }); }
   return `${kopf}${voll}${rundeFertig}
     ${noch ? `<button class="wahl" data-act="nochEine"><b>Noch eine Frage zum Text</b>Der Text bleibt stehen.</button>` : ''}
-    ${weiter ? `<button class="wahl" data-act="weiter"><b>Wie geht es weiter?</b>${letzte ? '' : esc(t.teaser || '')}</button>` : ''}
+    ${weiter ? (zurueckInStory
+      ? `<button class="wahl" data-act="weiter"><b>Neue Fragen zu ${esc((storyVon(t.story) || {}).titel || 'dieser Geschichte')}</b>Zurück zu Folge ${weiter.beat}${weiter.titel ? ': ' + esc(weiter.titel) : ''}</button>`
+      : `<button class="wahl" data-act="weiter"><b>Wie geht es weiter?</b>${letzte ? '' : esc(t.teaser || '')}</button>`) : ''}
     ${letzte && t.teaser ? `<p class="gedaempft">${esc(t.teaser)}</p>` : ''}
     ${andere.length ? `<p class="wahl-kopf"><b>Etwas anderes</b></p>${andere.map(s => `<button class="wahl" data-act="storyWahl" data-s="${esc(s.id)}"><span class="mini">${iconHtml(s.id, false)}<span><b>${esc(s.titel)}</b>${esc(s.kurz || '')}</span></span></button>`).join('')}`
       : (!weiter ? '<p>Neue Folgen kommen bald.</p>' : '')}
