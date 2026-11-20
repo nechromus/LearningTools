@@ -79,22 +79,30 @@ export function andere(inh, fs, ausser) {
 // Folge X von Y
 export const folgeVon = (inh, t) => ({ x: t.beat, y: (inh.stories.find(s => s.id === t.story) || {}).folgen || storyTexte(inh, t.story).length });
 
-// ---------- Gerüst und Fragestufe je Fragetyp (Lernpfad, Regeln 3–5) ----------
-// lvl 1–9: Fragestufe = ceil(lvl / 3), Gerüst = (lvl − 1) % 3 + 1. Neuer Typ: Stufe 1, Gerüst 1.
-// Aufstieg: 3 der letzten 4 Karten im 1. Versuch richtig und Beleg sofort → erst weniger Gerüst, dann nächste Fragestufe.
-// Abstieg: 2 Karten hintereinander mit Leiter → eine Stufe zurück.
+// ---------- Gerüst und Fragestufe je Fragetyp (Lernpfad Version 4, Regeln 4 und 5; Auftrag 62) ----------
+// Treppe mit 5 Schritten, je Schritt ändert sich nur eine Einstellung: Fragestufe und Gerüst steigen abwechselnd.
+export const TREPPE = [null, { stufe: 1, geruest: 1 }, { stufe: 2, geruest: 1 }, { stufe: 2, geruest: 2 }, { stufe: 3, geruest: 2 }, { stufe: 3, geruest: 3 }];
+// Alter Stand (lvl 1–9, bis 0.5.0) → Schritt: 1 → 1, 2–3 → 2, 4–5 → 3, 6–7 → 4, 8–9 → 5
+export const schrittAusLvl = (lvl) => Math.min(5, Math.max(1, Math.floor((lvl || 1) / 2) + 1));
+function typEintrag(fs, typ) {
+  const x = fs.typen[typ];
+  if (!x) return { schritt: 1, hist: [] };
+  const schritt = Number.isInteger(x.schritt) ? Math.min(5, Math.max(1, x.schritt)) : schrittAusLvl(x.lvl);
+  return { schritt, hist: Array.isArray(x.hist) ? x.hist : [] };
+}
+// Aufstieg: 3 der letzten 4 Karten gut (1. Versuch richtig und Beleg sofort; bei Gerüst 1 nur der 1. Versuch).
+// Abstieg: 2 Karten hintereinander mit Leiter. Nach jedem Wechsel wird der Verlauf geleert.
 export function typStand(fs, typ) {
-  const x = fs.typen[typ] || { lvl: 1, hist: [] };
-  const lvl = Math.min(9, Math.max(1, x.lvl || 1));
-  return { lvl, stufe: Math.ceil(lvl / 3), geruest: (lvl - 1) % 3 + 1, neu: !fs.typen[typ] };
+  const x = typEintrag(fs, typ);
+  return { schritt: x.schritt, ...TREPPE[x.schritt], neu: !fs.typen[typ] };
 }
 export function typNachKarte(fs, typ, { erstUndBeleg, leiter }) {
-  const x = fs.typen[typ] || { lvl: 1, hist: [] };
-  const hist = [...(x.hist || []), { gut: !!erstUndBeleg, leiter: !!leiter }].slice(-4);
-  let lvl = x.lvl || 1, wechsel = 0;
-  if (hist.length >= 3 && hist.filter(h => h.gut).length >= 3 && lvl < 9) { lvl++; wechsel = 1; }
-  else if (hist.length >= 2 && hist[hist.length - 1].leiter && hist[hist.length - 2].leiter && lvl > 1) { lvl--; wechsel = -1; }
-  fs.typen[typ] = { lvl, hist: wechsel ? [] : hist };
+  const x = typEintrag(fs, typ);
+  const hist = [...x.hist, { gut: !!erstUndBeleg, leiter: !!leiter }].slice(-4);
+  let schritt = x.schritt, wechsel = 0;
+  if (hist.length >= 3 && hist.filter(h => h.gut).length >= 3 && schritt < 5) { schritt++; wechsel = 1; }
+  else if (hist.length >= 2 && hist[hist.length - 1].leiter && hist[hist.length - 2].leiter && schritt > 1) { schritt--; wechsel = -1; }
+  fs.typen[typ] = { schritt, hist: wechsel ? [] : hist };
   return wechsel;
 }
 // Fragestufe der Frage: gewünschte Stufe, sonst die höchste vorhandene darunter (60a). ersatz = true, wenn sie fehlte.

@@ -13,7 +13,7 @@ import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 
-export const LESE_VERSION = '0.5.0';
+export const LESE_VERSION = '0.6.0';
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
 const $app = document.getElementById('app');
 const tagKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -253,7 +253,7 @@ function karteStarten(story, wahl) {
   A = { nr: f.karte, platz: f.runde.karten, story, text: t.id, frage: q.id, typ: q.typ, stufe: st.stufe, geruest: ts.geruest, phase: 'frage', versuch: 1, schonR: [], schonF: [],
     start: Date.now(), belegHinweis: false, leiter: false, nachgeschlagen: [], antwortGegeben: false, zfNr: 0 };
   neuZiehen(st.stufe);
-  protokoll('lese_karte_start', { karte: A.nr, text: t.id, frage: q.id, kv: q.kv, fragetyp: q.typ, stufe: st.stufe, ...(st.ersatz ? { stufe_ersatz: ts.stufe } : {}), textstufe: t.textstufe, geruest: ts.geruest, story, beat: t.beat, platz: A.platz, neu_typ: ts.neu, wieder: !!wieder, ...(wieder ? { nach_karten: f.karte - wieder.karte } : {}), wahl });
+  protokoll('lese_karte_start', { karte: A.nr, text: t.id, frage: q.id, kv: q.kv, fragetyp: q.typ, stufe: st.stufe, ...(st.ersatz ? { stufe_ersatz: ts.stufe } : {}), textstufe: t.textstufe, geruest: ts.geruest, typ_schritt: ts.schritt, story, beat: t.beat, platz: A.platz, neu_typ: ts.neu, wieder: !!wieder, ...(wieder ? { nach_karten: f.karte - wieder.karte } : {}), wahl });
   if (wieder) protokoll('lese_wiederkehr', { frage: q.id, nach_karten: f.karte - wieder.karte, nach_min: Math.round((Date.now() - new Date(wieder.t)) / 60000) });
   sichern();
   zeigeKarte(true);
@@ -267,10 +267,11 @@ const satzHtml = (t, i, mark) => t.saetze[i].map((s, j) => {
   let h = esc(s);
   return mark && mark.includes(j) ? `<mark>${h}</mark>` : h;
 }).join(' ');
-function glossiert(html, glossar) {
+// Beim Beleg-Schritt öffnen die Wörter kein Fenster: der Tipp zählt für den Absatz (Auftrag 62, Punkt 2)
+function glossiert(html, glossar, tippbar = true) {
   for (const w of Object.keys(glossar || {})) {
     const e = esc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    html = html.replace(new RegExp(`(^|[^\\wäöüÄÖÜß])(${e})(?=[^\\wäöüÄÖÜß]|$)`), `$1<button class="gl" data-act="gl" data-w="${esc(w)}">$2</button>`);
+    html = html.replace(new RegExp(`(^|[^\\wäöüÄÖÜß])(${e})(?=[^\\wäöüÄÖÜß]|$)`), tippbar ? `$1<button class="gl" data-act="gl" data-w="${esc(w)}">$2</button>` : '$1<span class="gl">$2</span>');
   }
   return html;
 }
@@ -284,7 +285,7 @@ function zeigeKarte(nachOben = false) {
   const tippbar = A.phase === 'beleg' || A.phase === 'belegHinweis' || A.phase === 'belegMarkiert';
   const absaetze = t.absaetze.map((_, i) => {
     const cls = ['abs', i === b && um ? 'um' : '', i === b && (A.phase === 'stopp' || A.geruest === 1) ? 'mark' : '', tippbar ? 'tippbar' : '', A.phase === 'belegMarkiert' && i !== b ? 'aus' : ''].filter(Boolean).join(' ');
-    const inner = glossiert(satzHtml(t, i, i === b ? satzMark : null), t.glossar);
+    const inner = glossiert(satzHtml(t, i, i === b ? satzMark : null), t.glossar, !tippbar);
     return tippbar ? `<div class="${cls}" data-act="absatz" data-i="${i}" role="button" tabindex="0"><span class="nr">Absatz ${i + 1}</span>${inner}</div>` : `<p class="${cls}"><span class="nr">Absatz ${i + 1}</span>${inner}</p>`;
   }).join('');
   const sk = styleVon(t.story), st = STYLES[sk] || { kasten: 'Fakten', orn: '' };
@@ -322,7 +323,7 @@ function frageTeil(q, t) {
     case 'hinweis':
       return `${frage}<div class="blatt nn" data-ziel><div class="t nn">Noch nicht.</div><p>${esc(A.hinweis)}</p><button class="weiter" data-act="verstanden">Verstanden</button></div>`;
     case 'stopp':
-      return `${frage}<div class="blatt nn" data-ziel><div class="t nn">Noch nicht.</div><p>${esc(A.hinweis)}</p><p><b>Lies Absatz ${b} noch einmal.</b></p><div class="ruhe"><i id="stopp-balken"></i></div><button class="weiter" data-act="verstanden" id="stopp-weiter" disabled>Weiter</button></div>`;
+      return `${frage}<div class="blatt nn" data-ziel><div class="t nn">Noch nicht.</div><p>${esc(A.hinweis)}</p>${/\bLies\b/.test(A.hinweis) ? '' : `<p><b>Lies Absatz ${b} noch einmal.</b></p>`}<div class="ruhe"><i id="stopp-balken"></i></div><button class="weiter" data-act="verstanden" id="stopp-weiter" disabled>Weiter</button></div>`;
     case 'leiter1': case 'leiter2': {
       const zf = q.zf[A.zfNr];
       const opts = KL.mischen([{ id: 'ja', t: zf.richtig }, { id: 'nein', t: zf.falsch }]);
@@ -436,7 +437,7 @@ function karteFertig() {
   else { f.zurueck[q.id] = { karte: A.nr, t: new Date().toISOString() }; protokoll('lese_zurueckgelegt', { karte: A.nr, frage: q.id }); }
   const erstUndBeleg = A.ergebnis === 'voll' && !A.belegHinweis;
   const wechsel = KL.typNachKarte(f, q.typ, { erstUndBeleg, leiter: A.leiter });
-  protokoll('lese_karte_ende', { karte: A.nr, frage: q.id, ergebnis: A.ergebnis, beleg_erst: A.geruest === 1 ? null : !A.belegHinweis, lohn: g.plus, lohn_roh: roh, sekunden: Math.round(ms / 1000), nachgeschlagen: A.nachgeschlagen.length, ...(wechsel ? { typ_stufe: wechsel } : {}) });
+  protokoll('lese_karte_ende', { karte: A.nr, frage: q.id, ergebnis: A.ergebnis, beleg_erst: A.geruest === 1 ? null : !A.belegHinweis, lohn: g.plus, lohn_roh: roh, sekunden: Math.round(ms / 1000), nachgeschlagen: A.nachgeschlagen.length, ...(wechsel ? { typ_stufe: wechsel } : {}), typ_schritt: KL.typStand(f, q.typ).schritt });
   if (f.runde && f.runde.karten >= KL.RUNDE) protokoll('lese_runde', { aktion: 'ende', nr: f.runde.nr, karten: f.runde.karten });
   A.phase = 'fertig';
   sichern();
