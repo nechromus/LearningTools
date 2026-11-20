@@ -50,14 +50,14 @@ export function inhaltPruefen(roh) {
     if (!Array.isArray(q.belegSatz) || q.belegSatz.some(s => !(s >= 0 && s < t.saetze[b].length))) { f('belegSatz'); continue; }
     fragen[id] = q;
   }
-  return { stories: stories.filter(s => Object.values(texte).some(t => t.story === s.id)), texte, fragen, fehler };
+  return { stories: stories.filter(s => Object.values(texte).some(t => t.story === s.id)), storyListe: stories, texte, fragen, fehler };
 }
 
 // ---------- Fortschritt ----------
 // fs = { erledigt: { frageId: true }, zurueck: { frageId: { karte, t } }, karte (laufende Nummer), typen: { typ: { lvl, hist } } }
 export function fortschrittVon(x) {
   const f = x && typeof x === 'object' ? x : {};
-  return { erledigt: f.erledigt || {}, zurueck: f.zurueck || {}, karte: f.karte || 0, typen: f.typen || {}, nachschlagTipp: !!f.nachschlagTipp, letzteStory: f.letzteStory || null, runde: f.runde || null, gelesen: f.gelesen || {}, gefragt: f.gefragt || {}, heute: f.heute || null, frei: null };
+  return { erledigt: f.erledigt || {}, zurueck: f.zurueck || {}, karte: f.karte || 0, typen: f.typen || {}, nachschlagTipp: !!f.nachschlagTipp, letzteStory: f.letzteStory || null, runde: f.runde || null, gelesen: f.gelesen || {}, gefragt: f.gefragt || {}, heute: f.heute || null, frei: null, fertig: f.fertig || {}, freiSeit: f.freiSeit || {}, morgen: f.morgen || {} };
 }
 const textFragen = (inh, textId) => Object.values(inh.fragen).filter(q => q.text === textId).sort((a, b) => a.id < b.id ? -1 : 1);
 const storyTexte = (inh, story) => Object.values(inh.texte).filter(t => t.story === story).sort((a, b) => a.beat - b.beat || a.teil - b.teil);
@@ -218,3 +218,38 @@ export function abschlussFrage(inh, fs, t) {
 export function folgenGelesen(inh, fs, story) {
   return new Set(Object.values(inh.texte).filter(t => t.story === story && fs.gelesen[t.id]).map(t => t.beat)).size;
 }
+
+// ---------- Eine neue Geschichte pro Tag (Auftrag 67) ----------
+// storylines[].ab (Tag, frühestens frei) und .nach (story-id): frei, wenn die Vorgänger-Geschichte an einem früheren Tag
+// fertig wurde (fs.fertig[nach] = Tag, an dem die letzte Folge mit voll, hinweis oder leiter beendet wurde). Beides: das Spätere.
+export const plusTag = (tag, n) => { const d = new Date(tag + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+// Tag, ab dem die Geschichte frei ist; null = Vorgänger noch nicht fertig
+export function freiAm(s, fs) {
+  let tag = s && s.ab ? s.ab : null;
+  if (s && s.nach) {
+    const f = fs.fertig && fs.fertig[s.nach];
+    if (!f) return null;
+    const t2 = plusTag(f, 1);
+    if (!tag || t2 > tag) tag = t2;
+  }
+  return tag || '0000-00-00';
+}
+export const storyFrei = (s, fs, tag) => { const a = freiAm(s, fs); return a != null && a <= tag; };
+export const mitTakt = (s) => !!(s && (s.ab || s.nach));
+// Inhalt ohne gesperrte Geschichten: deren Texte und Fragen kommen nicht in Runden, Folgefragen oder den Engpass
+export function inhaltFrei(inh, fs, tag) {
+  const frei = inh.stories.filter(s => storyFrei(s, fs, tag));
+  if (frei.length === inh.stories.length) return inh;
+  const ids = new Set(frei.map(s => s.id));
+  const texte = {}, fragen = {};
+  for (const [id, t] of Object.entries(inh.texte)) if (ids.has(t.story)) texte[id] = t;
+  for (const [id, q] of Object.entries(inh.fragen)) if (texte[q.text]) fragen[id] = q;
+  return { ...inh, stories: frei, texte, fragen };
+}
+// Gesperrte Geschichten, deren Vorgänger schon fertig ist: [{ story, am }]. Ohne fertigen Vorgänger zeigt die App sie nicht.
+export function demnaechst(inh, fs, tag) {
+  return (inh.storyListe || inh.stories).filter(s => s.nach && fs.fertig[s.nach] && !storyFrei(s, fs, tag))
+    .map(s => ({ story: s, am: freiAm(s, fs) }));
+}
+// Die letzte Folge zählt als fertig bei voll, hinweis oder leiter
+export const FERTIG_ERGEBNIS = ['voll', 'hinweis', 'leiter'];

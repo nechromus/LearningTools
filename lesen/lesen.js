@@ -13,7 +13,7 @@ import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 
-export const LESE_VERSION = '0.10.2';
+export const LESE_VERSION = '0.11.0';
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
 const $app = document.getElementById('app');
 const tagKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -124,12 +124,23 @@ const minTxt = (sek) => BS.minText(sek);
 function startKnoepfe() {
   if (!INH || !INH.stories.length) return `<button class="btn btn-haupt btn-gross lese-knopf" disabled>Weiterlesen<span class="unter">${inhaltLaedt ? 'Die Geschichten werden geladen …' : inhaltFehler === 'offline' ? 'Zum ersten Laden braucht die App Internet.' : 'Die ersten Geschichten kommen bald.'}</span></button>`;
   const f = fs();
-  const story = f.letzteStory && KL.naechsterText(INH, f, f.letzteStory) ? f.letzteStory : (INH.stories.find(s => KL.naechsterText(INH, f, s.id)) || {}).id;
+  const story = standardStory(f);
   if (!story && engpass.gesperrt) return `<button class="btn btn-haupt btn-gross lese-knopf" data-act="nochmalVersuchen">Noch einmal versuchen<span class="unter">Die Karte von eben kommt noch einmal.</span></button>`;
-  if (!story) return '<section class="info-karte"><b>Alle Geschichten sind gelesen.</b><div class="gedaempft">Neue Folgen kommen bald.</div></section>';
+  if (!story) {
+    const bald = KL.demnaechst(INH_ALLE, f, heute().tag);
+    bald.forEach(x => morgenMelden(x.story.id, 'start'));
+    return `<section class="info-karte"><b>Alle Geschichten sind gelesen.</b><div class="gedaempft">Neue Folgen kommen bald.</div></section>
+      <div class="les start-geschichten">${bald.map(x => `<div class="wahl story-bald" aria-disabled="true"><span class="mini">${iconHtml(x.story.id, false)}<span><b>${esc(x.story.titel)}</b><span class="marke-bald">${esc(amText(x.am))}</span>${esc(x.story.kurz || '')}</span></span></div>`).join('')}</div>`;
+  }
   const t = KL.naechsterText(INH, f, story), fo = KL.folgeVon(INH, t), s = storyVon(story);
-  return `<button class="btn btn-haupt btn-gross lese-knopf" data-act="lesen">Weiterlesen<span class="unter">${esc(s.titel)} · Folge ${fo.x} · ${esc(t.titel)}</span></button>
-    <button class="btn btn-gross" data-act="anderes">Etwas anderes lesen</button>`;
+  // Auftrag 67: neu freie Geschichten mit Marke „Neu“, angekündigte als ausgegraute Karte
+  const neue = INH.stories.filter(x => x.id !== story && istNeu(x.id) && KL.naechsterText(INH, f, x.id));
+  const bald = KL.demnaechst(INH_ALLE, f, heute().tag);
+  bald.forEach(x => morgenMelden(x.story.id, 'start'));
+  return `<button class="btn btn-haupt btn-gross lese-knopf" data-act="lesen">Weiterlesen<span class="unter">${istNeu(story) ? 'Neu · ' : ''}${esc(s.titel)} · Folge ${fo.x} · ${esc(t.titel)}</span></button>
+    <button class="btn btn-gross" data-act="anderes">Etwas anderes lesen</button>
+    <div class="les start-geschichten">${neue.map(x => `<button class="wahl" data-act="storyWahl" data-s="${esc(x.id)}"><span class="mini">${iconHtml(x.id, false)}<span><b>${esc(x.titel)}</b><span class="marke-neu">Neu</span>${esc(x.kurz || '')}</span></span></button>`).join('')}
+    ${bald.map(x => `<div class="wahl story-bald" aria-disabled="true"><span class="mini">${iconHtml(x.story.id, false)}<span><b>${esc(x.story.titel)}</b><span class="marke-bald">${esc(amText(x.am))}</span>${esc(x.story.kurz || '')}</span></span></div>`).join('')}</div>`;
 }
 function zeigeStart(syncJetzt = true) {
   bodyStyle(null);
@@ -168,17 +179,21 @@ function zeigeStart(syncJetzt = true) {
     </section>
     <p class="gedaempft bz-mitte klein">Version ${LESE_VERSION}${S.upload.fehler ? ' · Übertragung klappt gerade nicht' : ''}</p>
   </div>`;
+  bilderEinsetzen();
 }
 
 // ---------- Lesekarten (Auftrag 57, Schritt 3) ----------
 // Inhalt aus daten/<name>/lesen/inhalt/ (nur lesen). Zwischengespeichert auf dem Gerät, neu geladen, wenn sich index.json ändert.
 const INHALT_KEY = 'archiv-v1-inhalt';
-let INH = null, inhaltFehler = null, inhaltLaedt = null;
+// INH_ALLE: alle geprüften Inhalte; INH: nur freie Geschichten (Auftrag 67, eine neue Geschichte pro Tag)
+let INH = null, INH_ALLE = null, inhaltFehler = null, inhaltLaedt = null;
 const inhaltPfad = (p) => `daten/${ordner()}/lesen/inhalt/${p}`;
 function inhaltCache() { try { return JSON.parse(localStorage.getItem(INHALT_KEY) || 'null'); } catch (e) { return null; } }
 function inhaltAnwenden(roh) {
-  INH = KL.inhaltPruefen(roh);
-  if (INH.fehler.length && roh.index && S.inhaltGemeldet !== roh.index.stand) { protokoll('lese_karte_fehler', { fehler: INH.fehler.slice(0, 30), stand: roh.index.stand }); S.inhaltGemeldet = roh.index.stand; }
+  INH_ALLE = KL.inhaltPruefen(roh);
+  INH = INH_ALLE;
+  freiAktualisieren();
+  if (INH_ALLE.fehler.length && roh.index && S.inhaltGemeldet !== roh.index.stand) { protokoll('lese_karte_fehler', { fehler: INH_ALLE.fehler.slice(0, 30), stand: roh.index.stand }); S.inhaltGemeldet = roh.index.stand; }
 }
 async function inhaltLaden() {
   if (!bereit()) return;
@@ -224,7 +239,31 @@ function bilderEinsetzen() {
 }
 // Zuletzt gespielte Karte in dieser Sitzung (Auftrag 65: eine zurückgelegte Karte kommt nicht direkt nach sich selbst)
 let letzteKarte = null, engpass = { frei: null, gesperrt: null };
-const fs = () => { S.lese = KL.fortschrittVon(S.lese); if (INH) engpass = KL.engpassPruefen(INH, S.lese, letzteKarte); return S.lese; };
+const fs = () => { S.lese = KL.fortschrittVon(S.lese); if (INH_ALLE) freiAktualisieren(); if (INH) engpass = KL.engpassPruefen(INH, S.lese, letzteKarte); return S.lese; };
+// Auftrag 67: gesperrte Geschichten herausnehmen; eine Geschichte mit ab/nach, die zum ersten Mal frei ist, melden
+function freiAktualisieren() {
+  const f = S.lese = KL.fortschrittVon(S.lese), tag = heute().tag;
+  INH = KL.inhaltFrei(INH_ALLE, f, tag);
+  for (const st of INH.stories) if (KL.mitTakt(st) && !f.freiSeit[st.id]) {
+    f.freiSeit[st.id] = tag;
+    protokoll('lese_story_frei', { story: st.id, nach: st.nach || null, seit: st.nach ? f.fertig[st.nach] || null : null, ...(st.ab ? { ab: st.ab } : {}) });
+  }
+}
+// Weiterlesen: die zuletzt gelesene Geschichte; ist sie fertig, zuerst eine heute neu freie (Auftrag 67), sonst die erste offene
+function standardStory(f) {
+  if (f.letzteStory && KL.naechsterText(INH, f, f.letzteStory)) return f.letzteStory;
+  const offen = INH.stories.filter(s => KL.naechsterText(INH, f, s.id));
+  return ((offen.find(s => istNeu(s.id)) || offen[0]) || {}).id;
+}
+// Am Tag der Freigabe „Neu“, bis die erste Karte der Geschichte gelesen ist
+const istNeu = (id) => { const f = S.lese || {}; return !!(f.freiSeit && f.freiSeit[id] === heute().tag) && !Object.keys(f.gelesen || {}).some(tid => INH_ALLE && INH_ALLE.texte[tid] && INH_ALLE.texte[tid].story === id); };
+const neuMarke = (id) => istNeu(id) ? '<span class="marke-neu">Neu</span>' : '';
+function morgenMelden(story, anlass) {
+  const f = S.lese, tag = heute().tag, m = f.morgen[story] || (f.morgen[story] = {});
+  if (m[anlass] === tag) return;
+  m[anlass] = tag; protokoll('lese_story_morgen', { story, anlass });
+}
+const amText = (am) => am === KL.plusTag(heute().tag, 1) ? 'Morgen neu' : `Neu ab ${Number(am.slice(8, 10))}.${Number(am.slice(5, 7))}.`;
 // Styles (Auftrag 58): Name des Faktenkastens, Trennornament und Hintergrund für den ganzen Bildschirm
 const STYLES = {
   raumfahrt: { kasten: 'Telemetrie', orn: '— · —', bg: '#0E1726' }, fantasy: { kasten: 'Aus der Chronik', orn: '✦ ✦ ✦', bg: '#F3E7CC' },
@@ -238,7 +277,7 @@ function bodyStyle(k) {
   if (st) { b.dataset.style = k; b.style.setProperty('--sbg', st.bg); } else { delete b.dataset.style; b.style.removeProperty('--sbg'); }
   const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = st ? st.bg : '#F4F1E8';
 }
-const storyVon = (id) => INH && INH.stories.find(s => s.id === id);
+const storyVon = (id) => (INH && INH.stories.find(s => s.id === id)) || (INH_ALLE && (INH_ALLE.storyListe || INH_ALLE.stories).find(s => s.id === id));
 const iconHtml = (story, gross) => { const s = storyVon(story); return s && s.icon ? `<img class="${gross ? 'icon-gross' : 'icon-klein'}" data-datei="${esc(s.icon)}" alt="">` : ''; };
 
 // Laufende Karte
@@ -401,14 +440,19 @@ function endeTeil(q, t) {
   // Nach der letzten offenen Folge springt „weiter“ zurück an eine frühere Folge mit offenen Fragen: dann nicht „Wie geht es weiter?“
   const zurueckInStory = !!weiter && (weiter.beat < t.beat || (weiter.beat === t.beat && (weiter.teil || 0) < (t.teil || 0)));
   const andere = KL.andere(INH, f, A.story);
+  // Auftrag 67: nach der letzten Folge die nächste Geschichte ankündigen (nur wenn sie noch gesperrt ist)
+  const morgen = t.beat === KL.folgeVon(INH, t).y ? KL.demnaechst(INH_ALLE, f, heute().tag).find(x => x.story.nach === t.story) : null;
+  if (morgen) morgenMelden(morgen.story.id, 'ende');
   if (!weiter && !andere.length && !A.engpass) { A.engpass = true; protokoll('lese_engpass', { story: A.story }); }
   return `${kopf}${voll}${rundeFertig}
     ${noch ? `<button class="wahl" data-act="nochEine"><b>Noch eine Frage zum Text</b>Der Text bleibt stehen.</button>` : ''}
     ${weiter ? (zurueckInStory
       ? `<button class="wahl" data-act="weiter"><b>Neue Fragen zu ${esc((storyVon(t.story) || {}).titel || 'dieser Geschichte')}</b>Zurück zu Folge ${weiter.beat}${weiter.titel ? ': ' + esc(weiter.titel) : ''}</button>`
       : `<button class="wahl" data-act="weiter"><b>Wie geht es weiter?</b>${letzte ? '' : esc(t.teaser || '')}</button>`) : ''}
-    ${letzte && t.teaser ? `<p class="gedaempft">${esc(t.teaser)}</p>` : ''}
-    ${andere.length ? `<p class="wahl-kopf"><b>Etwas anderes</b></p>${andere.map(s => `<button class="wahl" data-act="storyWahl" data-s="${esc(s.id)}"><span class="mini">${iconHtml(s.id, false)}<span><b>${esc(s.titel)}</b>${esc(s.kurz || '')}</span></span></button>`).join('')}`
+    ${morgen ? `<section class="morgen-kasten"><div class="morgen-kopf">${esc(amText(morgen.am))}: <b>${esc(morgen.story.titel)}</b></div>
+      <div class="mini">${iconHtml(morgen.story.id, false)}<span>${esc(morgen.story.kurz || '')}</span></div>${t.teaser ? `<p class="morgen-teaser">${esc(t.teaser)}</p>` : ''}</section>`
+      : letzte && t.teaser ? `<p class="gedaempft">${esc(t.teaser)}</p>` : ''}
+    ${andere.length ? `<p class="wahl-kopf"><b>${morgen ? 'Bis dahin: andere Geschichten' : 'Etwas anderes'}</b></p>${andere.map(s => `<button class="wahl" data-act="storyWahl" data-s="${esc(s.id)}"><span class="mini">${iconHtml(s.id, false)}<span><b>${esc(s.titel)}</b>${neuMarke(s.id)}${esc(s.kurz || '')}</span></span></button>`).join('')}`
       : (!weiter ? '<p>Neue Folgen kommen bald.</p>' : '')}
     <button class="btn" data-act="start">Zum Start</button>`;
 }
@@ -481,6 +525,8 @@ function karteFertig() {
   const g = k ? LL.verdienen(k, heute(), roh, R(), { ms }) : { plus: 0, voll: false };
   A.lohnPlus = g.plus; A.vollJetzt = g.voll && vorher < LL.grenzeSek(R(), heute().tag);
   f.gelesen[A.text] = true;
+  // Auftrag 67: Geschichte fertig, wenn die letzte Folge mit voll, hinweis oder leiter endet (Tag merken)
+  { const tt = INH.texte[A.text]; if (KL.FERTIG_ERGEBNIS.includes(A.ergebnis) && tt.beat === KL.folgeVon(INH, tt).y && !f.fertig[tt.story]) f.fertig[tt.story] = heute().tag; }
   A.fb = KL.abschlussFrage(INH, f, INH.texte[A.text]);
   if (A.fb) { A.fbSeit = Date.now(); protokoll('lese_story_feedback_gezeigt', { story: A.story, text: A.text }); }
   if (A.ergebnis === 'voll' || A.ergebnis === 'hinweis') { f.erledigt[q.id] = true; delete f.zurueck[q.id]; }
@@ -506,13 +552,13 @@ function zeigeWahl() {
   $app.innerHTML = `<div class="screen les">
     <div class="top"><button class="ctl-t" data-act="start">‹ Start</button></div>
     <h2 class="les-titel">Was willst du lesen?</h2>
-    ${liste.map(s => { const t = KL.naechsterText(INH, f, s.id), fo = KL.folgeVon(INH, t); return `<button class="wahl" data-act="storyWahl" data-s="${esc(s.id)}"><span class="mini">${iconHtml(s.id, false)}<span><b>${esc(s.titel)}</b>${esc(s.kurz || '')}<span class="gedaempft block">Folge ${fo.x} von ${fo.y}</span></span></span></button>`; }).join('') || '<p>Gerade sind alle Geschichten gelesen. Neue Folgen kommen bald.</p>'}
+    ${liste.map(s => { const t = KL.naechsterText(INH, f, s.id), fo = KL.folgeVon(INH, t); return `<button class="wahl" data-act="storyWahl" data-s="${esc(s.id)}"><span class="mini">${iconHtml(s.id, false)}<span><b>${esc(s.titel)}</b>${neuMarke(s.id)}${esc(s.kurz || '')}<span class="gedaempft block">Folge ${fo.x} von ${fo.y}</span></span></span></button>`; }).join('') || '<p>Gerade sind alle Geschichten gelesen. Neue Folgen kommen bald.</p>'}
   </div>`;
   bilderEinsetzen();
 }
 function lesenWeiter() {
   const f = fs();
-  const story = f.letzteStory && KL.naechsterText(INH, f, f.letzteStory) ? f.letzteStory : (INH.stories.find(s => KL.naechsterText(INH, f, s.id)) || {}).id;
+  const story = standardStory(f);
   if (!story) return zeigeWahl();
   karteStarten(story, 'start');
 }

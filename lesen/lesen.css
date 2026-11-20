@@ -147,3 +147,14 @@ body.archiv[data-style] { background: var(--sbg, #F4F1E8); }
 .archiv .les .fb .fr { margin-top: 6px; }
 .archiv .les .fb .weissnicht { display: block; margin: 4px auto 0; background: none; border: none; font: 600 16px 'Atkinson Hyperlegible', system-ui, sans-serif; color: var(--s-fg); text-decoration: underline; padding: 8px 12px; }
 .archiv .les .frage-nr { font-size: 14px; font-weight: 600; color: var(--s-muted); margin: 18px 0 -10px; }
+/* Auftrag 67: neue Geschichte pro Tag */
+.marke-neu, .marke-bald { display: inline-block; margin: 0 0 2px 8px; padding: 1px 8px; border-radius: 10px; font-size: 12.5px; font-weight: 700; vertical-align: 2px; }
+.marke-neu { background: #33408F; color: #fff; }
+.marke-bald { background: #E5E2D8; color: #5B5E66; }
+.story-bald { opacity: .62; filter: grayscale(.6); cursor: default; }
+.morgen-kasten { background: #fff; color: #1E2430; border: 2px solid #33408F; border-radius: 14px; padding: 14px 16px; margin: 14px 0 6px; }
+.morgen-kopf { font-size: 18px; margin-bottom: 8px; }
+.morgen-teaser { margin: 10px 0 0; color: #4A5060; font-style: italic; }
+.archiv .les.start-geschichten { min-height: 0; padding-bottom: 0; background: none; margin-top: 4px; }
+.archiv .les.start-geschichten:empty { display: none; }
+.archiv .les .wahl .marke-neu, .archiv .les .wahl .marke-bald { margin: 3px 8px 3px 0; }
