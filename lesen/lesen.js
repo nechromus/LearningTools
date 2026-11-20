@@ -13,7 +13,7 @@ import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 
-export const LESE_VERSION = '0.8.0';
+export const LESE_VERSION = '0.8.1';
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
 const $app = document.getElementById('app');
 const tagKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -125,6 +125,7 @@ function startKnoepfe() {
   if (!INH || !INH.stories.length) return `<button class="btn btn-haupt btn-gross lese-knopf" disabled>Weiterlesen<span class="unter">${inhaltLaedt ? 'Die Geschichten werden geladen …' : inhaltFehler === 'offline' ? 'Zum ersten Laden braucht die App Internet.' : 'Die ersten Geschichten kommen bald.'}</span></button>`;
   const f = fs();
   const story = f.letzteStory && KL.naechsterText(INH, f, f.letzteStory) ? f.letzteStory : (INH.stories.find(s => KL.naechsterText(INH, f, s.id)) || {}).id;
+  if (!story && engpass.gesperrt) return `<button class="btn btn-haupt btn-gross lese-knopf" data-act="nochmalVersuchen">Noch einmal versuchen<span class="unter">Die Karte von eben kommt noch einmal.</span></button>`;
   if (!story) return '<section class="info-karte"><b>Alle Geschichten sind gelesen.</b><div class="gedaempft">Neue Folgen kommen bald.</div></section>';
   const t = KL.naechsterText(INH, f, story), fo = KL.folgeVon(INH, t), s = storyVon(story);
   return `<button class="btn btn-haupt btn-gross lese-knopf" data-act="lesen">Weiterlesen<span class="unter">${esc(s.titel)} · Folge ${fo.x} · ${esc(t.titel)}</span></button>
@@ -221,7 +222,9 @@ function bildUrl(datei) {
 function bilderEinsetzen() {
   document.querySelectorAll('img[data-datei]').forEach(img => bildUrl(img.dataset.datei).then(u => { if (u) img.src = u; else img.replaceWith(Object.assign(document.createElement('span'), { className: 'bild-fehlt', textContent: img.alt || '' })); }));
 }
-const fs = () => (S.lese = KL.fortschrittVon(S.lese));
+// Zuletzt gespielte Karte in dieser Sitzung (Auftrag 65: eine zurückgelegte Karte kommt nicht direkt nach sich selbst)
+let letzteKarte = null, engpass = { frei: null, gesperrt: null };
+const fs = () => { S.lese = KL.fortschrittVon(S.lese); if (INH) engpass = KL.engpassPruefen(INH, S.lese, letzteKarte); return S.lese; };
 // Styles (Auftrag 58): Name des Faktenkastens, Trennornament und Hintergrund für den ganzen Bildschirm
 const STYLES = {
   raumfahrt: { kasten: 'Telemetrie', orn: '— · —', bg: '#0E1726' }, fantasy: { kasten: 'Aus der Chronik', orn: '✦ ✦ ✦', bg: '#F3E7CC' },
@@ -262,7 +265,7 @@ function karteStarten(story, wahl, textId = null) {
   neuZiehen(pl.stufe);
   protokoll('lese_karte_start', { karte: A.nr, text: t.id, frage: q.id, kv: q.kv, fragetyp: q.typ, stufe: pl.stufe, ...(pl.ersatz ? { stufe_ersatz: pl.gewuenscht } : {}), textstufe: t.textstufe, geruest: pl.geruest, typ_schritt: pl.schritt, story, beat: t.beat, platz: A.platz, neu_typ: pl.neu,
     ...(pl.sicher ? { sicher: true } : {}), ...(pl.eingewoehnung ? { eingewoehnung: true } : {}), ...(pl.neuZweiter ? { neu_typ_zweiter: true } : {}), frage_im_text: imText, ...(vorher ? { text_gelesen_vorher: true } : {}), wieder: !!wieder, ...(wieder ? { nach_karten: f.karte - wieder.karte } : {}), wahl });
-  if (wieder) protokoll('lese_wiederkehr', { frage: q.id, nach_karten: f.karte - wieder.karte, nach_min: Math.round((Date.now() - new Date(wieder.t)) / 60000) });
+  if (wieder) protokoll('lese_wiederkehr', { frage: q.id, nach_karten: f.karte - wieder.karte, nach_min: Math.round((Date.now() - new Date(wieder.t)) / 60000), ...(f.frei === q.id ? { engpass: true } : {}) });
   sichern();
   zeigeKarte(true);
 }
@@ -433,6 +436,7 @@ function belegAntwort(i) {
   zeigeKarte();
 }
 function karteFertig() {
+  letzteKarte = A.nr;
   const f = fs(), q = INH.fragen[A.frage];
   const ms = Math.min(Date.now() - A.start, KL.KARTE_MAX_MS);
   const k = kasse();
@@ -680,6 +684,7 @@ document.addEventListener('click', async (ev) => {
   switch (el.dataset.act) {
     case 'start': clearInterval(stoppTimer); zeigeStart(); break;
     case 'lesen': if (INH) lesenWeiter(); break;
+    case 'nochmalVersuchen': if (INH) { letzteKarte = null; lesenWeiter(); } break;
     case 'anderes': if (INH) zeigeWahl(); break;
     case 'storyWahl': if (ansicht === 'karte' && A) protokoll('lese_wahl', { art: 'anders', story: el.dataset.s }); karteStarten(el.dataset.s, ansicht === 'karte' ? 'anders' : 'start'); break;
     case 'weiter': { const w = KL.weiterText(INH, fs(), INH.texte[A.text]); protokoll('lese_wahl', { art: 'weiter', story: A.story }); karteStarten(A.story, 'weiter', w ? w.id : null); break; }

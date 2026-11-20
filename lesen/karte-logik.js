@@ -57,13 +57,27 @@ export function inhaltPruefen(roh) {
 // fs = { erledigt: { frageId: true }, zurueck: { frageId: { karte, t } }, karte (laufende Nummer), typen: { typ: { lvl, hist } } }
 export function fortschrittVon(x) {
   const f = x && typeof x === 'object' ? x : {};
-  return { erledigt: f.erledigt || {}, zurueck: f.zurueck || {}, karte: f.karte || 0, typen: f.typen || {}, nachschlagTipp: !!f.nachschlagTipp, letzteStory: f.letzteStory || null, runde: f.runde || null, gelesen: f.gelesen || {}, gefragt: f.gefragt || {}, heute: f.heute || null };
+  return { erledigt: f.erledigt || {}, zurueck: f.zurueck || {}, karte: f.karte || 0, typen: f.typen || {}, nachschlagTipp: !!f.nachschlagTipp, letzteStory: f.letzteStory || null, runde: f.runde || null, gelesen: f.gelesen || {}, gefragt: f.gefragt || {}, heute: f.heute || null, frei: null };
 }
 const textFragen = (inh, textId) => Object.values(inh.fragen).filter(q => q.text === textId).sort((a, b) => a.id < b.id ? -1 : 1);
 const storyTexte = (inh, story) => Object.values(inh.texte).filter(t => t.story === story).sort((a, b) => a.beat - b.beat || a.teil - b.teil);
 // Eine zurückgelegte Karte (Leiter oder Auflösung) bleibt offen, kommt aber erst nach WIEDER_NACH anderen Karten wieder.
 export const WIEDER_NACH = 3;
-const spielbar = (fs, q) => !fs.erledigt[q.id] && !(fs.zurueck[q.id] && fs.karte - fs.zurueck[q.id].karte < WIEDER_NACH);
+const wartet = (fs, q) => !!(fs.zurueck[q.id] && fs.karte - fs.zurueck[q.id].karte < WIEDER_NACH);
+const spielbar = (fs, q) => !fs.erledigt[q.id] && (!wartet(fs, q) || fs.frei === q.id);
+// Engpass (Auftrag 65): Gibt es sonst keine spielbare Karte, wird die zurückgelegte Karte frei, die am längsten wartet.
+// Nicht direkt nach ihrer eigenen Leiter oder Auflösung (letzteKarte = Nummer der zuletzt gespielten Karte in dieser
+// Sitzung, nach einem neuen Start null). Setzt fs.frei und gibt { frei, gesperrt } zurück: gesperrt = die einzige
+// wartende Karte ist die gerade gespielte (dann bietet der Start „Noch einmal versuchen“ an).
+export function engpassPruefen(inh, fs, letzteKarte = null) {
+  fs.frei = null;
+  const offen = Object.values(inh.fragen).filter(q => !fs.erledigt[q.id]);
+  if (!offen.length || offen.some(q => !wartet(fs, q))) return { frei: null, gesperrt: null };
+  const warte = offen.filter(q => fs.zurueck[q.id]).sort((a, b) => fs.zurueck[a.id].karte - fs.zurueck[b.id].karte);
+  const ok = warte.find(q => fs.zurueck[q.id].karte !== letzteKarte);
+  if (ok) { fs.frei = ok.id; return { frei: ok.id, gesperrt: null }; }
+  return { frei: null, gesperrt: warte.length ? warte[0].id : null };
+}
 // Nächster Text einer Storyline: der erste (nach Folge) mit einer spielbaren Frage.
 export function naechsterText(inh, fs, story) {
   for (const t of storyTexte(inh, story)) if (textFragen(inh, t.id).some(q => spielbar(fs, q))) return t;
