@@ -14,7 +14,7 @@ export function leseAuswertung(eintraege, { ab = null, tagVon = (t) => String(t)
   const liste = (eintraege || []).filter(e => e && e.t && String(e.typ || '').startsWith('lese_') && (!ab || tagVon(e.t) >= ab))
     .sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
   const r = { karten: 0, ergebnis: { voll: 0, hinweis: 0, leiter: 0, aufloesung: 0 }, lohnSek: 0, sekunden: 0, schnell: 0, ersteVersuche: 0, ersteSchnell: 0,
-    typen: {}, stories: {}, nachgeschlagen: {}, zurueck: 0, wuensche: [], tage: {}, letzte: null };
+    typen: {}, stufen: {}, stories: {}, nachgeschlagen: {}, zurueck: 0, wuensche: [], tage: {}, letzte: null };
   const start = {};                         // geraet|karte → lese_karte_start
   for (const e of liste) {
     const k = `${e.geraet || ''}|${e.karte}`;
@@ -39,6 +39,12 @@ export function leseAuswertung(eintraege, { ab = null, tagVon = (t) => String(t)
           ty.n++; if (e.ergebnis === 'voll') ty.voll++;
           if (e.beleg_erst === true || e.beleg_erst === false) { ty.belegN++; if (e.beleg_erst) ty.belegErst++; }
           ty.stufe = s.stufe || ty.stufe; ty.geruest = s.geruest || ty.geruest;
+        }
+        // Je Fragestufe, sichere Karten und Eingewöhnung getrennt (Auftrag 63)
+        if (s.stufe) {
+          const g = s.sicher ? 'sicher' : s.eingewoehnung ? 'ein' : 'normal';
+          const z = (r.stufen[s.stufe] || (r.stufen[s.stufe] = {}))[g] || (r.stufen[s.stufe][g] = { n: 0, voll: 0 });
+          z.n++; if (e.ergebnis === 'voll') z.voll++;
         }
         if (s.story) {
           const st = r.stories[s.story] || (r.stories[s.story] = { story: s.story, karten: 0, folge: 0 });

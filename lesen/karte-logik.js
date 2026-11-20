@@ -88,13 +88,13 @@ function typEintrag(fs, typ) {
   const x = fs.typen[typ];
   if (!x) return { schritt: 1, hist: [] };
   const schritt = Number.isInteger(x.schritt) ? Math.min(5, Math.max(1, x.schritt)) : schrittAusLvl(x.lvl);
-  return { schritt, hist: Array.isArray(x.hist) ? x.hist : [] };
+  return { schritt, hist: Array.isArray(x.hist) ? x.hist : [], ein: Math.max(0, x.ein | 0) };
 }
 // Aufstieg: 3 der letzten 4 Karten gut (1. Versuch richtig und Beleg sofort; bei Gerüst 1 nur der 1. Versuch).
 // Abstieg: 2 Karten hintereinander mit Leiter. Nach jedem Wechsel wird der Verlauf geleert.
 export function typStand(fs, typ) {
   const x = typEintrag(fs, typ);
-  return { schritt: x.schritt, ...TREPPE[x.schritt], neu: !fs.typen[typ] };
+  return { schritt: x.schritt, ...TREPPE[x.schritt], neu: !fs.typen[typ], ein: x.ein };
 }
 export function typNachKarte(fs, typ, { erstUndBeleg, leiter }) {
   const x = typEintrag(fs, typ);
@@ -102,9 +102,36 @@ export function typNachKarte(fs, typ, { erstUndBeleg, leiter }) {
   let schritt = x.schritt, wechsel = 0;
   if (hist.length >= 3 && hist.filter(h => h.gut).length >= 3 && schritt < 5) { schritt++; wechsel = 1; }
   else if (hist.length >= 2 && hist[hist.length - 1].leiter && hist[hist.length - 2].leiter && schritt > 1) { schritt--; wechsel = -1; }
-  fs.typen[typ] = { schritt, hist: wechsel ? [] : hist };
+  // Eingewöhnung (Auftrag 63): steigt die Fragestufe, sind die nächsten 2 Karten des Typs ohne Wortfallen im 1. Versuch
+  let ein = Math.max(0, x.ein - 1);
+  if (wechsel === 1 && TREPPE[schritt].stufe > TREPPE[x.schritt].stufe) ein = EINGEWOEHNUNG;
+  if (wechsel === -1) ein = 0;
+  fs.typen[typ] = { schritt, hist: wechsel ? [] : hist, ...(ein ? { ein } : {}) };
   return wechsel;
 }
+export const EINGEWOEHNUNG = 2;
+export const SICHER_PLAETZE = [1, 5];
+
+// ---------- Karte planen (Auftrag 63): sichere Karten und höchstens 1 neuer Fragetyp je Runde ----------
+// platz = Platz der Karte in der Runde (1–5), neuSchon = in dieser Runde kam schon ein neuer Typ.
+// Gibt { q, sicher, neu, neuZweiter, stufe, ersatz, geruest, schritt, eingewoehnung } zurück.
+export function kartePlanen(inh, fs, textId, platz, neuSchon) {
+  const offen = textFragen(inh, textId).filter(q => spielbar(fs, q));
+  if (!offen.length) return null;
+  const istNeu = (q) => !fs.typen[q.typ];
+  let q = offen[0], neuZweiter = false;
+  if (neuSchon && istNeu(q)) {
+    const bekannt = offen.find(x => !istNeu(x));
+    if (bekannt) q = bekannt; else neuZweiter = true;   // keine andere Frage zum Text: kommt trotzdem
+  }
+  const ts = typStand(fs, q.typ);
+  const sicher = SICHER_PLAETZE.includes(platz) && !ts.neu;
+  const gewuenscht = sicher ? Math.max(1, ts.stufe - 1) : ts.stufe;
+  const st = stufeFuer(q, gewuenscht);
+  return { q, sicher, neu: ts.neu, neuZweiter, stufe: st.stufe, ersatz: st.ersatz, gewuenscht, geruest: ts.geruest, schritt: ts.schritt,
+    eingewoehnung: !sicher && ts.ein > 0 };
+}
+
 // Fragestufe der Frage: gewünschte Stufe, sonst die höchste vorhandene darunter (60a). ersatz = true, wenn sie fehlte.
 export function stufeFuer(q, gewuenscht) {
   const vorhanden = (q.stufen || [1]).filter(s => s <= gewuenscht);
@@ -115,7 +142,7 @@ export function stufeFuer(q, gewuenscht) {
 // ---------- Antworten ziehen ----------
 // 1 richtige Formulierung (Abstand passend zur Stufe) und 2 falsche, gemischt. Im nächsten Versuch andere falsche und
 // eine andere richtige Formulierung. Nach einem Hinweis eine Stufe näher am Text (Abstand − 1, mindestens 1).
-export function ziehen(q, { abstand, schonR = [], schonF = [] }, rnd = Math.random) {
+export function ziehen(q, { abstand, schonR = [], schonF = [], ohneWortfalle = false }, rnd = Math.random) {
   const rIdx = q.richtig.map((_, i) => i);
   const passend = (a) => rIdx.filter(i => q.richtigAbstand[i] === a);
   let kand = [];
@@ -123,7 +150,10 @@ export function ziehen(q, { abstand, schonR = [], schonF = [] }, rnd = Math.rand
   if (!kand.length) kand = rIdx;
   const neuR = kand.filter(i => !schonR.includes(i));
   const r = pick(neuR.length ? neuR : kand, rnd);
-  const fIdx = q.falsch.map((_, i) => i);
+  // Eingewöhnung: im 1. Versuch keine Wortfallen (jede Frage hat mindestens 3 andere falsche Antworten)
+  const alleF = q.falsch.map((_, i) => i);
+  const ohne = alleF.filter(i => q.falsch[i].fehlertyp !== 'Wortfalle');
+  const fIdx = ohneWortfalle && ohne.length >= 2 ? ohne : alleF;
   const neuF = fIdx.filter(i => !schonF.includes(i));
   const fl = mischen(neuF.length >= 2 ? neuF : fIdx, rnd).slice(0, 2);
   const antworten = mischen([{ id: `r${r}`, t: q.richtig[r], richtig: true }, ...fl.map(i => ({ id: `f${i}`, t: q.falsch[i].t, richtig: false, f: i }))], rnd);

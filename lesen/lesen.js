@@ -13,7 +13,7 @@ import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 
-export const LESE_VERSION = '0.6.0';
+export const LESE_VERSION = '0.7.0';
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
 const $app = document.getElementById('app');
 const tagKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -244,23 +244,24 @@ function karteStarten(story, wahl) {
   const f = fs();
   const t = KL.naechsterText(INH, f, story);
   if (!t) return zeigeWahl();
-  const q = KL.frageFuer(INH, f, t.id);
   if (!f.runde || f.runde.karten >= KL.RUNDE) { f.runde = { nr: ((f.runde && f.runde.nr) || 0) + 1, karten: 0 }; protokoll('lese_runde', { aktion: 'start', nr: f.runde.nr }); }
-  const ts = KL.typStand(f, q.typ);
-  const st = KL.stufeFuer(q, ts.stufe);
+  const pl = KL.kartePlanen(INH, f, t.id, f.runde.karten + 1, !!f.runde.neuTyp);
+  const q = pl.q;
   f.karte += 1; f.letzteStory = story; f.runde.karten += 1;
+  if (pl.neu) f.runde.neuTyp = true;
   const wieder = f.zurueck[q.id] || null;
-  A = { nr: f.karte, platz: f.runde.karten, story, text: t.id, frage: q.id, typ: q.typ, stufe: st.stufe, geruest: ts.geruest, phase: 'frage', versuch: 1, schonR: [], schonF: [],
-    start: Date.now(), belegHinweis: false, leiter: false, nachgeschlagen: [], antwortGegeben: false, zfNr: 0 };
-  neuZiehen(st.stufe);
-  protokoll('lese_karte_start', { karte: A.nr, text: t.id, frage: q.id, kv: q.kv, fragetyp: q.typ, stufe: st.stufe, ...(st.ersatz ? { stufe_ersatz: ts.stufe } : {}), textstufe: t.textstufe, geruest: ts.geruest, typ_schritt: ts.schritt, story, beat: t.beat, platz: A.platz, neu_typ: ts.neu, wieder: !!wieder, ...(wieder ? { nach_karten: f.karte - wieder.karte } : {}), wahl });
+  A = { nr: f.karte, platz: f.runde.karten, story, text: t.id, frage: q.id, typ: q.typ, stufe: pl.stufe, geruest: pl.geruest, sicher: pl.sicher, eingewoehnung: pl.eingewoehnung,
+    phase: 'frage', versuch: 1, schonR: [], schonF: [], start: Date.now(), belegHinweis: false, leiter: false, nachgeschlagen: [], antwortGegeben: false, zfNr: 0 };
+  neuZiehen(pl.stufe);
+  protokoll('lese_karte_start', { karte: A.nr, text: t.id, frage: q.id, kv: q.kv, fragetyp: q.typ, stufe: pl.stufe, ...(pl.ersatz ? { stufe_ersatz: pl.gewuenscht } : {}), textstufe: t.textstufe, geruest: pl.geruest, typ_schritt: pl.schritt, story, beat: t.beat, platz: A.platz, neu_typ: pl.neu,
+    ...(pl.sicher ? { sicher: true } : {}), ...(pl.eingewoehnung ? { eingewoehnung: true } : {}), ...(pl.neuZweiter ? { neu_typ_zweiter: true } : {}), wieder: !!wieder, ...(wieder ? { nach_karten: f.karte - wieder.karte } : {}), wahl });
   if (wieder) protokoll('lese_wiederkehr', { frage: q.id, nach_karten: f.karte - wieder.karte, nach_min: Math.round((Date.now() - new Date(wieder.t)) / 60000) });
   sichern();
   zeigeKarte(true);
 }
 function neuZiehen(abstand) {
   const q = INH.fragen[A.frage];
-  const z = KL.ziehen(q, { abstand, schonR: A.schonR, schonF: A.schonF });
+  const z = KL.ziehen(q, { abstand, schonR: A.schonR, schonF: A.schonF, ohneWortfalle: A.eingewoehnung && A.versuch === 1 });
   A.zug = z.antworten; A.schonR.push(z.r); A.schonF.push(...z.f); A.gezeigt = Date.now();
 }
 const satzHtml = (t, i, mark) => t.saetze[i].map((s, j) => {
@@ -436,7 +437,9 @@ function karteFertig() {
   if (A.ergebnis === 'voll' || A.ergebnis === 'hinweis') { f.erledigt[q.id] = true; delete f.zurueck[q.id]; }
   else { f.zurueck[q.id] = { karte: A.nr, t: new Date().toISOString() }; protokoll('lese_zurueckgelegt', { karte: A.nr, frage: q.id }); }
   const erstUndBeleg = A.ergebnis === 'voll' && !A.belegHinweis;
-  const wechsel = KL.typNachKarte(f, q.typ, { erstUndBeleg, leiter: A.leiter });
+  // Sichere Karten zählen nicht für Auf- und Abstieg (Auftrag 63)
+  const wechsel = A.sicher ? 0 : KL.typNachKarte(f, q.typ, { erstUndBeleg, leiter: A.leiter });
+  if (A.sicher && !f.typen[q.typ]) f.typen[q.typ] = { schritt: 1, hist: [] };
   protokoll('lese_karte_ende', { karte: A.nr, frage: q.id, ergebnis: A.ergebnis, beleg_erst: A.geruest === 1 ? null : !A.belegHinweis, lohn: g.plus, lohn_roh: roh, sekunden: Math.round(ms / 1000), nachgeschlagen: A.nachgeschlagen.length, ...(wechsel ? { typ_stufe: wechsel } : {}), typ_schritt: KL.typStand(f, q.typ).schritt });
   if (f.runde && f.runde.karten >= KL.RUNDE) protokoll('lese_runde', { aktion: 'ende', nr: f.runde.nr, karten: f.runde.karten });
   A.phase = 'fertig';
