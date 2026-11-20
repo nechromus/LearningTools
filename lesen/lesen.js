@@ -13,7 +13,7 @@ import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 
-export const LESE_VERSION = '0.8.1';
+export const LESE_VERSION = '0.9.0';
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
 const $app = document.getElementById('app');
 const tagKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -28,7 +28,7 @@ function laden() {
   try { log = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch (e) { log = []; }
   return {
     name: s.name || '', geraetId: s.geraetId || neueId(), upload: { tage: {}, ...(s.upload || {}) },
-    einst: s.einst || null, kasse: s.kasse || null, tag: s.tag || null, pin: s.pin || null, lese: s.lese || null, inhaltGemeldet: s.inhaltGemeldet || null, log: Array.isArray(log) ? log : []
+    einst: s.einst || null, kasse: s.kasse || null, tag: s.tag || null, pin: s.pin || null, lese: s.lese || null, laufend: s.laufend || null, inhaltGemeldet: s.inhaltGemeldet || null, log: Array.isArray(log) ? log : []
   };
 }
 const S = laden();
@@ -263,7 +263,7 @@ function karteStarten(story, wahl, textId = null) {
   A = { nr: f.karte, platz: f.runde.karten, story, text: t.id, frage: q.id, typ: q.typ, stufe: pl.stufe, geruest: pl.geruest, sicher: pl.sicher, eingewoehnung: pl.eingewoehnung,
     imText, phase: 'frage', versuch: 1, schonR: [], schonF: [], start: Date.now(), belegHinweis: false, leiter: false, nachgeschlagen: [], antwortGegeben: false, zfNr: 0 };
   neuZiehen(pl.stufe);
-  protokoll('lese_karte_start', { karte: A.nr, text: t.id, frage: q.id, kv: q.kv, fragetyp: q.typ, stufe: pl.stufe, ...(pl.ersatz ? { stufe_ersatz: pl.gewuenscht } : {}), textstufe: t.textstufe, geruest: pl.geruest, typ_schritt: pl.schritt, story, beat: t.beat, platz: A.platz, neu_typ: pl.neu,
+  protokoll('lese_karte_start', { karte: A.nr, text: t.id, frage: q.id, v: q.v ?? null, tv: t.v ?? null, kv: q.kv, fragetyp: q.typ, stufe: pl.stufe, ...(pl.ersatz ? { stufe_ersatz: pl.gewuenscht } : {}), textstufe: t.textstufe, geruest: pl.geruest, typ_schritt: pl.schritt, story, beat: t.beat, platz: A.platz, neu_typ: pl.neu,
     ...(pl.sicher ? { sicher: true } : {}), ...(pl.eingewoehnung ? { eingewoehnung: true } : {}), ...(pl.neuZweiter ? { neu_typ_zweiter: true } : {}), frage_im_text: imText, ...(vorher ? { text_gelesen_vorher: true } : {}), wieder: !!wieder, ...(wieder ? { nach_karten: f.karte - wieder.karte } : {}), wahl });
   if (wieder) protokoll('lese_wiederkehr', { frage: q.id, nach_karten: f.karte - wieder.karte, nach_min: Math.round((Date.now() - new Date(wieder.t)) / 60000), ...(f.frei === q.id ? { engpass: true } : {}) });
   sichern();
@@ -273,6 +273,20 @@ function neuZiehen(abstand) {
   const q = INH.fragen[A.frage];
   const z = KL.ziehen(q, { abstand, schonR: A.schonR, schonF: A.schonF, ohneWortfalle: A.eingewoehnung && A.versuch === 1 });
   A.zug = z.antworten; A.schonR.push(z.r); A.schonF.push(...z.f); A.gezeigt = Date.now();
+  // Auftrag 66: Abstand der gezeigten richtigen Antwort und Zahl der gezeigten Wortfallen
+  A.zugAbstand = (q.richtigAbstand || [])[z.r] ?? null;
+  A.zugWortfallen = z.f.filter(i => q.falsch[i].fehlertyp === 'Wortfalle').length;
+}
+// Auftrag 66: laufende Karte merken, damit ein Abbruch (Start, App neu, im Hintergrund beendet) im Protokoll steht
+function laufendMerken() {
+  if (!A || A.phase === 'fertig') { if (S.laufend) { S.laufend = null; sichern(); } return; }
+  S.laufend = { karte: A.nr, frage: A.frage, phase: A.phase, versuch: A.versuch, start: A.start, zuletzt: Date.now(), hintergrund: !!(S.laufend && S.laufend.karte === A.nr && S.laufend.hintergrund) };
+  sichern();
+}
+function abbruch(grund, l = S.laufend) {
+  if (!l) return;
+  protokoll('lese_karte_abbruch', { karte: l.karte, frage: l.frage, phase: l.phase, versuch: l.versuch, sekunden: Math.round(((grund === 'start' ? Date.now() : l.zuletzt) - l.start) / 1000), grund });
+  S.laufend = null; sichern();
 }
 const satzHtml = (t, i, mark) => t.saetze[i].map((s, j) => {
   let h = esc(s);
@@ -288,6 +302,7 @@ function glossiert(html, glossar, tippbar = true) {
 }
 function zeigeKarte(nachOben = false) {
   ansicht = 'karte';
+  laufendMerken();
   const q = INH.fragen[A.frage], t = INH.texte[A.text], f = fs();
   const fo = KL.folgeVon(INH, t), s = storyVon(t.story) || {};
   const b = q.beleg[0];
@@ -398,7 +413,7 @@ function antworten(id) {
   if (!a) return;
   const ms = Date.now() - A.gezeigt;
   A.antwortGegeben = true;
-  protokoll('lese_versuch', { karte: A.nr, versuch: A.versuch, gezeigt: A.zug.map(x => x.id), gewaehlt: id, richtig: a.richtig, ...(a.richtig ? {} : { fehlertyp: q.falsch[a.f].fehlertyp }), ms });
+  protokoll('lese_versuch', { karte: A.nr, versuch: A.versuch, gezeigt: A.zug.map(x => x.id), gewaehlt: id, richtig: a.richtig, ...(a.richtig ? {} : { fehlertyp: q.falsch[a.f].fehlertyp }), ms, abstand: A.zugAbstand, wortfallen: A.zugWortfallen });
   if (a.richtig) {
     A.ergebnis = A.versuch === 1 ? 'voll' : A.versuch === 2 ? 'hinweis' : 'leiter';
     if (A.geruest === 1 || A.versuch === 3) return karteFertig();
@@ -455,7 +470,7 @@ function karteFertig() {
   if (A.sicher && !f.typen[q.typ]) f.typen[q.typ] = { schritt: 1, hist: [] };
   protokoll('lese_karte_ende', { karte: A.nr, frage: q.id, ergebnis: A.ergebnis, beleg_erst: A.geruest === 1 ? null : !A.belegHinweis, lohn: g.plus, lohn_roh: roh, sekunden: Math.round(ms / 1000), nachgeschlagen: A.nachgeschlagen.length, ...(wechsel ? { typ_stufe: wechsel } : {}), typ_schritt: KL.typStand(f, q.typ).schritt });
   if (f.runde && f.runde.karten >= KL.RUNDE) protokoll('lese_runde', { aktion: 'ende', nr: f.runde.nr, karten: f.runde.karten });
-  A.phase = 'fertig';
+  A.phase = 'fertig'; S.laufend = null;
   sichern();
   if (!test()) syncen();
   zeigeKarte();
@@ -682,7 +697,7 @@ document.addEventListener('click', async (ev) => {
   const el = ev.target.closest('[data-act]');
   if (!el || el.disabled) return;
   switch (el.dataset.act) {
-    case 'start': clearInterval(stoppTimer); zeigeStart(); break;
+    case 'start': clearInterval(stoppTimer); if (A && A.phase !== 'fertig') abbruch('start'); zeigeStart(); break;
     case 'lesen': if (INH) lesenWeiter(); break;
     case 'nochmalVersuchen': if (INH) { letzteKarte = null; lesenWeiter(); } break;
     case 'anderes': if (INH) zeigeWahl(); break;
@@ -740,6 +755,10 @@ document.addEventListener('click', async (ev) => {
 });
 document.addEventListener('visibilitychange', () => {
   if (teilenLaeuft && document.hidden) teilenWeg = true;
+  // Auftrag 66: Karte im Hintergrund (kommt das Kind zurück: lese_hintergrund; wird die App dabei beendet: Abbruch beim nächsten Start)
+  const karteLaeuft = ansicht === 'karte' && A && A.phase !== 'fertig';
+  if (document.hidden && karteLaeuft) { A.wegSeit = Date.now(); if (S.laufend) { S.laufend.hintergrund = true; S.laufend.zuletzt = Date.now(); sichern(); } }
+  if (!document.hidden && A && A.wegSeit) { if (karteLaeuft) { protokoll('lese_hintergrund', { karte: A.nr, ms: Date.now() - A.wegSeit }); if (S.laufend) S.laufend.hintergrund = false; laufendMerken(); } A.wegSeit = null; }
   if (!document.hidden) { if (ansicht === 'start') zeigeStart(); versionPruefen(); }
 });
 
@@ -752,6 +771,8 @@ async function versionPruefen() {
   } catch (e) { /* offline */ }
 }
 
+// Auftrag 66: Karte vom letzten Mal nicht zu Ende gespielt
+if (S.laufend) abbruch(S.laufend.hintergrund ? 'hintergrund' : 'app_neu');
 // Start: Einrichtungs-Link in der Adresse (Kamera-App) übernehmen
 if (einrichtungLesen(location.hash)) einrichten(location.hash);
 else { zeigeStart(); versionPruefen(); }
