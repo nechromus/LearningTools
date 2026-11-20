@@ -840,3 +840,7 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .lr-tag.heute .ml-wt { color: var(--teal-dunkel); font-weight: 700; }
 .lr-linie { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--amber); pointer-events: none; }
 .lr-linie span { position: absolute; right: 0; bottom: 2px; font-size: 11px; color: var(--amber-dunkel); background: var(--karte); padding: 0 4px; border-radius: 4px; }
+.lz-mehr { margin: 10px 0 0; }
+.lf-zeile > div { width: 100%; }
+.lf-knopf { margin-top: 8px; display: inline-flex; }
+.lese-woche-knopf { display: inline-flex; align-items: center; justify-content: center; }

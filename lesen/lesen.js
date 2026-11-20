@@ -13,7 +13,7 @@ import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 
-export const LESE_VERSION = '0.9.0';
+export const LESE_VERSION = '0.10.0';
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
 const $app = document.getElementById('app');
 const tagKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -312,7 +312,7 @@ function zeigeKarte(nachOben = false) {
   const absaetze = t.absaetze.map((_, i) => {
     const cls = ['abs', i === b && um ? 'um' : '', i === b && (A.phase === 'stopp' || A.geruest === 1) ? 'mark' : '', tippbar ? 'tippbar' : '', A.phase === 'belegMarkiert' && i !== b ? 'aus' : ''].filter(Boolean).join(' ');
     const inner = glossiert(satzHtml(t, i, i === b ? satzMark : null), t.glossar, !tippbar);
-    return tippbar ? `<div class="${cls}" data-act="absatz" data-i="${i}" role="button" tabindex="0"><span class="nr">Absatz ${i + 1}</span>${inner}</div>` : `<p class="${cls}"><span class="nr">Absatz ${i + 1}</span>${inner}</p>`;
+    return tippbar ? `<div class="${cls}" data-act="absatz" data-i="${i}" data-abs="${i}" role="button" tabindex="0"><span class="nr">Absatz ${i + 1}</span>${inner}</div>` : `<p class="${cls}" data-abs="${i}"><span class="nr">Absatz ${i + 1}</span>${inner}</p>`;
   }).join('');
   const sk = styleVon(t.story), st = STYLES[sk] || { kasten: 'Fakten', orn: '' };
   bodyStyle(sk);
@@ -338,6 +338,19 @@ function zeigeKarte(nachOben = false) {
   if (nachOben) window.scrollTo(0, 0);
   else { const z = document.querySelector('[data-ziel]'); if (z) z.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
   if (A.phase === 'stopp') stoppBalken();
+  gelesenBeobachten();
+}
+// Auftrag 66 („gut“): bis zu welchem Absatz der Text vor der ersten Antwort zu sehen war (mindestens zur Hälfte im Bild oder das halbe Bild füllend)
+let absBeob = null;
+function gelesenBeobachten() {
+  if (absBeob) { absBeob.disconnect(); absBeob = null; }
+  if (!A || A.phase !== 'frage' || A.versuch !== 1 || A.gelesenGeloggt || typeof IntersectionObserver === 'undefined') return;
+  if (A.absMax == null) A.absMax = -1;
+  absBeob = new IntersectionObserver((eintraege) => {
+    // gesehen: mindestens zur Hälfte im Bild, oder (lange Absätze) mindestens das halbe Bild füllt
+    for (const e of eintraege) if (e.isIntersecting && A && (e.intersectionRatio >= 0.5 || e.intersectionRect.height >= 0.5 * window.innerHeight)) A.absMax = Math.max(A.absMax, Number(e.target.dataset.abs));
+  }, { threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 1] });
+  document.querySelectorAll('[data-abs]').forEach(el => absBeob.observe(el));
 }
 function frageTeil(q, t) {
   const b = q.beleg[0] + 1;
@@ -413,6 +426,10 @@ function antworten(id) {
   if (!a) return;
   const ms = Date.now() - A.gezeigt;
   A.antwortGegeben = true;
+  if (A.versuch === 1 && !A.gelesenGeloggt) {
+    A.gelesenGeloggt = true;
+    protokoll('lese_gelesen_bis', { karte: A.nr, absatz_max: A.absMax ?? null, absaetze: INH.texte[A.text].absaetze.length, beleg: q.beleg[0], ms_bis_antwort: Date.now() - A.start });
+  }
   protokoll('lese_versuch', { karte: A.nr, versuch: A.versuch, gezeigt: A.zug.map(x => x.id), gewaehlt: id, richtig: a.richtig, ...(a.richtig ? {} : { fehlertyp: q.falsch[a.f].fehlertyp }), ms, abstand: A.zugAbstand, wortfallen: A.zugWortfallen });
   if (a.richtig) {
     A.ergebnis = A.versuch === 1 ? 'voll' : A.versuch === 2 ? 'hinweis' : 'leiter';

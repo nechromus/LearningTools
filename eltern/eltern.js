@@ -19,7 +19,7 @@ import { Lernplan } from './lernplan.mjs';
 import * as LA from './lesen-auswertung.js';
 import * as LL from '../lesen/lesen-logik.js';
 
-export const ELTERN_VERSION = '1.70.0';
+export const ELTERN_VERSION = '1.71.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -2327,7 +2327,7 @@ async function leseFragenLaden(ids) {
   const o = LS.kind;
   await Promise.all(fehlt.map(async id => { try { LS.fragen[id] = await U.dateiLesen(C, `daten/${o}/lesen/inhalt/fragen/${id}.json`); } catch (e) { LS.fragen[id] = null; } }));
   LS.fragenLaedt = false;
-  if (route.seite === 'leseverlauf') zeichne();
+  if (route.seite === 'leseverlauf' || route.seite === 'lesen') zeichne();
 }
 const LE_PHASE = (p) => ({ frage: 'der Frage', hinweis: 'dem Hinweis', stopp: 'dem Lesestopp', leiter1: 'der Leiter', leiter2: 'der Leiter', leiterHinweis: 'der Leiter', merksatz: 'der Leiter', beleg: 'dem Beleg', belegHinweis: 'dem Beleg', belegMarkiert: 'dem Beleg', aufloesung: 'der Auflösung' }[p] || p);
 // Geöffnete Karten bleiben offen, wenn die Seite neu gezeichnet wird (z. B. nach dem Laden der Fragen)
@@ -2473,7 +2473,13 @@ function lesenSeite() {
       <div><b>${pz(r.ergebnis.voll, r.karten)} %</b><span>gleich richtig mit Beleg</span></div>
       <div><b>${A.minutenText(r.lohnSek)}</b><span>Bildschirmzeit verdient</span></div>
       <div><b>${pz(r.ersteSchnell, r.ersteVersuche)} %</b><span>Antworten unter 3 s</span></div></div>
-      <p class="klein gedaempft">${r.ergebnis.voll} gleich richtig · ${r.ergebnis.hinweis} mit Hinweis · ${r.ergebnis.leiter} mit Leiter · ${r.ergebnis.aufloesung} Auflösung.${r.folge.n ? ` Davon ${r.folge.n} als 2. oder 3. Frage zum Text (${pz(r.folge.voll, r.folge.n)} % gleich richtig).` : ''} ${r.zurueck ? `${r.zurueck} ${r.zurueck === 1 ? 'Karte kommt' : 'Karten kommen'} später noch einmal.` : ''}</p>`
+      <p class="klein gedaempft">${r.ergebnis.voll} gleich richtig · ${r.ergebnis.hinweis} mit Hinweis · ${r.ergebnis.leiter} mit Leiter · ${r.ergebnis.aufloesung} Auflösung.${r.folge.n ? ` Davon ${r.folge.n} als 2. oder 3. Frage zum Text (${pz(r.folge.voll, r.folge.n)} % gleich richtig).` : ''} ${r.zurueck ? `${r.zurueck} ${r.zurueck === 1 ? 'Karte kommt' : 'Karten kommen'} später noch einmal.` : ''}</p>
+      <dl class="lv-zeilen lz-mehr">
+        ${r.beleg.n ? `<dt>Beleg sofort richtig</dt><dd>${pz(r.beleg.erst, r.beleg.n)} % <span class="gedaempft">(${r.beleg.erst} von ${r.beleg.n})</span></dd>` : ''}
+        ${r.gelesen.n ? `<dt>Beleg-Absatz gesehen</dt><dd>${pz(r.gelesen.belegGesehen, r.gelesen.n)} % <span class="gedaempft">vor der 1. Antwort (${r.gelesen.belegGesehen} von ${r.gelesen.n})</span></dd>` : ''}
+        ${r.dauerMedian != null ? `<dt>Dauer je Karte</dt><dd>${leMin(r.dauerMedian)} <span class="gedaempft">(Median)</span></dd>` : ''}
+        <dt>Abgebrochen</dt><dd>${r.abbruch} <span class="gedaempft">von ${r.karten + r.abbruch} begonnenen Karten${r.karten + r.abbruch ? ` (${pz(r.abbruch, r.karten + r.abbruch)} %)` : ''}</span></dd>
+      </dl>`
       : `<p class="gedaempft">${l.an ? 'In den letzten 7 Tagen keine Lesekarten.' : 'Noch keine Lesekarten. Lesen ist aus.'}</p>`}
     <div class="knopf-reihe"><a class="knopf lese-woche-knopf" href="#leseverlauf">Tag für Tag im Verlauf</a></div>
   </section>`;
@@ -2501,7 +2507,15 @@ function lesenSeite() {
     ${falsch.map(([ft, n]) => `<div class="themen-zeile lz-typ"><span class="themen-name">${esc(ft)}</span><span class="lz-balken"><i style="width:${pz(n, r.falschN)}%"></i></span><span class="themen-quote">${pz(n, r.falschN)} %</span><span class="themen-info">${n}</span></div>`).join('')}</section>` : '';
   const stories = Object.values(alle.stories);
   const storyKarte = stories.length ? `<section class="karte liste-karte"><div class="karte-kopf"><h2>Geschichten</h2><span class="klein gedaempft">14 Tage</span></div>
-    ${stories.map(x => `<div class="bz-zeile"><div><b>${esc(storyName(x.story))}</b><span class="klein gedaempft block">bis Folge ${x.folge} von ${storyFolgen(x.story)} · ${x.karten} ${x.karten === 1 ? 'Karte' : 'Karten'}</span></div></div>`).join('')}</section>` : '';
+    ${stories.map(x => `<div class="bz-zeile"><div><b>${esc(storyName(x.story))}</b><span class="klein gedaempft block">bis Folge ${x.folge} von ${storyFolgen(x.story)} · ${x.karten} ${x.karten === 1 ? 'Karte' : 'Karten'}</span>${x.wahl ? `<span class="klein gedaempft block">${[[x.wahl.weiter, '„Wie geht es weiter?“'], [x.wahl.noch_eine, '„Noch eine Frage“'], [x.wahl.verlassen, 'zu einer anderen Geschichte gewechselt'], [x.wahl.gewaehlt, 'von einer anderen hierher gewechselt']].filter(([n]) => n).map(([n, t]) => `${n}× ${t}`).join(' · ')}</span>` : ''}</div></div>`).join('')}</section>` : '';
+  // Fragen mit Auffälligkeiten (Auftrag 66, „gut“): für die Werkstatt, ohne Wertung
+  const auff = LA.auffaelligeFragen(leseVerlaufJetzt());
+  if (auff.length) leseFragenLaden(auff.map(x => x.frage));
+  const auffKarte = auff.length ? `<section class="karte liste-karte"><div class="karte-kopf"><h2>Fragen mit Auffälligkeiten</h2><span class="klein gedaempft">30 Tage</span></div>
+    ${auff.slice(0, 10).map(x => { const q = LS.fragen[x.frage];
+      const gr = x.gruende.map(g => g.art === 'aufloesung' ? `${g.n}-mal bis zur Auflösung` : `${g.n}-mal dieselbe falsche Antwort${q && (g.v == null || q.v === g.v) && LA.antwortText(q, g.id) ? `: „${esc(LA.antwortText(q, g.id))}“` : ` (${esc(g.id)})`}`).join(' · ');
+      return `<div class="bz-zeile lf-zeile"><div><b>${q ? esc(q.frage) : esc(x.frage)}</b><span class="klein gedaempft block">${esc(storyName(x.story))} · ${esc(LA.typName(x.fragetyp || ''))} · ${x.karten} ${x.karten === 1 ? 'Karte' : 'Karten'}</span><span class="klein block">${gr}</span>
+        <a class="knopf lese-woche-knopf lf-knopf" href="${WERKSTATT}${encodeURIComponent(x.frage)}" target="_blank" rel="noopener">In der Werkstatt öffnen</a></div></div>`; }).join('')}</section>` : '';
   const wuensche = `<section class="karte liste-karte"><div class="karte-kopf"><h2>Wünsche nach einer Geschichte</h2></div>
     ${alle.wuensche.length ? alle.wuensche.map(x => `<div class="bz-zeile"><div><span class="klein gedaempft block">${esc(tagKurz(L.tagKey(new Date(x.t))))} · ${x.gelesen} von ${x.folgen} Folgen gelesen</span><b>„${esc(x.knopf)}“</b><span class="klein gedaempft block">${esc(storyName(x.story))}</span></div></div>`).join('')
       : '<p class="klein gedaempft pad">Kommt nach der letzten Folge einer Geschichte. Daraus plant der Lese-Chat neue Geschichten.</p>'}</section>`;
@@ -2509,7 +2523,7 @@ function lesenSeite() {
   const nachKarte = nach.length ? `<section class="karte"><div class="karte-kopf"><h2>Nachgeschlagen</h2><span class="klein gedaempft">7 Tage</span></div><p>${nach.slice(0, 15).map(([wo, n]) => `${esc(wo)}${n > 1 ? ` (${n}×)` : ''}`).join(', ')}</p></section>` : '';
   return `<div class="seite schmal-inhalt">${kopf}
     ${LS.fehler ? `<p class="meldung fehler">${esc(LS.fehler)}</p>` : ''}
-    ${leseMarkerKarte()}${woche}${matheLesenKarte(leseVerlaufJetzt())}${stufenKarte}${typKarte}${schnellKarte}${falschKarte}${storyKarte}${wuensche}${nachKarte}${regler}
+    ${leseMarkerKarte()}${woche}${matheLesenKarte(leseVerlaufJetzt())}${stufenKarte}${typKarte}${schnellKarte}${falschKarte}${auffKarte}${storyKarte}${wuensche}${nachKarte}${regler}
   </div>`;
 }
 

@@ -14,13 +14,14 @@ export function leseAuswertung(eintraege, { ab = null, bis = null, tagVon = (t) 
   const liste = (eintraege || []).filter(e => e && e.t && String(e.typ || '').startsWith('lese_') && (!ab || tagVon(e.t) >= ab) && (!bis || tagVon(e.t) <= bis))
     .sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
   const r = { karten: 0, folge: { n: 0, voll: 0 }, ergebnis: { voll: 0, hinweis: 0, leiter: 0, aufloesung: 0 }, lohnSek: 0, sekunden: 0, schnell: 0, ersteVersuche: 0, ersteSchnell: 0,
-    typen: {}, stufen: {}, stories: {}, nachgeschlagen: {}, zurueck: 0, wuensche: [], tage: {}, letzte: null, falsch: {}, falschN: 0, tagSchnell: {} };
+    typen: {}, stufen: {}, stories: {}, nachgeschlagen: {}, zurueck: 0, wuensche: [], tage: {}, letzte: null, falsch: {}, falschN: 0, tagSchnell: {}, abbruch: 0, dauern: [], beleg: { n: 0, erst: 0 }, gelesen: { n: 0, belegGesehen: 0 } };
   const ts = (e) => { const k = tagVon(e.t); return r.tagSchnell[k] || (r.tagSchnell[k] = { erste: 0, schnell: 0, stopp: 0 }); };
   const start = {};                         // geraet|karte → lese_karte_start
+  let letzteStory = null;
   for (const e of liste) {
     const k = `${e.geraet || ''}|${e.karte}`;
     switch (e.typ) {
-      case 'lese_karte_start': start[k] = e; break; // Fragetyp in `fragetyp` (seit 0.5.0; `typ` ist der Name des Ereignisses)
+      case 'lese_karte_start': start[k] = e; if (e.story) letzteStory = e.story; break; // Fragetyp in `fragetyp` (seit 0.5.0; `typ` ist der Name des Ereignisses)
       case 'lese_versuch':
         if (e.versuch === 1) { r.ersteVersuche++; const d = ts(e); d.erste++; if (e.ms < 3000) { r.ersteSchnell++; d.schnell++; } }
         if (e.richtig === false) { const ft = e.fehlertyp || 'ohne Typ'; r.falsch[ft] = (r.falsch[ft] || 0) + 1; r.falschN++; }
@@ -28,6 +29,16 @@ export function leseAuswertung(eintraege, { ab = null, bis = null, tagVon = (t) 
       case 'lese_lesestopp': r.schnell++; ts(e).stopp++; break;
       case 'lese_nachschlagen': r.nachgeschlagen[e.wort] = (r.nachgeschlagen[e.wort] || 0) + 1; break;
       case 'lese_zurueckgelegt': r.zurueck++; break;
+      case 'lese_karte_abbruch': r.abbruch++; break;
+      // Seit Archiv 0.10.0: war der Beleg-Absatz vor der 1. Antwort mindestens zur Hälfte zu sehen?
+      case 'lese_gelesen_bis': if (e.absatz_max != null && e.beleg != null) { r.gelesen.n++; if (e.absatz_max >= e.beleg) r.gelesen.belegGesehen++; } break;
+      case 'lese_wahl': {
+        // weiter / noch_eine: bei derselben Geschichte. anders: e.story ist die neu gewählte; „verlassen“ zählt bei der Geschichte davor
+        const wahlVon = (id) => { const st = r.stories[id] || (r.stories[id] = { story: id, karten: 0, folge: 0 }); return st.wahl || (st.wahl = { weiter: 0, verlassen: 0, gewaehlt: 0, noch_eine: 0 }); };
+        if (e.art === 'anders') { if (letzteStory && letzteStory !== e.story) wahlVon(letzteStory).verlassen++; if (e.story) wahlVon(e.story).gewaehlt++; }
+        else if (e.story && (e.art === 'weiter' || e.art === 'noch_eine')) wahlVon(e.story)[e.art]++;
+        break;
+      }
       case 'lese_story_feedback': r.wuensche.push({ t: e.t, story: e.story, antwort: e.antwort, knopf: e.knopf || ANTWORT_TEXT[e.antwort] || e.antwort, gelesen: e.gelesen, folgen: e.folgen }); break;
       case 'lese_karte_ende': {
         const s = start[k] || {};
@@ -35,6 +46,8 @@ export function leseAuswertung(eintraege, { ab = null, bis = null, tagVon = (t) 
         if (s.frage_im_text > 1) { r.folge.n++; if (e.ergebnis === 'voll') r.folge.voll++; }
         if (e.ergebnis in r.ergebnis) r.ergebnis[e.ergebnis]++;
         r.lohnSek += e.lohn || 0; r.sekunden += e.sekunden || 0;
+        if (e.sekunden) r.dauern.push(e.sekunden);
+        if (e.beleg_erst === true || e.beleg_erst === false) { r.beleg.n++; if (e.beleg_erst) r.beleg.erst++; }
         const tag = tagVon(e.t), d = r.tage[tag] || (r.tage[tag] = { karten: 0, voll: 0, lohnSek: 0 });
         d.karten++; d.lohnSek += e.lohn || 0; if (e.ergebnis === 'voll') d.voll++;
         if (s.fragetyp) {
@@ -62,6 +75,8 @@ export function leseAuswertung(eintraege, { ab = null, bis = null, tagVon = (t) 
     }
   }
   r.wuensche.reverse();
+  const d = r.dauern.slice().sort((a, b) => a - b);
+  r.dauerMedian = d.length ? (d.length % 2 ? d[(d.length - 1) / 2] : (d[d.length / 2 - 1] + d[d.length / 2]) / 2) : null;
   return r;
 }
 
@@ -146,7 +161,7 @@ export function antwortText(q, id) {
 // Kurze Sätze ohne Wertung. Startwerte aus 66: Raten über 30 % der 1. Versuche an einem Tag (ab 3 Antworten);
 // Lesen verdrängt Mathe: an 3 der letzten 7 Tage Mathe unter 70 % des Schnitts vor dem Lesen, an diesen Tagen wurde gelesen;
 // Fragetyp hakt: 2 Abstiege in 7 Tagen oder unter 40 % gleich richtig bei mindestens 6 Karten.
-export const MARKER = { raten: 0.3, ratenMin: 3, matheAnteil: 0.7, matheTage: 3, abstiege: 2, typQuote: 0.4, typMin: 6 };
+export const MARKER = { raten: 0.3, ratenMin: 3, matheAnteil: 0.7, matheTage: 3, abstiege: 2, typQuote: 0.4, typMin: 6, wortfalle: 0.5, wortfalleMin: 4, aufloesungen: 2, gleicheFalsche: 2 };
 export function leseMarker({ woche, tage7 = [], heute = null, matheMin = {}, leseMin = {}, schnitt = null } = {}) {
   const m = [];
   const pzt = (a, b) => Math.round(a / b * 100);
@@ -168,5 +183,28 @@ export function leseMarker({ woche, tage7 = [], heute = null, matheMin = {}, les
     if (ty.ab >= MARKER.abstiege) m.push({ art: 'typ', typ: ty.typ, text: `„${ty.name}“ ist in 7 Tagen ${ty.ab}-mal eine Stufe tiefer gegangen.` });
     else if (ty.n >= MARKER.typMin && ty.voll / ty.n < MARKER.typQuote) m.push({ art: 'typ', typ: ty.typ, text: `„${ty.name}“ ist nur bei ${pzt(ty.voll, ty.n)} % der Karten gleich richtig (${ty.voll} von ${ty.n}).` });
   }
+  // 4. Wortfalle zieht („gut“): über die Hälfte der gewählten falschen Antworten sind Wortfallen (ab 4 falschen Antworten)
+  if (woche && woche.falschN >= MARKER.wortfalleMin && (woche.falsch.Wortfalle || 0) / woche.falschN > MARKER.wortfalle)
+    m.push({ art: 'wortfalle', text: `In 7 Tagen waren ${pzt(woche.falsch.Wortfalle, woche.falschN)} % der falschen Antworten Wortfallen (${woche.falsch.Wortfalle} von ${woche.falschN}).` });
   return m;
+}
+
+// Fragen mit Auffälligkeiten („gut“): zweimal bis zur Auflösung, oder dieselbe falsche Antwort mindestens zweimal gewählt
+// (gleiche Frage-Version). Aus dem Lese-Verlauf (alle geladenen Tage).
+export function auffaelligeFragen(verlauf) {
+  const f = {};
+  for (const k of (verlauf && verlauf.karten) || []) {
+    const x = f[k.frage] || (f[k.frage] = { frage: k.frage, story: k.story, fragetyp: k.start.fragetyp, aufloesung: 0, falsche: {}, karten: 0, letzte: null });
+    x.karten++; x.letzte = k.t;
+    if (k.aufloesung || k.ergebnis === 'aufloesung') x.aufloesung++;
+    for (const v of k.versuche) if (v.richtig === false && v.gewaehlt) { const key = `${k.start.v ?? '?'}|${v.gewaehlt}`; x.falsche[key] = (x.falsche[key] || 0) + 1; }
+  }
+  const r = [];
+  for (const x of Object.values(f)) {
+    const gruende = [];
+    if (x.aufloesung >= MARKER.aufloesungen) gruende.push({ art: 'aufloesung', n: x.aufloesung });
+    for (const [key, n] of Object.entries(x.falsche)) if (n >= MARKER.gleicheFalsche) { const [v, id] = key.split('|'); gruende.push({ art: 'falsche', id, v: v === '?' ? null : Number(v), n }); }
+    if (gruende.length) r.push({ ...x, gruende });
+  }
+  return r.sort((a, b) => a.letzte < b.letzte ? 1 : -1);
 }
