@@ -786,3 +786,44 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .lz-stufen th, .lz-stufen td { text-align: left; padding: 6px 4px; border-top: 1px solid var(--linie-hell); vertical-align: top; }
 .lz-stufen thead th { border-top: 0; font-size: 12.5px; color: var(--gedaempft); font-weight: 600; }
 .lz-stufen td .klein { display: block; }
+
+/* Lese-Verlauf (Auftrag 66) */
+.spalte-tage > .verlauf-wahl { position: static; margin: 0 0 10px; flex-shrink: 0; }
+.spalte-tage > .verlauf-wahl .mw { padding: 7px 6px; }
+.lv-inhalt a.knopf, .lese-woche-knopf { text-decoration: none; }
+.lv-tag-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0 12px; }
+.lv-tag-kopf b { font-size: 17px; color: var(--teal-dunkel); text-align: center; }
+.lv-tag-kopf .knopf-icon { text-decoration: none; font-size: 22px; }
+.lv-falsch { margin: 10px 0 0; }
+.lv-karte { padding: 0; }
+.lv-karte > summary { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; list-style: none; }
+.lv-karte > summary::-webkit-details-marker { display: none; }
+.lv-zeit { font-variant-numeric: tabular-nums; color: var(--gedaempft); font-size: 13.5px; flex: 0 0 auto; }
+.lv-titel { flex: 1 1 auto; min-width: 0; }
+.lv-erg { flex: 0 0 auto; font-size: 12.5px; font-weight: 700; padding: 3px 8px; border-radius: 10px; white-space: nowrap; }
+.lv-erst { background: var(--teal-hell); color: var(--teal-dunkel); }
+.lv-zweit { background: #F8EBCB; color: var(--amber-dunkel); }
+.lv-teil { background: #F4E1D0; color: #7A4517; }
+.lv-loesung, .lv-offen { background: var(--linie-hell); color: var(--gedaempft); }
+.lv-inhalt { padding: 0 14px 14px; border-top: 1px solid var(--linie-hell); }
+.lv-frage { font-weight: 700; margin: 12px 0 8px; }
+.lv-versuche { list-style: none; padding: 0; margin: 0 0 10px; }
+.lv-versuch { display: flex; gap: 8px; padding: 6px 0; border-top: 1px solid var(--linie-hell); }
+.lv-versuch:first-child { border-top: 0; }
+.lv-versuch .lv-v { font-weight: 700; color: var(--gedaempft); flex: 0 0 auto; }
+.lv-versuch.ok > span:last-child { color: var(--teal-dunkel); }
+.lv-zeilen { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0 0 10px; font-size: 14px; }
+.lv-zeilen dt { color: var(--gedaempft); font-weight: 600; }
+.lv-zeilen dd { margin: 0; }
+.ml-farbe-lesen, .ml-l { background: #33408F; }
+.legende i.ml-farbe-lesen { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; }
+.ml-diagramm { position: relative; display: flex; align-items: flex-end; gap: 4px; height: 120px; margin: 26px 0 26px; border-bottom: 1px solid var(--linie); }
+.ml-tag { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; height: 100%; position: relative; }
+.ml-paar { flex: 1 1 auto; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 2px; }
+.ml-paar i { display: block; width: 42%; max-width: 12px; border-radius: 3px 3px 0 0; min-height: 0; }
+.ml-m { background: var(--teal); }
+.ml-wt { position: absolute; bottom: -18px; font-size: 11px; color: var(--gedaempft); }
+.ml-tag.heute .ml-wt { color: var(--teal-dunkel); font-weight: 700; }
+.ml-linie { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--amber); pointer-events: none; z-index: 1; }
+.ml-linie span { position: absolute; right: 0; bottom: 2px; font-size: 11px; color: var(--amber-dunkel); background: var(--karte); padding: 0 4px; border-radius: 4px; }
+.lv-titel .klein { font-weight: 400; }

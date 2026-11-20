@@ -4,7 +4,7 @@
 // Namen der Fragetypen (Lernpfad des Lese-Chats). Neue Typen zeigt die App mit ihrer Kennung.
 export const TYP_NAMEN = {
   A1: 'Mit anderen Worten wiederfinden', A2: 'Die gesuchte Angabe finden', A3: 'Auf kleine Wörter achten', A4: 'Schwierige Wörter nachschlagen',
-  B1: 'Reihenfolge', B2: 'Ursache und Folge', C1: 'Schlussfolgern'
+  B1: 'Reihenfolge', B2: 'Ursache und Folge', B3: 'Wer oder was ist gemeint?', C1: 'Schlussfolgern'
 };
 export const typName = (t) => TYP_NAMEN[t] || t;
 export const ANTWORT_TEXT = { gleich: 'Mehr davon', art: 'Andere Geschichte derselben Art', anders: 'Lieber etwas ganz anderes', weiss_nicht: 'Weiß nicht' };
@@ -59,4 +59,81 @@ export function leseAuswertung(eintraege, { ab = null, tagVon = (t) => String(t)
   }
   r.wuensche.reverse();
   return r;
+}
+
+// ---------- Lese-Verlauf (Auftrag 66): Tage und Karten ----------
+// Jede Karte mit allem, was dazu im Protokoll steht. Schlüssel: Gerät + Kartennummer (die Lese-App zählt je Gerät hoch).
+// Abgebrochene Karten (lese_karte_abbruch, seit 0.9.0) stehen mit `abbruch`; Karten ohne Ende und ohne Abbruch
+// (vor 0.9.0 oder noch offen) mit `offen: true`.
+export function leseVerlauf(eintraege, { tagVon = (t) => String(t).slice(0, 10) } = {}) {
+  const liste = (eintraege || []).filter(e => e && e.t && String(e.typ || '').startsWith('lese_'))
+    .sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
+  const karten = {}, reihe = [];
+  const karte = (e) => karten[`${e.geraet || ''}|${e.karte}`];
+  for (const e of liste) {
+    if (e.typ === 'lese_karte_start') {
+      const k = { id: `${e.geraet || ''}-${e.karte}`, geraet: e.geraet || '', nr: e.karte, start: e, t: e.t, tag: tagVon(e.t), frage: e.frage, text: e.text, story: e.story,
+        versuche: [], zf: [], beleg: [], leiter: [], nachgeschlagen: [], hintergrundMs: 0, lesestopp: 0, aufloesung: false, zurueckgelegt: false, wiederkehr: null, ende: null, abbruch: null };
+      karten[`${e.geraet || ''}|${e.karte}`] = k; reihe.push(k);
+      continue;
+    }
+    if (e.typ === 'lese_wiederkehr') { const k = reihe.filter(x => x.frage === e.frage && x.geraet === (e.geraet || '')).pop(); if (k) k.wiederkehr = e; continue; }
+    const k = e.karte != null ? karte(e) : null;
+    if (!k) continue;
+    switch (e.typ) {
+      case 'lese_versuch': k.versuche.push(e); break;
+      case 'lese_zf': k.zf.push(e); break;
+      case 'lese_beleg': k.beleg.push(e); break;
+      case 'lese_leiter': k.leiter.push(e.stufe); break;
+      case 'lese_lesestopp': k.lesestopp++; break;
+      case 'lese_aufloesung': k.aufloesung = true; break;
+      case 'lese_nachschlagen': k.nachgeschlagen.push(e.wort); break;
+      case 'lese_hintergrund': k.hintergrundMs += e.ms || 0; break;
+      case 'lese_zurueckgelegt': k.zurueckgelegt = true; break;
+      case 'lese_karte_ende': k.ende = e; break;
+      case 'lese_karte_abbruch': k.abbruch = e; break;
+    }
+  }
+  const tage = {};
+  for (const k of reihe) {
+    k.offen = !k.ende && !k.abbruch;
+    k.ergebnis = k.ende ? k.ende.ergebnis : k.abbruch ? 'abbruch' : 'offen';
+    k.sekunden = k.ende ? k.ende.sekunden || 0 : k.abbruch ? k.abbruch.sekunden || 0 : 0;
+    const d = tage[k.tag] || (tage[k.tag] = { tag: k.tag, karten: [], fertig: 0, ergebnis: { voll: 0, hinweis: 0, leiter: 0, aufloesung: 0 }, abbruch: 0, offen: 0,
+      lohnSek: 0, sekunden: 0, ersteVersuche: 0, ersteSchnell: 0, lesestopp: 0, falsch: {}, falschN: 0 });
+    d.karten.push(k);
+    if (k.ende) { d.fertig++; if (k.ende.ergebnis in d.ergebnis) d.ergebnis[k.ende.ergebnis]++; d.lohnSek += k.ende.lohn || 0; }
+    else if (k.abbruch) d.abbruch++; else d.offen++;
+    d.sekunden += k.sekunden;
+    d.lesestopp += k.lesestopp;
+    for (const v of k.versuche) {
+      if (v.versuch === 1) { d.ersteVersuche++; if (v.ms < 3000) d.ersteSchnell++; }
+      if (!v.richtig) { const ft = v.fehlertyp || 'ohne Typ'; d.falsch[ft] = (d.falsch[ft] || 0) + 1; d.falschN++; }
+    }
+  }
+  return { karten: reihe, tage: Object.values(tage).sort((a, b) => a.tag < b.tag ? 1 : -1) };
+}
+
+// Lese-Minuten je Tag (Karten: Ende oder Abbruch; Sekunden je Karte sind schon gedeckelt)
+export function leseMinutenJeTag(verlauf) {
+  const r = {};
+  for (const d of (verlauf && verlauf.tage) || []) r[d.tag] = d.sekunden / 60;
+  return r;
+}
+
+// Mathe-Schnitt der 7 Tage vor dem ersten Lesetag (Minuten am Tag, Tage ohne Übung zählen mit 0). null ohne Lesetag
+// oder ohne Mathe-Daten aus dieser Woche.
+export function matheSchnittVorLesen(matheMin, ersterLesetag, tageDavor) {
+  if (!ersterLesetag || !tageDavor || !tageDavor.length) return null;
+  const wo = tageDavor.filter(t => t < ersterLesetag).slice(-7);
+  if (wo.length < 7 || !wo.some(t => matheMin[t])) return null;
+  return wo.reduce((s, t) => s + (matheMin[t] || 0), 0) / 7;
+}
+
+// Antwort-Wortlaut zu einer Kennung r#/f# (Frage-Datei aus dem Inhalt); null, wenn unbekannt
+export function antwortText(q, id) {
+  if (!q || !id) return null;
+  const m = /^([rf])(\d+)$/.exec(id); if (!m) return null;
+  const i = Number(m[2]);
+  return m[1] === 'r' ? (q.richtig || [])[i] ?? null : ((q.falsch || [])[i] || {}).t ?? null;
 }

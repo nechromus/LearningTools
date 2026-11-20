@@ -19,7 +19,7 @@ import { Lernplan } from './lernplan.mjs';
 import * as LA from './lesen-auswertung.js';
 import * as LL from '../lesen/lesen-logik.js';
 
-export const ELTERN_VERSION = '1.68.2';
+export const ELTERN_VERSION = '1.69.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -261,7 +261,7 @@ const MEHR_SEITEN = ['mehr', 'tickets', 'ticket', 'einstellungen', 'spielzeit', 
 function lesenAn() { const w = D.daten && D.daten.einst && D.daten.einst.werte; return !!(w && w.kasse === true); }
 function navLinks(art) {
   const s = route.seite;
-  const aktiv = s === 'aufgabe' || s === 'spiel' || s === 'verlauf' ? 'verlauf' : MATHE_SEITEN.includes(s) ? 'mathe' : MEHR_SEITEN.includes(s) ? 'mehr' : s === 'lesen' ? 'lesen' : 'uebersicht';
+  const aktiv = s === 'aufgabe' || s === 'spiel' || s === 'verlauf' || s === 'leseverlauf' ? 'verlauf' : MATHE_SEITEN.includes(s) ? 'mathe' : MEHR_SEITEN.includes(s) ? 'mehr' : s === 'lesen' ? 'lesen' : 'uebersicht';
   if (C.nur === 'boegen') return `<a href="#boegen" class="${art} aktiv" aria-current="page">${svg('boegen', 24)}<span>Bögen</span></a>`;
   const neu = ticketsNeu().length;
   return [['uebersicht', 'Heute'], ['verlauf', 'Verlauf'], ['mathe', 'Mathe'], ...(lesenAn() ? [['lesen', 'Lesen']] : []), ['mehr', 'Mehr']].map(([k, t]) =>
@@ -457,7 +457,7 @@ function seiteHtml() {
   if (D.daten.leer) return `<div class="seite"><h1>Noch keine Daten</h1><p>Im Daten-Repo gibt es noch keinen Ordner mit Namen. Sobald sich jemand in der Übungs-App mit Namen angemeldet hat und Daten übertragen wurden, erscheinen sie hier.</p><button class="knopf haupt" data-act="neuLaden">Neu laden</button>${schluesselKarte()}</div>`;
   if (C.nur === 'boegen' && route.seite !== 'boegen') { history.replaceState(null, '', location.pathname + '#boegen'); route = { seite: 'boegen', arg: '' }; }
   if (route.seite === 'mathe') { const z = matheZiel(); history.replaceState(null, '', location.pathname + '#' + z); route = { seite: z, arg: '' }; }
-  if (route.seite === 'lesen' && !lesenAn()) { history.replaceState(null, '', location.pathname + '#uebersicht'); route = { seite: 'uebersicht', arg: '' }; }
+  if ((route.seite === 'lesen' || route.seite === 'leseverlauf') && !lesenAn()) { history.replaceState(null, '', location.pathname + '#uebersicht'); route = { seite: 'uebersicht', arg: '' }; }
   switch (route.seite) {
     case 'verlauf': return breit.matches ? verlaufBreit() : (route.arg ? tagSeite(route.arg) : tageListe());
     case 'aufgabe': return breit.matches ? verlaufBreit() : aufgabeSeite(route.arg);
@@ -471,6 +471,7 @@ function seiteHtml() {
     case 'einheit': return matheUmschalter() + einheitSeite(route.arg);
     case 'mehr': return mehrSeite();
     case 'lesen': return lesenSeite();
+    case 'leseverlauf': return leseVerlaufSeite(route.arg);
     case 'bildschirmzeit': return bildschirmzeitSeite();
     case 'qr': return qrSeite();
     case 'lernplan': return matheUmschalter() + lernplanSeite();
@@ -1710,7 +1711,7 @@ function tagKurzText(d, lang = true) {
 function tageListe() {
   const tage = tageMitAufgaben();
   return `<div class="seite">
-    ${kopfSchmal('Verlauf')}
+    ${kopfSchmal('Verlauf')}${verlaufWahl('mathe')}
     ${tage.length ? `<p class="pad">${ergLegende()}</p><section class="karte liste-karte">${tage.map(d => `<a class="zeile" href="#verlauf/${d.tag}">
       <span class="zeile-haupt"><b>${tagLang(d.tag)}</b><span class="klein gedaempft">${tagKurzText(d)}</span>${ergBalken(d.v, { zahlen: false, schmal: true })}</span>
       ${svg('weiter', 18)}</a>`).join('')}</section>` : '<p class="gedaempft">Noch keine Aufgaben in den letzten 30 Tagen.</p>'}
@@ -1827,7 +1828,7 @@ function verlaufBreit() {
   const liste = aufgabenVonTag(tag), spiele = spieleVonTag(tag);
   return `<div class="drei-spalten">
     <section class="spalte-tage">
-      <h2 class="spalten-titel">${esc(name())}</h2>
+      ${verlaufWahl('mathe')}<h2 class="spalten-titel">${esc(name())}</h2>
       ${tage.map(d => `<a class="tag-knopf${d.tag === tag ? ' gewaehlt' : ''}" href="#verlauf/${d.tag}"><b>${tagKurz(d.tag)}</b><span class="klein gedaempft">${tagKurzText(d, false)}</span></a>`).join('') || '<p class="leer">Noch keine Aufgaben.</p>'}
     </section>
     <section class="spalte-aufgaben" data-tag="${tag}">
@@ -2251,15 +2252,19 @@ function mehrSeite() {
 
 // ---------- Reiter „Lesen“ (Auftrag 59 Schritt 5, Variante C) ----------
 // Liest das Lese-Protokoll (daten/<name>/lesen/<geraet>/<tag>.json, 14 Tage), die Konto-Dateien und die Liste der Geschichten.
-const LS = { kind: null, eintraege: [], konto: [], storylines: null, geladen: 0, laedt: false, fehler: null };
+const LS = { kind: null, eintraege: [], ersterTag: null, fragen: {}, fragenLaedt: false, konto: [], storylines: null, geladen: 0, laedt: false, fehler: null };
 async function leseLaden(o, neu = false) {
   if (LS.laedt || (!neu && LS.kind === o && Date.now() - LS.geladen < 5 * 60e3)) return;
   LS.laedt = true;
   try {
-    const ab = letzteTageKey(13), ein = [];
+    const ab = letzteTageKey(29), ein = [];
     const ordner = await U.ordnerLesen(C, `daten/${o}/lesen`);
+    let ersterTag = null;
     for (const d of ordner.filter(x => x.type === 'dir' && x.name !== 'inhalt')) {
-      for (const f of (await U.ordnerLesen(C, d.path)).filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f.name) && f.name.slice(0, 10) >= ab)) {
+      const dateien = (await U.ordnerLesen(C, d.path)).filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f.name));
+      // Erster Lesetag: aus den geladenen Karten; nur wenn es ältere Dateien als 30 Tage gibt, das Datum der ältesten Datei
+      for (const f of dateien) if (f.name.slice(0, 10) < ab && (!ersterTag || f.name.slice(0, 10) < ersterTag)) ersterTag = f.name.slice(0, 10);
+      for (const f of dateien.filter(f => f.name.slice(0, 10) >= ab)) {
         const j = await U.dateiLesen(C, f.path);
         for (const e of (j && j.eintraege) || []) ein.push({ ...e, geraet: d.name });
       }
@@ -2269,10 +2274,10 @@ async function leseLaden(o, neu = false) {
       try { const k = await U.dateiLesen(C, f.path); if (k) konto.push(k); } catch (e) { /* diese Quelle später */ }
     }
     let sl = null; try { sl = await U.dateiLesen(C, `daten/${o}/lesen/inhalt/storylines.json`); } catch (e) { /* ohne Liste */ }
-    Object.assign(LS, { kind: o, eintraege: ein, konto, storylines: sl && Array.isArray(sl.storylines) ? sl.storylines : [], geladen: Date.now(), fehler: null });
+    Object.assign(LS, { kind: o, eintraege: ein, ersterTag, fragen: LS.kind === o ? LS.fragen : {}, konto, storylines: sl && Array.isArray(sl.storylines) ? sl.storylines : [], geladen: Date.now(), fehler: null });
   } catch (e) { LS.fehler = e.message || 'Laden hat nicht geklappt.'; LS.kind = o; LS.geladen = Date.now(); }
   LS.laedt = false;
-  if (['lesen', 'uebersicht'].includes(route.seite)) zeichne();
+  if (['lesen', 'uebersicht', 'leseverlauf'].includes(route.seite)) zeichne();
 }
 // Heute verdient je Fach (aus den Quell-Dateien des Kassenbuchs)
 function kontoHeute() {
@@ -2295,6 +2300,137 @@ function kontingentKarte() {
     <div class="knopf-reihe"><a class="knopf" href="#bildschirmzeit">Kontingente ändern</a></div></section>`;
 }
 const pz = (a, b) => b ? Math.round(a / b * 100) : 0;
+// ---------- Lese-Verlauf (Auftrag 66): Umschalter im Verlauf, Tage, Karten ----------
+function verlaufWahl(akt) {
+  if (!lesenAn() || C.nur) return '';
+  return `<nav class="mathe-wahl verlauf-wahl" aria-label="Verlauf">${[['verlauf', 'mathe', 'Mathe'], ['leseverlauf', 'lesen', 'Lesen']].map(([h, k, t]) => `<a href="#${h}" class="mw${akt === k ? ' an' : ''}"${akt === k ? ' aria-current="page"' : ''}>${t}</a>`).join('')}</nav>`;
+}
+// Ergebnis-Farben wie im Mathe-Verlauf: gleich richtig (teal), mit Hinweis (gold), mit Leiter (orange), Auflösung (grau)
+const LE_ARTEN = [['voll', 'erst', 'gleich richtig'], ['hinweis', 'zweit', 'mit Hinweis'], ['leiter', 'teil', 'mit Leiter'], ['aufloesung', 'loesung', 'Auflösung']];
+const leErgName = (e) => (LE_ARTEN.find(a => a[0] === e) || [])[2] || (e === 'abbruch' ? 'abgebrochen' : 'nicht beendet');
+const leErgKlasse = (e) => (LE_ARTEN.find(a => a[0] === e) || [])[1] || 'offen';
+function leseBalken(erg, { zahlen = false, schmal = false } = {}) {
+  const n = LE_ARTEN.reduce((s, a) => s + (erg[a[0]] || 0), 0);
+  if (!n) return '';
+  const teile = LE_ARTEN.map(([e, k, t]) => erg[e] ? `<span class="eb-${k}" style="flex-grow:${erg[e]}" title="${t}: ${erg[e]}"></span>` : '').join('');
+  const txt = zahlen ? `<span class="eb-zahlen">${LE_ARTEN.filter(a => erg[a[0]]).map(([e, k, t]) => `<span><i class="eb-${k}"></i>${erg[e]} ${t}</span>`).join('')}</span>` : '';
+  return `<span class="erg-balken${schmal ? ' schmal' : ''}" role="img" aria-label="${LE_ARTEN.map(([e, , t]) => `${t} ${erg[e] || 0}`).join(', ')}">${teile}</span>${txt}`;
+}
+const leseLegende = () => `<span class="erg-legende">${LE_ARTEN.map(([, k, t]) => `<span><i class="eb-${k}"></i>${t}</span>`).join('')}</span>`;
+const leMin = (sek) => sek < 60 ? `${Math.round(sek)} s` : `${Math.round(sek / 60)} Min.`;
+const leStory = (id) => ((LS.storylines || []).find(x => x.id === id) || {}).titel || id || '';
+// Frage-Dateien der gezeigten Karten nachladen (nur zum Anzeigen von Frage und Antworten)
+async function leseFragenLaden(ids) {
+  const fehlt = [...new Set(ids)].filter(id => id && !(id in LS.fragen));
+  if (!fehlt.length || LS.fragenLaedt) return;
+  LS.fragenLaedt = true;
+  const o = LS.kind;
+  await Promise.all(fehlt.map(async id => { try { LS.fragen[id] = await U.dateiLesen(C, `daten/${o}/lesen/inhalt/fragen/${id}.json`); } catch (e) { LS.fragen[id] = null; } }));
+  LS.fragenLaedt = false;
+  if (route.seite === 'leseverlauf') zeichne();
+}
+const LE_PHASE = (p) => ({ frage: 'der Frage', hinweis: 'dem Hinweis', stopp: 'dem Lesestopp', leiter1: 'der Leiter', leiter2: 'der Leiter', leiterHinweis: 'der Leiter', merksatz: 'der Leiter', beleg: 'dem Beleg', belegHinweis: 'dem Beleg', belegMarkiert: 'dem Beleg', aufloesung: 'der Auflösung' }[p] || p);
+// Geöffnete Karten bleiben offen, wenn die Seite neu gezeichnet wird (z. B. nach dem Laden der Fragen)
+const LV_OFFEN = new Set();
+document.addEventListener('toggle', (ev) => { const d = ev.target; if (d && d.dataset && d.dataset.lv) { if (d.open) LV_OFFEN.add(d.dataset.lv); else LV_OFFEN.delete(d.dataset.lv); } }, true);
+const WERKSTATT = 'https://claude.ai/artifact/6a4w1UpWgtXtLeqKwMmMgs#karte/';
+function leseKarteHtml(k) {
+  const s = k.start, q = LS.fragen[k.frage], e = k.ende;
+  const geaendert = q && s.v != null && q.v != null && q.v !== s.v;
+  const at = (id) => geaendert ? null : LA.antwortText(q, id);
+  const merk = [s.sicher ? 'sichere Karte' : '', s.eingewoehnung ? 'Eingewöhnung' : '', s.frage_im_text > 1 ? `${s.frage_im_text}. Frage zum Text` : '', s.neu_typ ? 'neuer Fragetyp' : '', s.wieder ? `kam wieder${s.nach_karten ? ` nach ${s.nach_karten} Karten` : ''}` : ''].filter(Boolean);
+  const versuche = k.versuche.map(v => {
+    const txt = at(v.gewaehlt);
+    return `<li class="lv-versuch ${v.richtig ? 'ok' : 'nein'}"><span class="lv-v">${v.versuch}.</span><span>${txt ? `„${esc(txt)}“` : esc(v.gewaehlt || '')}
+      <span class="klein gedaempft block">${v.richtig ? 'richtig' : esc(v.fehlertyp || 'falsch')} · ${(v.ms / 1000).toFixed(1).replace('.', ',')} s${v.abstand ? ` · Abstand ${v.abstand}` : ''}${v.wortfallen ? ` · ${v.wortfallen} Wortfalle${v.wortfallen > 1 ? 'n' : ''} gezeigt` : ''}</span></span></li>`;
+  }).join('');
+  const zeilen = [];
+  if (k.lesestopp) zeilen.push(['Lesestopp', `${k.lesestopp}-mal (Antwort unter 3 s)`]);
+  if (k.leiter.length || k.zf.length) zeilen.push(['Leiter', k.zf.length ? k.zf.map(z => `Zwischenfrage ${z.nr}: ${z.richtig ? 'richtig' : 'falsch'}`).join(' · ') : 'begonnen']);
+  if (k.aufloesung) zeilen.push(['Auflösung', 'gezeigt']);
+  if (k.beleg.length) {
+    const richtig = q && Array.isArray(q.beleg) ? q.beleg[0] + 1 : null;
+    zeilen.push(['Beleg', k.beleg.map(b => `Absatz ${b.absatz + 1}${b.richtig ? ' ✓' : ''}`).join(' → ') + (richtig && !k.beleg[0].richtig ? ` <span class="gedaempft">(richtig: Absatz ${richtig})</span>` : '')]);
+  } else if (e && e.beleg_erst === null) zeilen.push(['Beleg', '<span class="gedaempft">kein Beleg-Schritt (Gerüst 1)</span>']);
+  if (k.nachgeschlagen.length) zeilen.push(['Nachgeschlagen', k.nachgeschlagen.map(esc).join(', ')]);
+  if (k.hintergrundMs >= 5000) zeilen.push(['Unterbrochen', `${leMin(k.hintergrundMs / 1000)} andere App`]);
+  if (e) zeilen.push(['Bildschirmzeit', `${leMin(e.lohn || 0)}${e.lohn_roh && e.lohn_roh !== e.lohn ? ` <span class="gedaempft">(ohne Grenze ${leMin(e.lohn_roh)})</span>` : ''}`]);
+  if (k.abbruch) zeilen.push(['Abgebrochen', `${esc({ start: 'über „Start“ verlassen', hintergrund: 'App im Hintergrund beendet', app_neu: 'App neu gestartet' }[k.abbruch.grund] || k.abbruch.grund)} · bei ${esc(LE_PHASE(k.abbruch.phase))}, Versuch ${k.abbruch.versuch}`]);
+  if (k.zurueckgelegt) zeilen.push(['Zurückgelegt', 'kommt nach 3 anderen Karten wieder']);
+  if (e && e.typ_stufe) zeilen.push(['Fragetyp', e.typ_stufe > 0 ? `eine Stufe höher (Schritt ${e.typ_schritt})` : `eine Stufe tiefer (Schritt ${e.typ_schritt})`]);
+  return `<details class="karte lv-karte" data-lv="${esc(k.id)}"${LV_OFFEN.has(k.id) ? ' open' : ''}>
+    <summary><span class="lv-zeit">${uhr(k.t)}</span><span class="lv-titel"><b>${esc(leStory(k.story))}${s.beat ? ` · Folge ${s.beat}` : ''}</b><span class="klein gedaempft block">${esc((q && !geaendert && q.typ === s.fragetyp && q.typName) || LA.typName(s.fragetyp || ''))} · Stufe ${s.stufe || '–'} · Gerüst ${s.geruest || '–'}${merk.length ? ' · ' + merk.join(' · ') : ''}</span></span><span class="lv-erg lv-${leErgKlasse(k.ergebnis)}">${leErgName(k.ergebnis)}</span></summary>
+    <div class="lv-inhalt">
+      ${q ? `<p class="lv-frage">${esc(q.frage)}</p>` : k.frage in LS.fragen ? `<p class="klein gedaempft">Frage ${esc(k.frage)} gibt es im Inhalt nicht mehr.</p>` : `<p class="klein gedaempft">Frage wird geladen …</p>`}
+      ${geaendert ? `<p class="klein gedaempft">Die Frage wurde seitdem geändert (Version ${s.v} → ${q.v}). Die Antworten stehen deshalb nur als Kennung.</p>` : ''}
+      ${versuche ? `<ol class="lv-versuche">${versuche}</ol>` : ''}
+      ${zeilen.length ? `<dl class="lv-zeilen">${zeilen.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl>` : ''}
+      <p class="klein gedaempft">${k.sekunden ? `${leMin(k.sekunden)} · ` : ''}Karte ${k.nr} · ${esc(k.frage)}${s.v != null ? ` (Version ${s.v})` : ''}</p>
+      <a class="knopf" href="${WERKSTATT}${encodeURIComponent(k.frage)}" target="_blank" rel="noopener">In der Werkstatt öffnen</a>
+    </div></details>`;
+}
+function leseVerlaufSeite(tag) {
+  if (LS.kind !== C.nutzer || (!LS.geladen && !LS.fehler)) leseLaden(C.nutzer);
+  const kopf = breit.matches ? `<header class="kopf-breit"><h1>Verlauf · ${esc(name())}</h1>${nutzerWahl('nutzer-chip nur-hoch')}</header>` : kopfSchmal('Verlauf');
+  if (LS.kind !== C.nutzer || LS.laedt && !LS.geladen) return `<div class="seite schmal-inhalt">${kopf}${verlaufWahl('lesen')}<p class="gedaempft">Lese-Daten werden geladen …</p></div>`;
+  const v = LA.leseVerlauf(LS.eintraege, { tagVon: (t) => L.tagKey(new Date(t)) });
+  if (!tag) {
+    return `<div class="seite schmal-inhalt">${kopf}${verlaufWahl('lesen')}
+      ${v.tage.length ? `<p class="pad">${leseLegende()}</p><section class="karte liste-karte">${v.tage.map(d => `<a class="zeile" href="#leseverlauf/${d.tag}">
+        <span class="zeile-haupt"><b>${tagLang(d.tag)}</b><span class="klein gedaempft">${d.fertig} ${d.fertig === 1 ? 'Karte' : 'Karten'} · ${pz(d.ergebnis.voll, d.fertig)} % gleich richtig · ${leMin(d.sekunden)} gelesen · ${A.minutenText(d.lohnSek)} verdient${d.abbruch ? ` · ${d.abbruch} abgebrochen` : ''}</span>${leseBalken(d.ergebnis, { schmal: true })}</span>
+        ${svg('weiter', 18)}</a>`).join('')}</section>` : '<p class="gedaempft pad">Noch keine Lesekarten in den letzten 30 Tagen.</p>'}</div>`;
+  }
+  const d = v.tage.find(x => x.tag === tag);
+  if (!d) return `<div class="seite schmal-inhalt">${kopf}${verlaufWahl('lesen')}<p class="gedaempft pad">An diesem Tag keine Lesekarten.</p><a class="knopf lese-woche-knopf" href="#leseverlauf">Alle Tage</a></div>`;
+  leseFragenLaden(d.karten.map(k => k.frage));
+  const falsch = Object.entries(d.falsch).sort((a, b) => b[1] - a[1]);
+  const idx = v.tage.indexOf(d), vor = v.tage[idx + 1], nach = v.tage[idx - 1];
+  return `<div class="seite schmal-inhalt">${kopf}${verlaufWahl('lesen')}
+    <div class="lv-tag-kopf">${vor ? `<a class="knopf-icon" href="#leseverlauf/${vor.tag}" aria-label="Tag davor">‹</a>` : '<span></span>'}<b>${tagLang(tag)}</b>${nach ? `<a class="knopf-icon" href="#leseverlauf/${nach.tag}" aria-label="Tag danach">›</a>` : '<span></span>'}</div>
+    <section class="karte">
+      <div class="lz-zahlen">
+        <div><b>${d.fertig}</b><span>Lesekarten${d.abbruch ? ` · ${d.abbruch} abgebrochen` : ''}</span></div>
+        <div><b>${leMin(d.sekunden)}</b><span>gelesen</span></div>
+        <div><b>${pz(d.ersteSchnell, d.ersteVersuche)} %</b><span>1. Antworten unter 3 s${d.lesestopp ? ` · ${d.lesestopp} Lesestopp${d.lesestopp > 1 ? 's' : ''}` : ''}</span></div>
+        <div><b>${A.minutenText(d.lohnSek)}</b><span>Bildschirmzeit verdient</span></div>
+      </div>
+      ${leseBalken(d.ergebnis, { zahlen: true })}
+      ${falsch.length ? `<p class="klein lv-falsch"><b>Falsche Antworten:</b> ${falsch.map(([t, n]) => `${esc(t)} ${n}`).join(' · ')}</p>` : ''}
+    </section>
+    <h2 class="abschnitt">Karten</h2>
+    ${d.karten.map(leseKarteHtml).join('')}
+    <a class="knopf lese-woche-knopf" href="#leseverlauf">Alle Tage</a>
+  </div>`;
+}
+
+// Mathe und Lesen nebeneinander (Auftrag 66): Minuten je Tag, Mathe-Schnitt der Woche vor dem ersten Lesetag als Linie
+function ersterLesetag(v) {
+  if (LS.ersterTag) return LS.ersterTag;
+  const t = v.karten.map(k => k.tag).sort()[0];
+  return t || null;
+}
+function matheLesenKarte(v) {
+  const tage = []; for (let i = 13; i >= 0; i--) tage.push(letzteTageKey(i));
+  const mathe = A.appMinutenJeTag(D.daten.aufgaben || []), lesen = LA.leseMinutenJeTag(v);
+  const erster = ersterLesetag(v);
+  let schnitt = null;
+  if (erster) {
+    const davor = []; const d0 = new Date(erster + 'T12:00'); for (let i = 7; i >= 1; i--) { const d = new Date(d0); d.setDate(d.getDate() - i); davor.push(L.tagKey(d)); }
+    schnitt = davor[0] >= A.letzteTage(31)[0] ? LA.matheSchnittVorLesen(mathe, erster, davor) : null;
+  }
+  const max = Math.max(10, schnitt || 0, ...tage.map(t => Math.max(mathe[t] || 0, lesen[t] || 0)));
+  const h = (m) => `${Math.round((m || 0) / max * 100)}%`;
+  const summe = (o, l) => l.reduce((s, t) => s + (o[t] || 0), 0);
+  const woche = tage.slice(-7);
+  return `<section class="karte ml-karte"><div class="karte-kopf"><h2>Mathe und Lesen</h2><span class="legende"><i class="farbe-teal"></i>Mathe-App</span><span class="legende"><i class="ml-farbe-lesen"></i>Lesen</span></div>
+    <div class="ml-diagramm" role="img" aria-label="Minuten je Tag, letzte 14 Tage">
+      ${schnitt != null ? `<span class="ml-linie" style="bottom:${h(schnitt)}"><span>Mathe vor dem Lesen: ${Math.round(schnitt)} Min.</span></span>` : ''}
+      ${tage.map(t => `<span class="ml-tag${t === L.tagKey() ? ' heute' : ''}" title="${tagLang(t)}: Mathe ${Math.round(mathe[t] || 0)} Min., Lesen ${Math.round(lesen[t] || 0)} Min."><span class="ml-paar"><i class="ml-m" style="height:${h(mathe[t])}"></i><i class="ml-l" style="height:${h(lesen[t])}"></i></span><span class="ml-wt">${new Date(t + 'T12:00').toLocaleDateString('de-DE', { weekday: 'narrow' })}</span></span>`).join('')}
+    </div>
+    <p class="klein gedaempft">Letzte 7 Tage: Mathe-App ${Math.round(summe(mathe, woche))} Min., Lesen ${Math.round(summe(lesen, woche))} Min.${schnitt != null ? ` Linie: Mathe-App im Schnitt am Tag in der Woche vor dem ersten Lesetag (${datumKurz(erster)}).` : erster ? '' : ' Die Linie kommt mit dem ersten Lesetag.'}</p>
+  </section>`;
+}
+
 function lesenSeite() {
   const w = entwurfHolen(), l = leseWerte(w);
   if (LS.kind !== C.nutzer || (!LS.geladen && !LS.fehler)) leseLaden(C.nutzer);
@@ -2307,7 +2443,7 @@ function lesenSeite() {
     </section>${geaendert() ? speicherLeiste() : ''}`;
   if (LS.kind !== C.nutzer || LS.laedt && !LS.geladen) return `<div class="seite schmal-inhalt">${kopf}<p class="gedaempft">Lese-Daten werden geladen …</p>${regler}</div>`;
   const r = LA.leseAuswertung(LS.eintraege, { ab: letzteTageKey(6), tagVon: (t) => L.tagKey(new Date(t)) });
-  const alle = LA.leseAuswertung(LS.eintraege, { tagVon: (t) => L.tagKey(new Date(t)) });
+  const alle = LA.leseAuswertung(LS.eintraege, { ab: letzteTageKey(13), tagVon: (t) => L.tagKey(new Date(t)) });
   const storyName = (id) => (LS.storylines.find(x => x.id === id) || {}).titel || id;
   const storyFolgen = (id) => (LS.storylines.find(x => x.id === id) || {}).folgen || '?';
   const woche = `<section class="karte"><div class="karte-kopf"><h2>Letzte 7 Tage</h2>${r.letzte ? `<span class="klein gedaempft">zuletzt ${esc(wann(r.letzte))}</span>` : ''}</div>
@@ -2318,6 +2454,7 @@ function lesenSeite() {
       <div><b>${pz(r.ersteSchnell, r.ersteVersuche)} %</b><span>Antworten unter 3 s</span></div></div>
       <p class="klein gedaempft">${r.ergebnis.voll} gleich richtig · ${r.ergebnis.hinweis} mit Hinweis · ${r.ergebnis.leiter} mit Leiter · ${r.ergebnis.aufloesung} Auflösung.${r.folge.n ? ` Davon ${r.folge.n} als 2. oder 3. Frage zum Text (${pz(r.folge.voll, r.folge.n)} % gleich richtig).` : ''} ${r.zurueck ? `${r.zurueck} ${r.zurueck === 1 ? 'Karte kommt' : 'Karten kommen'} später noch einmal.` : ''}</p>`
       : `<p class="gedaempft">${l.an ? 'In den letzten 7 Tagen keine Lesekarten.' : 'Noch keine Lesekarten. Lesen ist aus.'}</p>`}
+    <div class="knopf-reihe"><a class="knopf lese-woche-knopf" href="#leseverlauf">Tag für Tag im Verlauf</a></div>
   </section>`;
   const typen = Object.values(r.typen).sort((a, b) => b.n - a.n);
   const typKarte = typen.length ? `<section class="karte liste-karte"><div class="karte-kopf"><h2>Fragetypen</h2><span class="klein gedaempft">gleich richtig</span></div>
@@ -2339,7 +2476,7 @@ function lesenSeite() {
   const nachKarte = nach.length ? `<section class="karte"><div class="karte-kopf"><h2>Nachgeschlagen</h2><span class="klein gedaempft">7 Tage</span></div><p>${nach.slice(0, 15).map(([wo, n]) => `${esc(wo)}${n > 1 ? ` (${n}×)` : ''}`).join(', ')}</p></section>` : '';
   return `<div class="seite schmal-inhalt">${kopf}
     ${LS.fehler ? `<p class="meldung fehler">${esc(LS.fehler)}</p>` : ''}
-    ${woche}${stufenKarte}${typKarte}${storyKarte}${wuensche}${nachKarte}${regler}
+    ${woche}${matheLesenKarte(LA.leseVerlauf(LS.eintraege, { tagVon: (t) => L.tagKey(new Date(t)) }))}${stufenKarte}${typKarte}${storyKarte}${wuensche}${nachKarte}${regler}
   </div>`;
 }
 
