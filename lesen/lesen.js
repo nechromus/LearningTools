@@ -13,7 +13,7 @@ import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 
-export const LESE_VERSION = '0.10.0';
+export const LESE_VERSION = '0.10.1';
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
 const $app = document.getElementById('app');
 const tagKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

@@ -28,7 +28,7 @@ body.archiv { --teal: #33408F; --teal-dunkel: #262F70; --teal-hell: #E3E6F5; }
    Der Style (Auftrag 58) ändert nur Hintergrund, Textfarbe, Akzent, Titelschrift, Faktenkasten, Bisher-Kasten, Bildrahmen, Ornament. */
 .archiv .les { --s-bg: #F4F1E8; --s-fg: #1E2A2B; --s-ak: #33408F; --s-ak-t: #33408F; --s-muted: #4F5E5E; --s-tf: 700 22px 'Cinzel Archiv', Georgia, serif; --s-fl: #FBFAF5;
   --ok: #2E7D4F; --nn: #8A4F00; --dunkel: #1E2A2B;
-  background: var(--s-bg); color: var(--s-fg); min-height: 100vh; padding-bottom: 48px; }
+  background: var(--s-bg); color: var(--s-fg); min-height: 100vh; min-height: calc(100dvh / var(--zoom, 1)); padding-bottom: 48px; }
 body.archiv[data-style] { background: var(--sbg, #F4F1E8); }
 .archiv .les .top { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; }
 .archiv .ctl-t { font: 600 15px 'Atkinson Hyperlegible', system-ui, sans-serif; background: #fff; color: var(--dunkel, #1E2A2B); border: 2px solid var(--dunkel, #1E2A2B); border-radius: 10px; padding: 5px 11px; }
