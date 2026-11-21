@@ -1,6 +1,7 @@
 // Automatische Übertragung der Lerndaten in ein privates GitHub-Repo (Contents-API).
 // Der Zugangsschlüssel liegt nur auf dem Gerät (localStorage), nie im Code und nie im Export.
 
+import * as M from './messung.js';
 const API = 'https://api.github.com';
 
 export function base64(text) {
@@ -22,7 +23,9 @@ function fehlerText(status) {
   return `GitHub meldet Fehler ${status}.`;
 }
 
-async function anfrage(cfg, method, url, body, accept = 'application/vnd.github+json') {
+async function anfrage(cfg, method, url, body, accept = 'application/vnd.github+json', art = null) {
+  // Messpunkte Ladezeit: jede Anfrage mit Wartezeit, Dauer und Größe (ohne Schlüssel und Kopfzeilen)
+  const tok = M.anfrageStart(url, art || (method === 'PUT' ? 'schreiben' : method === 'DELETE' ? 'loeschen' : accept.includes('raw') ? 'lesen' : 'sha'));
   let r;
   try {
     r = await fetch(url, {
@@ -36,13 +39,25 @@ async function anfrage(cfg, method, url, body, accept = 'application/vnd.github+
       body: body ? JSON.stringify(body) : undefined
     });
   } catch (e) {
+    M.anfrageEnde(tok, 0, 'netz');
     throw new UploadFehler(0, fehlerText(0));
   }
-  return r;
+  if (!tok) return r;
+  M.anfrageKopf(tok, r.status);
+  // Inhalt hier ganz lesen, damit Dauer und Größe stimmen; danach als neue Antwort weitergeben
+  try {
+    const leer = [101, 204, 205, 304].includes(r.status);
+    const buf = leer ? null : await r.arrayBuffer();
+    M.anfrageEnde(tok, buf ? buf.byteLength : 0);
+    return new Response(buf, { status: r.status, statusText: r.statusText, headers: r.headers });
+  } catch (e) {
+    M.anfrageEnde(tok, 0, 'abbruch');
+    throw new UploadFehler(0, fehlerText(0));
+  }
 }
 
 export async function verbindungTesten(cfg) {
-  const r = await anfrage(cfg, 'GET', `${API}/repos/${cfg.repo}`);
+  const r = await anfrage(cfg, 'GET', `${API}/repos/${cfg.repo}`, undefined, undefined, 'repo');
   if (!r.ok) throw new UploadFehler(r.status, fehlerText(r.status));
   const info = await r.json();
   if (info.permissions && info.permissions.push === false) throw new UploadFehler(403, fehlerText(403));
@@ -53,7 +68,7 @@ export async function dateiSchreiben(cfg, pfad, inhalt, nachricht) {
   const url = pfadUrl(cfg, pfad);
   for (let versuch = 0; versuch < 2; versuch++) {
     let sha;
-    const g = await anfrage(cfg, 'GET', url);
+    const g = await anfrage(cfg, 'GET', url, undefined, undefined, 'sha');
     if (g.status === 200) sha = (await g.json()).sha;
     else if (g.status !== 404) throw new UploadFehler(g.status, fehlerText(g.status));
     const p = await anfrage(cfg, 'PUT', url, { message: nachricht, content: base64(inhalt), ...(sha ? { sha } : {}) });
@@ -67,7 +82,7 @@ export async function dateiSchreiben(cfg, pfad, inhalt, nachricht) {
 // Datei mit ihrer Kennung (sha) lesen. Für Dateien, die nur geschrieben werden dürfen, wenn sie sich nicht geändert haben.
 // Gibt { inhalt (JSON oder null), sha (oder null) } zurück.
 export async function dateiMitSha(cfg, pfad) {
-  const r = await anfrage(cfg, 'GET', pfadUrl(cfg, pfad));
+  const r = await anfrage(cfg, 'GET', pfadUrl(cfg, pfad), undefined, undefined, 'mitsha');
   if (r.status === 404) return { inhalt: null, sha: null };
   if (!r.ok) throw new UploadFehler(r.status, fehlerText(r.status));
   const j = await r.json();
@@ -92,7 +107,7 @@ export async function dateiNeuBase64(cfg, pfad, b64, nachricht) {
 }
 // Datei als Blob lesen (Bilder in der Eltern-App). Gibt null zurück, wenn es sie nicht gibt.
 export async function dateiBlob(cfg, pfad) {
-  const r = await anfrage(cfg, 'GET', pfadUrl(cfg, pfad), undefined, 'application/vnd.github.raw+json');
+  const r = await anfrage(cfg, 'GET', pfadUrl(cfg, pfad), undefined, 'application/vnd.github.raw+json', 'bild');
   if (r.status === 404) return null;
   if (!r.ok) throw new UploadFehler(r.status, fehlerText(r.status));
   return r.blob();
@@ -110,7 +125,7 @@ export async function dateiLesen(cfg, pfad) {
 
 // Inhalt eines Ordners: [{ name, path, type: 'file'|'dir', sha, size }]. Fehlt der Ordner: [].
 export async function ordnerLesen(cfg, pfad) {
-  const r = await anfrage(cfg, 'GET', pfadUrl(cfg, pfad));
+  const r = await anfrage(cfg, 'GET', pfadUrl(cfg, pfad), undefined, undefined, 'liste');
   if (r.status === 404) return [];
   if (!r.ok) throw new UploadFehler(r.status, fehlerText(r.status));
   const liste = await r.json();
@@ -120,7 +135,7 @@ export async function ordnerLesen(cfg, pfad) {
 // Löscht eine Datei im Repo (nur Eltern-App, für Pakete)
 export async function dateiLoeschen(cfg, pfad, nachricht) {
   const url = pfadUrl(cfg, pfad);
-  const g = await anfrage(cfg, 'GET', url);
+  const g = await anfrage(cfg, 'GET', url, undefined, undefined, 'sha');
   if (g.status === 404) return false;
   if (!g.ok) throw new UploadFehler(g.status, fehlerText(g.status));
   const { sha } = await g.json();

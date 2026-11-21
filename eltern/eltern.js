@@ -1,6 +1,7 @@
 // Eltern-App: Lerndaten ansehen (bis zur einzelnen Aufgabe) und Einstellungen der Übungs-App aus der Ferne ändern.
 // Daten liegen im privaten Repo (LearningToolsTracking). Der Zugangsschlüssel bleibt nur auf diesem Gerät.
 import * as U from '../js/sync.js';
+import * as M from '../js/messung.js';
 import * as L from '../js/logic.js';
 import { THEMA_NAMEN, GEN_NAMEN } from '../js/namen.js';
 import { esc, mathe, bildSvg } from '../js/render.js';
@@ -19,7 +20,7 @@ import { Lernplan } from './lernplan.mjs';
 import * as LA from './lesen-auswertung.js';
 import * as LL from '../lesen/lesen-logik.js';
 
-export const ELTERN_VERSION = '1.72.0';
+export const ELTERN_VERSION = '1.73.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -27,6 +28,12 @@ const app = document.getElementById('app');
 const breit = window.matchMedia('(min-width: 760px)');
 
 let C = konfigLaden();
+// Messpunkte Ladezeit (21.11.): jede Eltern-App hat eine eigene zufällige Kennung, Messungen landen beim gewählten Kind
+M.init({ app: 'eltern', version: ELTERN_VERSION });
+function elternGeraet() {
+  try { let g = localStorage.getItem('eltern-geraet'); if (!g) { g = 'e' + Math.random().toString(36).slice(2, 8); localStorage.setItem('eltern-geraet', g); } return g; } catch (e) { return null; }
+}
+M.hochladenMit(() => C.token && C.nutzer ? { U, cfg: C, ordner: C.nutzer, geraet: elternGeraet() } : null);
 const D = { nutzer: null, pool: new Map(), hinweise: {}, daten: null, fehler: null, pakete: [] };
 let route = { seite: 'uebersicht', arg: '' };
 let entwurf = null;
@@ -130,7 +137,7 @@ const paketVon = (id) => allePakete().find(p => p.id === id);
 async function tagDateiHolen(f, cache, behalten) {
   const key = `https://cache.eltern.local/${f.path}?sha=${f.sha}`;
   behalten.add(key);
-  try { const hit = cache && await cache.match(key); if (hit) return await hit.json(); } catch (e) { /* weiter ohne Speicher */ }
+  try { const t = performance.now(); const hit = cache && await cache.match(key); if (hit) { const j = await hit.json(); M.speicher(f.path, f.size, performance.now() - t); return j; } } catch (e) { /* weiter ohne Speicher */ }
   const json = await U.dateiLesen(C, f.path);
   try { if (cache) await cache.put(key, new Response(JSON.stringify(json), { headers: { 'Content-Type': 'application/json' } })); } catch (e) { /* egal */ }
   return json;
@@ -145,6 +152,7 @@ async function datenLaden() {
   const behalten = new Set();
   const proGeraet = {}, staende = [];
   // Geräte-Ordner frisch lesen (es können neue dazugekommen sein)
+  const eTage = M.etappe('tage');
   const geraete = (await U.ordnerLesen(C, `daten/${n.ordner}`)).filter(x => x.type === 'dir');
   const kennung = [];
   await Promise.all(geraete.map(async g => {
@@ -162,8 +170,12 @@ async function datenLaden() {
   if (cache) {
     try { for (const req of await cache.keys()) if (req.url.includes(`/daten/${n.ordner}/`) && !behalten.has(req.url)) await cache.delete(req); } catch (e) { /* egal */ }
   }
+  eTage();
+  const eEinst = M.etappe('einstellungen');
   const einst = await U.dateiLesen(C, `daten/${n.ordner}/einstellungen.json`);
   const schluessel = await U.dateiLesen(C, `daten/${n.ordner}/schluessel.json`).catch(() => null);
+  eEinst();
+  const eRechnen = M.etappe('tage_rechnen');
   staende.sort((a, b) => (a.stand.stand || '') < (b.stand.stand || '') ? 1 : -1);
   // Teil-Lösung rückwirkend ab 17.10. (Auftrag 37): nur im Speicher, nur mit Schalter „Teil-Lösung getrennt werten“
   const aufgaben = A.alleAufgaben(proGeraet);
@@ -178,6 +190,7 @@ async function datenLaden() {
     spiele: A.alleSpiele(proGeraet),
     einst, schluessel, geladen: Date.now(), kennung: kennung.sort().join('|')
   };
+  eRechnen();
   datenHinweisWeg();
   berichteLaden(n.ordner);
   liveLaden(n.ordner);
@@ -225,16 +238,18 @@ function datenHinweisWeg() { document.getElementById('daten-leiste')?.remove(); 
 async function allesLaden({ nutzerliste = false } = {}) {
   if (laedt) return;
   laedt = true; D.fehler = null;
+  M.lauf('neu_laden');
   zeichne();
   try {
-    if (!D.pool.size) await grunddatenLaden();
-    if (nutzerliste || !D.nutzer) await nutzerLaden();
-    await Promise.all([datenLaden(), paketeLaden()]);
+    if (!D.pool.size) { const e = M.etappe('grunddaten'); await grunddatenLaden(); e(); }
+    if (nutzerliste || !D.nutzer) { const e = M.etappe('kinder'); await nutzerLaden(); e(); }
+    await Promise.all([datenLaden(), (async () => { const e = M.etappe('pakete'); await paketeLaden(); e(); })()]);
   } catch (e) {
     D.fehler = e.message || 'Laden hat nicht geklappt.';
   }
   laedt = false;
   zeichne();
+  M.sichtbar();
   ticketsPruefen();
 }
 
@@ -638,7 +653,7 @@ async function bgLaden(neu = false) {
   const o = C.nutzer;
   if (BG.laedt || (BG.kind === o && BG.liste && !neu)) return;
   if (BG.kind !== o) Object.assign(BG, { kind: o, liste: null, boegen: {}, fb: {}, bilder: {}, pdf: {}, zeig: {}, entwuerfe: {}, hb: null, hbG: null, hbPdf: {}, hbAlt: {}, hbMeldung: null, fo: null, foG: null, foPdf: {}, foAlt: {}, foMeldung: null, zeit: {} });
-  BG.laedt = true; BG.fehler = null; zeichne();
+  BG.laedt = true; BG.fehler = null; M.lauf('reiter', 'boegen'); zeichne();
   try {
     const [ordner, fbs] = await Promise.all([U.ordnerLesen(C, `daten/${o}/boegen`), U.ordnerLesen(C, `daten/${o}/bogen-feedback`)]);
     const ids = ordner.filter(x => x.type === 'dir').map(x => x.name);
@@ -657,7 +672,7 @@ async function bgLaden(neu = false) {
     // Auftrag 42: auch wenn das Feedback nach dem Start der Messung gespeichert wurde (z. B. Minuten von Hand, Uhr lief noch)
     for (const id of zeitIds) { const z = BG.zeit[id], f = BG.fb[id]; if (z && f && A.zeitErledigt(z, f)) { U.dateiLoeschen(C, ZEIT(o, id), `${ordnerName(o)}: Bogen ${id} Zeit aufgeräumt`).catch(() => {}); delete BG.zeit[id]; } }
   } catch (e) { BG.fehler = e.message || 'Laden hat nicht geklappt.'; }
-  BG.laedt = false; zeichne();
+  BG.laedt = false; zeichne(); M.sichtbar();
 }
 // ---------- Hinweisblatt zum Ausdrucken (Auftrag 26) ----------
 // daten/<name>/hinweisblatt/: hinweisblatt.json, PDFs und Seitenbilder schreibt der Kinder-Chat.
@@ -1468,14 +1483,14 @@ const T = { liste: null, laedt: false, fehler: null, bilder: {} };
 const TICKET_STATUS = { neu: 'Neu', claude: 'Für Claude', erledigt: 'Erledigt' };
 async function ticketsLaden(still = false) {
   if (T.laedt) return;
-  T.laedt = true; T.fehler = null; if (!still) zeichne();
+  T.laedt = true; T.fehler = null; if (!still) { M.lauf('reiter', 'tickets'); zeichne(); }
   try {
     const dateien = (await U.ordnerLesen(C, 'feedback')).filter(f => f.type === 'file' && f.name.endsWith('.json'));
     T.namen = dateien.map(f => f.name + ':' + f.sha).sort().join('|');
     T.liste = (await Promise.all(dateien.map(f => U.dateiLesen(C, f.path).catch(() => null)))).filter(t => t && t.id)
       .sort((a, b) => (a.erstellt < b.erstellt ? 1 : -1));
   } catch (e) { if (!still) T.fehler = e.message || 'Laden hat nicht geklappt.'; }
-  T.laedt = false; T.geprueft = Date.now(); zeichne();
+  T.laedt = false; T.geprueft = Date.now(); zeichne(); M.sichtbar();
 }
 // Neue Tickets (Hinweis in der Übersicht und Zahl am Reiter): beim Start und alle 5 Minuten nachsehen, ob sich etwas geändert hat
 async function ticketsPruefen() {
@@ -2255,7 +2270,7 @@ function mehrSeite() {
 const LS = { kind: null, eintraege: [], ersterTag: null, fragen: {}, texte: {}, fragenLaedt: false, konto: [], storylines: null, geladen: 0, laedt: false, fehler: null };
 async function leseLaden(o, neu = false) {
   if (LS.laedt || (!neu && LS.kind === o && Date.now() - LS.geladen < 5 * 60e3)) return;
-  LS.laedt = true;
+  LS.laedt = true; M.lauf('reiter', 'lesen');
   try {
     const ab = letzteTageKey(29), ein = [];
     const ordner = await U.ordnerLesen(C, `daten/${o}/lesen`);
@@ -2278,6 +2293,7 @@ async function leseLaden(o, neu = false) {
   } catch (e) { LS.fehler = e.message || 'Laden hat nicht geklappt.'; LS.kind = o; LS.geladen = Date.now(); }
   LS.laedt = false;
   if (['lesen', 'uebersicht', 'leseverlauf'].includes(route.seite)) zeichne();
+  M.sichtbar();
 }
 // Heute verdient je Fach (aus den Quell-Dateien des Kassenbuchs)
 function kontoHeute() {
@@ -2324,7 +2340,7 @@ async function leseFragenLaden(ids, texte = []) {
   const fehlt = [...new Set(ids)].filter(id => id && !(id in LS.fragen));
   const fehltT = [...new Set(texte)].filter(id => id && !(id in LS.texte));
   if ((!fehlt.length && !fehltT.length) || LS.fragenLaedt) return;
-  LS.fragenLaedt = true;
+  LS.fragenLaedt = true; M.lauf('reiter', 'leseverlauf');
   const o = LS.kind;
   await Promise.all([
     ...fehlt.map(async id => { try { LS.fragen[id] = await U.dateiLesen(C, `daten/${o}/lesen/inhalt/fragen/${id}.json`); } catch (e) { LS.fragen[id] = null; } }),
@@ -2332,6 +2348,7 @@ async function leseFragenLaden(ids, texte = []) {
   ]);
   LS.fragenLaedt = false;
   if (route.seite === 'leseverlauf' || route.seite === 'lesen') zeichne();
+  M.sichtbar();
 }
 const uhrSek = (iso) => new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 const LE_PHASE = (p) => ({ frage: 'der Frage', hinweis: 'dem Hinweis', stopp: 'dem Lesestopp', leiter1: 'der Leiter', leiter2: 'der Leiter', leiterHinweis: 'der Leiter', merksatz: 'der Leiter', beleg: 'dem Beleg', belegHinweis: 'dem Beleg', belegMarkiert: 'dem Beleg', aufloesung: 'der Auflösung' }[p] || p);
@@ -3217,7 +3234,7 @@ function minutenSetzen(feld, wert) {
 // und die Version der Übungs-App (die Eltern-App nutzt deren Dateien in ../js/ mit).
 // Ohne Offline-Speicher: Vor dem Neuladen werden alle Dateien mit cache: 'reload' frisch geholt,
 // damit der Browser nicht die alten Dateien aus seinem Zwischenspeicher nimmt.
-const DATEIEN = ['../js/feedback.js', 'lernplan.mjs', 'lernplan.css', './', 'index.html', 'eltern.js', 'eltern.css', 'auswertung.js', 'vendor/qrcode.mjs', 'manifest.webmanifest',
+const DATEIEN = ['../js/messung.js', '../js/feedback.js', 'lernplan.mjs', 'lernplan.css', './', 'index.html', 'eltern.js', 'eltern.css', 'auswertung.js', 'vendor/qrcode.mjs', 'manifest.webmanifest',
   '../js/sync.js', '../js/logic.js', '../js/namen.js', '../js/render.js', '../js/paket.js', '../js/einrichtung.js',
   '../js/physik.js', '../js/umformen.js', '../js/lernplan.js', '../js/bildschirm.js', '../js/splitter.js', '../js/hinweiskarten.js', '../data/logbuch.json'];
 let basisVersion = null;   // Version der Übungs-App beim Laden dieser Seite
@@ -3643,4 +3660,4 @@ setInterval(ticketsPruefen, 60 * 1000); // solange die Eltern-App offen ist: jed
 leseRoute();
 bogenLinkPruefen();
 updatePruefen();
-if (!linkPruefen()) { if (C.token) allesLaden(); else zeichneEinrichten(); }
+if (!linkPruefen()) { if (C.token) allesLaden(); else { zeichneEinrichten(); M.sichtbar(); } }

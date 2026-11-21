@@ -4,6 +4,7 @@
 // daten/<name>/lesen/<geraet>/<tag>.json. Bildschirmzeit über das gemeinsame Kassenbuch (js/kasse.js), Quelle lesen-<geraet>.
 // Der Zugangsschlüssel bleibt auf dem Gerät und steht nie im Protokoll.
 import * as U from '../js/sync.js';
+import * as M from '../js/messung.js';
 import * as K from '../js/kasse.js';
 import * as BS from '../js/bildschirm.js';
 import { kasseAblauf } from '../js/kasse-ablauf.js';
@@ -13,7 +14,9 @@ import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 
-export const LESE_VERSION = '0.12.1';
+export const LESE_VERSION = '0.12.2';
+// Messpunkte Ladezeit (21.11.): Start, Hochladen, Inhalt, Abschicken. Testgeräte laden keine Messung hoch.
+M.init({ app: 'lesen', version: LESE_VERSION });
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
 const $app = document.getElementById('app');
 const tagKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -56,6 +59,7 @@ const test = () => !!S.upload.testgeraet;
 const testAls = () => (test() && S.upload.testAls) || null;
 const gross = (o) => o ? o.charAt(0).toUpperCase() + o.slice(1) : '';
 const ordner = () => testAls() || ordnerVon(S.name);
+M.hochladenMit(() => !test() && bereit() && S.geraetId ? { U, cfg: S.upload, ordner: ordner(), geraet: S.geraetId } : null);
 const W = () => (S.einst && S.einst.werte) || {};
 const R = () => { const r = LL.leseRegeln(W().lesen); return test() ? { ...r, an: true } : r; };
 const bereit = () => !!(S.upload.repo && S.upload.token && (S.name || testAls()));
@@ -89,6 +93,10 @@ async function einstellungenHolen() {
 }
 async function syncen(erzwingen = false) {
   if (!bereit() || syncLaeuft) return;
+  M.lauf('hochladen');
+  try { return await syncenInnen(erzwingen); } finally { M.sichtbar(); }
+}
+async function syncenInnen(erzwingen) {
   syncLaeuft = true;
   try {
     const neu = await einstellungenHolen();
@@ -233,6 +241,7 @@ function inhaltAnwenden(roh) {
 async function inhaltLaden() {
   if (!bereit()) return;
   if (inhaltLaedt) return inhaltLaedt;
+  M.lauf('inhalt');
   inhaltLaedt = (async () => {
     const alt = inhaltCache();
     if (alt && alt.ordner === ordner() && !INH) inhaltAnwenden(alt);
@@ -258,7 +267,7 @@ async function inhaltLaden() {
       inhaltAnwenden(roh);
       inhaltFehler = null;
     } catch (e) { inhaltFehler = INH ? null : (e.status === 0 ? 'offline' : 'fehler'); }
-  })().finally(() => { inhaltLaedt = null; });
+  })().finally(() => { inhaltLaedt = null; M.sichtbar(); });
   return inhaltLaedt;
 }
 // Bilder und Icons aus dem Daten-Repo (mit Schlüssel), als Blob-Adresse
@@ -681,7 +690,8 @@ function zeigeAbschicken() {
     if (r.eintrag) { k.res = r.eintrag; k.bez = r.datei.bezahlt; sichern(); }
   } else if (!test() && anz.sek >= ab && !ablauf.laeuft() && Date.now() - bzGeoeffnet > 20000) {
     bzGeoeffnet = Date.now();
-    ablauf.reservieren().then(() => { if (ansicht === 'bz') zeigeAbschicken(); });
+    M.lauf('abschicken');
+    ablauf.reservieren().then(() => { if (ansicht === 'bz') zeigeAbschicken(); M.sichtbar(); });
   }
   const res = resDaten(), jetzt = new Date();
   const fertig = res && res.stand >= ab;
@@ -931,5 +941,5 @@ async function versionPruefen() {
 if (S.laufend) abbruch(S.laufend.hintergrund ? 'hintergrund' : 'app_neu');
 // Start: Einrichtungs-Link in der Adresse (Kamera-App) übernehmen
 if (einrichtungLesen(location.hash)) einrichten(location.hash);
-else { zeigeStart(); versionPruefen(); }
+else { zeigeStart(); versionPruefen(); if (INH || !offen() || !inhaltLaedt) M.sichtbar(); else inhaltLaedt.then(() => M.sichtbar(), () => M.sichtbar()); }
 setInterval(() => { if (!document.hidden) syncen(); }, 10 * 60 * 1000);

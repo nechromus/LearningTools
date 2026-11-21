@@ -2,6 +2,7 @@
 import * as L from './logic.js';
 import * as G from './gen.js';
 import * as U from './sync.js';
+import * as M from './messung.js';
 import * as FU from './formeluebersicht.js';
 import { esc, mathe, bruchHtml, bildSvg, linienSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck, stellentafelHtml, tabelleHtml, saeulenSvg, dreieckSvg } from './render.js';
 import * as GF from './gefaerbt.js';
@@ -36,7 +37,9 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.52.0';
+export const APP_VERSION = '2.52.1';
+// Messpunkte Ladezeit (21.11.): Start, Hochladen, Abschicken, Formelsammlung. Testgeräte laden keine Messung hoch.
+M.init({ app: 'mathe', version: APP_VERSION });
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -147,6 +150,7 @@ const bildIcons = (g = 1) => `${konsoleSymbol(Math.round(44 * g))}${computerSymb
 // ============ Start ============
 
 export async function starten() {
+  const eGrund = M.etappe('grunddaten');
   try {
     const [h, a] = await Promise.all([
       fetch('data/hinweise.json').then(r => r.json()),
@@ -165,6 +169,7 @@ export async function starten() {
     ]);
     LOGBUCH = (lb && lb.eintraege) || [];
     ARCHIV = (wa && wa.eintraege) || [];
+    eGrund();
   } catch (e) {
     $app.innerHTML = `<div class="screen"><div class="karte"><p>Die Aufgaben konnten nicht geladen werden. Schau, ob das Internet an ist, und öffne die App noch einmal.</p></div></div>`;
     return;
@@ -193,6 +198,8 @@ export async function starten() {
   const ausLink = ausLinkRoh && ausLinkRoh.art === 'kind' ? ausLinkRoh : null;
   if (location.hash.includes('einrichten=')) history.replaceState(null, '', location.pathname + location.search);
   zeigeStart();
+  M.sichtbar();
+  M.hochladenMit(() => { const u = S.upload; return S.einstellungen.name && !u.testgeraet && !u.testAls && u.repo && u.token && S.geraetId ? { U, cfg: u, ordner: nutzerOrdner(), geraet: S.geraetId } : null; });
   if (ausLink) einrichten(ausLink, 'link');
 }
 
@@ -666,6 +673,7 @@ async function kasseReservieren() {
   const k = kasse(), u = S.upload;
   if (!k || kasseRes.laeuft) return;
   kasseRes = { laeuft: true, fehler: null };
+  M.lauf('abschicken');
   try {
     await kasseHochladen();
     for (let versuch = 0; versuch < 4; versuch++) {
@@ -688,6 +696,7 @@ async function kasseReservieren() {
     kasseRes.laeuft = false;
     kasseStand(); sichern();
     if (ansicht === 'bildschirm') zeigeBildschirmzeit();
+    M.sichtbar();
   }
 }
 // Nach dem Teilen: Status „geteilt“ eintragen (Eltern-App zählt nur geteilte als eingelöst). Wird bis zum Erfolg wiederholt.
@@ -730,6 +739,10 @@ protokollBeobachten((typ, d) => {
 });
 
 async function syncen(erzwingen = false) {
+  M.lauf('hochladen');
+  try { return await syncenInnen(erzwingen); } finally { M.sichtbar(); }
+}
+async function syncenInnen(erzwingen) {
   const u = S.upload;
   // Neue Einstellungen übernommen? Dann gleich den Stand melden, damit die Eltern-App es sieht.
   if (await fernHolen(erzwingen)) erzwingen = true;
@@ -3394,7 +3407,9 @@ async function fsBild(name) {
   return (FS_BILDER[name] = b ? URL.createObjectURL(b) : null);
 }
 function fsBilderLaden() {
-  document.querySelectorAll('img[data-fs-bild]').forEach(async img => { try { const u = await fsBild(img.dataset.fsBild); if (u) img.src = u; } catch (e) { /* ohne Bild */ } });
+  const bilder = [...document.querySelectorAll('img[data-fs-bild]')];
+  if (bilder.some(img => !FS_BILDER[img.dataset.fsBild])) M.lauf('formelsammlung');
+  Promise.all(bilder.map(async img => { try { const u = await fsBild(img.dataset.fsBild); if (u) img.src = u; } catch (e) { /* ohne Bild */ } })).then(() => M.sichtbar());
 }
 let fsZoomStufe = 1;
 function fsSeiteZeigen(n) {
