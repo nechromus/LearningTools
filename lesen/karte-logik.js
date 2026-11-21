@@ -302,6 +302,29 @@ export function staffelStand(inhAlle, inhFrei, fs, story, tag) {
   if (fs.fertig[story] || (!offen && gelesen)) return { art: 'fertig', gelesen, folgen: y, offen };
   return { art: gelesen ? 'laeuft' : 'neu', gelesen, folgen: y, offen };
 }
+// Wunsch Eltern 21.11.: erste ungelesene Folge der ganzen Serie (Staffeln der Reihe nach, nur freie Staffeln, nur mit spielbarer Frage)
+// → { story, text, beat } oder null
+export function serieErsteOffene(inh, fs, serie) {
+  for (const st of serie.staffeln) {
+    if (!inh.stories.some(s => s.id === st.id)) continue;
+    for (const fo of folgenStand(inh, fs, st.id)) {
+      if (fo.gelesen) continue;
+      const tid = fo.texte.find(id => frageFuer(inh, fs, id));
+      if (tid) return { story: st.id, text: tid, beat: fo.beat };
+    }
+  }
+  return null;
+}
+// Fehlen vor (story, beat) noch Folgen der Serie? Dann die erste fehlende, sonst null
+export function lueckeVor(inh, fs, serie, story, beat) {
+  const e = serieErsteOffene(inh, fs, serie);
+  if (!e) return null;
+  const i = serie.staffeln.findIndex(s => s.id === story), j = serie.staffeln.findIndex(s => s.id === e.story);
+  if (i < 0 || j < 0) return null;
+  return j < i || (j === i && e.beat < beat) ? e : null;
+}
+// Noch keine Folge der Serie gelesen?
+export const serieUngelesen = (inh, fs, serie) => serie.staffeln.every(st => !storyTexte(inh, st.id).some(t => fs.gelesen[t.id]));
 // Staffel zum Weiterlesen in einer Serie: die zuletzt gelesene, wenn dort etwas offen ist, sonst die erste offene
 export function staffelWeiter(inh, fs, serie) {
   const ids = serie.staffeln.map(s => s.id);

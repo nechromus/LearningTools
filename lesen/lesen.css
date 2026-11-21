@@ -268,3 +268,10 @@ body.archiv[data-style="tv"] { background: var(--tv-bg, #0A0E1A); color: #EEF1F8
 .archiv .les .pl-folge.naechste .st { color: var(--s-ak-t); }
 .archiv .les .naechste-folge { display: block; width: 100%; text-align: left; font: 700 19px/1.3 'Atkinson Hyperlegible', system-ui, sans-serif; background: var(--s-ak); color: var(--s-bg); border: 0; border-radius: 12px; padding: 14px 16px; margin: 0 0 10px; }
 .archiv .les .naechste-folge span { display: block; font-weight: 400; font-size: 15.5px; margin-top: 3px; opacity: .92; }
+/* Wunsch Eltern 21.11.: Warnung „Dir fehlen noch Folgen“ */
+.archiv .luecke-knoepfe { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.archiv .luecke-knoepfe .btn { width: 100%; }
+.archiv .luecke-knoepfe .unter { display: block; font-weight: 400; font-size: 14px; opacity: .9; margin-top: 2px; }
+/* Fenster auf dem dunklen Start und der Kanalseite: dunkle Schrift auf hellem Grund */
+body.archiv[data-style="tv"] .modal-box { color: #1E2A2B; }
+body.archiv[data-style="tv"] .modal-box .btn:not(.btn-haupt) { color: #1E2A2B; }

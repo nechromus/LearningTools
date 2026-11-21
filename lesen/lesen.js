@@ -14,7 +14,7 @@ import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 
-export const LESE_VERSION = '0.12.2';
+export const LESE_VERSION = '0.13.0';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Inhalt, Abschicken. Testgeräte laden keine Messung hoch.
 M.init({ app: 'lesen', version: LESE_VERSION });
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
@@ -597,6 +597,26 @@ function karteFertig() {
 }
 // ---------- Kanalseite einer Serie (Entscheidung 68): Staffeln, die laufende klappt ihre Folgen auf ----------
 let ansichtKanal = null, kanalAuf = null;
+// Wunsch Eltern 21.11.: Fehlen vor der gewählten Folge noch Folgen der Serie (auch aus einer früheren Staffel),
+// zeigt die App eine Warnung; weiter geht es nur mit der ersten fehlenden Folge (Eltern 21.11.: kein Überspringen). Gibt true zurück, wenn die Warnung kam.
+let luecke = null;
+function lueckePruefen(story, textId, wahl) {
+  const sr = serieZu(story), f = fs();
+  const t = textId ? INH.texte[textId] : KL.naechsterText(INH, f, story);
+  if (!sr || !t) return false;
+  const e = KL.lueckeVor(INH, f, sr, story, t.beat);
+  if (!e) return false;
+  luecke = { story, text: t.id, wahl, erste: e };
+  protokoll('lese_luecke', { aktion: 'gezeigt', story, text: t.id, erste_story: e.story, erste_text: e.text });
+  const stE = storyVon(e.story), sttE = staffelText(sr, stE), sttZ = staffelText(sr, storyVon(story));
+  const titelE = (INH.texte[e.text] || {}).titel || '';
+  const ziel = `${sttZ && e.story !== story ? sttZ + ', ' : ''}Folge ${t.beat}`;
+  modal(`<h2 class="modal-titel">Dir fehlen noch Folgen</h2>
+    <p>Du willst ${esc(ziel)} lesen. Davor fehlt noch ${esc(sttE && e.story !== story ? sttE + ', ' : '')}Folge ${e.beat}.</p>
+    <p>Die Folgen bauen aufeinander auf. Deshalb geht es dort weiter.</p>
+    <div class="luecke-knoepfe"><button class="btn btn-haupt" data-act="lueckeSpringen">Weiter mit Folge ${e.beat}<span class="unter">${esc([sr.titel, sttE, titelE].filter(Boolean).join(' · '))}</span></button></div>`);
+  return true;
+}
 function zeigeKanal(serieId, auf) {
   const sr = SERIEN().find(x => x.id === serieId);
   if (!sr) return zeigeStart(false);
@@ -863,11 +883,24 @@ document.addEventListener('click', async (ev) => {
     case 'lesen': if (INH) lesenWeiter(); break;
     case 'nochmalVersuchen': if (INH) { letzteKarte = null; lesenWeiter(); } break;
     case 'anderes': if (INH) zeigeWahl(); break;
-    case 'kanal': if (INH) { protokoll('lese_serie', { serie: el.dataset.s, anlass: ansicht === 'karte' ? 'ende' : 'start' }); window.scrollTo(0, 0); zeigeKanal(el.dataset.s); } break;
-    case 'staffelAuf': zeigeKanal(ansichtKanal, kanalAuf === el.dataset.s || (kanalAuf == null && KL.staffelWeiter(INH, fs(), SERIEN().find(x => x.id === ansichtKanal)) === el.dataset.s) ? '' : el.dataset.s); break;
-    case 'kanalLesen': karteStarten(el.dataset.s, 'kanal'); break;
-    case 'folge': protokoll('lese_wahl', { art: 'folge', story: el.dataset.s, text: el.dataset.t }); karteStarten(el.dataset.s, 'kanal', el.dataset.t); break;
-    case 'storyWahl': if (ansicht === 'karte' && A) protokoll('lese_wahl', { art: 'anders', story: el.dataset.s }); karteStarten(el.dataset.s, ansicht === 'karte' ? 'anders' : 'start'); break;
+    case 'kanal': if (INH) {
+      protokoll('lese_serie', { serie: el.dataset.s, anlass: ansicht === 'karte' ? 'ende' : 'start' });
+      // Neue Serie (noch keine Folge gelesen): gleich Folge 1 (Wunsch Eltern 21.11.)
+      const sr = SERIEN().find(x => x.id === el.dataset.s), e = sr && KL.serieUngelesen(INH, fs(), sr) ? KL.serieErsteOffene(INH, fs(), sr) : null;
+      if (e) { protokoll('lese_wahl', { art: 'serie_neu', story: e.story, text: e.text }); karteStarten(e.story, 'kanal', e.text); break; }
+      window.scrollTo(0, 0); zeigeKanal(el.dataset.s);
+    } break;
+    case 'staffelAuf': {
+      // Neue Staffel (noch nichts gelesen): gleich ihre erste Folge; fehlen davor Folgen der Serie, erst die Warnung
+      const st = el.dataset.s, stand = KL.staffelStand(INH_ALLE, INH, fs(), st, heute().tag);
+      const t1 = stand.art === 'neu' ? KL.folgenStand(INH, fs(), st).map(fo => fo.texte.find(id => KL.frageFuer(INH, fs(), id))).find(Boolean) : null;
+      if (t1) { if (!lueckePruefen(st, t1, 'kanal')) { protokoll('lese_wahl', { art: 'staffel_neu', story: st, text: t1 }); karteStarten(st, 'kanal', t1); } break; }
+    }
+      zeigeKanal(ansichtKanal, kanalAuf === el.dataset.s || (kanalAuf == null && KL.staffelWeiter(INH, fs(), SERIEN().find(x => x.id === ansichtKanal)) === el.dataset.s) ? '' : el.dataset.s); break;
+    case 'kanalLesen': if (!lueckePruefen(el.dataset.s, null, 'kanal')) karteStarten(el.dataset.s, 'kanal'); break;
+    case 'folge': protokoll('lese_wahl', { art: 'folge', story: el.dataset.s, text: el.dataset.t }); if (!lueckePruefen(el.dataset.s, el.dataset.t, 'kanal')) karteStarten(el.dataset.s, 'kanal', el.dataset.t); break;
+    case 'lueckeSpringen': { const l = luecke; luecke = null; modalZu(); if (!l) break; protokoll('lese_luecke', { aktion: 'springen', story: l.story, text: l.text, erste_story: l.erste.story, erste_text: l.erste.text }); karteStarten(l.erste.story, l.wahl, l.erste.text); break; }
+    case 'storyWahl': { if (ansicht === 'karte' && A) protokoll('lese_wahl', { art: 'anders', story: el.dataset.s }); const w = ansicht === 'karte' ? 'anders' : 'start'; if (!lueckePruefen(el.dataset.s, null, w)) karteStarten(el.dataset.s, w); break; }
     case 'weiter': { const w = KL.weiterText(INH, fs(), INH.texte[A.text]); protokoll('lese_wahl', { art: 'weiter', story: A.story }); karteStarten(A.story, 'weiter', w ? w.id : null); break; }
     case 'nochEine': protokoll('lese_wahl', { art: 'noch_eine', story: A.story, text: A.text }); karteStarten(A.story, 'noch_eine', A.text); break;
     case 'storyFb': if (A && A.fb) {
