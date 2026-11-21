@@ -294,7 +294,8 @@ export function staffelStand(inhAlle, inhFrei, fs, story, tag) {
   const s = (inhAlle.storyListe || inhAlle.stories).find(x => x.id === story);
   const frei = inhFrei.stories.some(x => x.id === story);
   const y = (s && s.folgen) || storyTexte(inhAlle, story).length;
-  if (!frei) return { art: 'gesperrt', am: s ? freiAm(s, fs) : null, gelesen: 0, folgen: y };
+  // am nur, wenn der Tag feststeht und noch kommt (ohne Texte oder ohne ab/nach: „Kommt danach“)
+  if (!frei) { const am = s && mitTakt(s) ? freiAm(s, fs) : null; return { art: 'gesperrt', am: am && am > tag ? am : null, gelesen: 0, folgen: y }; }
   const fo = folgenStand(inhFrei, fs, story);
   const gelesen = fo.filter(x => x.gelesen).length;
   const offen = fo.some(x => x.offen);
