@@ -13,7 +13,7 @@ import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 
-export const LESE_VERSION = '0.11.0';
+export const LESE_VERSION = '0.12.0';
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
 const $app = document.getElementById('app');
 const tagKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -121,6 +121,40 @@ const VIDEO = (h) => `<svg width="${h}" height="${h}" viewBox="0 0 40 40" aria-h
 const BUCH = `<path d="M7.2 9.2c1.6-.6 3-.4 4.8.7 1.8-1.1 3.2-1.3 4.8-.7v6.6c-1.6-.6-3-.4-4.8.7-1.8-1.1-3.2-1.3-4.8-.7z" fill="#fff" stroke="#262F70" stroke-width=".8" stroke-linejoin="round"/><path d="M12 9.9v6.6" stroke="#262F70" stroke-width=".7"/>`;
 const minTxt = (sek) => BS.minText(sek);
 
+// ---------- Serien (Entscheidung 68, Konzept E): Kanäle oben, Feed mit höchstens 3 Karten ----------
+const SERIEN = () => KL.serienListe(INH_ALLE);
+const serieZu = (story) => KL.serieVon(SERIEN(), story);
+const staffelText = (sr, st) => sr && sr.staffeln.length > 1 ? `Staffel ${st.staffel || sr.staffeln.indexOf(st) + 1}` : '';
+const bildImg = (datei, cls, alt = '') => datei ? `<img class="${cls}" data-datei="${esc(datei)}" alt="${esc(alt)}">` : `<span class="${cls} leer"></span>`;
+// Blauer Punkt: in der Serie ist heute eine Staffel neu frei
+const serieNeu = (sr) => sr.staffeln.some(st => istNeu(st.id));
+function kanaeleHtml() {
+  const l = SERIEN();
+  if (!l.length) return '';
+  return `<nav class="tv-kanaele" aria-label="Serien">${l.map(sr => `<button class="tv-kanal" data-act="kanal" data-s="${esc(sr.id)}"><span class="tv-av">${bildImg(sr.bild, 'tv-av-bild')}${serieNeu(sr) ? '<i class="tv-punkt" aria-label="Neu"></i>' : ''}</span><span class="tv-kanal-name">${esc(sr.titel)}</span></button>`).join('')}</nav>`;
+}
+function weiterKarte(story, f) {
+  const t = KL.naechsterText(INH, f, story), fo = KL.folgeVon(INH, t), s = storyVon(story), sr = serieZu(story);
+  const stt = staffelText(sr, s);
+  const gel = KL.folgenStand(INH, f, story).filter(x => x.gelesen).length;
+  const nFragen = Object.values(INH.fragen).filter(q => q.text === t.id).length;
+  const cover = t.bild && t.bild.datei ? bildImg(t.bild.datei, 'tv-cover-bild') : `<span class="tv-cover-icon">${bildImg(s.icon, 'tv-cover-ic')}</span>`;
+  return `<section class="tv-next">
+    <div class="tv-cover tvs-${esc(s.style || 'neutral')}">${cover}<span class="tv-tag">${stt ? stt + ' · ' : ''}${gel}/${fo.y}</span><span class="tv-prog"><i style="width:${Math.round(100 * gel / Math.max(1, fo.y))}%"></i></span></div>
+    <div class="tv-info">${bildImg(sr ? sr.bild : s.icon, 'tv-av-klein')}<div><b>${istNeu(story) ? '<span class="tv-marke neu">Neu</span> ' : ''}${esc(s.titel)} · Folge ${fo.x}: ${esc(t.titel)}</b><small>${esc(sr ? sr.titel : '')}${nFragen ? ` · ${nFragen} ${nFragen === 1 ? 'Frage' : 'Fragen'}` : ''}</small></div></div>
+    <button class="tv-btn" data-act="lesen"><span class="tv-play"></span>Weiterlesen</button>
+  </section>`;
+}
+function premiereKarte(x) {
+  const sr = serieZu(x.story.id), stt = staffelText(sr, x.story);
+  return `<section class="tv-premiere"><span class="tv-pr-bild">${bildImg(x.story.icon, 'tv-pr-ic')}<span class="tv-tag blau">${esc(amText(x.am))}</span></span>
+    <div><small>${esc(sr ? sr.titel : '')}${stt ? ' · ' + stt : ''}</small><b>${esc(x.story.titel)}</b><small>${esc(x.story.kurz || '')}</small></div></section>`;
+}
+function neuKarte(st) {
+  const sr = serieZu(st.id), stt = staffelText(sr, st);
+  return `<button class="tv-premiere tv-neu" data-act="storyWahl" data-s="${esc(st.id)}"><span class="tv-pr-bild">${bildImg(st.icon, 'tv-pr-ic')}<span class="tv-tag blau">Neu</span></span>
+    <div><small>${esc(sr ? sr.titel : '')}${stt ? ' · ' + stt : ''}</small><b>${esc(st.titel)}</b><small>Jetzt lesen ›</small></div></button>`;
+}
 function startKnoepfe() {
   if (!INH || !INH.stories.length) return `<button class="btn btn-haupt btn-gross lese-knopf" disabled>Weiterlesen<span class="unter">${inhaltLaedt ? 'Die Geschichten werden geladen …' : inhaltFehler === 'offline' ? 'Zum ersten Laden braucht die App Internet.' : 'Die ersten Geschichten kommen bald.'}</span></button>`;
   const f = fs();
@@ -129,18 +163,15 @@ function startKnoepfe() {
   if (!story) {
     const bald = KL.demnaechst(INH_ALLE, f, heute().tag);
     bald.forEach(x => morgenMelden(x.story.id, 'start'));
-    return `<section class="info-karte"><b>Alle Geschichten sind gelesen.</b><div class="gedaempft">Neue Folgen kommen bald.</div></section>
-      <div class="les start-geschichten">${bald.map(x => `<div class="wahl story-bald" aria-disabled="true"><span class="mini">${iconHtml(x.story.id, false)}<span><b>${esc(x.story.titel)}</b><span class="marke-bald">${esc(amText(x.am))}</span>${esc(x.story.kurz || '')}</span></span></div>`).join('')}</div>`;
+    return `<section class="info-karte"><b>Alle Folgen sind gelesen.</b><div class="gedaempft">Neue Staffeln kommen bald.</div></section>
+      ${bald.length ? `<p class="tv-ueber">Neu im Archiv</p>${bald.slice(0, 2).map(premiereKarte).join('')}` : ''}`;
   }
-  const t = KL.naechsterText(INH, f, story), fo = KL.folgeVon(INH, t), s = storyVon(story);
-  // Auftrag 67: neu freie Geschichten mit Marke „Neu“, angekündigte als ausgegraute Karte
+  // Feed (Entscheidung 68): „Als Nächstes“, dann neu freie Staffeln und Ankündigungen, zusammen höchstens 3 Karten
   const neue = INH.stories.filter(x => x.id !== story && istNeu(x.id) && KL.naechsterText(INH, f, x.id));
   const bald = KL.demnaechst(INH_ALLE, f, heute().tag);
   bald.forEach(x => morgenMelden(x.story.id, 'start'));
-  return `<button class="btn btn-haupt btn-gross lese-knopf" data-act="lesen">Weiterlesen<span class="unter">${istNeu(story) ? 'Neu · ' : ''}${esc(s.titel)} · Folge ${fo.x} · ${esc(t.titel)}</span></button>
-    <button class="btn btn-gross" data-act="anderes">Etwas anderes lesen</button>
-    <div class="les start-geschichten">${neue.map(x => `<button class="wahl" data-act="storyWahl" data-s="${esc(x.id)}"><span class="mini">${iconHtml(x.id, false)}<span><b>${esc(x.titel)}</b><span class="marke-neu">Neu</span>${esc(x.kurz || '')}</span></span></button>`).join('')}
-    ${bald.map(x => `<div class="wahl story-bald" aria-disabled="true"><span class="mini">${iconHtml(x.story.id, false)}<span><b>${esc(x.story.titel)}</b><span class="marke-bald">${esc(amText(x.am))}</span>${esc(x.story.kurz || '')}</span></span></div>`).join('')}</div>`;
+  const rest = [...neue.map(neuKarte), ...bald.map(premiereKarte)].slice(0, 2);
+  return `<p class="tv-ueber">Als Nächstes</p>${weiterKarte(story, f)}${rest.length ? `<p class="tv-ueber">Neu im Archiv</p>${rest.join('')}` : ''}`;
 }
 function zeigeStart(syncJetzt = true) {
   bodyStyle(null);
@@ -160,14 +191,18 @@ function zeigeStart(syncJetzt = true) {
     $app.innerHTML = `<div class="screen start">${kopf}${testLeiste}<section class="info-karte bald"><b>Das Archiv öffnet bald.</b><div class="gedaempft">Deine Eltern schalten es frei.</div></section><p class="gedaempft bz-mitte klein">Version ${LESE_VERSION}</p></div>`;
     return;
   }
+  bodyStyle('tv');
+  ansichtKanal = null;
   $app.innerHTML = `
-  <div class="screen start">
-    ${kopf}${testLeiste}
+  <div class="screen start tv">
+    <header class="tv-kopf"><span class="tv-logo">${sechseck(34, '#1C2440', '#F2994A', BUCH)}<span><b>Archiv der Welten</b><small>Hallo${S.name ? ', ' + esc(S.name) : ''}!</small></span></span></header>
+    ${testLeiste}
     ${anz.sek > 0 ? `<section class="bz-karte">
       <span class="bz-icons">${VIDEO(40)}</span>
       <div class="bz-text"><div class="bz-zahl">${minTxt(anz.sek)}</div><div class="gedaempft">Bildschirmzeit gesammelt</div></div>
       ${anz.sek >= ab ? '<button class="btn btn-bz" data-act="bz">Abschicken</button>' : `<div class="bz-ab gedaempft">Ab ${minTxt(ab)} kannst du abschicken. Noch ${minTxt(ab - anz.sek)}</div>`}
     </section>` : ''}
+    ${INH ? kanaeleHtml() : ''}
     ${startKnoepfe()}
     <section class="info-karte">
       <div class="info-zeile"><span>Heute gelesen</span><b>${t.karten} ${t.karten === 1 ? 'Karte' : 'Karten'}</b></div>
@@ -269,7 +304,8 @@ const STYLES = {
   raumfahrt: { kasten: 'Telemetrie', orn: '— · —', bg: '#0E1726' }, fantasy: { kasten: 'Aus der Chronik', orn: '✦ ✦ ✦', bg: '#F3E7CC' },
   videogames: { kasten: 'Highscore', orn: '▪ ▪ ▪', bg: '#000000' }, scifi: { kasten: 'Scan', orn: '◇ ◇ ◇', bg: '#06222A' },
   musik: { kasten: 'Ticket', orn: '♪ ♪ ♪', bg: '#1B1416' }, seefahrt: { kasten: 'Logbuch', orn: '~ ~ ~', bg: '#E6EEF2' },
-  rekord: { kasten: 'Zeitnahme', orn: '› › ›', bg: '#2B2D31' }
+  rekord: { kasten: 'Zeitnahme', orn: '› › ›', bg: '#2B2D31' },
+  tv: { kasten: '', orn: '', bg: '#0A0E1A' }   // Start und Kanalseite (Entscheidung 68)
 };
 const styleVon = (story) => { const k = (storyVon(story) || {}).style; return STYLES[k] ? k : 'neutral'; };
 function bodyStyle(k) {
@@ -444,15 +480,23 @@ function endeTeil(q, t) {
   const morgen = t.beat === KL.folgeVon(INH, t).y ? KL.demnaechst(INH_ALLE, f, heute().tag).find(x => x.story.nach === t.story) : null;
   if (morgen) morgenMelden(morgen.story.id, 'ende');
   if (!weiter && !andere.length && !A.engpass) { A.engpass = true; protokoll('lese_engpass', { story: A.story }); }
+  // Entscheidung 68: nach der Folge die Playlist der Staffel; „Nächste Folge“ ist der leichteste Weg, nichts anderes lenkt ab
+  const sr = serieZu(t.story), stt = staffelText(sr, storyVon(t.story) || {});
+  const folgen = KL.folgenStand(INH, f, t.story), y = KL.folgeVon(INH, t).y, gel = folgen.filter(x => x.gelesen).length;
+  const i = Math.max(0, folgen.findIndex(x => x.beat === t.beat));
+  const playlist = weiter && !zurueckInStory ? `<section class="playlist" data-ziel><div class="pl-kopf"><b>${esc((storyVon(t.story) || {}).titel || '')}</b><small>${esc(sr && sr.staffeln.length > 1 ? sr.titel + ' · ' + stt : sr ? sr.titel : '')} · ${gel}/${y}</small></div>
+      ${folgen.slice(Math.max(0, i - 1), i + 3).map(x => `<div class="pl-folge${x.beat === t.beat ? ' eben' : ''}${x.beat === weiter.beat ? ' naechste' : ''}"><span class="nr">${x.beat}</span><span class="ti"><b>${esc(x.titel)}</b><small>${x.beat === t.beat ? 'eben gelesen' : x.beat === weiter.beat ? 'als Nächstes' : x.gelesen ? '✓ gelesen' : 'offen'}</small></span><span class="st">${x.gelesen ? '✓' : x.beat === weiter.beat ? '›' : ''}</span></div>`).join('')}
+    </section>` : '';
   return `${kopf}${voll}${rundeFertig}
-    ${noch ? `<button class="wahl" data-act="nochEine"><b>Noch eine Frage zum Text</b>Der Text bleibt stehen.</button>` : ''}
+    ${playlist}
     ${weiter ? (zurueckInStory
       ? `<button class="wahl" data-act="weiter"><b>Neue Fragen zu ${esc((storyVon(t.story) || {}).titel || 'dieser Geschichte')}</b>Zurück zu Folge ${weiter.beat}${weiter.titel ? ': ' + esc(weiter.titel) : ''}</button>`
-      : `<button class="wahl" data-act="weiter"><b>Wie geht es weiter?</b>${letzte ? '' : esc(t.teaser || '')}</button>`) : ''}
+      : `<button class="naechste-folge" data-act="weiter"><b>Nächste Folge ${weiter.beat}: ${esc(weiter.titel || '')}</b>${letzte ? '' : `<span>${esc(t.teaser || '')}</span>`}</button>`) : ''}
+    ${noch ? `<button class="wahl" data-act="nochEine"><b>Noch eine Frage zum Text</b>Der Text bleibt stehen.</button>` : ''}
     ${morgen ? `<section class="morgen-kasten"><div class="morgen-kopf">${esc(amText(morgen.am))}: <b>${esc(morgen.story.titel)}</b></div>
       <div class="mini">${iconHtml(morgen.story.id, false)}<span>${esc(morgen.story.kurz || '')}</span></div>${t.teaser ? `<p class="morgen-teaser">${esc(t.teaser)}</p>` : ''}</section>`
       : letzte && t.teaser ? `<p class="gedaempft">${esc(t.teaser)}</p>` : ''}
-    ${andere.length ? `<p class="wahl-kopf"><b>${morgen ? 'Bis dahin: andere Geschichten' : 'Etwas anderes'}</b></p>${andere.map(s => `<button class="wahl" data-act="storyWahl" data-s="${esc(s.id)}"><span class="mini">${iconHtml(s.id, false)}<span><b>${esc(s.titel)}</b>${neuMarke(s.id)}${esc(s.kurz || '')}</span></span></button>`).join('')}`
+    ${andere.length && !weiter ? `<p class="wahl-kopf"><b>${morgen ? 'Bis dahin: andere Geschichten' : 'Etwas anderes'}</b></p>${andere.map(s => `<button class="wahl" data-act="storyWahl" data-s="${esc(s.id)}"><span class="mini">${iconHtml(s.id, false)}<span><b>${esc(s.titel)}</b>${neuMarke(s.id)}${esc(s.kurz || '')}</span></span></button>`).join('')}`
       : (!weiter ? '<p>Neue Folgen kommen bald.</p>' : '')}
     <button class="btn" data-act="start">Zum Start</button>`;
 }
@@ -541,6 +585,47 @@ function karteFertig() {
   sichern();
   if (!test()) syncen();
   zeigeKarte();
+}
+// ---------- Kanalseite einer Serie (Entscheidung 68): Staffeln, die laufende klappt ihre Folgen auf ----------
+let ansichtKanal = null, kanalAuf = null;
+function zeigeKanal(serieId, auf) {
+  const sr = SERIEN().find(x => x.id === serieId);
+  if (!sr) return zeigeStart(false);
+  if (ansichtKanal !== serieId) { ansichtKanal = serieId; kanalAuf = null; }
+  bodyStyle('tv');
+  ansicht = 'kanal';
+  const f = fs(), tag = heute().tag;
+  const weiter = KL.staffelWeiter(INH, f, sr);
+  if (auf !== undefined) kanalAuf = auf;
+  const offenId = kanalAuf ?? weiter ?? sr.staffeln.find(st => INH.stories.some(x => x.id === st.id))?.id ?? null;
+  const folgenGesamt = sr.staffeln.reduce((n, st) => n + (st.folgen || 0), 0);
+  let weiterKnopf = '';
+  if (weiter) { const t = KL.naechsterText(INH, f, weiter), st = storyVon(weiter), stt = staffelText(sr, st); weiterKnopf = `<button class="tv-btn" data-act="kanalLesen" data-s="${esc(weiter)}"><span class="tv-play"></span>Weiterlesen: ${stt ? stt + ', ' : ''}Folge ${t.beat}</button>`; }
+  const zeilen = sr.staffeln.map(st => {
+    const stand = KL.staffelStand(INH_ALLE, INH, f, st.id, tag), stt = staffelText(sr, st);
+    const kopf = `${stt}${stt && st.jahr ? ' · ' : ''}${st.jahr || ''}`;
+    if (stand.art === 'gesperrt') {
+      const txt = stand.am ? amText(stand.am) : 'Kommt danach';
+      return `<div class="tv-staffel gesperrt"><span class="tv-st-bild">${bildImg(st.icon, 'tv-st-ic')}</span><div><small>${esc(kopf)}</small><b>${esc(st.titel)}</b><span class="tv-marke ${stand.am ? 'blau' : ''}">${stand.am ? '' : '<i class="tv-schloss"></i>'}${esc(txt)}</span></div></div>`;
+    }
+    const auf = st.id === offenId;
+    const status = stand.art === 'fertig' ? `<span class="tv-ok">✓ alle ${stand.folgen} Folgen</span>` : stand.art === 'neu' ? `<span class="tv-marke${istNeu(st.id) ? ' neu' : ''}">${istNeu(st.id) ? 'Neu' : 'Noch nicht gelesen'}</span>` : `<span class="tv-bar"><i style="width:${Math.round(100 * stand.gelesen / Math.max(1, stand.folgen))}%"></i></span>`;
+    const liste = auf ? `<div class="tv-folgen">${KL.folgenStand(INH, f, st.id).map(fo => {
+      const tid = fo.texte.find(id => KL.frageFuer(INH, f, id));
+      const st2 = fo.jetzt ? '<em class="jetzt">Jetzt ›</em>' : fo.gelesen && !fo.offen ? '<em class="ok">✓</em>' : fo.gelesen ? '<em>Frage offen</em>' : '<em>offen</em>';
+      const inner = `<span class="nr">${fo.beat}</span><span class="ti"><b>${esc(fo.titel)}</b><small>${fo.gelesen ? '✓ gelesen' : `${fo.texte.reduce((n, id) => n + Object.values(INH.fragen).filter(q => q.text === id).length, 0)} Fragen`}</small></span>${st2}`;
+      return tid ? `<button class="tv-folge${fo.jetzt ? ' jetzt' : ''}" data-act="folge" data-s="${esc(st.id)}" data-t="${esc(tid)}">${inner}</button>` : `<div class="tv-folge fertig">${inner}</div>`;
+    }).join('')}</div>` : '';
+    return `<button class="tv-staffel${auf ? ' auf' : ''}" data-act="staffelAuf" data-s="${esc(st.id)}"><span class="tv-st-bild">${bildImg(st.icon, 'tv-st-ic')}</span><div><small>${esc(kopf)}</small><b>${esc(st.titel)}</b>${status}</div><span class="tv-pfeil">${auf ? '⌃' : '⌄'}</span></button>${liste}`;
+  }).join('');
+  $app.innerHTML = `<div class="screen start tv kanal">
+    <div class="tv-top"><button class="tv-zurueck" data-act="start" aria-label="Zurück zum Start">‹</button></div>
+    <header class="tv-kanal-kopf">${bildImg(sr.bild, 'tv-av-gross')}<div><h2>${esc(sr.titel)}</h2>${sr.kurz ? `<small>${esc(sr.kurz)}</small>` : ''}<small>${sr.staffeln.length} ${sr.staffeln.length === 1 ? 'Staffel' : 'Staffeln'}${folgenGesamt ? ` · ${folgenGesamt} Folgen` : ''}</small></div></header>
+    ${weiterKnopf}
+    <p class="tv-ueber">${sr.staffeln.length > 1 ? 'Staffeln' : 'Folgen'}</p>
+    <div class="tv-staffeln">${zeilen}</div>
+  </div>`;
+  bilderEinsetzen();
 }
 // „Etwas anderes“ vom Start aus
 function zeigeWahl() {
@@ -768,6 +853,10 @@ document.addEventListener('click', async (ev) => {
     case 'lesen': if (INH) lesenWeiter(); break;
     case 'nochmalVersuchen': if (INH) { letzteKarte = null; lesenWeiter(); } break;
     case 'anderes': if (INH) zeigeWahl(); break;
+    case 'kanal': if (INH) { protokoll('lese_serie', { serie: el.dataset.s, anlass: ansicht === 'karte' ? 'ende' : 'start' }); window.scrollTo(0, 0); zeigeKanal(el.dataset.s); } break;
+    case 'staffelAuf': zeigeKanal(ansichtKanal, kanalAuf === el.dataset.s || (kanalAuf == null && KL.staffelWeiter(INH, fs(), SERIEN().find(x => x.id === ansichtKanal)) === el.dataset.s) ? '' : el.dataset.s); break;
+    case 'kanalLesen': karteStarten(el.dataset.s, 'kanal'); break;
+    case 'folge': protokoll('lese_wahl', { art: 'folge', story: el.dataset.s, text: el.dataset.t }); karteStarten(el.dataset.s, 'kanal', el.dataset.t); break;
     case 'storyWahl': if (ansicht === 'karte' && A) protokoll('lese_wahl', { art: 'anders', story: el.dataset.s }); karteStarten(el.dataset.s, ansicht === 'karte' ? 'anders' : 'start'); break;
     case 'weiter': { const w = KL.weiterText(INH, fs(), INH.texte[A.text]); protokoll('lese_wahl', { art: 'weiter', story: A.story }); karteStarten(A.story, 'weiter', w ? w.id : null); break; }
     case 'nochEine': protokoll('lese_wahl', { art: 'noch_eine', story: A.story, text: A.text }); karteStarten(A.story, 'noch_eine', A.text); break;

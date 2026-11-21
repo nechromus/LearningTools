@@ -158,3 +158,113 @@ body.archiv[data-style] { background: var(--sbg, #F4F1E8); }
 .archiv .les.start-geschichten { min-height: 0; padding-bottom: 0; background: none; margin-top: 4px; }
 .archiv .les.start-geschichten:empty { display: none; }
 .archiv .les .wahl .marke-neu, .archiv .les .wahl .marke-bald { margin: 3px 8px 3px 0; }
+
+/* ---------- Serien: Start und Kanalseite (Entscheidung 68, Konzept E), dunkel wie eine Streaming-App ---------- */
+.archiv .tv { --tv-bg: #0A0E1A; --tv-fl: #141A2C; --tv-fl2: #1C2440; --tv-fg: #EEF1F8; --tv-mu: #A3ACC2; --tv-ak: #F2994A; --tv-neu: #5B84FF; --tv-ok: #4FD18D;
+  background: var(--tv-bg); color: var(--tv-fg); max-width: 560px; gap: 12px; }
+body.archiv[data-style="tv"] { background: var(--tv-bg, #0A0E1A); color: #EEF1F8; }
+.archiv .tv .gedaempft { color: var(--tv-mu); }
+.archiv .tv .tv-kopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.archiv .tv .tv-logo { display: flex; align-items: center; gap: 10px; }
+.archiv .tv .tv-logo b { display: block; font: 700 19px/1.1 'Cinzel Archiv', Cinzel, Georgia, serif; color: var(--tv-fg); }
+.archiv .tv .tv-logo small { display: block; font-size: 14px; color: var(--tv-mu); }
+.archiv .tv .tv-ueber { margin: 6px 0 -4px; font-weight: 700; font-size: 16px; color: var(--tv-fg); }
+/* Karten aus styles.css dunkel */
+.archiv .tv .info-karte { background: var(--tv-fl); border-color: var(--tv-fl2); color: var(--tv-fg); }
+.archiv .tv .balken { background: var(--tv-fl2); }
+.archiv .tv .balken i { background: var(--tv-ak); }
+.archiv .tv .voll-zeile { color: var(--tv-ak); }
+.archiv .tv .info-trenner { border-top-color: var(--tv-fl2); }
+.archiv .tv .bz-karte { background: var(--tv-fl); border-color: var(--tv-ok); }
+.archiv .tv .bz-zahl { color: var(--tv-ok); }
+.archiv .tv .btn-bz { background: var(--tv-ok); border-color: var(--tv-ok); color: #06210F; }
+.archiv .tv .test-leiste { background: #2A2210; color: #FFDCA0; }
+.archiv .tv .test-leiste-text .klein { color: #D9C9A5; }
+.archiv .tv .test-leiste-pfeil { color: #FFDCA0; }
+.archiv .tv .btn[disabled] { background: var(--tv-fl); border-color: var(--tv-fl2); color: var(--tv-mu); }
+/* Kanäle */
+.archiv .tv-kanaele { display: flex; gap: 14px; overflow-x: auto; padding: 2px 2px 10px; border-bottom: 1px solid var(--tv-fl2); scrollbar-width: none; }
+.archiv .tv-kanaele::-webkit-scrollbar { display: none; }
+.archiv .tv-kanal { flex: none; width: 76px; display: grid; justify-items: center; gap: 5px; background: none; border: 0; padding: 0; color: var(--tv-mu); font-size: 13px; line-height: 1.2; text-align: center; }
+.archiv .tv-av { position: relative; width: 64px; height: 64px; border-radius: 50%; background: var(--tv-fl2); }
+.archiv .tv-av-bild, .archiv .tv-av-klein, .archiv .tv-av-gross { display: block; border-radius: 50%; object-fit: cover; background: var(--tv-fl2); }
+.archiv .tv-av-bild { width: 64px; height: 64px; }
+.archiv .tv-punkt { position: absolute; right: 0; bottom: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--tv-neu); border: 3px solid var(--tv-bg); }
+.archiv .tv-kanal-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* Als Nächstes */
+.archiv .tv-next { display: grid; gap: 10px; }
+.archiv .tv-cover { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: var(--tv-fl2); display: grid; place-items: center; }
+.archiv .tv-cover.tvs-raumfahrt { background: radial-gradient(ellipse at 50% 120%, #1D3B7A 0%, #0E1726 60%); }
+.archiv .tv-cover.tvs-fantasy { background: radial-gradient(ellipse at 50% 30%, #3A3F8F 0%, #14183D 75%); }
+.archiv .tv-cover.tvs-videogames { background: linear-gradient(135deg, #1B0F3A, #000); }
+.archiv .tv-cover-bild { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.archiv .tv-cover-icon { width: 46%; aspect-ratio: 1; }
+.archiv .tv-cover-ic { width: 100%; height: 100%; object-fit: contain; border-radius: 14px; }
+.archiv .tv-tag { position: absolute; right: 8px; bottom: 10px; background: rgba(0,0,0,.8); color: #fff; font-weight: 700; font-size: 13px; border-radius: 5px; padding: 2px 7px; }
+.archiv .tv-tag.blau { background: var(--tv-neu); right: auto; left: 6px; bottom: 6px; font-size: 12px; }
+.archiv .tv-prog { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255,255,255,.22); }
+.archiv .tv-prog i, .archiv .tv-bar i { display: block; height: 100%; background: var(--tv-ak); }
+.archiv .tv-info { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: start; }
+.archiv .tv-av-klein { width: 40px; height: 40px; }
+.archiv .tv-info b { display: block; font-size: 17px; line-height: 1.3; }
+.archiv .tv-info small { display: block; color: var(--tv-mu); font-size: 14px; margin-top: 2px; }
+.archiv .tv-btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; background: var(--tv-fg); color: #0A0E1A; border: 0; border-radius: 12px; padding: 14px; font-weight: 700; font-size: 19px; }
+.archiv .tv-play { width: 0; height: 0; border-left: 13px solid currentColor; border-top: 8px solid transparent; border-bottom: 8px solid transparent; }
+.archiv .tv-marke { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; border-radius: 5px; padding: 2px 7px; background: rgba(255,255,255,.14); color: var(--tv-fg); }
+.archiv .tv-marke.neu, .archiv .tv-marke.blau { background: var(--tv-neu); color: #fff; }
+/* Premiere und neue Staffel */
+.archiv .tv-premiere { display: grid; grid-template-columns: 104px 1fr; gap: 12px; align-items: center; width: 100%; text-align: left; background: var(--tv-fl); border: 0; border-radius: 12px; padding: 0 12px 0 0; overflow: hidden; color: var(--tv-fg); font: inherit; }
+.archiv .tv-premiere.tv-neu { border: 1.5px solid var(--tv-neu); }
+.archiv .tv-pr-bild { position: relative; display: grid; place-items: center; height: 96px; background: var(--tv-fl2); }
+.archiv .tv-pr-ic { width: 64px; height: 64px; object-fit: contain; border-radius: 10px; }
+.archiv .tv-premiere:not(.tv-neu) .tv-pr-ic { filter: grayscale(.5) brightness(.75); }
+.archiv .tv-premiere b { display: block; font-size: 16px; line-height: 1.25; }
+.archiv .tv-premiere small { display: block; font-size: 13px; color: var(--tv-mu); line-height: 1.3; }
+.archiv .tv-premiere.tv-neu small:last-child { color: var(--tv-neu); font-weight: 700; }
+/* Kanalseite */
+.archiv .tv-top { display: flex; }
+.archiv .tv-zurueck { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--tv-fl2); color: var(--tv-fg); font-size: 24px; line-height: 1; }
+.archiv .tv-kanal-kopf { display: grid; grid-template-columns: 76px 1fr; gap: 14px; align-items: center; }
+.archiv .tv-av-gross { width: 76px; height: 76px; }
+.archiv .tv-kanal-kopf h2 { margin: 0 0 2px; font: 700 26px/1.05 'Oswald', 'Arial Narrow', sans-serif; color: var(--tv-fg); }
+.archiv .tv-kanal-kopf small { display: block; font-size: 14px; color: var(--tv-mu); line-height: 1.35; }
+.archiv .tv-staffeln { display: grid; border-radius: 12px; overflow: hidden; background: var(--tv-fl); }
+.archiv .tv-staffel { display: grid; grid-template-columns: 64px 1fr 20px; gap: 12px; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--tv-fl2); padding: 10px 12px; color: var(--tv-fg); font: inherit; }
+.archiv .tv-staffel.auf { background: var(--tv-fl2); }
+.archiv .tv-staffel.gesperrt { grid-template-columns: 64px 1fr; }
+.archiv .tv-staffel.gesperrt .tv-st-ic { filter: grayscale(.6) brightness(.6); }
+.archiv .tv-st-bild { width: 64px; height: 64px; border-radius: 10px; overflow: hidden; background: var(--tv-bg); display: grid; place-items: center; }
+.archiv .tv-st-ic { width: 100%; height: 100%; object-fit: cover; }
+.archiv .tv-staffel small { display: block; font-size: 13px; color: var(--tv-mu); }
+.archiv .tv-staffel b { display: block; font-size: 17px; line-height: 1.25; margin-bottom: 4px; }
+.archiv .tv-bar { display: block; height: 5px; border-radius: 3px; background: rgba(255,255,255,.16); overflow: hidden; }
+.archiv .tv-ok { color: var(--tv-ok); font-size: 14px; font-weight: 700; }
+.archiv .tv-pfeil { color: var(--tv-mu); font-size: 18px; }
+.archiv .tv-schloss { display: inline-block; width: 10px; height: 8px; border: 2px solid currentColor; border-radius: 2px; position: relative; margin-top: 5px; }
+.archiv .tv-schloss::before { content: ""; position: absolute; left: 1px; top: -7px; width: 4px; height: 5px; border: 2px solid currentColor; border-bottom: 0; border-radius: 4px 4px 0 0; }
+.archiv .tv-folgen { background: var(--tv-fl2); padding: 0 12px 6px; border-bottom: 1px solid var(--tv-bg); }
+.archiv .tv-folge { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid rgba(255,255,255,.07); padding: 10px 0; color: var(--tv-fg); font: inherit; }
+.archiv .tv-folge .nr { font: 700 20px 'Oswald', sans-serif; color: var(--tv-mu); text-align: center; }
+.archiv .tv-folge b { display: block; font-size: 16px; line-height: 1.25; }
+.archiv .tv-folge small { display: block; font-size: 13px; color: var(--tv-mu); }
+.archiv .tv-folge em { font-style: normal; font-size: 13px; font-weight: 700; color: var(--tv-mu); white-space: nowrap; }
+.archiv .tv-folge em.ok { color: var(--tv-ok); }
+.archiv .tv-folge.jetzt { background: rgba(242,153,74,.13); margin: 0 -12px; padding: 10px 12px; width: calc(100% + 24px); border-left: 4px solid var(--tv-ak); }
+.archiv .tv-folge.jetzt .nr, .archiv .tv-folge em.jetzt { color: var(--tv-ak); }
+.archiv .tv-folge.fertig { opacity: .85; }
+.archiv .tv button:focus-visible { outline: 3px solid var(--tv-ak); outline-offset: 2px; }
+/* Nach der Folge: Playlist der Staffel im Style der Geschichte */
+.archiv .les .playlist { margin: 14px 0 10px; border: 1.5px solid color-mix(in srgb, var(--s-fg) 22%, transparent); border-radius: 12px; overflow: hidden; background: var(--s-fl); }
+.archiv .les .pl-kopf { padding: 10px 12px; background: color-mix(in srgb, var(--s-fg) 8%, var(--s-fl)); }
+.archiv .les .pl-kopf b { display: block; font-size: 17px; }
+.archiv .les .pl-kopf small { display: block; font-size: 13.5px; color: var(--s-muted); }
+.archiv .les .pl-folge { display: grid; grid-template-columns: 26px 1fr 18px; gap: 10px; align-items: center; padding: 9px 12px; border-top: 1px solid color-mix(in srgb, var(--s-fg) 10%, transparent); }
+.archiv .les .pl-folge .nr { font-weight: 700; font-size: 17px; color: var(--s-muted); text-align: center; }
+.archiv .les .pl-folge b { display: block; font-size: 16px; line-height: 1.25; }
+.archiv .les .pl-folge small { display: block; font-size: 13px; color: var(--s-muted); }
+.archiv .les .pl-folge .st { font-weight: 700; color: var(--ok); }
+.archiv .les .pl-folge.eben { background: color-mix(in srgb, var(--s-ak) 14%, transparent); border-left: 4px solid var(--s-ak); }
+.archiv .les .pl-folge.eben .nr { color: var(--s-ak-t); }
+.archiv .les .pl-folge.naechste .st { color: var(--s-ak-t); }
+.archiv .les .naechste-folge { display: block; width: 100%; text-align: left; font: 700 19px/1.3 'Atkinson Hyperlegible', system-ui, sans-serif; background: var(--s-ak); color: var(--s-bg); border: 0; border-radius: 12px; padding: 14px 16px; margin: 0 0 10px; }
+.archiv .les .naechste-folge span { display: block; font-weight: 400; font-size: 15.5px; margin-top: 3px; opacity: .92; }

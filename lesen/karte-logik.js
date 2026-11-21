@@ -50,7 +50,8 @@ export function inhaltPruefen(roh) {
     if (!Array.isArray(q.belegSatz) || q.belegSatz.some(s => !(s >= 0 && s < t.saetze[b].length))) { f('belegSatz'); continue; }
     fragen[id] = q;
   }
-  return { stories: stories.filter(s => Object.values(texte).some(t => t.story === s.id)), storyListe: stories, texte, fragen, fehler };
+  const serien = ((roh.storylines && roh.storylines.serien) || []).filter(x => x && x.id && x.titel);
+  return { stories: stories.filter(s => Object.values(texte).some(t => t.story === s.id)), storyListe: stories, serien, texte, fragen, fehler };
 }
 
 // ---------- Fortschritt ----------
@@ -253,3 +254,56 @@ export function demnaechst(inh, fs, tag) {
 }
 // Die letzte Folge zählt als fertig bei voll, hinweis oder leiter
 export const FERTIG_ERGEBNIS = ['voll', 'hinweis', 'leiter'];
+
+// ---------- Serien, Staffeln, Folgen (Entscheidung 68, Konzept E) ----------
+// storylines.json: serien [{id, titel, kurz, bild, style}], je Geschichte serie (id) und staffel (Nummer), optional jahr.
+// Ohne serie ist die Geschichte eine eigene Serie mit Staffel 1. inhAlle = alle geprüften Inhalte, inhFrei = nur freie.
+export function serienListe(inhAlle) {
+  const alle = inhAlle.storyListe || inhAlle.stories;
+  const mitText = new Set(Object.values(inhAlle.texte).map(t => t.story));
+  const def = new Map((inhAlle.serien || []).map(x => [x.id, x]));
+  const out = new Map();
+  for (const s of alle) {
+    // Geschichten ohne Texte nur zeigen, wenn sie zu einer Serie gehören (angekündigte Staffel)
+    const sid = s.serie && def.has(s.serie) ? s.serie : s.id;
+    if (!mitText.has(s.id) && sid === s.id) continue;
+    if (!out.has(sid)) { const d = def.get(sid); out.set(sid, { id: sid, titel: d ? d.titel : s.titel, kurz: d ? d.kurz || '' : s.kurz || '', bild: d ? d.bild || s.icon : s.icon, style: (d && d.style) || s.style, staffeln: [] }); }
+    out.get(sid).staffeln.push(s);
+  }
+  for (const x of out.values()) x.staffeln.sort((a, b) => (a.staffel || 1) - (b.staffel || 1));
+  return [...out.values()].filter(x => x.staffeln.some(s => mitText.has(s.id)));
+}
+export const serieVon = (liste, story) => liste.find(x => x.staffeln.some(s => s.id === story)) || null;
+// Folgen einer Staffel: [{ beat, titel, texte, gelesen, offen, jetzt }]; jetzt = Folge des nächsten Texts
+export function folgenStand(inh, fs, story) {
+  const texte = storyTexte(inh, story);
+  const nt = naechsterText(inh, fs, story);
+  const m = new Map();
+  for (const t of texte) {
+    if (!m.has(t.beat)) m.set(t.beat, { beat: t.beat, titel: t.titel, texte: [], gelesen: false, offen: false, jetzt: false });
+    const x = m.get(t.beat);
+    x.texte.push(t.id);
+    if (fs.gelesen[t.id]) x.gelesen = true;
+    if (textFragen(inh, t.id).some(q => spielbar(fs, q))) x.offen = true;
+  }
+  if (nt && m.has(nt.beat)) m.get(nt.beat).jetzt = true;
+  return [...m.values()].sort((a, b) => a.beat - b.beat);
+}
+// Stand einer Staffel: fertig | laeuft | neu (frei, noch nichts gelesen) | gesperrt (mit am = Tag der Freigabe oder null)
+export function staffelStand(inhAlle, inhFrei, fs, story, tag) {
+  const s = (inhAlle.storyListe || inhAlle.stories).find(x => x.id === story);
+  const frei = inhFrei.stories.some(x => x.id === story);
+  const y = (s && s.folgen) || storyTexte(inhAlle, story).length;
+  if (!frei) return { art: 'gesperrt', am: s ? freiAm(s, fs) : null, gelesen: 0, folgen: y };
+  const fo = folgenStand(inhFrei, fs, story);
+  const gelesen = fo.filter(x => x.gelesen).length;
+  const offen = fo.some(x => x.offen);
+  if (fs.fertig[story] || (!offen && gelesen)) return { art: 'fertig', gelesen, folgen: y, offen };
+  return { art: gelesen ? 'laeuft' : 'neu', gelesen, folgen: y, offen };
+}
+// Staffel zum Weiterlesen in einer Serie: die zuletzt gelesene, wenn dort etwas offen ist, sonst die erste offene
+export function staffelWeiter(inh, fs, serie) {
+  const ids = serie.staffeln.map(s => s.id);
+  if (fs.letzteStory && ids.includes(fs.letzteStory) && naechsterText(inh, fs, fs.letzteStory)) return fs.letzteStory;
+  return ids.find(id => inh.stories.some(s => s.id === id) && naechsterText(inh, fs, id)) || null;
+}
