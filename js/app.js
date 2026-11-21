@@ -36,7 +36,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.51.3';
+export const APP_VERSION = '2.52.0';
 
 const S = laden();
 // Wurde die App mitten in einer Aufgabe beendet? Dann wartet diese Aufgabe.
@@ -1787,7 +1787,7 @@ function erzeuge(g, stufe, opts = {}) {
   if (g === 'daten' && !L.freigegeben(S, 'daten_2', L.tagKey())) stufe = 1;
   if (g === 'saeulen' && !L.freigegeben(S, 'diagramm_2', L.tagKey())) stufe = 1;
   // Auftrag 55: Kosinus Stufe 3 (drei Längen, Sachtexte) erst ab freigaben.kosinus_2
-  if (g === 'kosinus' && !L.freigegeben(S, 'kosinus_2', L.tagKey())) stufe = Math.min(stufe, 2);
+  if (['kosinus', 'sinus', 'tangens'].includes(g) && !L.freigegeben(S, 'kosinus_2', L.tagKey())) stufe = Math.min(stufe, 2);   // Auftrag 69: gilt für sin und tan mit
   let a;
   for (let i = 0; i < 8; i++) {
     a = G.GENERATOREN[g](stufe, Math.random, opts);
@@ -1895,7 +1895,7 @@ const TEST_GEN = {
   'minus-zahlen': ['minus-plus', 'geld-geschichte'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'], 'bruch-bild': ['bruch-bild'],
   'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'prozent-formel': ['prozent-formel'], 'kreisdiagramm': ['kreisdiagramm'], 'rabatt': ['rabatt-geschichte'], 'neuer-preis': ['rabatt-geschichte'],
   'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'],
-  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte'], 'daten': ['daten'], 'diagramm': ['saeulen'], 'kosinus': ['kosinus']
+  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte'], 'daten': ['daten'], 'diagramm': ['saeulen'], 'kosinus': ['kosinus'], 'sinus': ['sinus'], 'tangens': ['tangens']
 };
 const testFokus = () => (S.upload.testgeraet && S.testFokus && (L.THEMEN.includes(S.testFokus.thema) || S.testFokus.thema === 'formelsammlung') ? S.testFokus : null);
 
@@ -2506,6 +2506,7 @@ function neueAufgabe() {
   bzErklaerungEinmal();
   kosMerkzettel();
   if (KOS_TASTEN_AN) kosTasten();
+  trigMerkzettel();
   // Fehler-Detektiv: beim ersten Mal die Einführungskarte, danach nur über „?“
   if (aufgabe.typ === 'detektiv' && !S.detektivGesehen) { S.detektivGesehen = true; protokoll(S, 'detektiv_einfuehrung', { id: aufgabe.id }); sichern(); detektivEinfuehrung(); }
 }
@@ -3438,6 +3439,38 @@ function malMerkzettel() {
     <button class="btn btn-haupt" data-act="malVerstanden">Verstanden</button></div>`);
 }
 // Merkzettel Kosinus (Auftrag 55): einmal vor der ersten Kosinus-Aufgabe, danach über den Hinweis (Karte 25)
+// Auftrag 69: Sinus und Tangens je einmal beim ersten Auftreten (Ankathete rot, Gegenkathete grün)
+const TRIG_MERK = {
+  sinus: { fn: 'sin', merk: 'sinMerk', tasten: 'sinTasten', z: 'Gegenkathete', n: 'Hypotenuse', bsp: ['Gegenkathete ÷ Hypotenuse =', '0,5736', 'α ≈ 35,0°'] },
+  tangens: { fn: 'tan', merk: 'tanMerk', tasten: 'tanTasten', z: 'Gegenkathete', n: 'Ankathete', bsp: ['Gegenkathete ÷ Ankathete =', '0,4', 'α ≈ 21,8°'] }
+};
+function trigMerkzettel() {
+  const a = A && A.aufgabe, m = a && TRIG_MERK[a.thema];
+  if (!m || $modal.classList.contains('offen')) return;
+  if (!S.verlauf[m.merk]) {
+    S.verlauf[m.merk] = true;
+    protokoll(S, 'merkzettel', { art: a.thema, aktion: 'gezeigt', id: a.id, ...hb('merkzettel.' + a.thema) });
+    sichern();
+    const bild = dreieckSvg({ lage: 4, an: 6, geg: 3.5, winkel: 'α', farbig: m.fn, namen: { hyp: 'Hypotenuse', an: 'Ankathete', geg: 'Gegenkathete' } });
+    return oeffneModal(`<div class="hinweis-text kos-merk"><div class="merk-titel">Merkzettel</div><h2 class="modal-titel">${m.fn === 'sin' ? 'Sinus' : 'Tangens'}</h2>
+      <div class="kos-bild">${bild}</div>
+      ${m.fn === 'sin' ? '<p>Die <span class="kos-blau">Hypotenuse</span> liegt gegenüber vom rechten Winkel.</p>' : '<p>Die <span class="kos-rot">Ankathete</span> berührt den Winkel α.</p>'}
+      <p>Die <span class="kos-gruen">Gegenkathete</span> liegt gegenüber vom Winkel α.</p>
+      ${m.fn === 'tan' ? '<p>tan braucht keine Hypotenuse.</p>' : ''}
+      <p class="kos-regel"><b>${m.fn} α = ${bruchHtml(m.z, m.n)}</b></p>
+      <button class="btn btn-haupt" data-act="trigVerstanden" data-art="${a.thema}">Verstanden</button></div>`);
+  }
+  if ((a.stufe || 1) >= 2 && !S.verlauf[m.tasten]) {
+    S.verlauf[m.tasten] = true;
+    protokoll(S, 'merkzettel', { art: a.thema + '_tasten', aktion: 'gezeigt', id: a.id, ...hb('merkzettel.' + a.thema + '_tasten') });
+    sichern();
+    oeffneModal(`<div class="hinweis-text kos-merk"><div class="merk-titel">Merkzettel</div><h2 class="modal-titel">So tippst du den Winkel</h2>
+      <p>„${m.fn} α =“ ist nur der Name der Zahl. Hier noch kein ${m.fn} drücken.</p>
+      <ol class="kos-tasten"><li><b>${m.bsp[0]}</b> → ${m.bsp[1]}</li><li><b>2nd ${m.fn} ${m.bsp[1]} =</b> → ${m.bsp[2]}</li></ol>
+      <p>Runden, nicht abschneiden: Schau auf die nächste Ziffer.</p>
+      <button class="btn btn-haupt" data-act="trigVerstanden" data-art="${a.thema}_tasten">Verstanden</button></div>`);
+  }
+}
 function kosMerkzettel() {
   const a = A && A.aufgabe;
   if (!a || a.thema !== 'kosinus' || S.verlauf.kosMerk || $modal.classList.contains('offen')) return;
@@ -4238,7 +4271,7 @@ function abschliessen() {
     if (!a.bonus && !A.test && !a.etappeMindest && !['gpw', 'p', 'g'].includes(a.form) && !g.startsWith('block') && G.GENERATOREN[g]) {
       const st = S.genStufen[g] || (S.genStufen[g] = { stufe: 1, folge: 0 });
       if (ergebnis === 'erst' && A.hilfeGenutzt) st.folge = 0; // mit „Hilf mir“: Stufe bleibt
-      else if (ergebnis === 'erst') { st.folge++; if (st.folge >= 3 && st.stufe < stufeGrenze(g)) { st.stufe++; st.folge = 0; stufeHoch = { generator: g, stufe: st.stufe }; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } }
+      else if (ergebnis === 'erst') { st.folge++; if (st.folge >= (g === 'sinus' || g === 'tangens' ? 2 : 3) && st.stufe < stufeGrenze(g)) { st.stufe++; st.folge = 0; stufeHoch = { generator: g, stufe: st.stufe }; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } }
       else if (ergebnis === 'zweit' || ergebnis === 'teil') st.folge = 0;
       else { if (st.stufe > 1) { st.stufe--; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } st.folge = 0; }
     }
@@ -4415,7 +4448,7 @@ function hinweisOeffnen(id) {
   }
   // Stufe „Gleich lang“: sofort der lange Hinweis, ohne Kosten.
   // Hinweis 23 „Prozent mit Formel“ (Auftrag 47): immer gleich die Karte, denn die Formelübersicht zeigt W/G = p/100, die Formelsammlung W/p = G/100.
-  if (langStufe() === 0 || id === 'formel' || id === 'daten' || id === 'kosinus') {
+  if (langStufe() === 0 || id === 'formel' || id === 'daten' || id === 'kosinus' || id === 'sinus' || id === 'tangens') {
     protokoll(S, 'hinweis_lang', { hinweis: id, stufe: 0, kosten: 'keine', id: aufgabeId(), ...hb(id) });
     sichern();
     return oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);
@@ -4469,9 +4502,11 @@ function rechnerOeffnen() {
 
 const R_TASTEN = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', ',', 'π', '=', 'x²', 'x³', 'xⁿ', '√', '⌫'];
 // Kosinus (Auftrag 55): cos und cos⁻¹ (auf dem Schulrechner „2nd cos“) statt x³ und xⁿ, immer in Grad (DEG)
-const R_TASTEN_KOS = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', ',', 'π', '=', 'x²', 'cos', 'cos⁻¹', '√', '⌫'];
-const rTasten = () => (A && A.aufgabe && A.aufgabe.thema === 'kosinus' ? R_TASTEN_KOS : R_TASTEN);
-const rTasteText = (k) => (k === 'cos⁻¹' ? 'cos⁻¹<small>2nd cos</small>' : esc(k));
+// Auftrag 69: Kosinus, Sinus, Tangens mit sin, cos, tan und 2nd (sin⁻¹, cos⁻¹, tan⁻¹) wie auf dem Schulrechner
+const R_TASTEN_KOS = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', ',', 'π', '=', '2nd', 'sin', 'cos', 'tan', '⌫'];
+const rTasten = () => (L.istTrig(A && A.aufgabe) ? R_TASTEN_KOS : R_TASTEN);
+const TRIG_K = ['sin', 'cos', 'tan'];
+const rTasteText = (k) => (TRIG_K.includes(k) && A && A.rechner && A.rechner.zweit ? `${k}⁻¹<small>2nd ${k}</small>` : esc(k));
 // xⁿ: danach getippte Ziffern (und ein Minus am Anfang) werden hochgestellt, bis ein anderes Zeichen kommt
 const HOCH_Z = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
 
@@ -4485,7 +4520,7 @@ function rechnerPanelHtml(t) {
   <div class="rechner-panel">
     <div class="r-kopf">${schritt}<button class="r-einklappen" data-act="rEinklappen" aria-label="Taschenrechner einklappen">▼</button></div>
     <div class="rechner-anzeige"><div class="rechner-ausdruck">${esc(r.ausdruck) || '&nbsp;'}</div><div class="rechner-ergebnis">${esc(anzeige) || '&nbsp;'}</div></div>
-    <div class="rechner-tasten">${rTasten().map(k => `<button class="r-taste${'÷×−+'.includes(k) && k.length === 1 ? ' r-op' : ''}${k === '=' ? ' r-gleich' : ''}${k.startsWith('cos') ? ' r-cos' : ''}" data-act="rTaste" data-k="${k}">${rTasteText(k)}</button>`).join('')}
+    <div class="rechner-tasten">${rTasten().map(k => `<button class="r-taste${'÷×−+'.includes(k) && k.length === 1 ? ' r-op' : ''}${k === '=' ? ' r-gleich' : ''}${TRIG_K.includes(k) ? ' r-cos' : ''}${k === '2nd' ? ' r-zweit' + (r.zweit ? ' hoch-an' : '') : ''}" data-act="rTaste" data-k="${k}">${rTasteText(k)}</button>`).join('')}
       <button class="r-taste r-uebernehmen" data-act="rUebernehmen" ${rechnerWert() == null || !t || t.art !== 'zahl' ? 'disabled' : ''}>Eintragen</button>
     </div>
     ${t && t.art === 'zahl' ? '<button class="btn btn-haupt r-antwort" data-act="antwort">Antwort geben</button>' : ''}
@@ -4501,6 +4536,8 @@ function rechnerAnzeigeAktualisieren() {
   const t = aktuellerTeil();
   const xn = p.querySelector('[data-k="xⁿ"]');
   if (xn) xn.classList.toggle('hoch-an', !!r.hoch);
+  const zw = p.querySelector('[data-k="2nd"]');
+  if (zw) { zw.classList.toggle('hoch-an', !!r.zweit); for (const k of TRIG_K) { const b = p.querySelector(`[data-k="${k}"]`); if (b) b.innerHTML = rTasteText(k); } }
   const u = p.querySelector('.r-uebernehmen');
   if (u) u.disabled = rechnerWert() == null || !t || t.art !== 'zahl';
 }
@@ -4516,20 +4553,24 @@ function rechnerTaste(k) {
   const r = A && A.rechner;
   if (!r) return;
   if (k !== 'xⁿ' && !(HOCH_Z[k] || k === '−') && k !== '⌫') r.hoch = false;
+  if (k === '2nd') { r.zweit = !r.zweit; return rechnerAnzeigeAktualisieren(); }
+  // sin, cos, tan: mit 2nd davor die Umkehrung (sin⁻¹, cos⁻¹, tan⁻¹), danach ist 2nd wieder aus
+  if (TRIG_K.includes(k)) { if (r.zweit) k = k + '⁻¹'; r.zweit = false; }
+  else if (k !== '⌫') r.zweit = false;
   if (k === 'C') { r.ausdruck = ''; r.ergebnis = null; r.hoch = false; }
-  else if (k === '⌫') { r.ausdruck = /cos⁻¹\($|cos\($/.test(r.ausdruck) ? r.ausdruck.replace(/cos(⁻¹)?\($/, '') : r.ausdruck.slice(0, -1); }
+  else if (k === '⌫') { r.ausdruck = /(sin|cos|tan)(⁻¹)?\($/.test(r.ausdruck) ? r.ausdruck.replace(/(sin|cos|tan)(⁻¹)?\($/, '') : r.ausdruck.slice(0, -1); }
   else if (k === '=') {
     r.ergebnis = L.rechne(r.ausdruck);
     protokoll(S, 'rechner', { id: A.aufgabe.id, teil: A.idx, ausdruck: r.ausdruck, ergebnis: r.ergebnis });
     sichern();
   } else {
-    if (r.ergebnis != null && (/^[0-9,π(]$/.test(k) || k.startsWith('cos'))) r.ausdruck = '';
+    if (r.ergebnis != null && (/^[0-9,π(]$/.test(k) || /^(sin|cos|tan)/.test(k))) r.ausdruck = '';
     else if (r.ergebnis != null && (/^[÷×−+]$/.test(k) || ['x²', 'x³', 'xⁿ'].includes(k))) r.ausdruck = L.formatRechnerZahl(r.ergebnis);
     r.ergebnis = null;
     if (k === 'xⁿ') { r.hoch = true; r.hochLeer = true; }
     else if (r.hoch && HOCH_Z[k]) { r.ausdruck += HOCH_Z[k]; r.hochLeer = false; }
     else if (r.hoch && k === '−' && r.hochLeer) { r.ausdruck += '⁻'; r.hochLeer = false; }
-    else { r.hoch = false; r.ausdruck += k === 'x²' ? '²' : k === 'x³' ? '³' : k === 'cos' ? 'cos(' : k === 'cos⁻¹' ? 'cos⁻¹(' : k; }
+    else { r.hoch = false; r.ausdruck += k === 'x²' ? '²' : k === 'x³' ? '³' : /^(sin|cos|tan)/.test(k) ? k + '(' : k; }
   }
   rechnerAnzeigeAktualisieren();
 }
@@ -5972,6 +6013,7 @@ function klick(e) {
     case 'bzVerstanden': protokoll(S, 'merkzettel', { art: 'bildschirm_stufen', aktion: 'verstanden' }); sichern(); schliesseModal(); break;
     case 'bzFeierFertig': { const f = el.closest('.bz-feier') || el; f.classList.add('ende'); break; }
     case 'kosTastenVerstanden': protokoll(S, 'merkzettel', { art: 'kosinus_tasten', aktion: 'verstanden', id: A && A.aufgabe ? A.aufgabe.id : null }); sichern(); schliesseModal(); break;
+    case 'trigVerstanden': protokoll(S, 'merkzettel', { art: el.dataset.art, aktion: 'verstanden', id: A && A.aufgabe ? A.aufgabe.id : null }); sichern(); schliesseModal(); break;
     case 'kosVerstanden': protokoll(S, 'merkzettel', { art: 'kosinus', aktion: 'verstanden', id: A && A.aufgabe ? A.aufgabe.id : null }); sichern(); schliesseModal(); break;
     case 'malVerstanden': protokoll(S, 'merkzettel', { art: 'malzeichen', aktion: 'verstanden', id: A && A.aufgabe ? A.aufgabe.id : null }); sichern(); schliesseModal(); break;
     case 'mehrHilfe': mehrHilfe(el.dataset.id); break;

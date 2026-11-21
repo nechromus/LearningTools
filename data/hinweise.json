@@ -1,5 +1,5 @@
 {
-  "info": "Hinweise (Sheikah-Zeichen). Kopie von app-uebergabe/02-hinweise.json aus dem Claude-Projekt. Reihenfolge ist fest. Neue Hinweise nur hinten anfügen. Stand 17.10.2026 (Hinweise 12, 13 und 14 neu). Stand 18.10.2026: Hinweise 15 (Zylinder) und 16 (Bruch von einer Zahl) aus dem Woche-5-Chat. Aussehen in der App wie die Karten aus 07-hinweiskarten.html (js/hinweiskarten.js). Hinweise 17 (Kegel) und 18 (Pyramide) aus dem Aufgaben-Chat. 22.10.2026: Hinweis 22 Dichte. Stand 15.11.2026: Hinweis 24 (Daten) aus Auftrag 54.",
+  "info": "Hinweise (Sheikah-Zeichen). Kopie von app-uebergabe/02-hinweise.json aus dem Claude-Projekt. Reihenfolge ist fest. Neue Hinweise nur hinten anfügen. Stand 17.10.2026 (Hinweise 12, 13 und 14 neu). Stand 18.10.2026: Hinweise 15 (Zylinder) und 16 (Bruch von einer Zahl) aus dem Woche-5-Chat. Aussehen in der App wie die Karten aus 07-hinweiskarten.html (js/hinweiskarten.js). Hinweise 17 (Kegel) und 18 (Pyramide) aus dem Aufgaben-Chat. 22.10.2026: Hinweis 22 Dichte. Stand 15.11.2026: Hinweis 24 (Daten) aus Auftrag 54. Stand 21.11.2026: Hinweise 26 (Sinus) und 27 (Tangens) aus Auftrag 69.",
   "icon_form": {
     "beschreibung": "Sechseck, viewBox 0 0 24 24, Füllung = farbe_hell, Rand = farbe (1.6 px), Symbol mittig in farbe_text, Schrift Atkinson Hyperlegible fett",
     "polygon": "12,1.5 21.5,7 21.5,17 12,22.5 2.5,17 2.5,7"
@@ -491,6 +491,44 @@
         "Winkel: 1. Ankathete ÷ Hypotenuse = → 0,75 2. 2nd cos 0,75 = → α ≈ 41,4°"
       ],
       "beispiel": "Merke: cos 0° = 1, cos 60° = 0,5, cos 90° = 0",
+      "fach": "mathe"
+    },
+    {
+      "nr": 26,
+      "id": "sinus",
+      "titel": "Sinus im rechtwinkligen Dreieck",
+      "symbol": "sin",
+      "farbe": "#0369A1",
+      "farbe_hell": "#E0F2FE",
+      "farbe_text": "#0C4A6E",
+      "regeln": [
+        "sin α = Gegenkathete : Hypotenuse",
+        "Hypotenuse liegt gegenüber vom rechten Winkel. Sie ist die längste Seite.",
+        "Gegenkathete liegt gegenüber vom Winkel α.",
+        "1. Hypotenuse finden 2. Gegenkathete finden 3. sin α = Gegenkathete : Hypotenuse",
+        "Winkel: 1. Gegenkathete ÷ Hypotenuse = → 0,5736 2. 2nd sin 0,5736 = → α ≈ 35,0°",
+        "Seite x oben → mal: x = Hypotenuse · sin α"
+      ],
+      "beispiel": "Runden, nicht abschneiden: Schau auf die nächste Ziffer. sin 30° = 0,5",
+      "fach": "mathe"
+    },
+    {
+      "nr": 27,
+      "id": "tangens",
+      "titel": "Tangens im rechtwinkligen Dreieck",
+      "symbol": "tan",
+      "farbe": "#A16207",
+      "farbe_hell": "#FEF3C7",
+      "farbe_text": "#713F12",
+      "regeln": [
+        "tan α = Gegenkathete : Ankathete",
+        "Gegenkathete liegt gegenüber vom Winkel α.",
+        "Ankathete berührt den Winkel α. tan braucht keine Hypotenuse.",
+        "1. Gegenkathete finden 2. Ankathete finden 3. tan α = Gegenkathete : Ankathete",
+        "Winkel: 1. Gegenkathete ÷ Ankathete = → 0,4 2. 2nd tan 0,4 = → α ≈ 21,8°",
+        "Seite x oben → mal: x = Ankathete · tan α"
+      ],
+      "beispiel": "Unten steht der Winkel: α ≈ 21,8° (nicht tan α ≈ 21,8). tan 45° = 1",
       "fach": "mathe"
     }
   ]

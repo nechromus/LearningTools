@@ -9,6 +9,7 @@ const zufall = (rng, a, b) => a + Math.floor(rng() * (b - a + 1));
 const wahl = (rng, arr) => arr[Math.floor(rng() * arr.length)];
 const mischen = (rng, arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
 const r1 = x => Math.round(x * 10) / 10;
+const r2 = x => Math.round(x * 100) / 100;
 const r3 = x => Math.round(x * 1000) / 1000;
 
 export function zahlText(n, nachkomma = null) {
@@ -1304,6 +1305,16 @@ function cosWerte(c) {
   return [...auch];
 }
 const lt = (x, e) => `${zahlText(x)} ${e}`;
+// Auftrag 69: Sinus und Tangens. Zähler und Nenner je Funktion (Rollen im Dreieck)
+export const TRIG = {
+  cos: { z: 'an', n: 'hyp', thema: 'kosinus', f: (g) => Math.cos(g * Math.PI / 180), inv: (x) => Math.acos(x) * 180 / Math.PI },
+  sin: { z: 'geg', n: 'hyp', thema: 'sinus', f: (g) => Math.sin(g * Math.PI / 180), inv: (x) => Math.asin(x) * 180 / Math.PI },
+  tan: { z: 'geg', n: 'an', thema: 'tangens', f: (g) => Math.tan(g * Math.PI / 180), inv: (x) => Math.atan(x) * 180 / Math.PI }
+};
+const ROLLE_NAME = { hyp: 'Hypotenuse', an: 'Ankathete', geg: 'Gegenkathete' };
+// Richtige Eingaben für sin/tan: auf 4 Stellen gerundet oder mit 2–3 Stellen gerundet; abgeschnitten nicht (Auftrag 69)
+function trigWerte(c) { return [...new Set([2, 3, 4].map(k => r9(rdK(c, k))))]; }
+// Sachtexte: Zahlen in der Reihenfolge an, hyp, geg (wie beim Kosinus); die gegebene Kathete berührt den gefragten Winkel
 const KOS_SACH = {
   rampe: { e: 'm', winkel: [6, 25], text: (an, hyp, geg) => `Eine Rampe ist ${lt(hyp, 'm')} lang. Waagerecht ist sie ${lt(an, 'm')} lang. Sie ist ${lt(geg, 'm')} hoch.`, frage: (w) => `Wie steil ist die Rampe? Berechne den Winkel ${w} zum Boden.`, deko: 'boden' },
   // Die gegebene Kathete berührt immer den gefragten Winkel (Ankathete zu genau diesem Winkel)
@@ -1311,92 +1322,192 @@ const KOS_SACH = {
   leiter_wand: { e: 'm', winkel: [12, 30], lage: 'sach-oben', text: (an, hyp, geg) => `Eine Leiter ist ${lt(hyp, 'm')} lang. Sie reicht an der Wand ${lt(an, 'm')} hoch. Ihr Fuß steht ${lt(geg, 'm')} von der Wand weg.`, frage: (w) => `Berechne den Winkel ${w} oben zwischen Leiter und Wand.`, deko: 'wand' },
   dach: { e: 'm', winkel: [25, 55], text: (an, hyp, geg) => `Ein Haus ist ${lt(2 * an, 'm')} breit. Bis zur Mitte sind es ${lt(an, 'm')}. Eine Dachschräge ist ${lt(hyp, 'm')} lang. Das Dach ist ${lt(geg, 'm')} hoch.`, frage: (w) => `Berechne den Winkel ${w} unten an der Traufe.`, deko: 'boden' }
 };
-export function kosinus(stufe, rng, opts = {}) {
+// Sinus: Höhe = Gegenkathete, Länge = Hypotenuse
+const SIN_SACH = {
+  rampe: { winkel: [6, 25], text: (an, hyp, geg) => `Eine Rampe ist ${lt(hyp, 'm')} lang. Sie ist ${lt(geg, 'm')} hoch. Waagerecht ist sie ${lt(an, 'm')} lang.`, frage: (w) => `Wie steil ist die Rampe? Berechne den Winkel ${w} zum Boden.`, deko: 'boden' },
+  leiter: { winkel: [60, 78], text: (an, hyp, geg) => `Eine Leiter ist ${lt(hyp, 'm')} lang. Sie reicht an der Wand ${lt(geg, 'm')} hoch. Ihr Fuß steht ${lt(an, 'm')} von der Wand weg.`, frage: (w) => `Berechne den Winkel ${w} unten zwischen Leiter und Boden.`, deko: 'wand' },
+  drachen: { winkel: [30, 70], text: (an, hyp, geg) => `Ein Drachen fliegt an einer Schnur. Die Schnur ist ${lt(hyp, 'm')} lang. Der Drachen ist ${lt(geg, 'm')} hoch. Waagerecht ist er ${lt(an, 'm')} weit weg.`, frage: (w) => `Berechne den Winkel ${w} zwischen Schnur und Boden.`, deko: 'boden' }
+};
+// Tangens: Höhe = Gegenkathete, waagerecht = Ankathete
+const TAN_SACH = {
+  rampe: { winkel: [6, 25], text: (an, hyp, geg) => `Eine Rampe ist ${lt(geg, 'm')} hoch. Waagerecht ist sie ${lt(an, 'm')} lang. Schräg ist sie ${lt(hyp, 'm')} lang.`, frage: (w) => `Wie steil ist die Rampe? Berechne den Winkel ${w} zum Boden.`, deko: 'boden' },
+  dach: { winkel: [25, 55], text: (an, hyp, geg) => `Ein Haus ist ${lt(2 * an, 'm')} breit. Bis zur Mitte sind es ${lt(an, 'm')}. Das Dach ist ${lt(geg, 'm')} hoch. Eine Dachschräge ist ${lt(hyp, 'm')} lang.`, frage: (w) => `Berechne den Winkel ${w} unten an der Traufe.`, deko: 'boden' },
+  schatten: { winkel: [20, 65], text: (an, hyp, geg) => `Ein Baum ist ${lt(geg, 'm')} hoch. Sein Schatten ist ${lt(an, 'm')} lang. Von der Baumspitze bis zum Ende des Schattens sind es ${lt(hyp, 'm')}.`, frage: (w) => `Wie hoch steht die Sonne? Berechne den Winkel ${w} am Ende des Schattens.`, deko: 'boden' }
+};
+const TRIG_SACH = { cos: KOS_SACH, sin: SIN_SACH, tan: TAN_SACH };
+const fnText = (fn) => fn;  // sin, cos, tan (klein, wie auf dem Rechner)
+const regelText = (fn, w) => `${fn} ${w} = ${ROLLE_NAME[TRIG[fn].z]} : ${ROLLE_NAME[TRIG[fn].n]}`;
+export function kosinus(stufe, rng, opts = {}) { return trig('cos', stufe, rng, opts); }
+export function sinus(stufe, rng, opts = {}) { return trig('sin', stufe, rng, opts); }
+export function tangens(stufe, rng, opts = {}) { return trig('tan', stufe, rng, opts); }
+function trig(fn, stufe, rng, opts = {}) {
+  const T = TRIG[fn], gen = T.thema, F = T.f, INV = T.inv;
   const st = Math.min(3, Math.max(1, stufe || 1));
   const w = rng() < 0.7 ? 'α' : 'β';
-  const form = opts.form || (st === 1 ? (rng() < 1 / 3 ? (rng() < 0.5 ? 'cos' : 'umkehr') : 'seiten') : st === 3 && rng() < 0.5 ? 'sach' : 'winkel');
-  const hinweise = ['kosinus'];
-  const fest = { thema: 'kosinus', typ: 'schritte', kategorie: 'text', hinweise };
+  // Stufe 3 (Auftrag 69): auch „Seite berechnen“ (x oben → mal) und etwa jede 3. Aufgabe mit Auswahl „sin, cos oder tan?“
+  let form = opts.form;
+  if (!form) {
+    if (st === 1) form = rng() < 1 / 3 ? (rng() < 0.5 ? 'cos' : 'umkehr') : 'seiten';
+    else if (st === 2) form = 'winkel';
+    else { const x = rng(); form = x < 0.3 ? 'seite' : x < 0.65 ? 'sach' : 'winkel'; }
+  }
+  const mixWahl = opts.wahl ?? (st === 3 && form === 'winkel' && rng() < 1 / 3);
+  const hinweise = [gen];
+  const fest = { thema: gen, typ: 'schritte', kategorie: 'text', hinweise };
+  const fnTeil = fn === 'cos' ? {} : { fn };
   if (form === 'cos' || form === 'umkehr') {
     let g;
-    do g = zufall(rng, 10, 80); while (g === 60 || g % 10 === 0 && rng() < 0.5);
-    const c = r4(cosG(g));
-    if (form === 'cos') return neu('kosinus', ['cos', g], {
-      ...fest, form, stufe: 1, frage: 'Rechne mit dem Taschenrechner. Runde auf 4 Stellen nach dem Komma.',
-      schritte: [{ text: `cos ${g}° =`, wert: c, auch: cosWerte(cosG(g)), toleranz: 0.00005, stellen: 4, rundenAuf: 4, kos: 'cos', grad: g }],
-      loesungsweg: [`cos ${g} = → ${zahlText(cosG(g), 6)}…`, `cos ${g}° ≈ ${zahlText(c, 4)}`],
-      erklaerung: `Tippe cos, dann ${g}, dann =. Runde auf 4 Stellen.`
+    do g = zufall(rng, 10, fn === 'tan' ? 70 : 80); while (g === 60 || (fn === 'sin' && g === 30) || (fn === 'tan' && g === 45) || g % 10 === 0 && rng() < 0.5);
+    const c = r4(F(g));
+    if (form === 'cos') return neu(gen, [fn === 'cos' ? 'cos' : fn, g], {
+      ...fest, form: fn === 'cos' ? 'cos' : fn, stufe: 1, frage: 'Rechne mit dem Taschenrechner. Runde auf 4 Stellen nach dem Komma.',
+      schritte: [{ text: `${fn} ${g}° =`, wert: c, auch: trigWerte(F(g)), stellen: 4, rundenAuf: 4, kos: fn, grad: g, ...fnTeil }],
+      loesungsweg: [`${fn} ${g} = → ${zahlText(F(g), 6)}…`, `${fn} ${g}° ≈ ${zahlText(c, 4)}`],
+      erklaerung: `Tippe ${fn}, dann ${g}, dann =. Runde auf 4 Stellen.${fn === 'cos' ? '' : ' Runden, nicht abschneiden: Schau auf die nächste Ziffer.'}`
     });
-    return neu('kosinus', ['umkehr', g], {
-      ...fest, form, stufe: 1, rechnung: `cos ${w} = ${zahlText(c, 4)}`, frage: `Wie groß ist der Winkel ${w}? Rechne mit dem Taschenrechner. Runde auf ganze Grad.`,
-      schritte: [{ text: `${w} ≈`, wert: g, toleranz: 0.06, rundenAuf: 0, einheit: '°', kos: 'umkehr', cos: c }],
-      loesungsweg: [`2nd cos ${zahlText(c, 4)} = → ${zahlText(acosG(c), 3)}…`, `${w} ≈ ${g}°`],
-      erklaerung: `Für den Winkel: 2nd, dann cos. Dann ${zahlText(c, 4)} und =.`
+    return neu(gen, ['umkehr', g], {
+      ...fest, form, stufe: 1, rechnung: `${fn} ${w} = ${zahlText(c, 4)}`, frage: `Wie groß ist der Winkel ${w}? Rechne mit dem Taschenrechner. Runde auf ganze Grad.`,
+      schritte: [{ text: `${w} ≈`, wert: g, toleranz: 0.06, rundenAuf: 0, einheit: '°', kos: 'umkehr', cos: c, ...fnTeil }],
+      loesungsweg: [`2nd ${fn} ${zahlText(c, 4)} = → ${zahlText(INV(c), 3)}…`, `${w} ≈ ${g}°`],
+      erklaerung: `Für den Winkel: 2nd, dann ${fn}. Dann ${zahlText(c, 4)} und =.`
     });
   }
   const buchst = wahl(rng, KOS_BUCHSTABEN).split('');
   mischen(rng, buchst);
   const [bH, bA, bG] = buchst;                 // Hypotenuse, Ankathete, Gegenkathete
+  const B = { hyp: bH, an: bA, geg: bG };
   let lage = form === 'sach' ? 'sach' : zufall(rng, 0, KOS_LAGEN - 1);
   const sortiert = (arr) => arr.slice().sort((x, y) => x.localeCompare(y));
+  const rolleVon = (b) => b === bH ? 'hyp' : b === bA ? 'an' : 'geg';
   if (form === 'seiten') {
     let an, geg;
     do { an = zufall(rng, 3, 9); geg = zufall(rng, 3, 9); } while (geg / an < 0.45 || geg / an > 2.2);
     const opt1 = sortiert(buchst), opt2 = sortiert([bA, bG]);
-    const br = [[bA, bH, 'richtig'], [bG, bH, 'geg'], [bH, bA, 'kehr'], [bA, bG, 'hyp']];
+    // Brüche: richtig, Kehrwert und zwei mit falscher Seite. Rolle = welcher Fehler (Tipp und Fehlertyp)
+    const br = fn === 'cos' ? [[bA, bH, 'richtig'], [bG, bH, 'geg'], [bH, bA, 'kehr'], [bA, bG, 'hyp']]
+      : fn === 'sin' ? [[bG, bH, 'richtig'], [bA, bH, 'an'], [bH, bG, 'kehr'], [bG, bA, 'hyp']]
+      : [[bG, bA, 'richtig'], [bA, bG, 'kehr'], [bG, bH, 'hyp'], [bA, bH, 'hyp']];
     mischen(rng, br);
-    return neu('kosinus', ['seiten', bH, bA, bG, w === 'α' ? 'alpha' : 'beta', lage, an, geg], {
+    const z = T.z;
+    const schritte = fn === 'tan' ? [
+      { text: `Welche Seite ist die Gegenkathete zu ${w}?`, optionen: opt1, richtig: opt1.indexOf(bG), rollen: opt1.map(rolleVon), kos: 'geg', zwei_versuche: true, ...fnTeil },
+      { text: `Welche Seite ist die Ankathete zu ${w}?`, optionen: opt2, richtig: opt2.indexOf(bA), rollen: opt2.map(rolleVon), kos: 'an', ...fnTeil },
+      { text: `tan ${w} = ?`, optionen: br.map(([a, b]) => `${a}⁄${b}`), richtig: br.findIndex(x => x[2] === 'richtig'), rollen: br.map(x => x[2]), kos: 'bruch', zwei_versuche: true, ...fnTeil }
+    ] : [
+      { text: 'Welche Seite ist die Hypotenuse?', optionen: opt1, richtig: opt1.indexOf(bH), rollen: opt1.map(rolleVon), kos: 'hyp', zwei_versuche: true, ...fnTeil },
+      { text: `Welche Seite ist die ${ROLLE_NAME[z]} zu ${w}?`, optionen: opt2, richtig: opt2.indexOf(B[z]), rollen: opt2.map(rolleVon), kos: z, ...fnTeil },
+      { text: `${fn} ${w} = ?`, optionen: br.map(([a, b]) => `${a}⁄${b}`), richtig: br.findIndex(x => x[2] === 'richtig'), rollen: br.map(x => x[2]), kos: 'bruch', zwei_versuche: true, ...fnTeil }
+    ];
+    const erk = { cos: `Die Hypotenuse liegt gegenüber vom rechten Winkel. Die Ankathete berührt den Winkel ${w}. cos ${w} = Ankathete : Hypotenuse.`,
+      sin: `Die Hypotenuse liegt gegenüber vom rechten Winkel. Die Gegenkathete liegt gegenüber vom Winkel ${w}. sin ${w} = Gegenkathete : Hypotenuse.`,
+      tan: `Die Gegenkathete liegt gegenüber vom Winkel ${w}. Die Ankathete berührt den Winkel ${w}. tan ${w} = Gegenkathete : Ankathete.` }[fn];
+    return neu(gen, ['seiten', bH, bA, bG, w === 'α' ? 'alpha' : 'beta', lage, an, geg], {
       ...fest, form, stufe: 1, frage: `Schau vom Winkel ${w} aus.`,
       bild: { form: 'dreieck', lage, an, geg, winkel: w, namen: { hyp: bH, an: bA, geg: bG } },
-      schritte: [
-        { text: 'Welche Seite ist die Hypotenuse?', optionen: opt1, richtig: opt1.indexOf(bH), rollen: opt1.map(x => x === bH ? 'hyp' : x === bA ? 'an' : 'geg'), kos: 'hyp', zwei_versuche: true },
-        { text: `Welche Seite ist die Ankathete zu ${w}?`, optionen: opt2, richtig: opt2.indexOf(bA), rollen: opt2.map(x => x === bA ? 'an' : 'geg'), kos: 'an' },
-        { text: `cos ${w} = ?`, optionen: br.map(([z, n]) => `${z}\u2044${n}`), richtig: br.findIndex(x => x[2] === 'richtig'), rollen: br.map(x => x[2]), kos: 'bruch', zwei_versuche: true }
-      ],
-      loesungsweg: [`Hypotenuse: ${bH} (gegenüber vom rechten Winkel)`, `Ankathete zu ${w}: ${bA} (berührt den Winkel ${w})`, `cos ${w} = ${bA}\u2044${bH}`],
-      erklaerung: `Die Hypotenuse liegt gegenüber vom rechten Winkel. Die Ankathete berührt den Winkel ${w}. cos ${w} = Ankathete : Hypotenuse.`
+      schritte,
+      loesungsweg: fn === 'tan' ? [`Gegenkathete zu ${w}: ${bG} (gegenüber vom Winkel ${w})`, `Ankathete zu ${w}: ${bA} (berührt den Winkel ${w})`, `tan ${w} = ${bG}⁄${bA}`]
+        : [`Hypotenuse: ${bH} (gegenüber vom rechten Winkel)`, fn === 'cos' ? `Ankathete zu ${w}: ${bA} (berührt den Winkel ${w})` : `Gegenkathete zu ${w}: ${bG} (gegenüber vom Winkel ${w})`, `${fn} ${w} = ${B[z]}⁄${bH}`],
+      erklaerung: erk
     });
   }
+  const bruchText = (z, n) => Number.isInteger(z) && Number.isInteger(n) ? `${z}/${n}` : `${zahlText(z)} : ${zahlText(n)}`;
+  const fnWahl = (k) => ({ text: "sin, cos oder tan?", optionen: [`sin ${w}`, `cos ${w}`, `tan ${w}`], richtig: ['sin', 'cos', 'tan'].indexOf(fn), rollen: ['sin', 'cos', 'tan'], kos: 'fn', zwei_versuche: true, fn, gegeben: k });
+  // Seite berechnen (Auftrag 69, Stufe 3): x steht oben im Bruch → mal. Hypotenuse gesucht (geteilt) noch nicht.
+  if (form === 'seite') {
+    for (let v = 0; v < 500; v++) {
+      const g = zufall(rng, 20, 70);
+      if (g % 5 === 0 && rng() < 0.5) continue;
+      const nen = rng() < 0.5 ? zufall(rng, 4, 20) : zufall(rng, 40, 160) / 10;
+      const x = nen * F(g), xr = r2(x);
+      if (xr < 1 || xr > 40) continue;
+      // Für das Bild: alle drei Seiten
+      const S3 = { [T.n]: nen, [T.z]: x };
+      if (fn === 'tan') S3.hyp = Math.hypot(nen, x); else S3[T.z === 'an' ? 'geg' : 'an'] = Math.sqrt(nen * nen - x * x);
+      const sx = { ...B, [T.z]: 'x' };
+      const L = { [T.n]: lt(nen, 'cm') };
+      const anderes = ['hyp', 'an', 'geg'].filter(k => k !== T.z && k !== T.n)[0];
+      const opt = ['Hypotenuse', `Ankathete zu ${w}`, `Gegenkathete zu ${w}`];
+      const rollen = ['hyp', 'an', 'geg'];
+      // Varianten: mit gerundetem sin/cos/tan-Wert (2–4 Stellen) gerechnet
+      const vari = [...new Set([2, 3, 4].map(k => r2(nen * rdK(F(g), k))))].filter(y => Math.abs(y - xr) > 1e-9);
+      return neu(gen, ['seite', bH, bA, bG, w === 'α' ? 'alpha' : 'beta', lage, g, nen], {
+        ...fest, form, stufe: 3,
+        frage: `Der Winkel ${w} ist ${g}°. Berechne die Seite x. Runde auf 2 Stellen nach dem Komma.`,
+        bild: { form: 'dreieck', lage, an: S3.an, geg: S3.geg, winkel: w, winkelWert: `${g}°`, namen: { hyp: sx.hyp, an: sx.an, geg: sx.geg }, laengen: L },
+        schritte: [
+          { text: 'Welche Seite ist x?', optionen: opt, richtig: rollen.indexOf(T.z), rollen, kos: 'gesucht', zwei_versuche: true, ...fnTeil },
+          fnWahl(T.n),
+          { text: `x = ${zahlText(nen)} · ${fn} ${g}° =`, wert: xr, stellen: 2, rundenAuf: 2, genau: r9(x), ...(vari.length ? { varianten: vari } : {}), einheit: 'cm', kos: 'seite', grad: g, nenner: nen, fn }
+        ],
+        loesungsweg: [`(1) x ist die ${ROLLE_NAME[T.z]}. Gegeben: ${ROLLE_NAME[T.n]} = ${lt(nen, 'cm')}`, `(2) ${fn} ${w} = ${ROLLE_NAME[T.z]} : ${ROLLE_NAME[T.n]} → x steht oben → mal`, `(3) x = ${zahlText(nen)} · ${fn} ${g}° ≈ ${zahlText(xr, 2)} cm`],
+        erklaerung: `x steht oben im Bruch. Dann rechnest du mal: x = ${ROLLE_NAME[T.n]} · ${fn} ${w}. ${anderes === 'hyp' ? '' : ''}Runden, nicht abschneiden.`.replace('  ', ' ')
+      });
+    }
+    return null;
+  }
   // Winkel berechnen (Stufe 2 und 3)
-  const sk = form === 'sach' ? wahl(rng, Object.keys(KOS_SACH)) : null;
+  const SACH = TRIG_SACH[fn];
+  const sk = form === 'sach' ? wahl(rng, Object.keys(SACH)) : null;
   const e = sk ? 'm' : 'cm';
-  if (sk && KOS_SACH[sk].lage) lage = KOS_SACH[sk].lage;
+  if (sk && SACH[sk].lage) lage = SACH[sk].lage;
   for (let v = 0; v < 500; v++) {
     const komma = rng() < 0.4;
-    let an, hyp;
-    if (sk) { hyp = zufall(rng, 25, 80) / 10; an = zufall(rng, 10, Math.round(hyp * 10) - 3) / 10; }
-    else if (komma) { hyp = zufall(rng, 50, 250) / 10; an = zufall(rng, 20, Math.round(hyp * 10) - 5) / 10; }
-    else { hyp = zufall(rng, 8, 40); an = zufall(rng, 3, hyp - 2); }
-    const c = an / hyp, g = acosG(c);
-    const wb = sk ? KOS_SACH[sk].winkel : [20, 70];
+    // zwei Längen: Nenner und Zähler der Funktion (bei tan beide Katheten)
+    let zz, nn;
+    if (fn === 'tan') {
+      if (sk) { nn = zufall(rng, 15, 80) / 10; zz = zufall(rng, 5, 80) / 10; }
+      else if (komma) { nn = zufall(rng, 20, 200) / 10; zz = zufall(rng, 20, 200) / 10; }
+      else { nn = zufall(rng, 3, 30); zz = zufall(rng, 3, 30); }
+    } else {
+      if (sk) { nn = zufall(rng, 25, 80) / 10; zz = zufall(rng, 10, Math.round(nn * 10) - 3) / 10; }
+      else if (komma) { nn = zufall(rng, 50, 250) / 10; zz = zufall(rng, 20, Math.round(nn * 10) - 5) / 10; }
+      else { nn = zufall(rng, 8, 40); zz = zufall(rng, 3, nn - 2); }
+    }
+    const c = zz / nn, g = INV(c);
+    const S3 = { [T.z]: zz, [T.n]: nn };
+    if (fn === 'tan') S3.hyp = r1(Math.hypot(zz, nn)); else S3[T.z === 'an' ? 'geg' : 'an'] = r1(Math.sqrt(nn * nn - zz * zz));
+    const { an, hyp, geg } = S3;
+    const wb = sk ? SACH[sk].winkel : [20, 70];
     if (g < wb[0] || g > wb[1]) continue;
     if (Number.isInteger(r9(c * 10)) && st >= 2 && rng() < 0.7) continue;    // nicht zu oft glatt (0,5; 0,8)
-    const geg = r1(Math.sqrt(hyp * hyp - an * an));
-    if (geg <= 0 || Math.abs(geg - an) < 0.3) continue;
-    const drei = st >= 3;
-    const L = { hyp: lt(hyp, e), an: lt(an, e), ...(drei ? { geg: lt(geg, e) } : {}) };
-    const gegeben = drei ? [[bH, hyp], [bA, an], [bG, geg]] : [[bH, hyp], [bA, an]];
+    const drittes = fn === 'tan' ? hyp : fn === 'cos' ? geg : an;
+    if (drittes <= 0 || Math.abs(geg - an) < 0.3) continue;
+    // Mit Auswahl „sin, cos oder tan?“ nur die zwei passenden Längen (sonst passt jede Funktion)
+    const drei = st >= 3 && !mixWahl;
+    const ks = drei ? ['hyp', 'an', 'geg'] : [T.z, T.n];
+    const L = Object.fromEntries(ks.map(k => [k, lt(S3[k], e)]));
+    const gegeben = ks.map(k => [B[k], S3[k]]);
     const optL = gegeben.slice().sort((x, y) => x[0].localeCompare(y[0])).map(([b, z]) => `${b} = ${lt(z, e)}`);
     const rolle = (o) => o.startsWith(bH + ' ') ? 'hyp' : o.startsWith(bA + ' ') ? 'an' : 'geg';
-    const cw = r4(c), auch = cosWerte(c);
-    const winkelVar = [...new Set([cw, ...auch].map(x => r9(acosG(x))))].filter(x => Math.abs(x - r9(g)) > 1e-9);
+    const cw = r4(c), auch = trigWerte(c);
+    const winkelVar = [...new Set([cw, ...auch].map(x => r9(INV(x))))].filter(x => Math.abs(x - r9(g)) > 1e-9);
     const gr = r1(g);
-    const geg0 = sk ? KOS_SACH[sk] : null;
+    const geg0 = sk ? SACH[sk] : null;
     const zuerst = sk ? geg0.text(an, hyp, geg) : null;
-    const bruchText = (z, n) => Number.isInteger(z) && Number.isInteger(n) ? `${z}/${n}` : `${zahlText(z)} : ${zahlText(n)}`;
-    return neu('kosinus', [sk || (drei ? 'drei' : 'zwei'), bH, bA, bG, w === 'α' ? 'alpha' : 'beta', lage, an, hyp, ...(drei ? [geg] : [])], {
-      ...fest, form, stufe: drei ? 3 : 2,
+    const zweiV = drei ? { zwei_versuche: true } : {};
+    const seitenSchritte = mixWahl ? [fnWahl(T.n)] : fn === 'tan' ? [
+      { text: `Welche Länge ist die Gegenkathete zu ${w}?`, optionen: optL, richtig: optL.findIndex(o => rolle(o) === 'geg'), rollen: optL.map(rolle), kos: 'geg', ...zweiV, ...fnTeil },
+      { text: `Welche Länge ist die Ankathete zu ${w}?`, optionen: optL, richtig: optL.findIndex(o => rolle(o) === 'an'), rollen: optL.map(rolle), kos: 'an', ...zweiV, ...fnTeil }
+    ] : [
+      { text: 'Welche Länge ist die Hypotenuse?', optionen: optL, richtig: optL.findIndex(o => rolle(o) === 'hyp'), rollen: optL.map(rolle), kos: 'hyp', ...zweiV, ...fnTeil },
+      { text: `Welche Länge ist die ${ROLLE_NAME[T.z]} zu ${w}?`, optionen: optL, richtig: optL.findIndex(o => rolle(o) === T.z), rollen: optL.map(rolle), kos: T.z, ...zweiV, ...fnTeil }
+    ];
+    const wertTeil = fn === 'cos'
+      ? { text: `cos ${w} = Ankathete : Hypotenuse =`, wert: cw, auch, stellen: 4, rundenAuf: 4, kos: 'wert', an, hyp, ...(drei ? { gegl: geg } : {}) }
+      : { text: `${regelText(fn, w)} =`, wert: cw, auch, stellen: 4, rundenAuf: 4, kos: 'wert', an, hyp, gegl: geg, fn };
+    return neu(gen, [sk || (drei ? 'drei' : 'zwei'), bH, bA, bG, w === 'α' ? 'alpha' : 'beta', lage, ...(fn === 'cos' ? [an, hyp, ...(drei ? [geg] : [])] : [zz, nn, ...(drei ? [drittes] : [])]), ...(mixWahl ? ['wahl'] : [])], {
+      ...fest, form, stufe: st >= 3 ? 3 : 2, ...(mixWahl ? { wahl: true } : {}),
       ...(zuerst ? { geschichte: zuerst } : {}),
       frage: sk ? `${geg0.frage(w)} Runde auf 1 Stelle nach dem Komma.` : `Berechne den Winkel ${w}. Runde auf 1 Stelle nach dem Komma.`,
-      bild: { form: 'dreieck', lage, an, geg: Math.sqrt(hyp * hyp - an * an), winkel: w, namen: { hyp: bH, an: bA, geg: bG }, laengen: L, ...(sk ? { deko: geg0.deko } : {}) },
+      bild: { form: 'dreieck', lage, an, geg: fn === 'cos' ? Math.sqrt(hyp * hyp - an * an) : geg, winkel: w, namen: { hyp: bH, an: bA, geg: bG }, laengen: L, ...(sk ? { deko: geg0.deko } : {}) },
       schritte: [
-        { text: 'Welche Länge ist die Hypotenuse?', optionen: optL, richtig: optL.findIndex(o => rolle(o) === 'hyp'), rollen: optL.map(rolle), kos: 'hyp', ...(drei ? { zwei_versuche: true } : {}) },
-        { text: `Welche Länge ist die Ankathete zu ${w}?`, optionen: optL, richtig: optL.findIndex(o => rolle(o) === 'an'), rollen: optL.map(rolle), kos: 'an', ...(drei ? { zwei_versuche: true } : {}) },
-        { text: `cos ${w} = Ankathete : Hypotenuse =`, wert: cw, auch, toleranz: 0.00005, stellen: 4, rundenAuf: 4, kos: 'wert', an, hyp, ...(drei ? { gegl: geg } : {}) },
-        { text: `${w} ≈`, wert: gr, stellen: 1, rundenAuf: 1, genau: r9(g), ...(winkelVar.length ? { varianten: winkelVar } : {}), einheit: '°', kos: 'winkel', cos: c }
+        ...seitenSchritte,
+        wertTeil,
+        { text: `${w} ≈`, wert: gr, stellen: 1, rundenAuf: 1, genau: r9(g), ...(winkelVar.length ? { varianten: winkelVar } : {}), einheit: '°', kos: 'winkel', cos: c, ...fnTeil }
       ],
-      loesungsweg: [`(1) cos ${w} = ${bA}\u2044${bH}`, `(2) cos ${w} = ${bruchText(an, hyp)} ${Number.isInteger(r9(c * 1e4)) ? '=' : '≈'} ${z4(cw)}`, `(3) 2nd cos ${z4(cw)} → ${w} ≈ ${zahlText(gr, 1)}°`],
-      erklaerung: `Die Hypotenuse liegt gegenüber vom rechten Winkel. Die Ankathete berührt den Winkel ${w}. cos ${w} = Ankathete : Hypotenuse. Für den Winkel: 2nd, dann cos.`
+      loesungsweg: [`(1) ${fn} ${w} = ${B[T.z]}⁄${B[T.n]}`, `(2) ${fn} ${w} = ${bruchText(zz, nn)} ${Number.isInteger(r9(c * 1e4)) ? '=' : '≈'} ${z4(cw)}`, `(3) 2nd ${fn} ${z4(cw)} → ${w} ≈ ${zahlText(gr, 1)}°`],
+      erklaerung: fn === 'cos' ? `Die Hypotenuse liegt gegenüber vom rechten Winkel. Die Ankathete berührt den Winkel ${w}. cos ${w} = Ankathete : Hypotenuse. Für den Winkel: 2nd, dann cos.`
+        : `${regelText(fn, w)}. Für den Winkel: 2nd, dann ${fn}. Runden, nicht abschneiden.`
     });
   }
   return null;
@@ -1405,7 +1516,7 @@ export function kosinus(stufe, rng, opts = {}) {
 export const GENERATOREN = {
   'minus-plus': minusPlus, 'reihenfolge': reihenfolge, 'potenz': potenz, 'einmaleins': einmaleins, 'mal10': mal10,
   'prozent': prozent, 'baukasten': baukasten, 'runden': runden, 'bruch-bild': bruchBild, 'kugel': kugel, 'zylinder': zylinder,
-  'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte, 'prozent-formel': prozentFormel, 'kegel': kegel, 'pyramide': pyramide, 'kreisdiagramm': kreisdiagramm, 'quader': quader, 'zusammengesetzt': zusammengesetzt, 'daten': daten, 'saeulen': saeulen, 'kosinus': kosinus,
+  'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte, 'prozent-formel': prozentFormel, 'kegel': kegel, 'pyramide': pyramide, 'kreisdiagramm': kreisdiagramm, 'quader': quader, 'zusammengesetzt': zusammengesetzt, 'daten': daten, 'saeulen': saeulen, 'kosinus': kosinus, 'sinus': sinus, 'tangens': tangens,
   'zehnerpotenz': zehnerpotenz, 'einheiten': einheiten, 'gewichtskraft': gewichtskraft, 'gleichung': gleichung, 'formel-umstellen': formelUmstellen, 'dichte': dichte
 };
 
@@ -1414,7 +1525,7 @@ export const THEMA_GENERATOREN = {
   'minus-zahlen': ['minus-plus', 'minus-plus', 'reihenfolge'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'],
   'bruch-bild': ['bruch-bild'], 'zuordnung': ['bruch-bild'], 'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'],
   'prozent-formel': ['prozent-formel'], 'rabatt': ['prozent', 'baukasten'], 'neuer-preis': ['prozent', 'baukasten'], 'kreisdiagramm': ['kreisdiagramm'],
-  'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'daten': ['daten'], 'diagramm': ['saeulen'], 'kosinus': ['kosinus'],
+  'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'daten': ['daten'], 'diagramm': ['saeulen'], 'kosinus': ['kosinus'], 'sinus': ['sinus'], 'tangens': ['tangens'],
   'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
 };
 export const MIX_GENERATOREN = ['einmaleins', 'potenz', 'mal10', 'prozent', 'runden', 'bruch-bild', 'minus-plus', 'reihenfolge', 'baukasten', 'einmaleins'];

@@ -6,7 +6,7 @@ export const THEMA_NAMEN = {
   'prozent-baukasten': 'Prozent-Baukasten', 'prozent-formel': 'Prozent mit Formel', 'rabatt': 'Rabatt', 'neuer-preis': 'Neuer Preis',
   'kreisdiagramm': 'Kreisdiagramm', 'runden': 'Runden', 'kugel': 'Kugel',
   'einmaleins': 'Einmaleins', 'mal-10': 'Mal 10 und durch 10',
-  'zylinder': 'Zylinder', 'kegel': 'Kegel', 'pyramide': 'Pyramide', 'quader': 'Quader', 'zusammengesetzt': 'Quader mit ausgeschnittenem Kegel', 'daten': 'Daten (Minimum, Maximum, Spannweite)', 'diagramm': 'Säulendiagramm', 'kosinus': 'Kosinus',
+  'zylinder': 'Zylinder', 'kegel': 'Kegel', 'pyramide': 'Pyramide', 'quader': 'Quader', 'zusammengesetzt': 'Quader mit ausgeschnittenem Kegel', 'daten': 'Daten (Minimum, Maximum, Spannweite)', 'diagramm': 'Säulendiagramm', 'kosinus': 'Kosinus', 'sinus': 'Sinus', 'tangens': 'Tangens',
   'zehnerpotenzen': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Masse und Gewichtskraft', 'umstellen': 'Gleichungen umstellen', 'dichte': 'Dichte',
   'formelsammlung': 'Formelsammlung: Finde es'
 };
@@ -15,7 +15,7 @@ export const GEN_NAMEN = {
   'minus-plus': 'Minus-Zahlen', 'reihenfolge': 'Reihenfolge', 'potenz': 'Potenzen', 'einmaleins': 'Einmaleins',
   'mal10': 'Mal 10 / durch 10', 'prozent': 'Prozent von …', 'baukasten': 'Prozent-Baukasten', 'runden': 'Runden',
   'bruch-bild': 'Bruch aus Bild', 'kugel': 'Kugel', 'zylinder': 'Zylinder', 'geld-geschichte': 'Geld-Geschichten', 'rabatt-geschichte': 'Rabatt-Geschichten', 'prozent-formel': 'Prozent mit Formel', 'kegel': 'Kegel', 'pyramide': 'Pyramide', 'quader': 'Quader', 'zusammengesetzt': 'Quader − Kegel', 'kreisdiagramm': 'Kreisdiagramm',
-  'zehnerpotenz': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Gewichtskraft', 'gleichung': 'Gleichungen', 'formel-umstellen': 'Formeln umstellen', 'dichte': 'Dichte', 'daten': 'Daten (Tabelle)', 'saeulen': 'Säulendiagramm', 'kosinus': 'Kosinus'
+  'zehnerpotenz': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Gewichtskraft', 'gleichung': 'Gleichungen', 'formel-umstellen': 'Formeln umstellen', 'dichte': 'Dichte', 'daten': 'Daten (Tabelle)', 'saeulen': 'Säulendiagramm', 'kosinus': 'Kosinus', 'sinus': 'Sinus', 'tangens': 'Tangens'
 };
 
 export const FEHLER_NAMEN = {
@@ -47,5 +47,9 @@ export const FEHLER_NAMEN = {
   // Auftrag 55
   'cos-hypotenuse': 'Kosinus: falsche Seite als Hypotenuse', 'cos-gegenkathete': 'Kosinus: Gegenkathete statt Ankathete', 'cos-kehrwert': 'Kosinus: Hypotenuse : Ankathete',
   'cos-wert-statt-winkel': 'Kosinus: cos-Wert statt Winkel', 'cos-statt-umkehr': 'Kosinus: cos statt 2nd cos', 'cos-rad': 'Kosinus: Rechner nicht in Grad', 'cos-vom-bruch': 'Kosinus: cos von Ankathete ÷ Hypotenuse gerechnet',
+  'sin-ankathete': 'Sinus: Ankathete statt Gegenkathete', 'sin-hypotenuse': 'Sinus: falsche Seite als Hypotenuse', 'sin-kehrwert': 'Sinus: Hypotenuse : Gegenkathete',
+  'tan-hypotenuse': 'Tangens: Hypotenuse statt Kathete', 'tan-kehrwert': 'Tangens: Ankathete : Gegenkathete', 'trig-falsche-funktion': 'sin, cos, tan verwechselt',
+  'sin-statt-umkehr': 'Sinus: sin statt 2nd sin', 'tan-statt-umkehr': 'Tangens: tan statt 2nd tan', 'trig-abgeschnitten': 'Abgeschnitten statt gerundet',
+  'trig-seite-geteilt': 'Seite: geteilt statt mal', 'trig-vom-bruch': 'sin/tan vom Bruch gerechnet', 'trig-wert-statt-winkel': 'sin/tan-Wert statt Winkel', 'trig-rad': 'Rechner nicht in Grad',
   'zylinder-hoehe-vergessen': 'Zylinder-Mantel: Höhe vergessen', 'zylinder-grundflaeche-statt-mantel': 'Zylinder: Grundfläche statt Mantel', 'minus-betraege': 'Minus-Zahlen: Beträge addiert'
 };

@@ -22,7 +22,7 @@ export const ETAPPE_MINDEST = [0, 1, 2, 3];
 export const GEN_THEMA = {
   'minus-plus': 'minus-zahlen', 'geld-geschichte': 'minus-zahlen', 'reihenfolge': 'reihenfolge', 'potenz': 'potenzen', 'bruch-bild': 'bruch-bild',
   'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'prozent-formel': 'prozent-formel', 'rabatt-geschichte': 'rabatt', 'runden': 'runden', 'kugel': 'kugel',
-  'einmaleins': 'einmaleins', 'mal10': 'mal-10', 'zylinder': 'zylinder', 'kegel': 'kegel', 'pyramide': 'pyramide', 'quader': 'quader', 'zusammengesetzt': 'zusammengesetzt', 'daten': 'daten', 'saeulen': 'diagramm', 'kosinus': 'kosinus', 'kreisdiagramm': 'kreisdiagramm',
+  'einmaleins': 'einmaleins', 'mal10': 'mal-10', 'zylinder': 'zylinder', 'kegel': 'kegel', 'pyramide': 'pyramide', 'quader': 'quader', 'zusammengesetzt': 'zusammengesetzt', 'daten': 'daten', 'saeulen': 'diagramm', 'kosinus': 'kosinus', 'sinus': 'sinus', 'tangens': 'tangens', 'kreisdiagramm': 'kreisdiagramm',
   'zehnerpotenz': 'zehnerpotenzen', 'einheiten': 'einheiten', 'gewichtskraft': 'gewichtskraft', 'gleichung': 'umstellen', 'formel-umstellen': 'umstellen',
   'dichte': 'dichte'
 };

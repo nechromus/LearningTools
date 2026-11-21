@@ -416,7 +416,7 @@ export function saeulenSvg(bild, { h = null, tippbar = false, achseZeigen = true
 // bild: { form: 'dreieck', lage (0–9 oder 'sach'), an, geg (Längen fürs Bild), winkel ('α'), namen {hyp, an, geg},
 //         laengen? {hyp, an, geg} (Text neben dem Buchstaben), deko? ('boden' | 'wand'), farbig? (Merkbild: Hypotenuse blau, Ankathete rot) }
 // Lagen 0–3: um 0/90/180/270° gedreht, 4–7 dazu gespiegelt, 8/9: Hypotenuse waagerecht (rechter Winkel oben/unten), 'sach': Boden unten, rechter Winkel rechts.
-export const KOS_BLAU = '#1D4ED8', KOS_ROT = '#C2410C';
+export const KOS_BLAU = '#1D4ED8', KOS_ROT = '#C2410C', KOS_GRUEN = '#15803D';   // Gegenkathete grün (Auftrag 69)
 export function dreieckLage(bild) {
   const an = bild.an || 4, geg = bild.geg || 3;
   let P = { R: [0, 0], W: [an, 0], T: [0, geg] };
@@ -460,7 +460,10 @@ function dreieckZeichnen(bild, P0, bx, by, s, ox, oy) {
   const M = [(P.R[0] + P.W[0] + P.T[0]) / 3, (P.R[1] + P.W[1] + P.T[1]) / 3];
   const einh = (a, b) => { const d = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / d, (b[1] - a[1]) / d]; };
   const n = bild.namen || { hyp: 'c', an: 'b', geg: 'a' }, L = bild.laengen || {};
-  const farbe = { hyp: bild.farbig ? KOS_BLAU : LINIE, an: bild.farbig ? KOS_ROT : LINIE, geg: LINIE };
+  // farbig: true = Kosinus (Hypotenuse blau, Ankathete rot); 'sin' bzw. 'tan' (Auftrag 69): dazu Gegenkathete grün, die nicht gebrauchte Seite dünn
+  const fb = bild.farbig;
+  const farbe = { hyp: fb && fb !== 'tan' ? KOS_BLAU : LINIE, an: fb ? KOS_ROT : LINIE, geg: fb === 'sin' || fb === 'tan' ? KOS_GRUEN : LINIE };
+  const dick = (k) => !!fb && (fb === true ? k !== 'geg' : fb === 'sin' ? k !== 'an' : k !== 'hyp');
   const seiten = { hyp: [P.W, P.T], an: [P.R, P.W], geg: [P.R, P.T] };
   let inhalt = '';
   // Deko: Boden (Rampe, Dach) bzw. Boden und Wand (Leiter)
@@ -474,7 +477,7 @@ function dreieckZeichnen(bild, P0, bx, by, s, ox, oy) {
   }
   for (const k of ['geg', 'an', 'hyp']) {
     const [a, b] = seiten[k];
-    inhalt += `<line x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(b[0])}" y2="${f(b[1])}" stroke="${farbe[k]}" stroke-width="${bild.farbig && k !== 'geg' ? 4.5 : 2.5}" stroke-linecap="round"/>`;
+    inhalt += `<line x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(b[0])}" y2="${f(b[1])}" stroke="${farbe[k]}" stroke-width="${dick(k) ? 4.5 : 2.5}" stroke-linecap="round"/>`;
   }
   // rechter Winkel: kleines Quadrat mit Punkt
   const u = einh(P.R, P.W), v = einh(P.R, P.T), q = 15;
@@ -488,7 +491,13 @@ function dreieckZeichnen(bild, P0, bx, by, s, ox, oy) {
   inhalt += `<path d="M ${f(P.W[0] + a1[0] * rb)} ${f(P.W[1] + a1[1] * rb)} A ${rb} ${rb} 0 0 ${kreuz > 0 ? 1 : 0} ${f(P.W[0] + a2[0] * rb)} ${f(P.W[1] + a2[1] * rb)}" fill="none" stroke="${LINIE}" stroke-width="1.6"/>`;
   inhalt += `<path d="M ${f(P.W[0])} ${f(P.W[1])} L ${f(P.W[0] + a1[0] * rb)} ${f(P.W[1] + a1[1] * rb)} A ${rb} ${rb} 0 0 ${kreuz > 0 ? 1 : 0} ${f(P.W[0] + a2[0] * rb)} ${f(P.W[1] + a2[1] * rb)} Z" fill="#F6D88E" fill-opacity="0.55" stroke="none"/>`;
   const bi = einh([0, 0], [a1[0] + a2[0], a1[1] + a2[1]]);
-  inhalt += `<text x="${f(P.W[0] + bi[0] * 44)}" y="${f(P.W[1] + bi[1] * 44 + 6)}" text-anchor="middle" font-size="19" font-style="italic" fill="${LINIE}">${esc(bild.winkel || 'α')}</text>`;
+  // Winkelgröße (Auftrag 69, Seite berechnen): „β = 31°“ etwas weiter außen im Winkel
+  if (bild.winkelWert) {
+    const wx = P.W[0] + bi[0] * 62, wy = P.W[1] + bi[1] * 62 + 6, tw = 70, anker = bi[0] > 0.3 ? 'start' : bi[0] < -0.3 ? 'end' : 'middle';
+    const x0 = anker === 'start' ? wx - 10 : anker === 'end' ? wx - tw + 10 : wx - tw / 2;
+    merke(x0, x0 + tw, wy - 18, wy + 6);
+    inhalt += `<text x="${f(wx)}" y="${f(wy)}" text-anchor="${anker}" font-size="18" fill="${LINIE}"><tspan font-style="italic">${esc(bild.winkel || 'α')}</tspan> = <tspan font-weight="700">${esc(bild.winkelWert)}</tspan></text>`;
+  } else inhalt += `<text x="${f(P.W[0] + bi[0] * 44)}" y="${f(P.W[1] + bi[1] * 44 + 6)}" text-anchor="middle" font-size="19" font-style="italic" fill="${LINIE}">${esc(bild.winkel || 'α')}</text>`;
   // Seiten beschriften: außen neben der Mitte
   for (const k of ['hyp', 'an', 'geg']) {
     const [a, b] = seiten[k], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
@@ -502,7 +511,7 @@ function dreieckZeichnen(bild, P0, bx, by, s, ox, oy) {
     const fs = bild.farbig ? 15 : 17, tw = (String(n[k]).length + (L[k] ? String(L[k]).length + 3 : 0)) * fs * 0.56;
     const x0 = anker === 'start' ? x : anker === 'end' ? x - tw : x - tw / 2;
     merke(x0 - 4, x0 + tw + 4, y - fs - 2, y + 6);
-    inhalt += `<text x="${f(x)}" y="${f(y)}" text-anchor="${anker}" font-size="${fs}" font-weight="${bild.farbig && k !== 'geg' ? 700 : 400}" fill="${farbe[k] === LINIE ? LINIE : farbe[k]}">${txt}</text>`;
+    inhalt += `<text x="${f(x)}" y="${f(y)}" text-anchor="${anker}" font-size="${fs}" font-weight="${dick(k) ? 700 : 400}" fill="${farbe[k] === LINIE ? LINIE : farbe[k]}">${txt}</text>`;
   }
   if (bild.deko) { const bo = seiten[bodenK]; merke(Math.min(bo[0][0], bo[1][0]) - 24, Math.max(bo[0][0], bo[1][0]) + (bild.deko === 'wand' ? 12 : 24), Math.min(P.R[1], P.W[1], P.T[1]) - 12, Math.max(bo[0][1], bo[1][1]) + 4); }
   return { inhalt, box };

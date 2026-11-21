@@ -89,12 +89,22 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
   if (aufgabe.thema === 'zusammengesetzt' && /^Zusammenz/.test(frage)) return { typ: 'zusammen-statt-abziehen', text: 'Der Kegel ist ausgeschnitten. Er fehlt. Also abziehen.' };
   if (aufgabe.thema === 'zusammengesetzt' && /^Wie hoch ist der Kegel/.test(frage)) return { typ: 'kegel-hoehe-bild', text: `Schau ins Bild: Die Spitze berührt den Boden. Also ist der Kegel so hoch wie der ${aufgabe.form === 'wuerfel-kegel' ? 'Würfel' : 'Quader'}.` };
   // Kosinus (Auftrag 55): Seite gewählt
-  if (aufgabe.thema === 'kosinus' && Array.isArray(teil.rollen)) {
+  if (istTrig(aufgabe) && Array.isArray(teil.rollen)) {
     const r = teil.rollen[gewaehlt];
-    if (teil.kos === 'hyp') return KOS_TIPP.hyp;
     const n = (aufgabe.bild && aufgabe.bild.winkel) || 'α';
-    if (teil.kos === 'an') return r === 'hyp' ? KOS_TIPP.hyp : kosGeg(n);
-    if (teil.kos === 'bruch') return r === 'geg' ? kosGeg(n) : r === 'kehr' ? KOS_TIPP.kehr : KOS_TIPP.hyp;
+    const fn = teil.fn || 'cos';
+    if (teil.kos === 'fn') return trigFalsch(teil.fn, n);
+    if (fn === 'cos') {
+      if (teil.kos === 'hyp') return KOS_TIPP.hyp;
+      if (teil.kos === 'an') return r === 'hyp' ? KOS_TIPP.hyp : kosGeg(n);
+      if (teil.kos === 'bruch') return r === 'geg' ? kosGeg(n) : r === 'kehr' ? KOS_TIPP.kehr : KOS_TIPP.hyp;
+      if (teil.kos === 'gesucht') return r === 'hyp' ? KOS_TIPP.hyp : kosGeg(n);
+    }
+    const T = TRIG_TIPP(fn, n);
+    if (teil.kos === 'hyp') return T.hyp;
+    if (teil.kos === 'gesucht') return r === 'hyp' ? T.hyp : T.seite;
+    if (teil.kos === 'geg' || teil.kos === 'an') return r === 'hyp' ? T.hyp : T.seite;
+    if (teil.kos === 'bruch') return r === 'kehr' ? T.kehr : r === 'an' ? T.seite : T.hyp;
   }
   // „Was ist G, p und W?“ (Auftrag 47)
   if (aufgabe.form === 'gpw') {
@@ -114,6 +124,9 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
   if (aufgabe.form === 'gesucht4' && /gesucht/.test(frage)) return { typ: 'zylinder-gesucht', text: '„passt hinein“ → V (Volumen). „rund herum“ → A_M (Mantel). „alles außen, mit Deckel und Boden“ → A_O (Oberfläche). „der Boden“ → A_G (Grundfläche).' };
   return null;
 }
+// Trigonometrie (Auftrag 55, 69): Kosinus, Sinus, Tangens
+export const TRIG_THEMEN = ['kosinus', 'sinus', 'tangens'];
+export const istTrig = (a) => !!(a && TRIG_THEMEN.includes(a.thema));
 // Kosinus (Auftrag 55): Tipps kurz und wörtlich wie auf der Karte
 const KOS_TIPP = {
   hyp: { typ: 'cos-hypotenuse', text: 'Die Hypotenuse liegt gegenüber vom rechten Winkel.' },
@@ -149,6 +162,89 @@ function kosFehler(teil, w, n) {
   if (teil.kos === 'cos' && teil.grad != null) {
     if (kosNah(w, teil.wert, 0.006)) return null;
     if (kosNah(w, Math.cos(teil.grad), 0.006)) return KOS_TIPP.rad;
+  }
+  return null;
+}
+// ---------- Sinus und Tangens (Auftrag 69) ----------
+const RN = { hyp: 'Hypotenuse', an: 'Ankathete', geg: 'Gegenkathete' };
+const TZ = { cos: ['an', 'hyp'], sin: ['geg', 'hyp'], tan: ['geg', 'an'] };
+const TF = { cos: (g) => Math.cos(g * KG), sin: (g) => Math.sin(g * KG), tan: (g) => Math.tan(g * KG) };
+const TI = { cos: (x) => Math.acos(x) / KG, sin: (x) => Math.asin(x) / KG, tan: (x) => Math.atan(x) / KG };
+const TFr = { cos: Math.cos, sin: Math.sin, tan: Math.tan }, TIr = { cos: Math.acos, sin: Math.asin, tan: Math.atan };
+export const TRIG_ABGESCHNITTEN = { typ: 'trig-abgeschnitten', text: 'Runden, nicht abschneiden: Schau auf die nächste Ziffer.' };
+function trigFalsch(fn, n = 'α') {
+  const [z, nn] = TZ[fn] || TZ.cos;
+  return { typ: 'trig-falsche-funktion', text: `Welche Seiten hast du? ${RN[z]} und ${RN[nn]}: ${fn} ${n} = ${RN[z]} : ${RN[nn]}.` };
+}
+function TRIG_TIPP(fn, n) {
+  const p = fn === 'sin' ? 'sin' : 'tan';
+  return {
+    hyp: { typ: `${p}-hypotenuse`, text: fn === 'tan' ? 'tan braucht keine Hypotenuse. tan = Gegenkathete : Ankathete.' : 'Die Hypotenuse liegt gegenüber vom rechten Winkel.' },
+    seite: fn === 'sin' ? { typ: 'sin-ankathete', text: `Die Gegenkathete liegt gegenüber vom Winkel ${n}. Die Ankathete berührt ihn.` }
+      : { typ: 'tan-kehrwert', text: `Die Gegenkathete liegt gegenüber vom Winkel ${n}. Die Ankathete berührt ihn.` },
+    kehr: { typ: `${p}-kehrwert`, text: fn === 'sin' ? 'sin = Gegenkathete : Hypotenuse. Die Hypotenuse steht unten.' : 'tan = Gegenkathete : Ankathete. Die Ankathete steht unten.' }
+  };
+}
+// Abgeschnitten statt gerundet: Eingabe = genauer Wert mit k Stellen abgeschnitten, aber nicht gleich dem gerundeten
+function abgeschnitten(w, x, kMin, kMax) {
+  for (let k = kMin; k <= kMax; k++) {
+    const ab = Math.trunc(x * 10 ** k + 1e-9) / 10 ** k, rd = Math.round(x * 10 ** k) / 10 ** k;
+    if (Math.abs(ab - rd) > 1e-9 && Math.abs(w - ab) < 1e-9) return true;
+  }
+  return false;
+}
+// Gibt { typ, text } zurück oder null (dann prüft kosFehler weiter, nur für cos)
+function trigZahlFehler(teil, w, n) {
+  const fn = teil.fn || 'cos';
+  const T = TRIG_TIPP(fn, n);
+  const andere = ['sin', 'cos', 'tan'].filter(f => f !== fn);
+  if (teil.kos === 'wert') {
+    const L = { an: teil.an, hyp: teil.hyp, geg: teil.gegl };
+    const [z, nn] = TZ[fn], c = L[z] / L[nn];
+    if (kosNah(w, teil.wert, 0.00006)) return null;
+    if (abgeschnitten(w, c, 2, 4)) return TRIG_ABGESCHNITTEN;
+    if (fn === 'cos') return null;
+    if (kosNah(w, TF[fn](c), 0.0006) || kosNah(w, TF[fn](1 / c), 0.0006)) return { typ: 'trig-vom-bruch', text: `Hier noch kein ${fn} drücken. Erst teilen: ${RN[z]} ÷ ${RN[nn]}.` };
+    if (kosNah(w, 1 / c)) return T.kehr;
+    if (L.geg != null && L.an != null && L.hyp != null) {
+      if (fn === 'sin') { if (kosNah(w, L.an / L.hyp) || kosNah(w, L.hyp / L.an)) return T.seite; if (kosNah(w, L.geg / L.an) || kosNah(w, L.an / L.geg)) return T.hyp; }
+      if (fn === 'tan') { if ([L.geg / L.hyp, L.an / L.hyp, L.hyp / L.an, L.hyp / L.geg].some(x => kosNah(w, x))) return T.hyp; }
+    }
+    return null;
+  }
+  if (teil.kos === 'winkel' || teil.kos === 'umkehr') {
+    const c = teil.cos, g = TI[fn](c);
+    if (kosNah(w, teil.wert, 0.06)) return null;
+    if (teil.kos === 'winkel' && abgeschnitten(w, g, 1, 1)) return TRIG_ABGESCHNITTEN;
+    if (teil.kos === 'umkehr' && abgeschnitten(w, g, 0, 0)) return TRIG_ABGESCHNITTEN;
+    if (fn === 'cos') {
+      if (kosNah(w, TI.tan(c), 0.15)) return trigFalsch('cos', n);
+      return null;
+    }
+    if (kosNah(w, c, 0.006)) return { typ: 'trig-wert-statt-winkel', text: `Das ist der ${fn}-Wert. Für den Winkel: 2nd, dann ${fn}.` };
+    if (kosNah(w, TF[fn](c), 0.001) || kosNah(w, TFr[fn](c), 0.001)) return { typ: `${fn}-statt-umkehr`, text: `Für den Winkel: 2nd, dann ${fn}. Dann die Zahl von oben.` };
+    if (Number.isFinite(TIr[fn](c)) && kosNah(w, TIr[fn](c), 0.006)) return { typ: 'trig-rad', text: 'Dein Rechner rechnet nicht in Grad. Stell ihn auf DEG.' };
+    if (teil.kos === 'winkel' && kosNah(w, 90 - g, 0.15)) return T.seite;
+    if (andere.some(f => Number.isFinite(TI[f](c)) && kosNah(w, TI[f](c), 0.15))) return trigFalsch(fn, n);
+    return null;
+  }
+  if (teil.kos === fn && teil.grad != null) {   // Rechner-Aufgabe sin/cos/tan 35° =
+    const x = TF[fn](teil.grad);
+    if (kosNah(w, teil.wert, 0.00006)) return null;
+    if (abgeschnitten(w, x, 2, 4)) return TRIG_ABGESCHNITTEN;
+    if (fn === 'cos') return null;
+    if (kosNah(w, TFr[fn](teil.grad), 0.006)) return { typ: 'trig-rad', text: 'Dein Rechner rechnet nicht in Grad. Stell ihn auf DEG.' };
+    if (andere.some(f => kosNah(w, TF[f](teil.grad), 0.0006))) return { typ: 'trig-falsche-funktion', text: `Hier ist ${fn} gefragt. Tippe ${fn}, nicht ${andere.join(' oder ')}.` };
+    return null;
+  }
+  if (teil.kos === 'seite') {     // x = Nenner · sin/cos/tan
+    const x = teil.nenner * TF[fn](teil.grad);
+    if (kosNah(w, teil.wert, 0.006)) return null;
+    if (abgeschnitten(w, x, 1, 2)) return TRIG_ABGESCHNITTEN;
+    if (kosNah(w, teil.nenner / TF[fn](teil.grad), 0.02)) return { typ: 'trig-seite-geteilt', text: `x steht oben im Bruch. Dann rechnest du mal: x = ${String(teil.nenner).replace('.', ',')} · ${fn} ${teil.grad}°.` };
+    if (andere.some(f => kosNah(w, teil.nenner * TF[f](teil.grad), 0.02) || kosNah(w, teil.nenner / TF[f](teil.grad), 0.02))) return trigFalsch(fn, n);
+    if (kosNah(w, teil.nenner * TFr[fn](teil.grad), 0.02)) return { typ: 'trig-rad', text: 'Dein Rechner rechnet nicht in Grad. Stell ihn auf DEG.' };
+    return null;
   }
   return null;
 }
@@ -198,8 +294,8 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
   }
 
   // Kosinus (Auftrag 55)
-  if (aufgabe.thema === 'kosinus' && teil && teil.kos) {
-    const f = kosFehler(teil, w, (aufgabe.bild && aufgabe.bild.winkel) || 'α');
+  if (istTrig(aufgabe) && teil && teil.kos) {
+    const f = trigZahlFehler(teil, w, (aufgabe.bild && aufgabe.bild.winkel) || 'α') || kosFehler(teil, w, (aufgabe.bild && aufgabe.bild.winkel) || 'α');
     if (f) return f;
   }
   // Daten (Auftrag 54): Minimum, Maximum, Spannweite aus einer Tabelle
@@ -640,7 +736,7 @@ export function muehGruppe(a, { umformen = false, gruppen = null } = {}) {
   if (a.thema === 'formelsammlung') return 'kurz';                         // „Finde es“ (Auftrag 40)
   if (a.form === 'gpw') return 'kurz';                                      // „Was ist G, p und W?“ (Auftrag 47)
   if (a.thema === 'quader') return 'normal';                               // Quader-Volumen (Auftrag 43)
-  if (a.thema === 'daten' || a.thema === 'diagramm' || a.thema === 'kosinus') return (a.stufe || 1) >= 2 ? 'normal' : 'kurz'; // Auftrag 54, 55
+  if (a.thema === 'daten' || a.thema === 'diagramm' || istTrig(a)) return (a.stufe || 1) >= 2 ? 'normal' : 'kurz'; // Auftrag 54, 55, 69
   if (KOERPER.includes(a.thema) || a.typ === 'detektiv' || a.modus === 'knobeln') return 'schwer';
   if (a.typ === 'auswahl') return 'normal';
   if (a.fach === 'physik' && a.geschichte) return 'schwer';                 // Physik-Geschichten
@@ -796,8 +892,8 @@ export function rechne(ausdruck) {
       tokens.push({ t: 'n', v: Number(zahl) });
       i = j;
     } else if (c === 'π') { tokens.push({ t: 'n', v: Math.PI }); i++; }
-    else if (s.startsWith('cos⁻¹', i)) { tokens.push({ t: 'fn', f: 'acos' }); i += 5; }   // Kosinus in Grad (Auftrag 55)
-    else if (s.startsWith('cos', i)) { tokens.push({ t: 'fn', f: 'cos' }); i += 3; }
+    else if (/^(cos|sin|tan)⁻¹/.test(s.slice(i))) { tokens.push({ t: 'fn', f: 'a' + s.slice(i, i + 3) }); i += 5; }   // in Grad (Auftrag 55, 69)
+    else if (/^(cos|sin|tan)/.test(s.slice(i))) { tokens.push({ t: 'fn', f: s.slice(i, i + 3) }); i += 3; }
     else if (HOCH.includes(c)) {
       // Hochzahl aus hochgestellten Ziffern (x², x³ und xⁿ): ²³, ⁸, ¹², ⁻³
       let j = i, z = '';
@@ -835,9 +931,13 @@ export function rechne(ausdruck) {
     else if (tk.t === 'wurzel') { const w = primaer(); if (w < 0) throw 0; return Math.sqrt(w); }
     else if (tk.t === 'fn') {
       const x = primaer();
-      if (tk.f === 'cos') return Math.round(Math.cos(x * Math.PI / 180) * 1e12) / 1e12;
+      if (tk.f === 'cos' || tk.f === 'sin' || tk.f === 'tan') {
+        if (tk.f === 'tan' && Math.abs(((x % 180) + 180) % 180 - 90) < 1e-9) throw 0;
+        return Math.round(Math[tk.f](x * Math.PI / 180) * 1e12) / 1e12;
+      }
+      if (tk.f === 'atan') return Math.round(Math.atan(x) * 180 / Math.PI * 1e10) / 1e10;
       if (x < -1 || x > 1) throw 0;
-      return Math.round(Math.acos(x) * 180 / Math.PI * 1e10) / 1e10;
+      return Math.round(Math[tk.f](x) * 180 / Math.PI * 1e10) / 1e10;
     }
     else throw 0;
     while (peek() && peek().t === 'post') v = v ** next().v;
@@ -938,7 +1038,7 @@ export function hoechsteKachel(feld) {
 // ---------- Aufgaben aus JSON kontrollieren (Elternbereich, Tools) ----------
 
 export const TYPEN = ['zahl', 'auswahl', 'bruch', 'schritte', 'zuordnung', 'mehrfrage', 'zehnerpotenz', 'formel', 'detektiv'];
-export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'prozent-formel', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte', 'quader', 'zusammengesetzt', 'daten', 'diagramm', 'kosinus'];
+export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'prozent-formel', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte', 'quader', 'zusammengesetzt', 'daten', 'diagramm', 'kosinus', 'sinus', 'tangens'];
 // Fach je Thema (Auftrag 13). Fehlt das Feld fach an der Aufgabe, gilt das Fach des Themas.
 export const PHYSIK_THEMEN = ['zehnerpotenzen', 'einheiten', 'gewichtskraft', 'dichte'];
 export const fachVon = (a) => (a && (a.fach || (PHYSIK_THEMEN.includes(a.thema) ? 'physik' : 'mathe'))) || 'mathe';
@@ -1109,7 +1209,7 @@ export function rechnerOptional(a) {
 // Taschenrechner wäre hier erlaubt (Körper-Aufgaben oder große Zahlen) → im Kopf gerechnet gibt einen Bonus
 export function rechnerZulaessig(a) {
   if (fachVon(a) === 'physik') return false; // Physik: Rechner frei, kein Kopf-Bonus
-  if (a && a.thema === 'kosinus') return false; // Kosinus: cos nur mit Rechner, kein Kopf-Bonus (Auftrag 55)
+  if (istTrig(a)) return false; // Kosinus, Sinus, Tangens: nur mit Rechner, kein Kopf-Bonus (Auftrag 55)
   return !!a.taschenrechner || rechnerOptional(a) || !kopfGlatt(a);
 }
 // Rechner frei (ohne Abzug): Aufgaben mit taschenrechner und alle Physik-Aufgaben
@@ -1126,7 +1226,7 @@ export function ergebnisWerte(a) {
 export function kopfGlatt(a) {
   if (!a) return true;
   if (a.thema === 'daten') return false; // Auftrag 54: Rechner frei, im Kopf gerechnet Kopf-Bonus
-  if (a.thema === 'kosinus') return !(a.schritte || []).some(x => x.wert != null); // Auftrag 55: mit Zahlen Rechner frei, Seiten finden ohne Rechner
+  if (istTrig(a)) return !(a.schritte || []).some(x => x.wert != null); // Auftrag 55: mit Zahlen Rechner frei, Seiten finden ohne Rechner
   if (GLATT_UNTER_100.includes(a.thema)) return groessteZahl(a) < 100;
   if (GLATT_GANZ.includes(a.thema)) return ergebnisWerte(a).every(x => Number.isInteger(Math.round(x * 1e6) / 1e6));
   return true;
@@ -1134,7 +1234,7 @@ export function kopfGlatt(a) {
 export const rechnerFrei = (a) => !!(a && (a.taschenrechner || fachVon(a) === 'physik' || !kopfGlatt(a)));
 // Freiwilliger Rechner wird bei jeder Aufgabe angeboten (kostet Spielzeit), außer dort, wo er ohnehin erlaubt ist
 export function rechnerAnbieten(a) {
-  return !rechnerFrei(a) && !['auswahl', 'zuordnung', 'formel'].includes(a.typ) && a.thema !== 'formelsammlung' && a.thema !== 'diagramm' && a.thema !== 'kosinus';
+  return !rechnerFrei(a) && !['auswahl', 'zuordnung', 'formel'].includes(a.typ) && a.thema !== 'formelsammlung' && a.thema !== 'diagramm' && !istTrig(a);
 }
 // Kopf-Bonus: Rechner erlaubt, nicht geöffnet, App nicht verlassen, Aufgabe gelöst
 export function kopfBonus({ aufgabe, rechnerGenutzt, verlassen, ergebnis }) {
@@ -1319,12 +1419,17 @@ function teilschrittNeu(a, t, l) {
   }
   if (a.thema === 'kreisdiagramm' && a.generator === 'kreisdiagramm') return q.art === 'prozent' ? 'kreisdia.anteil@2' : 'kreisdia.lesen@1';
   // Kosinus (LK-101, Thema trigo der Lernplattform)
-  if (a.thema === 'kosinus' && a.generator === 'kosinus') {
-    const k = q.kos;
+  if (istTrig(a) && ['kosinus', 'sinus', 'tangens'].includes(a.generator)) {
+    const k = q.kos, fn = q.fn || 'cos';
     if (k === 'hyp') return 'trigo.hypotenuse@1';
     if (k === 'an') return (a.stufe || 1) >= 3 ? 'trigo.ankathete@2' : 'trigo.ankathete@1';
-    if (k === 'bruch') return 'trigo.cos@1';
-    if (k === 'wert') return 'trigo.cos@2';
+    if (k === 'geg') return (a.stufe || 1) >= 3 ? 'trigo.gegenkathete@2' : 'trigo.gegenkathete@1';
+    if (k === 'bruch') return `trigo.${fn}@1`;
+    if (k === 'wert') return `trigo.${fn}@2`;
+    if (k === 'fn') return 'trigo.wahl@1';
+    if (k === 'gesucht') return 'trigo.seite@1';
+    if (k === 'seite') return 'trigo.seite@2';
+    if (k === 'sin' || k === 'tan') return 'trigo.rechner@1';
     if (k === 'winkel') return 'trigo.winkel@2';
     if (k === 'cos') return 'trigo.rechner@1';
     if (k === 'umkehr') return 'trigo.rechner@2';
@@ -1342,7 +1447,10 @@ export function teilschrittAufgabe(a) {
         : par0 === 'rabatt' ? 'prozent.aenderung@3' : par0 === 'text' ? 'prozent.formel@2' : par0 === 'direkt' ? 'prozent.formel@1' : null;
     }
     if (a.generator === 'kreisdiagramm') return (a.parameter || [])[1] === 'prozent' ? 'kreisdia.anteil@2' : 'kreisdia.lesen@1';
-    if (a.generator === 'kosinus') return a.form === 'sach' ? 'trigo.sache@1' : (a.stufe || 1) >= 3 ? 'trigo.cos@2' : a.stufe === 2 ? 'trigo.winkel@2' : 'trigo.cos@1';
+    if (['kosinus', 'sinus', 'tangens'].includes(a.generator)) {
+      const fn = { kosinus: 'cos', sinus: 'sin', tangens: 'tan' }[a.generator];
+      return a.form === 'sach' ? 'trigo.sache@1' : a.form === 'seite' ? 'trigo.seite@2' : a.wahl ? 'trigo.wahl@1' : (a.stufe || 1) >= 3 ? `trigo.${fn}@2` : a.stufe === 2 ? 'trigo.winkel@2' : `trigo.${fn}@1`;
+    }
   }
   if (!a || a.thema !== 'zylinder' || a.typ === 'detektiv' || !Array.isArray(a.schritte) || !a.schritte.length) return null;
   const l = String(a.schritte[a.schritte.length - 1].text || '');

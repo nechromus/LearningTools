@@ -17,7 +17,9 @@ export const KOPF_GEN = {
   // Physik und Umstellen (Auftrag 13): kommen wie kurze Aufgaben, etwa halb Pool, halb Baukasten
   'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte'],
   // Auftrag 56: Themen nur aus dem Baukasten, sonst im normalen Ablauf nie erreichbar (nur über den Wochenplan bzw. Pakete)
-  'kosinus': ['kosinus'], 'daten': ['daten'], 'diagramm': ['saeulen']
+  'kosinus': ['kosinus'], 'daten': ['daten'], 'diagramm': ['saeulen'],
+  // Auftrag 69: Sinus und Tangens wie Kosinus
+  'sinus': ['sinus'], 'tangens': ['tangens']
 };
 // Themen, die etwa zur Hälfte aus dem Pool kommen (mit Geschichten), sonst aus dem Baukasten (neutrale Zahlen)
 export const HALB_POOL = ['zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte'];
