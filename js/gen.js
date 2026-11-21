@@ -1372,7 +1372,8 @@ function trig(fn, stufe, rng, opts = {}) {
       erklaerung: `Für den Winkel: 2nd, dann ${fn}. Dann ${zahlText(c, 4)} und =.`
     });
   }
-  const buchst = wahl(rng, KOS_BUCHSTABEN).split('');
+  // Seite x gesucht: keine Buchstaben x, y, z (sonst stehen zwei x im Bild)
+  const buchst = wahl(rng, form === 'seite' ? KOS_BUCHSTABEN.filter(b => !b.includes('x')) : KOS_BUCHSTABEN).split('');
   mischen(rng, buchst);
   const [bH, bA, bG] = buchst;                 // Hypotenuse, Ankathete, Gegenkathete
   const B = { hyp: bH, an: bA, geg: bG };
@@ -1513,10 +1514,117 @@ function trig(fn, stufe, rng, opts = {}) {
   return null;
 }
 
+// ---------- sin, cos, tan gemischt (Auftrag 70, Thema „trig-mix“) ----------
+// Welche Funktion, mit oder ohne 2nd? Funktion zufällig (nie 3-mal hintereinander dieselbe, opts.letzteFn),
+// gesucht zufällig Winkel oder Seite (x oben → mal; Hypotenuse gesucht noch nicht).
+// Form „taste“ (etwa 40 %, nur Auswahl) oder „rechnen“ (dieselben Auswahl-Schritte, dann rechnen wie in den Baukästen).
+// Eigene Stufe gibt es nicht (immer 1); die Stufen von kosinus, sinus, tangens bleiben unberührt.
+export const TRIG_TASTEN = ['sin', 'cos', 'tan', '2nd sin', '2nd cos', '2nd tan'];
+export function trigMix(stufe, rng, opts = {}) {
+  const letzte = Array.isArray(opts.letzteFn) ? opts.letzteFn.slice(-2) : [];
+  let fn;
+  do fn = wahl(rng, ['sin', 'cos', 'tan']); while (letzte.length === 2 && letzte[0] === fn && letzte[1] === fn);
+  const form = opts.form || (rng() < 0.4 ? 'taste' : 'rechnen');
+  const gesucht = opts.gesucht || (rng() < 0.5 ? 'winkel' : 'seite');
+  const T = TRIG[fn], F = T.f, INV = T.inv;
+  const w = rng() < 0.7 ? 'α' : 'β';
+  const winkel = gesucht === 'winkel';
+  const buchst = wahl(rng, winkel ? KOS_BUCHSTABEN : KOS_BUCHSTABEN.filter(b => !b.includes('x'))).split('');
+  mischen(rng, buchst);
+  const [bH, bA, bG] = buchst;
+  const B = { hyp: bH, an: bA, geg: bG };
+  const lage = zufall(rng, 0, KOS_LAGEN - 1);
+  const fest = { thema: 'trig-mix', typ: 'schritte', kategorie: 'text', hinweise: ['trig'], form, stufe: 1, fn, gesucht };
+  const merksatz = 'Winkel gesucht → erst teilen, dann 2nd. Seite gesucht → ohne 2nd, mal.';
+  const tasteRichtig = TRIG_TASTEN.indexOf(winkel ? `2nd ${fn}` : fn);
+  const auswahl = (zahlen) => {
+    const s = [
+      { text: 'Was ist gesucht?', optionen: ['Winkel', 'Seite'], richtig: winkel ? 0 : 1, rollen: ['winkel', 'seite'], kos: 'tgesucht', gesucht, zwei_versuche: true, fn },
+      { text: 'sin, cos oder tan?', optionen: [`sin ${w}`, `cos ${w}`, `tan ${w}`], richtig: ['sin', 'cos', 'tan'].indexOf(fn), rollen: ['sin', 'cos', 'tan'], kos: 'fn', zwei_versuche: true, fn, gegeben: T.n },
+      { text: 'Welche Taste brauchst du?', optionen: TRIG_TASTEN.slice(), richtig: tasteRichtig, rollen: ['sin', 'cos', 'tan', '2sin', '2cos', '2tan'], kos: 'taste', gesucht, zwei_versuche: true, fn, tasten: true }
+    ];
+    if (winkel) {
+      const opt = [`${zahlText(zahlen[0])} ÷ ${zahlText(zahlen[1])} =`, fn];
+      const r = rng() < 0.5 ? [0, 1] : [1, 0];
+      s.push({ text: 'Was tippst du zuerst?', optionen: r.map(i => opt[i]), richtig: r.indexOf(0), rollen: r.map(i => ['teilen', 'fn'][i]), kos: 'zuerst', zwei_versuche: true, fn });
+    }
+    return s;
+  };
+  if (winkel) {
+    for (let v = 0; v < 800; v++) {
+      const komma = form === 'rechnen' && rng() < 0.4;
+      let zz, nn;
+      if (fn === 'tan') { if (komma) { nn = zufall(rng, 20, 200) / 10; zz = zufall(rng, 20, 200) / 10; } else { nn = zufall(rng, 3, 30); zz = zufall(rng, 3, 30); } }
+      else if (komma) { nn = zufall(rng, 50, 250) / 10; zz = zufall(rng, 20, Math.round(nn * 10) - 5) / 10; }
+      else { nn = zufall(rng, 5, 30); zz = zufall(rng, 2, nn - 1); }
+      const c = zz / nn, g = INV(c);
+      if (!(g >= 15 && g <= 75)) continue;
+      // Auftrag 70: aus dem auf 4 Stellen gerundeten Wert kommt derselbe Winkel heraus wie aus dem genauen (Bogen: 5 : 9 → 56,2° / 56,3°)
+      if (r1(INV(r4(c))) !== r1(g)) continue;
+      if (Math.abs(r1(g) * 10 - Math.round(g * 10)) > 1e-9) continue;
+      const S3 = { [T.z]: zz, [T.n]: nn };
+      if (fn === 'tan') S3.hyp = Math.hypot(zz, nn); else S3[T.z === 'an' ? 'geg' : 'an'] = Math.sqrt(nn * nn - zz * zz);
+      if (Math.abs(S3.geg - S3.an) < 0.3) continue;
+      const L = { [T.z]: lt(zz, 'cm'), [T.n]: lt(nn, 'cm') };
+      const cw = r4(c), auch = trigWerte(c), gr = r1(g);
+      const winkelVar = [...new Set([cw, ...auch].map(x => r9(INV(x))))].filter(x => Math.abs(x - r9(g)) > 1e-9);
+      const schritte = auswahl([zz, nn]);
+      if (form === 'rechnen') schritte.push(
+        { text: `${regelText(fn, w)} =`, wert: cw, auch, stellen: 4, rundenAuf: 4, kos: 'wert', an: S3.an, hyp: S3.hyp, gegl: S3.geg, fn },
+        { text: `${w} ≈`, wert: gr, stellen: 1, rundenAuf: 1, genau: r9(g), ...(winkelVar.length ? { varianten: winkelVar } : {}), einheit: '°', kos: 'winkel', cos: c, fn }
+      );
+      const z4w = z4(cw);
+      return neu('trig-mix', [form, fn, 'winkel', lage, w === 'α' ? 'alpha' : 'beta', zz, nn], {
+        ...fest,
+        frage: form === 'taste' ? `Berechne den Winkel ${w}. Du musst nicht rechnen: Wähle nur die richtigen Tasten.` : `Berechne den Winkel ${w}. Runde auf 1 Stelle nach dem Komma.`,
+        bild: { form: 'dreieck', lage, an: S3.an, geg: S3.geg, winkel: w, namen: { hyp: bH, an: bA, geg: bG }, laengen: L },
+        schritte,
+        loesungsweg: [
+          `(1) Gesucht ist der Winkel ${w}. Gegeben: ${ROLLE_NAME[T.z]} und ${ROLLE_NAME[T.n]} → ${fn}`,
+          `(2) Erst teilen: ${zahlText(zz)} ÷ ${zahlText(nn)} = ${z4w}`,
+          `(3) Dann 2nd ${fn}: ${w} ≈ ${zahlText(gr, 1)}°`,
+          merksatz
+        ],
+        erklaerung: `${regelText(fn, w)}. Der Winkel ist gesucht: erst ${ROLLE_NAME[T.z]} ÷ ${ROLLE_NAME[T.n]}, dann 2nd ${fn}.`
+      });
+    }
+    return null;
+  }
+  // Seite gesucht: x = Länge · sin/cos/tan g°
+  for (let v = 0; v < 500; v++) {
+    const g = zufall(rng, 20, 70);
+    if (g % 5 === 0 && rng() < 0.5) continue;
+    const nen = form === 'rechnen' && rng() < 0.4 ? zufall(rng, 40, 160) / 10 : zufall(rng, 4, 20);
+    const x = nen * F(g), xr = r2(x);
+    if (xr < 1 || xr > 40) continue;
+    const S3 = { [T.n]: nen, [T.z]: x };
+    if (fn === 'tan') S3.hyp = Math.hypot(nen, x); else S3[T.z === 'an' ? 'geg' : 'an'] = Math.sqrt(nen * nen - x * x);
+    if (!(S3.an > 0 && S3.geg > 0)) continue;
+    const sx = { ...B, [T.z]: 'x' };
+    const vari = [...new Set([2, 3, 4].map(k => r2(nen * rdK(F(g), k))))].filter(y => Math.abs(y - xr) > 1e-9);
+    const schritte = auswahl();
+    if (form === 'rechnen') schritte.push({ text: `x = ${zahlText(nen)} · ${fn} ${g}° =`, wert: xr, stellen: 2, rundenAuf: 2, genau: r9(x), ...(vari.length ? { varianten: vari } : {}), einheit: 'cm', kos: 'seite', grad: g, nenner: nen, fn });
+    return neu('trig-mix', [form, fn, 'seite', lage, w === 'α' ? 'alpha' : 'beta', g, nen], {
+      ...fest,
+      frage: form === 'taste' ? `Der Winkel ${w} ist ${g}°. Berechne die Seite x. Du musst nicht rechnen: Wähle nur die richtigen Tasten.` : `Der Winkel ${w} ist ${g}°. Berechne die Seite x. Runde auf 2 Stellen nach dem Komma.`,
+      bild: { form: 'dreieck', lage, an: S3.an, geg: S3.geg, winkel: w, winkelWert: `${g}°`, namen: { hyp: sx.hyp, an: sx.an, geg: sx.geg }, laengen: { [T.n]: lt(nen, 'cm') } },
+      schritte,
+      loesungsweg: [
+        `(1) Gesucht ist die Seite x (${ROLLE_NAME[T.z]}). Gegeben: ${w} = ${g}° und ${ROLLE_NAME[T.n]} = ${lt(nen, 'cm')} → ${fn}`,
+        `(2) x steht oben → mal, ohne 2nd: x = ${zahlText(nen)} · ${fn} ${g}°`,
+        ...(form === 'rechnen' ? [`(3) x ≈ ${zahlText(xr, 2)} cm`] : []),
+        merksatz
+      ],
+      erklaerung: `${regelText(fn, w)}. Die Seite x ist gesucht: x = ${ROLLE_NAME[T.n]} · ${fn} ${w}. Ohne 2nd.`
+    });
+  }
+  return null;
+}
+
 export const GENERATOREN = {
   'minus-plus': minusPlus, 'reihenfolge': reihenfolge, 'potenz': potenz, 'einmaleins': einmaleins, 'mal10': mal10,
   'prozent': prozent, 'baukasten': baukasten, 'runden': runden, 'bruch-bild': bruchBild, 'kugel': kugel, 'zylinder': zylinder,
-  'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte, 'prozent-formel': prozentFormel, 'kegel': kegel, 'pyramide': pyramide, 'kreisdiagramm': kreisdiagramm, 'quader': quader, 'zusammengesetzt': zusammengesetzt, 'daten': daten, 'saeulen': saeulen, 'kosinus': kosinus, 'sinus': sinus, 'tangens': tangens,
+  'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte, 'prozent-formel': prozentFormel, 'kegel': kegel, 'pyramide': pyramide, 'kreisdiagramm': kreisdiagramm, 'quader': quader, 'zusammengesetzt': zusammengesetzt, 'daten': daten, 'saeulen': saeulen, 'kosinus': kosinus, 'sinus': sinus, 'tangens': tangens, 'trig-mix': trigMix,
   'zehnerpotenz': zehnerpotenz, 'einheiten': einheiten, 'gewichtskraft': gewichtskraft, 'gleichung': gleichung, 'formel-umstellen': formelUmstellen, 'dichte': dichte
 };
 
@@ -1525,7 +1633,7 @@ export const THEMA_GENERATOREN = {
   'minus-zahlen': ['minus-plus', 'minus-plus', 'reihenfolge'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'],
   'bruch-bild': ['bruch-bild'], 'zuordnung': ['bruch-bild'], 'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'],
   'prozent-formel': ['prozent-formel'], 'rabatt': ['prozent', 'baukasten'], 'neuer-preis': ['prozent', 'baukasten'], 'kreisdiagramm': ['kreisdiagramm'],
-  'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'daten': ['daten'], 'diagramm': ['saeulen'], 'kosinus': ['kosinus'], 'sinus': ['sinus'], 'tangens': ['tangens'],
+  'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'daten': ['daten'], 'diagramm': ['saeulen'], 'kosinus': ['kosinus'], 'sinus': ['sinus'], 'tangens': ['tangens'], 'trig-mix': ['trig-mix'],
   'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
 };
 export const MIX_GENERATOREN = ['einmaleins', 'potenz', 'mal10', 'prozent', 'runden', 'bruch-bild', 'minus-plus', 'reihenfolge', 'baukasten', 'einmaleins'];

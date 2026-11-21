@@ -493,7 +493,9 @@ function dreieckZeichnen(bild, P0, bx, by, s, ox, oy) {
   const bi = einh([0, 0], [a1[0] + a2[0], a1[1] + a2[1]]);
   // Winkelgröße (Auftrag 69, Seite berechnen): „β = 31°“ etwas weiter außen im Winkel
   if (bild.winkelWert) {
-    const wx = P.W[0] + bi[0] * 62, wy = P.W[1] + bi[1] * 62 + 6, tw = 70, anker = bi[0] > 0.3 ? 'start' : bi[0] < -0.3 ? 'end' : 'middle';
+    // Auftrag 70: außen an der Ecke (innen lag die Zahl bei schmalen Dreiecken auf der Linie)
+    const o = [-bi[0], -bi[1]], tw = 70, anker = o[0] > 0.3 ? 'start' : o[0] < -0.3 ? 'end' : 'middle';
+    const wx = P.W[0] + o[0] * 14, wy = P.W[1] + o[1] * 14 + (o[1] > 0.3 ? 18 : o[1] < -0.3 ? -4 : 6);
     const x0 = anker === 'start' ? wx - 10 : anker === 'end' ? wx - tw + 10 : wx - tw / 2;
     merke(x0, x0 + tw, wy - 18, wy + 6);
     inhalt += `<text x="${f(wx)}" y="${f(wy)}" text-anchor="${anker}" font-size="18" fill="${LINIE}"><tspan font-style="italic">${esc(bild.winkel || 'α')}</tspan> = <tspan font-weight="700">${esc(bild.winkelWert)}</tspan></text>`;

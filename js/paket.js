@@ -19,7 +19,9 @@ export const KOPF_GEN = {
   // Auftrag 56: Themen nur aus dem Baukasten, sonst im normalen Ablauf nie erreichbar (nur über den Wochenplan bzw. Pakete)
   'kosinus': ['kosinus'], 'daten': ['daten'], 'diagramm': ['saeulen'],
   // Auftrag 69: Sinus und Tangens wie Kosinus
-  'sinus': ['sinus'], 'tangens': ['tangens']
+  'sinus': ['sinus'], 'tangens': ['tangens'],
+  // Auftrag 70: sin, cos, tan gemischt
+  'trig-mix': ['trig-mix']
 };
 // Themen, die etwa zur Hälfte aus dem Pool kommen (mit Geschichten), sonst aus dem Baukasten (neutrale Zahlen)
 export const HALB_POOL = ['zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte'];

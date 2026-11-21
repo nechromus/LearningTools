@@ -37,7 +37,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.52.1';
+export const APP_VERSION = '2.53.0';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Abschicken, Formelsammlung. Testgeräte laden keine Messung hoch.
 M.init({ app: 'mathe', version: APP_VERSION });
 
@@ -1801,11 +1801,14 @@ function erzeuge(g, stufe, opts = {}) {
   if (g === 'saeulen' && !L.freigegeben(S, 'diagramm_2', L.tagKey())) stufe = 1;
   // Auftrag 55: Kosinus Stufe 3 (drei Längen, Sachtexte) erst ab freigaben.kosinus_2
   if (['kosinus', 'sinus', 'tangens'].includes(g) && !L.freigegeben(S, 'kosinus_2', L.tagKey())) stufe = Math.min(stufe, 2);   // Auftrag 69: gilt für sin und tan mit
+  // Auftrag 70: sin, cos, tan gemischt, nie 3-mal hintereinander dieselbe Funktion
+  if (g === 'trig-mix') opts = { ...opts, letzteFn: (S.verlauf.trigMixFn || []).slice(-2) };
   let a;
   for (let i = 0; i < 8; i++) {
     a = G.GENERATOREN[g](stufe, Math.random, opts);
     if (a && !letzte.includes(a.id) && heuteOk(a)) break;
   }
+  if (a && g === 'trig-mix') { S.verlauf.trigMixFn = [...(S.verlauf.trigMixFn || []), a.fn].slice(-2); }
   if (a && BEF() && (befOpts(g).saetze || (BEF().stufe_max || {})[g])) a = { ...a, grenze_bis: befOpts(g).saetze ? BEF().bis : (BEF().stufe_max_bis || BEF().bis) };
   // Kreisdiagramm (Auftrag 33): ab der Freigabe von Prozent mit Formel auch Hinweis 23
   if (a && g === 'kreisdiagramm' && L.themaFreigegeben(S, 'prozent-formel', L.tagKey()) && !a.hinweise.includes('formel')) a = { ...a, hinweise: [...a.hinweise, 'formel'] };
@@ -1908,7 +1911,7 @@ const TEST_GEN = {
   'minus-zahlen': ['minus-plus', 'geld-geschichte'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'], 'bruch-bild': ['bruch-bild'],
   'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'prozent-formel': ['prozent-formel'], 'kreisdiagramm': ['kreisdiagramm'], 'rabatt': ['rabatt-geschichte'], 'neuer-preis': ['rabatt-geschichte'],
   'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'],
-  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte'], 'daten': ['daten'], 'diagramm': ['saeulen'], 'kosinus': ['kosinus'], 'sinus': ['sinus'], 'tangens': ['tangens']
+  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte'], 'daten': ['daten'], 'diagramm': ['saeulen'], 'kosinus': ['kosinus'], 'sinus': ['sinus'], 'tangens': ['tangens'], 'trig-mix': ['trig-mix']
 };
 const testFokus = () => (S.upload.testgeraet && S.testFokus && (L.THEMEN.includes(S.testFokus.thema) || S.testFokus.thema === 'formelsammlung') ? S.testFokus : null);
 
@@ -4283,7 +4286,7 @@ function abschliessen() {
   } else {
     // Einmaleins-Dreierblöcke (außer auf dem Einstiegsplatz) zählen für die Stufe des Einmaleins
     const g = a.generator === 'block-einmaleins' && a.stufeZaehlt ? 'einmaleins' : a.generator;
-    if (!a.bonus && !A.test && !a.etappeMindest && !['gpw', 'p', 'g'].includes(a.form) && !g.startsWith('block') && G.GENERATOREN[g]) {
+    if (!a.bonus && !A.test && !a.etappeMindest && !['gpw', 'p', 'g'].includes(a.form) && g !== 'trig-mix' && !g.startsWith('block') && G.GENERATOREN[g]) {
       const st = S.genStufen[g] || (S.genStufen[g] = { stufe: 1, folge: 0 });
       if (ergebnis === 'erst' && A.hilfeGenutzt) st.folge = 0; // mit „Hilf mir“: Stufe bleibt
       else if (ergebnis === 'erst') { st.folge++; if (st.folge >= (g === 'sinus' || g === 'tangens' ? 2 : 3) && st.stufe < stufeGrenze(g)) { st.stufe++; st.folge = 0; stufeHoch = { generator: g, stufe: st.stufe }; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } }
@@ -4463,7 +4466,7 @@ function hinweisOeffnen(id) {
   }
   // Stufe „Gleich lang“: sofort der lange Hinweis, ohne Kosten.
   // Hinweis 23 „Prozent mit Formel“ (Auftrag 47): immer gleich die Karte, denn die Formelübersicht zeigt W/G = p/100, die Formelsammlung W/p = G/100.
-  if (langStufe() === 0 || id === 'formel' || id === 'daten' || id === 'kosinus' || id === 'sinus' || id === 'tangens') {
+  if (langStufe() === 0 || id === 'formel' || id === 'daten' || id === 'kosinus' || id === 'sinus' || id === 'tangens' || id === 'trig') {
     protokoll(S, 'hinweis_lang', { hinweis: id, stufe: 0, kosten: 'keine', id: aufgabeId(), ...hb(id) });
     sichern();
     return oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);

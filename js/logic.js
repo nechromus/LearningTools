@@ -94,6 +94,17 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
     const n = (aufgabe.bild && aufgabe.bild.winkel) || 'α';
     const fn = teil.fn || 'cos';
     if (teil.kos === 'fn') return trigFalsch(teil.fn, n);
+    // Auftrag 70: Winkel oder Seite, welche Taste, was zuerst
+    if (teil.kos === 'tgesucht') return teil.gesucht === 'winkel'
+      ? { typ: 'trig-gesucht', text: `Zwei Längen sind gegeben. Gesucht ist der Winkel ${n}.` }
+      : { typ: 'trig-gesucht', text: 'Der Winkel ist gegeben. Gesucht ist die Seite x.' };
+    if (teil.kos === 'taste') {
+      const zweit = String(r || '').startsWith('2');
+      if (teil.gesucht === 'winkel' && !zweit) return { typ: 'trig-taste-ohne-2nd', text: 'Der Winkel ist gesucht. Dann brauchst du 2nd.' };
+      if (teil.gesucht === 'seite' && zweit) return { typ: 'trig-taste-umkehr', text: 'Die Seite ist gesucht. Dann ohne 2nd: x = Zahl · ' + fn + '.' };
+      return trigFalsch(fn, n);
+    }
+    if (teil.kos === 'zuerst') return { typ: 'trig-erst-funktion', text: `Erst die zwei Seiten teilen. Dann 2nd ${fn}.` };
     if (fn === 'cos') {
       if (teil.kos === 'hyp') return KOS_TIPP.hyp;
       if (teil.kos === 'an') return r === 'hyp' ? KOS_TIPP.hyp : kosGeg(n);
@@ -125,7 +136,7 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
   return null;
 }
 // Trigonometrie (Auftrag 55, 69): Kosinus, Sinus, Tangens
-export const TRIG_THEMEN = ['kosinus', 'sinus', 'tangens'];
+export const TRIG_THEMEN = ['kosinus', 'sinus', 'tangens', 'trig-mix'];
 export const istTrig = (a) => !!(a && TRIG_THEMEN.includes(a.thema));
 // Kosinus (Auftrag 55): Tipps kurz und wörtlich wie auf der Karte
 const KOS_TIPP = {
@@ -736,6 +747,7 @@ export function muehGruppe(a, { umformen = false, gruppen = null } = {}) {
   if (a.thema === 'formelsammlung') return 'kurz';                         // „Finde es“ (Auftrag 40)
   if (a.form === 'gpw') return 'kurz';                                      // „Was ist G, p und W?“ (Auftrag 47)
   if (a.thema === 'quader') return 'normal';                               // Quader-Volumen (Auftrag 43)
+  if (a.thema === 'trig-mix') return a.form === 'taste' ? 'kurz' : 'normal';  // Auftrag 70
   if (a.thema === 'daten' || a.thema === 'diagramm' || istTrig(a)) return (a.stufe || 1) >= 2 ? 'normal' : 'kurz'; // Auftrag 54, 55, 69
   if (KOERPER.includes(a.thema) || a.typ === 'detektiv' || a.modus === 'knobeln') return 'schwer';
   if (a.typ === 'auswahl') return 'normal';
@@ -1038,7 +1050,7 @@ export function hoechsteKachel(feld) {
 // ---------- Aufgaben aus JSON kontrollieren (Elternbereich, Tools) ----------
 
 export const TYPEN = ['zahl', 'auswahl', 'bruch', 'schritte', 'zuordnung', 'mehrfrage', 'zehnerpotenz', 'formel', 'detektiv'];
-export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'prozent-formel', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte', 'quader', 'zusammengesetzt', 'daten', 'diagramm', 'kosinus', 'sinus', 'tangens'];
+export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'prozent-formel', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte', 'quader', 'zusammengesetzt', 'daten', 'diagramm', 'kosinus', 'sinus', 'tangens', 'trig-mix'];
 // Fach je Thema (Auftrag 13). Fehlt das Feld fach an der Aufgabe, gilt das Fach des Themas.
 export const PHYSIK_THEMEN = ['zehnerpotenzen', 'einheiten', 'gewichtskraft', 'dichte'];
 export const fachVon = (a) => (a && (a.fach || (PHYSIK_THEMEN.includes(a.thema) ? 'physik' : 'mathe'))) || 'mathe';
@@ -1419,8 +1431,10 @@ function teilschrittNeu(a, t, l) {
   }
   if (a.thema === 'kreisdiagramm' && a.generator === 'kreisdiagramm') return q.art === 'prozent' ? 'kreisdia.anteil@2' : 'kreisdia.lesen@1';
   // Kosinus (LK-101, Thema trigo der Lernplattform)
-  if (istTrig(a) && ['kosinus', 'sinus', 'tangens'].includes(a.generator)) {
+  if (istTrig(a) && ['kosinus', 'sinus', 'tangens', 'trig-mix'].includes(a.generator)) {
     const k = q.kos, fn = q.fn || 'cos';
+    if (k === 'tgesucht') return 'trigo.gesucht@1';      // Auftrag 70
+    if (k === 'taste' || k === 'zuerst') return 'trigo.taste@1';
     if (k === 'hyp') return 'trigo.hypotenuse@1';
     if (k === 'an') return (a.stufe || 1) >= 3 ? 'trigo.ankathete@2' : 'trigo.ankathete@1';
     if (k === 'geg') return (a.stufe || 1) >= 3 ? 'trigo.gegenkathete@2' : 'trigo.gegenkathete@1';
@@ -1447,6 +1461,7 @@ export function teilschrittAufgabe(a) {
         : par0 === 'rabatt' ? 'prozent.aenderung@3' : par0 === 'text' ? 'prozent.formel@2' : par0 === 'direkt' ? 'prozent.formel@1' : null;
     }
     if (a.generator === 'kreisdiagramm') return (a.parameter || [])[1] === 'prozent' ? 'kreisdia.anteil@2' : 'kreisdia.lesen@1';
+    if (a.generator === 'trig-mix') return a.form === 'taste' ? 'trigo.taste@1' : a.gesucht === 'seite' ? 'trigo.seite@2' : `trigo.${a.fn}@2`;  // Auftrag 70
     if (['kosinus', 'sinus', 'tangens'].includes(a.generator)) {
       const fn = { kosinus: 'cos', sinus: 'sin', tangens: 'tan' }[a.generator];
       return a.form === 'sach' ? 'trigo.sache@1' : a.form === 'seite' ? 'trigo.seite@2' : a.wahl ? 'trigo.wahl@1' : (a.stufe || 1) >= 3 ? `trigo.${fn}@2` : a.stufe === 2 ? 'trigo.winkel@2' : `trigo.${fn}@1`;

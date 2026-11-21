@@ -530,6 +530,25 @@
       ],
       "beispiel": "Unten steht der Winkel: α ≈ 21,8° (nicht tan α ≈ 21,8). tan 45° = 1",
       "fach": "mathe"
+    },
+    {
+      "nr": 28,
+      "id": "trig",
+      "titel": "sin, cos, tan im Dreieck",
+      "symbol": "sin cos tan",
+      "farbe": "#0F766E",
+      "farbe_hell": "#CCFBF1",
+      "farbe_text": "#134E4A",
+      "regeln": [
+        "sin α = Gegenkathete : Hypotenuse",
+        "cos α = Ankathete : Hypotenuse",
+        "tan α = Gegenkathete : Ankathete",
+        "Welche zwei Seiten hast du? Die passende Formel nimmt genau diese zwei.",
+        "Winkel gesucht → erst teilen, dann 2nd sin/cos/tan.",
+        "Seite gesucht → ohne 2nd: x = Zahl · sin/cos/tan."
+      ],
+      "beispiel": "Winkel: 6 ÷ 8 = → 0,75 → 2nd cos 0,75 = → α ≈ 41,4°. Seite: x = 10 · cos 35° ≈ 8,19",
+      "fach": "mathe"
     }
   ]
 }
