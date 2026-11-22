@@ -38,7 +38,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.54.0';
+export const APP_VERSION = '2.55.0';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Abschicken, Formelsammlung. Testgeräte laden keine Messung hoch.
 M.init({ app: 'mathe', version: APP_VERSION });
 
@@ -1726,7 +1726,7 @@ function schritteVon(liste, thema) {
     : Number.isInteger(s.saeule_setzen)
     ? { art: 'saeule', label: s.text, ziel: { wert: s.wert }, quelle: s }
     : s.optionen
-    ? { art: 'wahl', label: s.text, optionen: L.KOERPER_THEMEN.includes(thema) ? s.optionen.map(L.mitKuerzel) : s.optionen, richtig: s.richtig, quelle: s, formel: !s.fs_html && s.optionen.every(o => /=/.test(o)), ...(s.fs_html ? { fsHtml: s.fs_html } : {}), ...(s.zwei_versuche ? { zweiVersuche: true } : {}) }
+    ? { art: 'wahl', label: s.text, optionen: L.KOERPER_THEMEN.includes(thema) ? s.optionen.map(L.mitKuerzel) : s.optionen, richtig: s.richtig, quelle: s, formel: !s.fs_html && s.optionen.every(o => /=/.test(o) && !/\d\s*(?:cm|mm|m|°)(?![\wäöüß])/.test(o)), ...(s.fs_html ? { fsHtml: s.fs_html } : {}), ...(s.zwei_versuche ? { zweiVersuche: true } : {}) }
     : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden, gueltige: s.gueltige_ziffern || undefined, genau: s.genau, varianten: s.varianten, abgeschnitten: s.abgeschnitten, auch: s.auch, stellen: s.stellen, rundenAuf: s.rundenAuf }, einheit: s.einheit || '', quelle: s });
 }
 
@@ -2949,9 +2949,6 @@ function zeigeAufgabe() {
   const min = Math.round(L.minutenFuerPosition(A.serienPos, R()) * L.muehFaktor(a, R(), { umformen: !!A.uf }) * 100) / 100;
   const tz = String(min).replace('.', ',');
   const fsHier = fsAufgabe(a);
-  const fsOhneHinweis = fsHier && a.thema !== 'prozent-formel';   // Prozent mit Formel: Formelsammlung und Hinweis 23 (Auftrag 47)
-  const icons = fsOhneHinweis ? '' : (a.hinweise || []).filter(id => HMAP[id]).map(id =>
-    `<button class="hw-btn${A.meldung && A.phase === 'tipp' ? ' pulsieren' : ''}" data-act="hinweis" data-id="${id}" aria-label="Hinweis ${esc(HMAP[id].titel)}">${hinweisIcon(HMAP[id], 42)}</button>`).join('');
 
   const wpMoeglich = sternzeit() && A.knobeln && !A.fertig && a.wissenspunkte ? a.wissenspunkte : null;
   // Ohne „Verstanden“: Tipp direkt unter der Eingabe, damit ihn die Tastatur nicht verdeckt
@@ -2983,18 +2980,16 @@ function zeigeAufgabe() {
         ${ufAngebot() ? `<button class="btn knobel-schritte" data-act="ufAn">In Schritten umformen${sternzeit() && !A.test ? ` <small>· dann ${wpMoeglich ? wpMoeglich.schritte : 1} WP</small>` : ''}</button>`
           : A.knobeln && !A.fertig && A.phase === 'eingabe' ? `<button class="btn knobel-schritte" data-act="schritteAn">In Schritten rechnen${wpMoeglich ? ` <small>· dann ${wpMoeglich.schritte} WP</small>` : ''}</button>` : ''}`}
         ${tippInKarte ? `<div class="meldung meldung-in-karte${A.meldung === SCHNELL_TIPP ? ' schnell' : ''}">${meldungHtml()}</div>` : ''}
-        ${fsHier && !A.fertig ? fsKnopfHtml() : ''}
-        <div class="hw-leiste">${fsOhneHinweis ? '' : '<span class="gedaempft">Hinweis:</span>'}${icons}
+        ${fsHier && !A.fertig && A.fsEinladung ? '<div class="fs-einladung">Die Formelsammlung darfst du immer benutzen. Auch in der Schule. Du findest sie unten.</div>' : ''}
+        ${wpMoeglich || hilfeKnopf() ? `<div class="hw-leiste">
           ${wpMoeglich ? `<span class="sz-punkte wp-chip">◆ ${wpMoeglich.knobeln} WP</span>` : ''}
-          ${L.rechnerFrei(a) && !A.fertig ? '<button class="btn btn-klein btn-rechner" data-act="rechner">Taschenrechner</button>' : ''}
           ${hilfeKnopf()}
-          ${rechnerAngeboten(a) && !A.fertig ? `<button class="btn btn-klein btn-rechner optional" data-act="rechnerOptional">${A.rechnerHalb || R().rechner >= 1 || !zeitZeigen() ? 'Taschenrechner' : R().rechner > 0 ? 'Taschenrechner · ½ Zeit' : 'Taschenrechner · keine Zeit'}</button>` : ''}
-        </div>
+        </div>` : ''}
       </article>
       ${A.meldung && A.phase === 'eingabe' && !(A.uf && !A.fertig) && !tippInKarte ? `<div class="meldung${A.meldung === SCHNELL_TIPP ? ' schnell' : ''}">${meldungHtml()}</div>` : ''}
       ${A.fertig ? ergebnisHtml() : ''}
     </main>
-    <footer class="eingabe-bereich">${fussHtml()}</footer>
+    <footer class="eingabe-bereich">${werkzeugLeiste()}${fachOffen() && !fach.klein && !A.rechnerOffen ? fachHtml() : fussHtml()}</footer>
   </div>`;
   const aktiv = document.querySelector('.teil.aktiv');
   // Umformen: Tastatur fest am unteren Rand, darüber so viel Platz, dass sich jedes Feld über sie scrollen lässt
@@ -3014,6 +3009,7 @@ function zeigeAufgabe() {
     }
   }
   hilfeTicken();
+  if (fachOffen() && document.querySelector('.fach img[data-fs-bild]')) fsBilderLaden();
 }
 
 const meldungHtml = () => { if (A.meldung === SCHNELL_TIPP) return `<b>Zu schnell.</b> ${esc(SCHNELL_TIPP)} <span class="gedaempft">Das zählt nicht als Versuch.</span>`; const t = A.teile && A.teile[A.idx]; return esc(A.meldung) + (t && t.tafel && A.meldung === t.tipp ? stellentafelHtml(t.tafel) : ''); };
@@ -3440,12 +3436,6 @@ function fsZeile(z) {
   return r ? { kasten: z.kasten, titel: k.titel, zeile: r.zeile, html: r.html } : null;
 }
 const fsLoesungHtml = (z) => `<div class="fs-loesung">Formelsammlung · Kasten ${esc(z.titel)} · Zeile ${esc(z.zeile)}: <span class="fs-formel">${fsHtml(z.html)}</span></div>`;
-function fsKnopfHtml() {
-  const t = aktuellerTeil();
-  const leuchten = A.fsEinladung || (t && t.versuche && t.versuche.some(v => !v.richtig));
-  return `${A.fsEinladung ? '<div class="fs-einladung">Die Formelsammlung darfst du immer benutzen. Auch in der Schule.</div>' : ''}
-    <button class="btn fs-knopf${leuchten ? ' leuchten' : ''}" data-act="fsOeffnen"><span aria-hidden="true">▤</span> Formelsammlung</button>`;
-}
 function fsPinHtml() {
   const p = A && A.fsPin;
   if (!p || A.fertig) return '';
@@ -3475,7 +3465,7 @@ function fsZeigen(k) {
   const seiten = `<div class="fs-seiten-kopf">Alle Seiten (antippen zum Vergrößern)</div><div class="fs-seiten">${[1, 2, 3, 4].map(n => `<button class="fs-seite" data-act="fsSeite" data-n="${n}"><img data-fs-bild="schule-${n}.png" alt=""><span>Seite ${n}</span></button>`).join('')}</div>`;
   const notfall = A && L.KOERPER_THEMEN.includes(A.aufgabe.thema) && (A.aufgabe.hinweise || []).some(id => HMAP[id])
     ? `<div class="fs-notfall">${(A.fehlerZahl || 0) >= 2 ? '<button class="btn-text" data-act="fsNotfall">Notfall-Hilfe (Hinweisblatt)</button>' : '<span>Notfall-Hilfe (Hinweisblatt) gibt es nach 2 Fehlern.</span>'}</div>` : '';
-  oeffneModal(`<div class="fs-blatt">${kopf}${inhalt}${seiten}${notfall}</div>`);
+  zeigeHilfe(`<div class="fs-blatt">${kopf}${inhalt}${seiten}${notfall}</div>`, 'Formelsammlung');
   fsBilderLaden();
 }
 // Seitenbilder: einmal pro Sitzung aus dem Daten-Repo holen
@@ -3494,8 +3484,8 @@ let fsZoomStufe = 1;
 function fsSeiteZeigen(n) {
   fsZoomStufe = 1;
   if (A) protokoll(S, 'formelsammlung', { aktion: 'seite', seite: n, aufgabe: A.aufgabe.id, schritt: A.idx });
-  oeffneModal(`<div class="fs-blatt fs-gross"><div class="fs-kopf"><h2 class="modal-titel">Seite ${n}</h2><span class="fs-zoom"><button class="btn btn-klein" data-act="fsZoom" data-d="-1" aria-label="kleiner">−</button><button class="btn btn-klein" data-act="fsZoom" data-d="1" aria-label="größer">+</button></span></div>
-    <div class="fs-seite-gross"><img data-fs-bild="schule-${n}.png" alt="Formelsammlung Seite ${n}" style="width:100%"></div><button class="btn-text" data-act="fsUebersicht">‹ Zurück</button></div>`);
+  zeigeHilfe(`<div class="fs-blatt fs-gross"><div class="fs-kopf"><h2 class="modal-titel">Seite ${n}</h2><span class="fs-zoom"><button class="btn btn-klein" data-act="fsZoom" data-d="-1" aria-label="kleiner">−</button><button class="btn btn-klein" data-act="fsZoom" data-d="1" aria-label="größer">+</button></span></div>
+    <div class="fs-seite-gross"><img data-fs-bild="schule-${n}.png" alt="Formelsammlung Seite ${n}" style="width:100%"></div><button class="btn-text" data-act="fsUebersicht">‹ Zurück</button></div>`, 'Formelsammlung');
   fsBilderLaden();
 }
 function fsZoom(d) {
@@ -3511,7 +3501,7 @@ function fsAnheften(k, i) {
   A.fsPin = { kasten: k, titel: x.titel, zeile: z.zeile, html: z.html, teil: A.idx, ...(mal ? { mal } : {}) };
   A.fsAnzahl = (A.fsAnzahl || 0) + 1;
   protokoll(S, 'formelsammlung', { aktion: 'anheften', kasten: k, zeile: z.zeile, aufgabe: A.aufgabe.id, schritt: A.idx, ...hb(`formelsammlung.${k}.${ZEILE_ID(z.zeile)}`), ...(ziel ? { richtige_zeile: ziel.kasten === k && ziel.zeile === z.zeile } : {}), ...(mal ? { mit_malzeichen: true } : {}) });
-  schliesseModal(); sichern(); zeigeAufgabe();
+  schliesseModal(); fach = null; sichern(); zeigeAufgabe();
 }
 // Formel mit ergänzten Malzeichen: Text der Formelsammlung, die neuen Malzeichen farbig
 function malHtml(teile) {
@@ -3870,7 +3860,7 @@ function fussHtml() {
   }
   if (t.art === 'wahl' && t.detektiv) return '';
   if (A.rechnerOffen && A.rechner && t.art !== 'zuordnung') return rechnerPanelHtml(t);
-  const aufklappen = A.rechner && !A.rechnerOffen ? '<button class="r-aufklappen" data-act="rAufklappen">Taschenrechner ▲</button>' : '';
+  const aufklappen = '';   // Rechner: Knopf in der Werkzeug-Leiste
   if (t.art === 'zahl' || t.art === 'bruch' || t.art === 'zp') {
     // Physik: Ergebnis auch als Zahl · 10ⁿ (Umschalter); Typ zehnerpotenz: Umschalter Zahl / Hochzahl
     const zpSchalter = t.art === 'zp' || t.zp;
@@ -4549,6 +4539,57 @@ function zuordnungAntwort() {
 const langStufe = () => FU.langStufe(S.einstellungen.langeHinweise);
 const aufgabeId = () => (A && ansicht === 'aufgabe' ? A.aufgabe.id : null);
 
+// Hilfe im Fach (Vorschau 22.11., Wunsch Vater): Hinweis, Formelübersicht und Formelsammlung klappen in der Aufgabe auf,
+// statt als Fenster darüber zu liegen. Die Aufgabe bleibt zu sehen. Art: 'unten' (statt der Tastatur) oder 'inline' (unter den Knöpfen).
+let fach = null;   // { html, titel, id (Aufgabe) }
+function zeigeHilfe(html, titel) {
+  if (ansicht === 'aufgabe' && A && !A.fertig) {
+    fach = { html, titel: titel || 'Hilfe', id: A.aufgabe.id, klein: false };
+    A.rechnerOffen = false;
+    schliesseModal();
+    zeigeAufgabe();
+    const box = document.querySelector('.fach-inhalt'); if (box) box.scrollTop = 0;
+    return 'fach';
+  }
+  oeffneModal(html);
+  return 'modal';
+}
+// Werkzeug-Leiste (22.11., Wunsch Vater): über der Tastatur immer am selben Platz Tippen · Rechner · Hinweise · Formelsammlung
+const RECHNER_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="8" y="5.5" width="8" height="3.5" rx=".8" fill="currentColor"/><g fill="currentColor"><circle cx="9" cy="12.5" r="1.2"/><circle cx="12" cy="12.5" r="1.2"/><circle cx="15" cy="12.5" r="1.2"/><circle cx="9" cy="16" r="1.2"/><circle cx="12" cy="16" r="1.2"/><circle cx="15" cy="16" r="1.2"/></g></svg>';
+function rechnerAct() {
+  const a = A && A.aufgabe;
+  if (!a || A.fertig || !(L.rechnerFrei(a) || rechnerAngeboten(a))) return null;
+  if (A.rechner) return 'rAufklappen';
+  return L.rechnerFrei(a) ? 'rechner' : 'rechnerOptional';
+}
+function rechnerKosten() {
+  const a = A.aufgabe;
+  if (L.rechnerFrei(a) || A.rechnerHalb || R().rechner >= 1 || !zeitZeigen()) return '';
+  return R().rechner > 0 ? ' · ½ Zeit' : ' · keine Zeit';
+}
+function werkzeugLeiste() {
+  if (!A || A.fertig) return '';
+  const a = A.aufgabe;
+  const r = rechnerAct();
+  const fs = fsAufgabe(a) && fsDa();
+  const hw = fs && a.thema !== 'prozent-formel' ? [] : (a.hinweise || []).filter(id => HMAP[id]);
+  if (!r && !fs && !hw.length) return '';
+  const fachAn = fachOffen() && !fach.klein && !A.rechnerOffen;
+  const offenTitel = fachOffen() ? fach.titel : null;
+  const tipp = A.meldung && A.phase === 'tipp';
+  const t = aktuellerTeil();
+  const fsLeuchten = A.fsEinladung || (t && t.versuche && t.versuche.some(v => !v.richtig));
+  const knopf = (an, act, inhalt, extra = '') => `<button class="wz${an ? ' an' : ''}${extra}" data-act="${act}">${inhalt}</button>`;
+  return `<div class="werkzeug-leiste">
+    ${knopf(!A.rechnerOffen && !fachAn, 'wzTippen', '⌨ Tippen')}
+    ${r ? knopf(A.rechnerOffen, A.rechnerOffen ? 'wzTippen' : r, `${RECHNER_ICON} Rechner${rechnerKosten()}`) : ''}
+    ${hw.map(id => { const h = HMAP[id], auf = offenTitel === h.titel; return `<button class="wz wz-hw${fachAn && auf ? ' an' : ''}${auf && !fachAn ? ' merk' : ''}${tipp ? ' pulsieren' : ''}" data-act="${auf ? 'fachAuf' : 'hinweis'}" data-id="${id}" aria-label="Hinweis ${esc(h.titel)}">${hinweisIcon(h, 26)}</button>`; }).join('')}
+    ${fs ? knopf(fachAn && offenTitel === 'Formelsammlung', offenTitel === 'Formelsammlung' ? 'fachAuf' : 'fsOeffnen', '▤ Formeln', `${fsLeuchten ? ' leuchten' : ''}${offenTitel === 'Formelsammlung' && !fachAn ? ' merk' : ''}`) : ''}
+  </div>`;
+}
+const fachOffen = () => !!(fach && A && !A.fertig && fach.id === A.aufgabe.id);
+const fachHtml = () => `<section class="fach"><div class="fach-kopf"><span class="fach-titel">${esc(fach.titel)}</span><button class="fach-weg" data-act="fachWeg" aria-label="Hilfe schließen">✕</button></div><div class="fach-inhalt">${fach.html}</div></section>`;
+
 function hinweisOeffnen(id) {
   const h = HMAP[id];
   if (!h) return;
@@ -4556,14 +4597,14 @@ function hinweisOeffnen(id) {
   if (!FORMELN) {
     protokoll(S, 'hinweis', { hinweis: id, id: aufgabeId(), ...hb(id) });
     sichern();
-    return oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);
+    return zeigeHilfe(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`, h.titel);
   }
   // Stufe „Gleich lang“: sofort der lange Hinweis, ohne Kosten.
   // Hinweis 23 „Prozent mit Formel“ (Auftrag 47): immer gleich die Karte, denn die Formelübersicht zeigt W/G = p/100, die Formelsammlung W/p = G/100.
   if (langStufe() === 0 || id === 'formel' || id === 'daten' || id === 'kosinus' || id === 'sinus' || id === 'tangens' || id === 'trig') {
     protokoll(S, 'hinweis_lang', { hinweis: id, stufe: 0, kosten: 'keine', id: aufgabeId(), ...hb(id) });
     sichern();
-    return oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);
+    return zeigeHilfe(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`, h.titel);
   }
   const abschnitte = FU.abschnitteFuer(FORMELN, id).map(a => a.id);
   protokoll(S, 'hinweis_kurz', { hinweis: id, abschnitte, id: aufgabeId(), ...hb(abschnitte.length ? abschnitte.map(x => 'formeluebersicht.' + x) : 'formeluebersicht.leer') });
@@ -4576,9 +4617,9 @@ function kurzZeigen(id) {
   const stufe = langStufe();
   const halb = stufe === 2 && !(A && A.langHalb);
   const mehr = stufe < 3 ? `<button class="btn btn-haupt" data-act="mehrHilfe" data-id="${id}">Mehr Hilfe${halb ? ' · ½ Zeit' : ''}</button>` : '';
-  oeffneModal(`<div class="kurz-kopf">${hinweisIcon(h, 40)}<div><p class="kurz-titel">${esc(h.titel)}</p><p class="kurz-unter">So steht es in der Formelübersicht</p></div></div>
+  zeigeHilfe(`<div class="kurz-kopf">${hinweisIcon(h, 40)}<div><p class="kurz-titel">${esc(h.titel)}</p><p class="kurz-unter">So steht es in der Formelübersicht</p></div></div>
     ${FU.kurzHtml(FORMELN, id)}
-    <div class="kurz-knoepfe">${mehr}<button class="btn" data-act="formelSeite" data-s="${(FU.abschnitteFuer(FORMELN, id)[0] || { seite: 1 }).seite}">Ganze Formelübersicht</button></div>`);
+    <div class="kurz-knoepfe">${mehr}<button class="btn" data-act="formelSeite" data-s="${(FU.abschnitteFuer(FORMELN, id)[0] || { seite: 1 }).seite}">Ganze Formelübersicht</button></div>`, h.titel);
 }
 
 function mehrHilfe(id) {
@@ -4590,8 +4631,7 @@ function mehrHilfe(id) {
   if (A && ansicht === 'aufgabe') { A.hinweiseLang = A.hinweiseLang || []; if (!A.hinweiseLang.includes(id)) A.hinweiseLang.push(id); }
   protokoll(S, 'hinweis_lang', { hinweis: id, stufe, kosten: kostet ? 'halb' : 'keine', id: aufgabeId(), ...hb(id) });
   sichern();
-  oeffneModal(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`);
-  if (ansicht === 'aufgabe' && A) zeigeAufgabe();
+  if (zeigeHilfe(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`, h.titel) !== 'fach' && ansicht === 'aufgabe' && A) zeigeAufgabe();
 }
 
 function formelSeite(nr) {
@@ -4599,8 +4639,8 @@ function formelSeite(nr) {
   const s = nr === 2 ? 2 : 1;
   protokoll(S, 'formeluebersicht', { seite: s, id: aufgabeId() });
   sichern();
-  oeffneModal(`${FU.seiteHtml(FORMELN, s)}<div class="fue-blaettern"><button class="btn${s === 2 ? ' btn-haupt' : ''}" data-act="formelSeite" data-s="1" ${s === 1 ? 'disabled' : ''}>‹ Seite 1</button><button class="btn${s === 1 ? ' btn-haupt' : ''}" data-act="formelSeite" data-s="2" ${s === 2 ? 'disabled' : ''}>Seite 2 ›</button></div>`);
-  const box = document.querySelector('.modal-box'); if (box) box.scrollTop = 0;
+  zeigeHilfe(`${FU.seiteHtml(FORMELN, s)}<div class="fue-blaettern"><button class="btn${s === 2 ? ' btn-haupt' : ''}" data-act="formelSeite" data-s="1" ${s === 1 ? 'disabled' : ''}>‹ Seite 1</button><button class="btn${s === 1 ? ' btn-haupt' : ''}" data-act="formelSeite" data-s="2" ${s === 2 ? 'disabled' : ''}>Seite 2 ›</button></div>`, 'Formelübersicht');
+  const box = document.querySelector('.modal-box, .fach-inhalt'); if (box) box.scrollTop = 0;
 }
 
 function rechnerAngeboten(a) { return L.rechnerAnbieten(a) && S.einstellungen.rechnerAngebot !== false; }
@@ -4608,6 +4648,7 @@ function rechnerAngeboten(a) { return L.rechnerAnbieten(a) && S.einstellungen.re
 function rechnerOeffnen() {
   if (!A.rechner) A.rechner = { ausdruck: '', ergebnis: null };
   A.rechnerOffen = true;
+  if (fach) fach.klein = true;
   protokoll(S, 'rechner_offen', { id: A.aufgabe.id, teil: A.idx });
   zeigeAufgabe();
 }
@@ -6120,6 +6161,9 @@ function klick(e) {
     case 'fsUebersicht': fsZeigen(null); break;
     case 'fsAnheften': fsAnheften(el.dataset.k, Number(el.dataset.i)); break;
     case 'fsLoesen': fsLoesen(); break;
+    case 'wzTippen': A.rechnerOffen = false; if (fach) fach.klein = true; zeigeAufgabe(); break;
+    case 'fachAuf': if (fach) fach.klein = false; A.rechnerOffen = false; zeigeAufgabe(); break;
+    case 'fachWeg': fach = null; zeigeAufgabe(); break;
     case 'fsSeite': fsSeiteZeigen(Number(el.dataset.n)); break;
     case 'fsZoom': fsZoom(Number(el.dataset.d)); break;
     case 'fsNotfall': fsNotfall(); break;
@@ -6169,7 +6213,7 @@ function klick(e) {
     case 'rTaste': rechnerTaste(el.dataset.k); break;
     case 'rUebernehmen': rechnerUebernehmen(); break;
     case 'rEinklappen': A.rechnerOffen = false; zeigeAufgabe(); break;
-    case 'rAufklappen': A.rechnerOffen = true; zeigeAufgabe(); break;
+    case 'rAufklappen': A.rechnerOffen = true; if (fach) fach.klein = true; zeigeAufgabe(); break;
     case 'zuoSlot': zuoAuswahl(Number(el.dataset.g), el.dataset.s); break;
     case 'zuoWahl': zuoWaehlen(Number(el.dataset.g), el.dataset.s, Number(el.dataset.o)); break;
     case 'modalZu': schliesseModal(); break;
