@@ -1297,3 +1297,32 @@ body:has(.aufgabe-screen.bz-warm) { background: #FAF1DE; }
 /* Schlüssel abgelaufen (16.11.): ruhiger Hinweis auf dem Startbildschirm */
 .schluessel-karte { border: 2px solid var(--amber, #C98A1B); background: var(--amber-hell, #F6E7C8); }
 .kos-merk .kos-tasten { font-size: 18px; line-height: 1.6; padding-left: 1.4em; }
+/* Lösungsweg Zeile für Zeile (trig-weg, 22.11.): Heftzeilen untereinander */
+.teil.weg-teil { padding: 0; }
+.weg-zeile { display: flex; align-items: baseline; gap: 12px; padding: 8px 10px 7px 0; border-bottom: 1px solid #C9D9E8; background: #FFFDF6; font-size: 21px; font-variant-numeric: tabular-nums; }
+.weg-nr { width: 30px; flex: none; text-align: right; padding-right: 8px; border-right: 2px solid #E8A9A0; color: #9AA3A6; font-size: 15px; }
+.weg-zeile.weg-offen .weg-text { color: #9AA3A6; }
+.weg-zeile.weg-loesung .weg-text { color: #6B7478; }
+.weg-frage { margin-top: 12px; }
+.wahl-btn.weg-wahl { font-size: 20px; text-align: left; padding: 12px 14px; font-variant-numeric: tabular-nums; }
+.teil.weg-teil + .teil.weg-teil { margin-top: -8px; }
+/* Lösungsweg Stufe 2–4: Zeile schreiben */
+.weg-zeile.weg-aktiv { background: #FFF7DC; box-shadow: inset 0 -2px 0 #1F6F75; }
+.weg-start { color: #3A4447; }
+.weg-name { display: inline-block; font-size: 13px; color: #7A6A3A; background: #F3E7C4; border-radius: 6px; padding: 1px 6px; margin-right: 8px; vertical-align: 3px; }
+.weg-cursor { display: inline-block; width: 2px; height: 1.1em; background: #1F6F75; margin-left: 3px; vertical-align: -3px; animation: weg-blink 1s steps(1) infinite; }
+@keyframes weg-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .weg-cursor { animation: none; } }
+.weg-einheit { color: #6B7478; }
+.weg-ziel { margin: 6px 0 0; }
+.weg-bau { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.weg-tast { display: grid; gap: 6px; margin-top: 12px; }
+.weg-tast.weg-voll { grid-template-columns: repeat(6, 1fr); }
+.weg-tast.weg-zahlen { grid-template-columns: repeat(3, 1fr); }
+.wk { min-height: 48px; border: 1.5px solid #1F6F75; border-radius: 10px; background: #fff; color: #0E4A4F; font-size: 20px; font-weight: 600; padding: 6px 4px; }
+.wk.wk-bau { padding: 8px 14px; min-width: 52px; }
+.wk.wk-sonder { background: #EEF5F5; }
+.wk.wk-rel { background: #E4F0EF; }
+.wk.wk-var { font-style: italic; }
+.wk.wk-fn { font-size: 17px; }
+.wk.an { background: #1F6F75; color: #fff; }

@@ -858,3 +858,13 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .la-start .la-text { font-weight: 700; }
 .la.klein-schritt { font-size: 14px; }
 .la.klein-schritt b { font-weight: 600; }
+/* Lösungsweg wie im Heft (trig-weg) */
+.weg-heft ol { list-style: none; margin: 0; padding: 0; }
+.weg-heft li { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid #DCE6EE; }
+.weg-heft .weg-n { width: 22px; flex: none; text-align: right; color: #8A9499; border-right: 2px solid #E8A9A0; padding-right: 6px; }
+.weg-heft .weg-v { font-variant-numeric: tabular-nums; }
+.weg-heft .weg-v.ok { color: #0F6B5E; font-weight: 600; }
+.weg-heft .weg-v.falsch { color: #8A5A00; }
+.weg-heft .weg-v.falsch s { text-decoration-color: rgba(138,90,0,.45); }
+.weg-heft .weg-v.falsch small { display: block; color: #6B7478; font-size: 12px; }
+.weg-heft .weg-v.loesung { color: #6B7478; font-style: italic; }

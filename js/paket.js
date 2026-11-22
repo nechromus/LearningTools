@@ -21,7 +21,9 @@ export const KOPF_GEN = {
   // Auftrag 69: Sinus und Tangens wie Kosinus
   'sinus': ['sinus'], 'tangens': ['tangens'],
   // Auftrag 70: sin, cos, tan gemischt
-  'trig-mix': ['trig-mix']
+  'trig-mix': ['trig-mix'],
+  // Lösungsweg Zeile für Zeile (22.11.)
+  'trig-weg': ['trig-weg']
 };
 // Themen, die etwa zur Hälfte aus dem Pool kommen (mit Geschichten), sonst aus dem Baukasten (neutrale Zahlen)
 export const HALB_POOL = ['zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte'];

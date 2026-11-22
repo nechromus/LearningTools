@@ -3,7 +3,7 @@
 import * as U from '../js/sync.js';
 import * as M from '../js/messung.js';
 import * as L from '../js/logic.js';
-import { THEMA_NAMEN, GEN_NAMEN } from '../js/namen.js';
+import { THEMA_NAMEN, GEN_NAMEN, FEHLER_NAMEN } from '../js/namen.js';
 import { esc, mathe, bildSvg } from '../js/render.js';
 import * as A from './auswertung.js';
 import * as P from '../js/paket.js';
@@ -20,7 +20,7 @@ import { Lernplan } from './lernplan.mjs';
 import * as LA from './lesen-auswertung.js';
 import * as LL from '../lesen/lesen-logik.js';
 
-export const ELTERN_VERSION = '1.73.0';
+export const ELTERN_VERSION = '1.74.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -1900,6 +1900,22 @@ function aufgabeSeite(key) {
   </div>`;
 }
 
+// Lösungsweg Zeile für Zeile (trig-weg): wie im Heft, je Zeile alle Versuche (falsch mit Fehler, richtig grün, Lösung grau)
+function wegHeft(rec, a) {
+  const vs = rec.events.filter(e => e.typ === 'versuch' && /^Zeile \d+$/.test(e.label || ''));
+  if (!vs.length) return '';
+  const lsg = rec.events.filter(e => e.typ === 'loesung_gezeigt').map(e => e.teil);
+  const nrn = [...new Set(vs.map(v => Number(v.label.slice(6))))].sort((x, y) => x - y);
+  const zeilen = nrn.map(n => {
+    const meine = vs.filter(v => Number(v.label.slice(6)) === n);
+    const teil = meine[0].teil;
+    const versuche = meine.map(v => v.richtig ? `<div class="weg-v ok">${mathe(String(v.eingabe))} ✓</div>` : `<div class="weg-v falsch"><s>${mathe(String(v.eingabe))}</s>${v.fehler ? `<small>${esc(FEHLER_NAMEN[v.fehler] || v.fehler)}</small>` : ''}</div>`).join('');
+    const loesung = lsg.includes(teil) ? `<div class="weg-v loesung">Lösung gezeigt</div>` : '';
+    return `<li><span class="weg-n">${n}</span><div>${versuche}${loesung}</div></li>`;
+  }).join('');
+  const haengt = rec.ende && rec.ende.weg && rec.ende.weg.haengt_an;
+  return `<div class="karte klein-karte weg-heft"><h2>So hat ${esc(name())} geschrieben</h2><ol>${zeilen}</ol>${haengt ? `<p class="klein gedaempft">Hängt an: <b>${esc({ formel: 'Formel aufstellen', wert: 'Wert ausrechnen', umkehr: 'Winkel mit 2nd', umgestellt: 'Umstellen', ergebnis: 'Ergebnis runden' }[haengt] || haengt)}</b></p>` : ''}</div>`;
+}
 function aufgabeDetail(rec) {
   const a = A.aufgabeVon(rec, D.pool);
   const nr = aufgabenVonTag(rec.tag).indexOf(rec) + 1;
@@ -1935,6 +1951,7 @@ function aufgabeDetail(rec) {
         <ol class="zeitleiste">${schritte.map(s => `<li class="schritt s-${s.art}"><span class="schritt-zeit">${s.zeit}</span><span class="schritt-punkt" aria-hidden="true"></span><span class="schritt-text"><b>${mathe(s.titel)}</b>${s.text ? `<span>${esc(s.text)}</span>` : ''}</span></li>`).join('')}</ol>
       </section>
       <section class="detail-rand">
+        ${rec.thema === 'trig-weg' ? wegHeft(rec, a) : ''}
         ${a && a.loesungsweg ? `<div class="karte klein-karte"><h2>Lösungsweg</h2>${a.loesungsweg.map(z => `<p>${mathe(z)}</p>`).join('')}${a.erklaerung ? `<p class="gedaempft">${mathe(a.erklaerung)}</p>` : ''}</div>` : ''}
         ${tasten.length ? `<div class="karte klein-karte"><h2>Eingaben am Rechner</h2>${tasten.map(t => `<p class="rechner-zeile">${t}</p>`).join('')}</div>` : ''}
         ${gleich ? `<div class="hinweis-box">${gleich}</div>` : ''}

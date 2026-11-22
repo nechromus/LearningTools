@@ -105,6 +105,8 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
       return trigFalsch(fn, n);
     }
     if (teil.kos === 'zuerst') return { typ: 'trig-erst-funktion', text: `Erst die zwei Seiten teilen. Dann 2nd ${fn}.` };
+    // Lösungsweg Zeile für Zeile (trig-weg, 22.11.): Tipp je Art der gewählten falschen Zeile
+    if (teil.kos === 'weg') return WEG_TIPP(r, fn, n, teil);
     if (fn === 'cos') {
       if (teil.kos === 'hyp') return KOS_TIPP.hyp;
       if (teil.kos === 'an') return r === 'hyp' ? KOS_TIPP.hyp : kosGeg(n);
@@ -136,8 +138,26 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
   return null;
 }
 // Trigonometrie (Auftrag 55, 69): Kosinus, Sinus, Tangens
-export const TRIG_THEMEN = ['kosinus', 'sinus', 'tangens', 'trig-mix'];
+export const TRIG_THEMEN = ['kosinus', 'sinus', 'tangens', 'trig-mix', 'trig-weg'];
 export const istTrig = (a) => !!(a && TRIG_THEMEN.includes(a.thema));
+// Lösungsweg (trig-weg, 22.11.): Fehlerart der gewählten Zeile → Fehlertyp und kurzer Tipp
+function WEG_TIPP(r, fn, n, teil) {
+  const [z, nn] = TZ[fn] || TZ.cos;
+  switch (r) {
+    case 'fn': return trigFalsch(fn, n);
+    case 'kehr': return { typ: fn === 'cos' ? 'cos-kehrwert' : `${fn}-kehrwert`, text: `${fn} ${n} = ${RN[z]} : ${RN[nn]}. Die ${RN[nn]} steht unten.` };
+    case 'geteilt': return { typ: 'trig-seite-geteilt', text: 'x steht oben im Bruch. Dann rechnest du mal.' };
+    case 'umkehr': return { typ: 'trig-taste-umkehr', text: `Die Seite ist gesucht. Dann ohne 2nd: x = Zahl · ${fn}.` };
+    case 'ohne2nd': return { typ: 'trig-taste-ohne-2nd', text: `Der Winkel ist gesucht. Dann brauchst du 2nd: ${fn}⁻¹.` };
+    case 'vomBruch': return { typ: 'trig-vom-bruch', text: `Erst teilen. Hier noch kein ${fn} drücken.` };
+    case 'wertWinkel': return { typ: 'trig-wert-statt-winkel', text: `Die Zahl ist der ${fn}-Wert. Vor ihr steht ${fn} ${n}, nicht ${n}.` };
+    case 'abgeschnitten': return TRIG_ABGESCHNITTEN;
+    case 'rad': return { typ: 'trig-rad', text: 'Der Rechner muss in Grad rechnen (DEG).' };
+    case 'name': return { typ: 'weg-name', text: `Unten steht nur der Winkel: ${n} ≈ …°. Ohne ${fn} davor.` };
+    case 'komplement': return { typ: 'weg-anderer-winkel', text: `Das ist der andere Winkel. ${n} ist im Bild markiert.` };
+  }
+  return null;
+}
 // Kosinus (Auftrag 55): Tipps kurz und wörtlich wie auf der Karte
 const KOS_TIPP = {
   hyp: { typ: 'cos-hypotenuse', text: 'Die Hypotenuse liegt gegenüber vom rechten Winkel.' },
@@ -748,6 +768,7 @@ export function muehGruppe(a, { umformen = false, gruppen = null } = {}) {
   if (a.form === 'gpw') return 'kurz';                                      // „Was ist G, p und W?“ (Auftrag 47)
   if (a.thema === 'quader') return 'normal';                               // Quader-Volumen (Auftrag 43)
   if (a.thema === 'trig-mix') return a.form === 'taste' ? 'kurz' : 'normal';  // Auftrag 70
+  if (a.thema === 'trig-weg') return (a.stufe || 1) <= 1 ? 'kurz' : (a.stufe || 1) === 2 ? 'normal' : 'lang';  // Lösungsweg (22.11.)
   if (a.thema === 'daten' || a.thema === 'diagramm' || istTrig(a)) return (a.stufe || 1) >= 2 ? 'normal' : 'kurz'; // Auftrag 54, 55, 69
   if (KOERPER.includes(a.thema) || a.typ === 'detektiv' || a.modus === 'knobeln') return 'schwer';
   if (a.typ === 'auswahl') return 'normal';
@@ -1050,7 +1071,7 @@ export function hoechsteKachel(feld) {
 // ---------- Aufgaben aus JSON kontrollieren (Elternbereich, Tools) ----------
 
 export const TYPEN = ['zahl', 'auswahl', 'bruch', 'schritte', 'zuordnung', 'mehrfrage', 'zehnerpotenz', 'formel', 'detektiv'];
-export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'prozent-formel', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte', 'quader', 'zusammengesetzt', 'daten', 'diagramm', 'kosinus', 'sinus', 'tangens', 'trig-mix'];
+export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'prozent-formel', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte', 'quader', 'zusammengesetzt', 'daten', 'diagramm', 'kosinus', 'sinus', 'tangens', 'trig-mix', 'trig-weg'];
 // Fach je Thema (Auftrag 13). Fehlt das Feld fach an der Aufgabe, gilt das Fach des Themas.
 export const PHYSIK_THEMEN = ['zehnerpotenzen', 'einheiten', 'gewichtskraft', 'dichte'];
 export const fachVon = (a) => (a && (a.fach || (PHYSIK_THEMEN.includes(a.thema) ? 'physik' : 'mathe'))) || 'mathe';
@@ -1107,6 +1128,7 @@ export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
         }
         else if (s.bruch) { if (typeof s.bruch.zaehler !== 'number' || typeof s.bruch.nenner !== 'number') f.push(`${id}: Schritt ${i + 1}: bruch braucht zaehler und nenner`); }
         else if (s.prozentformel) { if (typeof s.prozentformel.G !== 'number' || typeof s.prozentformel.p !== 'number') f.push(`${id}: Schritt ${i + 1}: prozentformel braucht G und p`); }
+        else if (s.kos === 'wegzeile' || s.kos === 'wegfrei') { if (!a.weg || !a.weg.zeilen) f.push(`${id}: Lösungsweg ohne weg.zeilen`); }
         else if (typeof s.wert !== 'number') f.push(`${id}: Schritt ${i + 1} braucht „wert“`);
       });
       break;
@@ -1238,6 +1260,7 @@ export function ergebnisWerte(a) {
 export function kopfGlatt(a) {
   if (!a) return true;
   if (a.thema === 'daten') return false; // Auftrag 54: Rechner frei, im Kopf gerechnet Kopf-Bonus
+  if (a.thema === 'trig-weg') return (a.stufe || 1) <= 1;   // Lösungsweg: ab Stufe 2 wird gerechnet
   if (istTrig(a)) return !(a.schritte || []).some(x => x.wert != null); // Auftrag 55: mit Zahlen Rechner frei, Seiten finden ohne Rechner
   if (GLATT_UNTER_100.includes(a.thema)) return groessteZahl(a) < 100;
   if (GLATT_GANZ.includes(a.thema)) return ergebnisWerte(a).every(x => Number.isInteger(Math.round(x * 1e6) / 1e6));
@@ -1431,9 +1454,10 @@ function teilschrittNeu(a, t, l) {
   }
   if (a.thema === 'kreisdiagramm' && a.generator === 'kreisdiagramm') return q.art === 'prozent' ? 'kreisdia.anteil@2' : 'kreisdia.lesen@1';
   // Kosinus (LK-101, Thema trigo der Lernplattform)
-  if (istTrig(a) && ['kosinus', 'sinus', 'tangens', 'trig-mix'].includes(a.generator)) {
+  if (istTrig(a) && ['kosinus', 'sinus', 'tangens', 'trig-mix', 'trig-weg'].includes(a.generator)) {
     const k = q.kos, fn = q.fn || 'cos';
     if (k === 'tgesucht') return 'trigo.gesucht@1';      // Auftrag 70
+    if (k === 'weg' || k === 'wegzeile' || k === 'wegfrei') return `trigo.weg-${q.etappe || t.wegEtappe || 'frei'}@${a.stufe || 1}`;   // Lösungsweg (22.11.)
     if (k === 'taste' || k === 'zuerst') return 'trigo.taste@1';
     if (k === 'hyp') return 'trigo.hypotenuse@1';
     if (k === 'an') return (a.stufe || 1) >= 3 ? 'trigo.ankathete@2' : 'trigo.ankathete@1';
@@ -1461,6 +1485,7 @@ export function teilschrittAufgabe(a) {
         : par0 === 'rabatt' ? 'prozent.aenderung@3' : par0 === 'text' ? 'prozent.formel@2' : par0 === 'direkt' ? 'prozent.formel@1' : null;
     }
     if (a.generator === 'kreisdiagramm') return (a.parameter || [])[1] === 'prozent' ? 'kreisdia.anteil@2' : 'kreisdia.lesen@1';
+    if (a.generator === 'trig-weg') return `trigo.weg@${a.stufe || 1}`;
     if (a.generator === 'trig-mix') return a.form === 'taste' ? 'trigo.taste@1' : a.gesucht === 'seite' ? 'trigo.seite@2' : `trigo.${a.fn}@2`;  // Auftrag 70
     if (['kosinus', 'sinus', 'tangens'].includes(a.generator)) {
       const fn = { kosinus: 'cos', sinus: 'sin', tangens: 'tan' }[a.generator];

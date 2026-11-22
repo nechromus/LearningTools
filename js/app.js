@@ -2,6 +2,7 @@
 import * as L from './logic.js';
 import * as G from './gen.js';
 import * as U from './sync.js';
+import * as WEG from './weg.js';
 import * as M from './messung.js';
 import * as FU from './formeluebersicht.js';
 import { esc, mathe, bruchHtml, bildSvg, linienSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck, stellentafelHtml, tabelleHtml, saeulenSvg, dreieckSvg } from './render.js';
@@ -37,7 +38,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.53.0';
+export const APP_VERSION = '2.54.0';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Abschicken, Formelsammlung. Testgeräte laden keine Messung hoch.
 M.init({ app: 'mathe', version: APP_VERSION });
 
@@ -1718,6 +1719,8 @@ function schritteVon(liste, thema) {
     ? { art: 'bruch', pf: true, label: s.text, antwort: { zaehler: s.prozentformel.G, nenner: s.prozentformel.p }, quelle: s }
     : s.bruch
     ? { art: 'bruch', label: s.text, antwort: { zaehler: s.bruch.zaehler, nenner: s.bruch.nenner }, nennerFest: !!s.bruch.nenner_fest, quelle: s }
+    : s.kos === 'wegzeile' || s.kos === 'wegfrei'
+    ? { art: 'weg', label: s.text, quelle: s, wz: [] }
     : s.karten
     ? { art: 'legen', label: s.text, karten: s.karten, wahl: s.karten.map(() => null), quelle: s }
     : Number.isInteger(s.saeule_setzen)
@@ -1911,7 +1914,7 @@ const TEST_GEN = {
   'minus-zahlen': ['minus-plus', 'geld-geschichte'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'], 'bruch-bild': ['bruch-bild'],
   'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'prozent-formel': ['prozent-formel'], 'kreisdiagramm': ['kreisdiagramm'], 'rabatt': ['rabatt-geschichte'], 'neuer-preis': ['rabatt-geschichte'],
   'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'],
-  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte'], 'daten': ['daten'], 'diagramm': ['saeulen'], 'kosinus': ['kosinus'], 'sinus': ['sinus'], 'tangens': ['tangens'], 'trig-mix': ['trig-mix']
+  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte'], 'daten': ['daten'], 'diagramm': ['saeulen'], 'kosinus': ['kosinus'], 'sinus': ['sinus'], 'tangens': ['tangens'], 'trig-mix': ['trig-mix'], 'trig-weg': ['trig-weg']
 };
 const testFokus = () => (S.upload.testgeraet && S.testFokus && (L.THEMEN.includes(S.testFokus.thema) || S.testFokus.thema === 'formelsammlung') ? S.testFokus : null);
 
@@ -3212,6 +3215,79 @@ function karteWaehlen(p, k) {
   zeigeAufgabe();
 }
 
+// ---------- Lösungsweg Zeile für Zeile (trig-weg, Stufe 2–4) ----------
+// Eine Zeile = Liste von Bausteinen (t.wz). Stufe 2: Anfang steht da, rechts Bausteine bzw. Zahl;
+// Stufe 3: leere Zeile mit Namen; Stufe 4: ganz leer, neue Zeilen kommen dazu, bis das Ergebnis dasteht.
+const WEG_MAX_ZEILEN = 8;
+function wegZeileText(t) { const q = t.quelle; return WEG.zeileText([...(q.start ? [q.start] : []), ...t.wz]); }
+function wegUnbekannt(a) { return a.weg.gesucht === 'seite' ? 'x' : a.weg.w; }
+function wegHtml(t, aktiv) {
+  const q = t.quelle, a = A.aufgabe;
+  const name = q.name ? `<span class="weg-name">${esc(q.name)}</span>` : '';
+  if (!aktiv) {
+    const txt = t.wegText || q.loesung || '';
+    return `<div class="weg-zeile${t.status === 'loesung' ? ' weg-loesung' : ''}"><span class="weg-nr">${q.zeile}</span><span class="weg-text">${name}${mathe(txt)}</span></div>`;
+  }
+  const start = q.start ? `<span class="weg-start">${mathe(q.start)}</span> ` : '';
+  const zeile = `<div class="weg-zeile weg-aktiv"><span class="weg-nr">${q.zeile}</span><span class="weg-text">${name}${start}${mathe(WEG.zeileText(t.wz))}<i class="weg-cursor"></i>${q.einheit && t.wz.length ? ` <span class="weg-einheit">${esc(q.einheit)}</span>` : ''}</span></div>`;
+  const k = (x, kl = '', label = x) => `<button class="wk${kl}" data-act="wegTaste" data-k="${esc(x)}" aria-label="${esc(label)}">${mathe(x)}</button>`;
+  let tasten;
+  if (q.bausteine) tasten = `<div class="weg-bau">${q.bausteine.map(b => k(b, ' wk-bau')).join('')}${k('⌫', ' wk-sonder', 'Löschen')}</div>`;
+  else if (q.zahl) tasten = `<div class="weg-tast weg-zahlen">${['7', '8', '9', '4', '5', '6', '1', '2', '3', '0', ','].map(x => k(x)).join('')}${k('⌫', ' wk-sonder', 'Löschen')}</div>`;
+  else {
+    const u = wegUnbekannt(a), zw = t.zweit ? ' an' : '';
+    tasten = `<div class="weg-tast weg-voll">
+      ${k(u, ' wk-var')}${k('sin', ' wk-fn' + zw, t.zweit ? 'sin hoch minus 1' : 'sin')}${k('cos', ' wk-fn' + zw)}${k('tan', ' wk-fn' + zw)}<button class="wk wk-fn wk-2nd${zw}" data-act="wegTaste" data-k="2nd" aria-pressed="${t.zweit ? 'true' : 'false'}">2nd</button>${k('°', ' wk-sonder', 'Grad')}
+      ${k('7')}${k('8')}${k('9')}${k('·', ' wk-sonder', 'mal')}${k(':', ' wk-sonder', 'geteilt')}${k('⌫', ' wk-sonder', 'Löschen')}
+      ${k('4')}${k('5')}${k('6')}${k('(', ' wk-sonder')}${k(')', ' wk-sonder')}${k('=', ' wk-rel', 'ist gleich')}
+      ${k('1')}${k('2')}${k('3')}${k('0')}${k(',', ' wk-sonder', 'Komma')}${k('≈', ' wk-rel', 'ungefähr')}
+    </div>`;
+  }
+  const hilfe = q.frei && a.ende ? `<p class="gedaempft klein weg-ziel">Am Ende steht: ${mathe(a.ende)}</p>` : '';
+  return `${zeile}${hilfe}${tasten}`;
+}
+function wegTaste(k) {
+  const t = aktuellerTeil();
+  if (!t || t.art !== 'weg' || A.phase !== 'eingabe') return;
+  if (k === '⌫') { t.wz.pop(); t.zweit = false; }
+  else if (k === '2nd') t.zweit = !t.zweit;
+  else if (['sin', 'cos', 'tan'].includes(k) && t.zweit) { t.wz.push(k + '⁻¹', '('); t.zweit = false; }
+  else if (t.wz.length < 30) t.wz.push(k);
+  A.meldung = null;
+  zeigeAufgabe();
+}
+function wegPruefen() {
+  const t = aktuellerTeil();
+  if (!t || t.art !== 'weg' || A.phase !== 'eingabe' || !t.wz.length) return;
+  const a = A.aufgabe, q = t.quelle;
+  const text = wegZeileText(t) + (q.einheit && q.einheit !== '°' ? ' ' + q.einheit : q.einheit === '°' ? '°' : '');
+  const fruehere = A.teile.slice(0, A.idx).filter(x => x.art === 'weg' && x.wegText);
+  const r = WEG.pruefen(a.weg, text, { erwartet: q.etappe || null, vorher: fruehere.map(x => x.wegEtappe), texte: fruehere.map(x => x.wegText) });
+  if (r.fehlt) { A.meldung = r.fehlt === 'rel' ? 'In jede Zeile gehört genau ein = oder ≈.' : 'Die Zeile ist noch nicht fertig. Schau auf Zahlen, Klammern und Zeichen.'; return zeigeAufgabe(); }
+  if (!r.ok && t.versuche.some(v => v.eingabe === text)) { A.meldung = 'Das hattest du schon. Schau noch einmal auf die Zeile.'; protokoll(S, 'versuch_wiederholt', { id: a.id, teil: A.idx, eingabe: text }); sichern(); return zeigeAufgabe(); }
+  if (r.ok) { t.wegText = text; t.wegEtappe = r.etappe; }
+  protokoll(S, 'weg_zeile', { id: a.id, zeile: q.zeile, stufe: a.stufe, modus: a.form, eingabe: text, etappe: r.etappe, erwartet: q.etappe || null, wahr: r.wahr, sinnvoll: r.ok, gerundet: r.gerundet || undefined, fehler: r.ok ? null : (r.fehler ? r.fehler.typ : 'weg-falsch'), versuch: t.versuche.length + 1 });
+  const fehler = r.ok ? null : r.fehler || { typ: 'weg-falsch', text: r.wahr ? 'Die Zeile stimmt, passt hier aber nicht.' : 'Die Zeile stimmt noch nicht. Rechne sie nach.' };
+  // Stufe 4: richtige Zeile ohne Ergebnis → nächste leere Zeile
+  if (r.ok && q.frei && r.etappe !== 'ergebnis') wegNeueZeile(q.zeile + 1);
+  versuchMerken(t, text, r.ok, fehler);
+  // Lösung gezeigt: die passende nächste Zeile eintragen (Stufe 4 danach weiter mit einer neuen Zeile)
+  if (t.status === 'loesung' && !t.wegText) {
+    const et = q.etappe || wegNaechste(a, fruehere.map(x => x.wegEtappe));
+    t.wegText = a.weg.zeilen[et]; t.wegEtappe = et;
+    if (q.frei && et !== 'ergebnis') wegNeueZeile(q.zeile + 1);
+    zeigeAufgabe();
+  }
+}
+function wegNaechste(a, vorher) {
+  const reihe = G.WEG_ETAPPEN[a.weg.gesucht], letzte = vorher.length ? reihe.indexOf(vorher[vorher.length - 1]) : -1;
+  return reihe[Math.min(reihe.length - 1, letzte + 1)];
+}
+function wegNeueZeile(nr) {
+  if (nr > WEG_MAX_ZEILEN || A.teile.some(x => x.art === 'weg' && x.quelle.zeile === nr)) return;
+  const q = { ...A.teile[A.idx].quelle, text: `Zeile ${nr}`, zeile: nr };
+  A.teile.splice(A.idx + 1, 0, { art: 'weg', label: q.text, quelle: q, wz: [], versuche: [], status: 'offen', seit: Date.now(), hilfeStart: Date.now() });
+}
 function kartenPruefen() {
   const t = aktuellerTeil();
   if (!t || t.art !== 'legen' || A.phase !== 'eingabe' || t.wahl.some(w => w == null)) return;
@@ -3660,6 +3736,19 @@ function teileHtml() {
       } else {
         inhalt = `<div class="feld-zeile">${erledigtWert(t, bruchHtml(t.antwort.zaehler, t.antwort.nenner), true)}</div>`;
       }
+    } else if (t.art === 'weg') {
+      inhalt = wegHtml(t, aktiv);
+    } else if (t.art === 'wahl' && t.quelle && t.quelle.weg) {
+      // Lösungsweg Zeile für Zeile (trig-weg): fertige Zeilen stehen wie im Heft untereinander
+      const q = t.quelle;
+      if (!aktiv) inhalt = `<div class="weg-zeile${t.status === 'loesung' ? ' weg-loesung' : ''}"><span class="weg-nr">${q.zeile}</span><span class="weg-text">${mathe(t.optionen[t.richtig])}</span></div>`;
+      else {
+        const knoepfe = t.optionen.map((o, k) => {
+          const aus = A.phase !== 'eingabe' || t.versuche.some(v => v.eingabe === String(k) || v.eingabe === o);
+          return `<button class="wahl-btn weg-wahl" data-act="wahl" data-k="${k}" ${aus ? 'disabled' : ''}>${mathe(o)}</button>`;
+        }).join('');
+        inhalt = `<div class="weg-zeile weg-offen"><span class="weg-nr">${q.zeile}</span><span class="weg-text">…</span></div><div class="teil-label weg-frage"><span><b>${esc(q.anzeige || t.label)}</b></span></div><div class="wahl-reihe wahl-spalte">${knoepfe}</div>`;
+      }
     } else if (t.art === 'wahl' && t.detektiv) {
       const dAus = (k) => (A.phase === 'eingabe' && !t.versuche.some(v => v.eingabe === k) ? '' : 'disabled');
       if (aktiv) inhalt = `<div class="detektiv-knoepfe"><button class="detektiv-btn ja" data-act="wahl" data-k="0" ${dAus('0')}><span class="dk-zeichen" aria-hidden="true">✓</span>Stimmt</button><button class="detektiv-btn nein" data-act="wahl" data-k="1" ${dAus('1')}><span class="dk-zeichen" aria-hidden="true">✗</span>Stimmt nicht</button></div>`;
@@ -3690,7 +3779,7 @@ function teileHtml() {
     if (t.merk && i > A.idx && !A.fertig) {
       inhalt = `<div class="teil-label"><span>${mathe(t.label)}</span></div><div class="feld-zeile"><button class="feld leer tippbar" data-act="springe" data-i="${i}" aria-label="Zu diesem Feld springen">?</button>${t.einheit ? `<span class="einheit">${esc(t.einheit)}</span>` : ''}</div>`;
     }
-    const kl = `teil${aktiv ? ' aktiv' : ''}${t.merk ? ' merk' : ''}${block && !t.merk ? ' block-teil' : ''}`;
+    const kl = `teil${aktiv ? ' aktiv' : ''}${t.merk ? ' merk' : ''}${block && !t.merk ? ' block-teil' : ''}${t.quelle && t.quelle.weg ? ' weg-teil' : ''}`;
     return { merk: !!t.merk, html: `<div class="${kl}">${inhalt}${zusatz}</div>` };
   });
   const merk = html.filter(h => h && h.merk).map(h => h.html).join('');
@@ -3746,6 +3835,7 @@ function loesungText(t) {
   if (t.art === 'saeule') return `${esc(String(t.ziel.wert))}. Die Säule siehst du jetzt im Bild.`;
   if (t.art === 'wahl') return t.formel ? formelText(t.optionen[t.richtig]) : mathe(t.optionen[t.richtig]);
   if (t.art === 'legen') return mathe(t.karten.map(k => k.optionen[k.richtig]).join(' '));
+  if (t.art === 'weg') return mathe(t.wegText || '');
   return 'siehe unten';
 }
 
@@ -3814,6 +3904,7 @@ function fussHtml() {
     </div>`;
   }
   if (t.art === 'zuordnung') return `<button class="btn btn-haupt btn-gross" data-act="antwort">Antwort geben</button>`;
+  if (t.art === 'weg') return `<button class="btn btn-haupt btn-gross" data-act="wegPruefen" ${t.wz.length ? '' : 'disabled'}>Zeile prüfen</button>`;
   if (t.art === 'legen') return `<button class="btn btn-haupt btn-gross" data-act="kartenPruefen" ${t.wahl.some(w => w == null) ? 'disabled' : ''}>Rechnung prüfen</button>`;
   return aufklappen;
 }
@@ -4286,7 +4377,7 @@ function abschliessen() {
   } else {
     // Einmaleins-Dreierblöcke (außer auf dem Einstiegsplatz) zählen für die Stufe des Einmaleins
     const g = a.generator === 'block-einmaleins' && a.stufeZaehlt ? 'einmaleins' : a.generator;
-    if (!a.bonus && !A.test && !a.etappeMindest && !['gpw', 'p', 'g'].includes(a.form) && g !== 'trig-mix' && !g.startsWith('block') && G.GENERATOREN[g]) {
+    if (!a.bonus && !A.test && !a.etappeMindest && !['gpw', 'p', 'g'].includes(a.form) && g !== 'trig-mix' && !(g === 'trig-weg' && (S.genStufen[g] || {}).stufe >= G.WEG_STUFE_MAX && ergebnis === 'erst') && !g.startsWith('block') && G.GENERATOREN[g]) {
       const st = S.genStufen[g] || (S.genStufen[g] = { stufe: 1, folge: 0 });
       if (ergebnis === 'erst' && A.hilfeGenutzt) st.folge = 0; // mit „Hilf mir“: Stufe bleibt
       else if (ergebnis === 'erst') { st.folge++; if (st.folge >= (g === 'sinus' || g === 'tangens' ? 2 : 3) && st.stufe < stufeGrenze(g)) { st.stufe++; st.folge = 0; stufeHoch = { generator: g, stufe: st.stufe }; protokoll(S, 'stufe', { generator: g, stufe: st.stufe }); } }
@@ -4321,7 +4412,10 @@ function abschliessen() {
   A.wp = sternzeit() && !A.test ? L.wissenspunkteFuer(a, { ergebnis, schritte: !!A.schritteAn && !A.ufSofort }) : 0;
   S.serie.letzteAktivitaet = Date.now();
   S.serie.erledigt = (S.serie.erledigt || 0) + 1; S.abschlussAufgabe = Date.now(); // für die Abschlussfrage
+  // Lösungsweg (trig-weg): Zeilen mit Etappe, Versuchen und ob die Lösung kam; haengt_an = erste Etappe mit 2 Fehlversuchen oder Lösung
+  const wegZ = a.thema === 'trig-weg' ? A.teile.filter(t => t.art === 'weg' || (t.quelle && t.quelle.weg)).map(t => ({ etappe: t.wegEtappe || (t.quelle && t.quelle.etappe) || null, versuche: t.versuche.length, status: t.status })) : null;
   protokoll(S, 'aufgabe_ende', {
+    ...(wegZ ? { weg: { zeilen: wegZ.length, etappen: wegZ.map(z => z.etappe), versuche: wegZ.map(z => z.versuche), haengt_an: (wegZ.find(z => z.status === 'loesung' || z.versuche >= 2) || {}).etappe || null } } : {}),
     id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: A.sekunden, serienPos: A.serienPos,
     ...(L.teilschrittAufgabe(a) ? { teilschritt: L.teilschrittAufgabe(a) } : {}),
     ...(A.bild ? { bildschirm: A.bild.plus, voll: A.bild.voll || undefined } : {}),
@@ -5933,6 +6027,8 @@ function klick(e) {
     case 'naechsterSatz': naechsterSatz(); break;
     case 'karte': karteWaehlen(Number(el.dataset.p), Number(el.dataset.k)); break;
     case 'kartenPruefen': kartenPruefen(); break;
+    case 'wegTaste': wegTaste(el.dataset.k); break;
+    case 'wegPruefen': wegPruefen(); break;
     case 'naechste': neueAufgabe(); break;
     case 'ueberspringen':
       protokoll(S, 'uebersprungen', { id: A.aufgabe.id });
@@ -6004,7 +6100,7 @@ function klick(e) {
       let wf = k === t.richtig ? null : dFehler || L.erkenneWahlFehler(A.aufgabe, t.quelle, k);
       if (wf && !t.detektiv && A.aufgabe.typ === 'detektiv') wf = { ...wf, typ: 'detektiv_fehlerwahl' };
       if (k !== t.richtig && t.gesuchtModus) wf = gesuchtFehler(t);
-      versuchMerken(t, t.spalte ? t.optionen[k] : String(k), k === t.richtig, wf);
+      versuchMerken(t, t.spalte || (t.quelle && t.quelle.weg) ? t.optionen[k] : String(k), k === t.richtig, wf);
       break;
     }
     case 'linie': linieTippen(Number(el.dataset.i)); break;
