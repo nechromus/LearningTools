@@ -275,3 +275,7 @@ body.archiv[data-style="tv"] { background: var(--tv-bg, #0A0E1A); color: #EEF1F8
 /* Fenster auf dem dunklen Start und der Kanalseite: dunkle Schrift auf hellem Grund */
 body.archiv[data-style="tv"] .modal-box { color: #1E2A2B; }
 body.archiv[data-style="tv"] .modal-box .btn:not(.btn-haupt) { color: #1E2A2B; }
+.archiv .les .fb .fb-frei { display: block; margin: 14px 0 4px; }
+.archiv .les .fb .fb-frei span { display: block; font: 600 16px 'Atkinson Hyperlegible', system-ui, sans-serif; color: var(--s-fg); margin-bottom: 6px; }
+.archiv .les .fb .fb-frei textarea { width: 100%; box-sizing: border-box; font: 18px 'Atkinson Hyperlegible', system-ui, sans-serif; padding: 10px 12px; border-radius: 10px; border: 2px solid var(--s-rand, #9aa); background: #fff; color: #1E2A2B; resize: vertical; }
+.archiv .les .fb .fb-senden { text-align: center; font-weight: 700; margin-top: 10px; }

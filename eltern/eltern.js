@@ -20,7 +20,7 @@ import { Lernplan } from './lernplan.mjs';
 import * as LA from './lesen-auswertung.js';
 import * as LL from '../lesen/lesen-logik.js';
 
-export const ELTERN_VERSION = '1.74.0';
+export const ELTERN_VERSION = '1.75.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -2546,7 +2546,7 @@ function lesenSeite() {
       return `<div class="bz-zeile lf-zeile"><div><b>${q ? esc(q.frage) : esc(x.frage)}</b><span class="klein gedaempft block">${esc(storyName(x.story))} · ${esc(LA.typName(x.fragetyp || ''))} · ${x.karten} ${x.karten === 1 ? 'Karte' : 'Karten'}</span><span class="klein block">${gr}</span>
         <a class="knopf lese-woche-knopf lf-knopf" href="${WERKSTATT}${encodeURIComponent(x.frage)}" target="_blank" rel="noopener">In der Werkstatt öffnen</a></div></div>`; }).join('')}</section>` : '';
   const wuensche = `<section class="karte liste-karte"><div class="karte-kopf"><h2>Wünsche nach einer Geschichte</h2></div>
-    ${alle.wuensche.length ? alle.wuensche.map(x => `<div class="bz-zeile"><div><span class="klein gedaempft block">${esc(tagKurz(L.tagKey(new Date(x.t))))} · ${x.gelesen} von ${x.folgen} Folgen gelesen</span><b>„${esc(x.knopf)}“</b><span class="klein gedaempft block">${esc(storyName(x.story))}</span></div></div>`).join('')
+    ${alle.wuensche.length ? alle.wuensche.map(x => `<div class="bz-zeile"><div><span class="klein gedaempft block">${esc(tagKurz(L.tagKey(new Date(x.t))))}${x.folgen ? ` · ${x.gelesen} von ${x.folgen} Folgen gelesen` : ''}</span><b>„${esc(x.knopf)}“</b><span class="klein gedaempft block">${esc(storyName(x.story))}</span>${x.freitext ? `<span class="block">Geschrieben: „${esc(x.freitext)}“</span>` : ''}</div></div>`).join('')
       : '<p class="klein gedaempft pad">Kommt nach der letzten Folge einer Geschichte. Daraus plant der Lese-Chat neue Geschichten.</p>'}</section>`;
   const nach = Object.entries(r.nachgeschlagen).sort((a, b) => b[1] - a[1]);
   const nachKarte = nach.length ? `<section class="karte"><div class="karte-kopf"><h2>Nachgeschlagen</h2><span class="klein gedaempft">7 Tage</span></div><p>${nach.slice(0, 15).map(([wo, n]) => `${esc(wo)}${n > 1 ? ` (${n}×)` : ''}`).join(', ')}</p></section>` : '';

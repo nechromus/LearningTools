@@ -14,7 +14,7 @@ import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 
-export const LESE_VERSION = '0.13.0';
+export const LESE_VERSION = '0.13.1';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Inhalt, Abschicken. Testgeräte laden keine Messung hoch.
 M.init({ app: 'lesen', version: LESE_VERSION });
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
@@ -478,6 +478,11 @@ function endeTeil(q, t) {
   if (A.fb) return `${kopf}<div class="fb" data-ziel><div class="fr">Das war die letzte Folge. Wie soll es weitergehen?</div>
     ${['gleich', 'art', 'anders'].map(k => `<button class="ant" data-act="storyFb" data-a="${k}">${esc(A.fb[k])}</button>`).join('')}
     <button class="weissnicht" data-act="storyFb" data-a="weiss_nicht">Weiß nicht</button></div>`;
+  if (A.fbFrei) return `${kopf}<div class="fb" data-ziel><div class="fr">Danke! Willst du noch etwas sagen?</div>
+    <label class="fb-frei"><span>Schreib es hier. Das ist freiwillig.</span>
+      <textarea id="fb-frei" rows="4" maxlength="500" placeholder="Was war gut? Was nicht?"></textarea></label>
+    <button class="ant fb-senden" data-act="fbFreiSenden">Abschicken</button>
+    <button class="weissnicht" data-act="fbFreiWeg">Nein, weiter</button></div>`;
   const rundeFertig = f.runde && f.runde.karten >= KL.RUNDE ? `<div class="runde-fertig"><b>Runde geschafft!</b> 5 von 5 Karten.</div>` : '';
   const weiter = A.ergebnis !== 'aufloesung' ? KL.weiterText(INH, f, t) : null;
   const noch = A.ergebnis !== 'aufloesung' ? KL.nochEine(INH, f, A.text) : null;
@@ -906,8 +911,15 @@ document.addEventListener('click', async (ev) => {
     case 'storyFb': if (A && A.fb) {
       const f = fs(), t = INH.texte[A.text];
       protokoll('lese_story_feedback', { story: A.story, antwort: el.dataset.a, gelesen: KL.folgenGelesen(INH, f, A.story), folgen: KL.folgeVon(INH, t).y, ms: Date.now() - A.fbSeit, text: A.text, ...(el.dataset.a !== 'weiss_nicht' ? { knopf: A.fb[el.dataset.a] } : {}) });
-      f.gefragt[A.story] = A.text; A.fb = null; sichern(); zeigeKarte();
+      f.gefragt[A.story] = A.text; A.fb = null; A.fbFrei = { antwort: el.dataset.a, seit: Date.now() }; sichern(); zeigeKarte();
     } break;
+    // Freitext nach der Abschlussfrage (Wunsch Vater 22.11.): eigener Schritt, damit die Antwort schon gespeichert ist
+    case 'fbFreiSenden': if (A && A.fbFrei) {
+      const frei = ((document.getElementById('fb-frei') || {}).value || '').trim().slice(0, 500);
+      if (frei) protokoll('lese_story_feedback_text', { story: A.story, text: A.text, antwort: A.fbFrei.antwort, freitext: frei, ms: Date.now() - A.fbFrei.seit });
+      A.fbFrei = null; sichern(); zeigeKarte();
+    } break;
+    case 'fbFreiWeg': if (A) { A.fbFrei = null; zeigeKarte(); } break;
     case 'antwort': if (A && A.phase === 'frage') antworten(el.dataset.id); break;
     case 'verstanden': if (A && (A.phase === 'hinweis' || A.phase === 'stopp')) naechsterVersuch(Math.max(1, A.stufe - 1)); break;
     case 'zf': if (A && (A.phase === 'leiter1' || A.phase === 'leiter2')) zfAntwort(el.dataset.id === 'ja'); break;

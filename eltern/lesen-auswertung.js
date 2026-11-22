@@ -40,6 +40,7 @@ export function leseAuswertung(eintraege, { ab = null, bis = null, tagVon = (t) 
         break;
       }
       case 'lese_story_feedback': r.wuensche.push({ t: e.t, story: e.story, antwort: e.antwort, knopf: e.knopf || ANTWORT_TEXT[e.antwort] || e.antwort, gelesen: e.gelesen, folgen: e.folgen }); break;
+      case 'lese_story_feedback_text': { const w = [...r.wuensche].reverse().find(x => x.story === e.story); if (w) w.freitext = e.freitext; else r.wuensche.push({ t: e.t, story: e.story, antwort: e.antwort, knopf: ANTWORT_TEXT[e.antwort] || e.antwort, freitext: e.freitext }); break; }
       case 'lese_karte_ende': {
         const s = start[k] || {};
         r.karten++;
