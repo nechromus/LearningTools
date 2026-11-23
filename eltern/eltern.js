@@ -1,6 +1,15 @@
 // Eltern-App: Lerndaten ansehen (bis zur einzelnen Aufgabe) und Einstellungen der Übungs-App aus der Ferne ändern.
 // Daten liegen im privaten Repo (LearningToolsTracking). Der Zugangsschlüssel bleibt nur auf diesem Gerät.
-import * as U from '../js/sync.js';
+import * as U0 from '../js/sync.js';
+import * as RB from '../js/abbild.js';
+// Abbild des Daten-Repos (23.11.): nach eigenem Schreiben oder Löschen diesen Pfad bis zur nächsten Liste direkt lesen
+const U = {
+  ...U0,
+  dateiSchreiben: (c, p, ...r) => { RB.vergessen(p); return U0.dateiSchreiben(c, p, ...r); },
+  dateiSchreibenWenn: (c, p, ...r) => { RB.vergessen(p); return U0.dateiSchreibenWenn(c, p, ...r); },
+  dateiNeuBase64: (c, p, ...r) => { RB.vergessen(p); return U0.dateiNeuBase64(c, p, ...r); },
+  dateiLoeschen: (c, p, ...r) => { RB.vergessen(p); return U0.dateiLoeschen(c, p, ...r); }
+};
 import * as M from '../js/messung.js';
 import * as L from '../js/logic.js';
 import { THEMA_NAMEN, GEN_NAMEN, FEHLER_NAMEN } from '../js/namen.js';
@@ -21,7 +30,7 @@ import * as LA from './lesen-auswertung.js';
 import * as LL from '../lesen/lesen-logik.js';
 import { allesNeuLaden } from '../js/neuladen.js';
 
-export const ELTERN_VERSION = '1.76.0';
+export const ELTERN_VERSION = '1.77.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -111,9 +120,9 @@ async function grunddatenLaden() {
 }
 
 async function nutzerLaden() {
-  const ordner = (await U.ordnerLesen(C, 'daten')).filter(x => x.type === 'dir');
+  const ordner = (await RB.ordner(C, 'daten')).filter(x => x.type === 'dir');
   const liste = await Promise.all(ordner.map(async d => {
-    const innen = await U.ordnerLesen(C, d.path);
+    const innen = await RB.ordner(C, d.path);
     const geraete = innen.filter(x => x.type === 'dir');
     return geraete.length ? { ordner: d.name, name: d.name.charAt(0).toUpperCase() + d.name.slice(1), geraete } : null;
   }));
@@ -122,8 +131,8 @@ async function nutzerLaden() {
 }
 
 async function paketeLaden() {
-  const dateien = (await U.ordnerLesen(C, 'pakete')).filter(f => f.type === 'file' && f.name.endsWith('.json'));
-  const inhalte = await Promise.all(dateien.map(f => U.dateiLesen(C, f.path).catch(() => null)));
+  const dateien = (await RB.ordner(C, 'pakete')).filter(f => f.type === 'file' && f.name.endsWith('.json'));
+  const inhalte = await Promise.all(dateien.map(f => RB.datei(C, f.path).catch(() => null)));
   D.pakete = inhalte.map(x => x && P.paketPruefen(x).paket).filter(Boolean);
 }
 
@@ -139,7 +148,7 @@ async function tagDateiHolen(f, cache, behalten) {
   const key = `https://cache.eltern.local/${f.path}?sha=${f.sha}`;
   behalten.add(key);
   try { const t = performance.now(); const hit = cache && await cache.match(key); if (hit) { const j = await hit.json(); M.speicher(f.path, f.size, performance.now() - t); return j; } } catch (e) { /* weiter ohne Speicher */ }
-  const json = await U.dateiLesen(C, f.path);
+  const json = await RB.datei(C, f.path);
   try { if (cache) await cache.put(key, new Response(JSON.stringify(json), { headers: { 'Content-Type': 'application/json' } })); } catch (e) { /* egal */ }
   return json;
 }
@@ -154,15 +163,15 @@ async function datenLaden() {
   const proGeraet = {}, staende = [];
   // Geräte-Ordner frisch lesen (es können neue dazugekommen sein)
   const eTage = M.etappe('tage');
-  const geraete = (await U.ordnerLesen(C, `daten/${n.ordner}`)).filter(x => x.type === 'dir');
+  const geraete = (await RB.ordner(C, `daten/${n.ordner}`)).filter(x => x.type === 'dir');
   const kennung = [];
   await Promise.all(geraete.map(async g => {
-    const dateien = await U.ordnerLesen(C, g.path);
+    const dateien = await RB.ordner(C, g.path);
     kennung.push(...tageKennung(g.name, dateien, ab));
     const standDatei = dateien.find(f => f.name === 'stand.json');
     const tage = dateien.filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f.name) && f.name.slice(0, 10) >= ab);
     const [stand, ...tagInhalte] = await Promise.all([
-      standDatei ? U.dateiLesen(C, standDatei.path) : null,
+      standDatei ? RB.datei(C, standDatei.path) : null,
       ...tage.map(f => tagDateiHolen(f, cache, behalten))
     ]);
     if (stand) staende.push({ geraet: g.name, stand });
@@ -173,8 +182,8 @@ async function datenLaden() {
   }
   eTage();
   const eEinst = M.etappe('einstellungen');
-  const einst = await U.dateiLesen(C, `daten/${n.ordner}/einstellungen.json`);
-  const schluessel = await U.dateiLesen(C, `daten/${n.ordner}/schluessel.json`).catch(() => null);
+  const einst = await RB.datei(C, `daten/${n.ordner}/einstellungen.json`);
+  const schluessel = await RB.datei(C, `daten/${n.ordner}/schluessel.json`).catch(() => null);
   eEinst();
   const eRechnen = M.etappe('tage_rechnen');
   staende.sort((a, b) => (a.stand.stand || '') < (b.stand.stand || '') ? 1 : -1);
@@ -214,8 +223,9 @@ async function neueDatenPruefen() {
   datenPruefungLaeuft = true; letzteDatenPruefung = Date.now();
   try {
     const ordner = D.daten.ordner, ab = A.letzteTage(31)[0];
-    const geraete = (await U.ordnerLesen(C, `daten/${ordner}`)).filter(x => x.type === 'dir');
-    const listen = await Promise.all(geraete.map(async g => tageKennung(g.name, await U.ordnerLesen(C, g.path), ab)));
+    await RB.auffrischen(C);
+    const geraete = (await RB.ordner(C, `daten/${ordner}`)).filter(x => x.type === 'dir');
+    const listen = await Promise.all(geraete.map(async g => tageKennung(g.name, await RB.ordner(C, g.path), ab)));
     const kennung = listen.flat().sort().join('|');
     if (!D.daten || D.daten.ordner !== ordner || laedt) return;
     if (kennung !== D.daten.kennung && kennung !== datenGemeldet) { datenGemeldet = kennung; datenHinweisZeigen(); }
@@ -243,6 +253,7 @@ async function allesLaden({ nutzerliste = false } = {}) {
   zeichne();
   try {
     if (!D.pool.size) { const e = M.etappe('grunddaten'); await grunddatenLaden(); e(); }
+    { const e = M.etappe('liste'); await RB.auffrischen(C); e(); }   // eine Liste aller Dateien statt vieler Ordner-Abfragen
     if (nutzerliste || !D.nutzer) { const e = M.etappe('kinder'); await nutzerLaden(); e(); }
     await Promise.all([datenLaden(), (async () => { const e = M.etappe('pakete'); await paketeLaden(); e(); })()]);
   } catch (e) {
@@ -528,11 +539,12 @@ const SPIELNAMEN = { '2048': '2048', runenfeld: 'Runenfeld', kristallmine: 'Kris
 const BR = { kind: null, index: null, html: {}, laedt: false, art: 'plan' };
 function berichteAn() { return BR.kind === C.nutzer && !!(BR.index && BR.index.length); }
 async function berichteLaden(o, neu = false) {
+  await RB.auffrischen(C, { maxAlter: 60000 }); // Liste höchstens 1 Min. alt (Abbild des Daten-Repos)
   if (BR.laedt || (BR.kind === o && BR.index && !neu)) return;
   if (BR.kind !== o) Object.assign(BR, { kind: o, index: null, html: {} });
   BR.laedt = true;
   try {
-    const x = await U.dateiLesen(C, `daten/${o}/berichte/index.json`);
+    const x = await RB.datei(C, `daten/${o}/berichte/index.json`);
     BR.index = A.berichteNorm(x);
     if (neu) BR.html = {};
   } catch (e) { BR.index = BR.index || []; }
@@ -550,7 +562,7 @@ function brHtml(b) {
   const k = b.id;
   if (BR.html[k] === undefined) {
     BR.html[k] = null;
-    U.dateiBlob(C, `daten/${BR.kind}/berichte/${b.datei}`).then(x => x ? x.text() : 'fehlt').then(t => { BR.html[k] = t; zeichne(); }).catch(() => { BR.html[k] = 'fehlt'; zeichne(); });
+    RB.blob(C, `daten/${BR.kind}/berichte/${b.datei}`).then(x => x ? x.text() : 'fehlt').then(t => { BR.html[k] = t; zeichne(); }).catch(() => { BR.html[k] = 'fehlt'; zeichne(); });
   }
   return BR.html[k];
 }
@@ -651,19 +663,20 @@ function bgAbgeschickt(id) {
   return `<section class="karte bg-abgeschickt offen"><p><b>Wird bearbeitet.</b> Abgeschickt${wann ? ' am ' + esc(wann) : ''}${f.von ? ' von ' + esc(f.von) : ''}.</p><p class="klein gedaempft">Änderungen gelten erst nach „Speichern“.</p><button class="knopf" data-act="bgVerwerfen" data-id="${esc(id)}">Änderungen verwerfen</button></section>`;
 }
 async function bgLaden(neu = false) {
+  await RB.auffrischen(C, { maxAlter: 60000 }); // Liste höchstens 1 Min. alt (Abbild des Daten-Repos)
   const o = C.nutzer;
   if (BG.laedt || (BG.kind === o && BG.liste && !neu)) return;
   if (BG.kind !== o) Object.assign(BG, { kind: o, liste: null, boegen: {}, fb: {}, bilder: {}, pdf: {}, zeig: {}, entwuerfe: {}, hb: null, hbG: null, hbPdf: {}, hbAlt: {}, hbMeldung: null, fo: null, foG: null, foPdf: {}, foAlt: {}, foMeldung: null, zeit: {} });
   BG.laedt = true; BG.fehler = null; M.lauf('reiter', 'boegen'); zeichne();
   try {
-    const [ordner, fbs] = await Promise.all([U.ordnerLesen(C, `daten/${o}/boegen`), U.ordnerLesen(C, `daten/${o}/bogen-feedback`)]);
+    const [ordner, fbs] = await Promise.all([RB.ordner(C, `daten/${o}/boegen`), RB.ordner(C, `daten/${o}/bogen-feedback`)]);
     const ids = ordner.filter(x => x.type === 'dir').map(x => x.name);
     const fbIds = fbs.filter(x => x.type === 'file' && x.name.endsWith('.json') && !x.name.endsWith('.zeit.json')).map(x => x.name.slice(0, -5));
     const zeitIds = fbs.filter(x => x.type === 'file' && x.name.endsWith('.zeit.json')).map(x => x.name.slice(0, -10));
     await Promise.all([
-      ...ids.filter(id => neu || !BG.boegen[id]).map(id => U.dateiLesen(C, `daten/${o}/boegen/${id}/bogen.json`).then(b => { BG.boegen[id] = A.bogenNorm(b); }).catch(() => { BG.boegen[id] = null; })),
-      ...fbIds.map(id => U.dateiLesen(C, `daten/${o}/bogen-feedback/${id}.json`).then(x => { BG.fb[id] = x; }).catch(() => {})),
-      ...zeitIds.map(id => U.dateiLesen(C, ZEIT(o, id)).then(x => { BG.zeit[id] = A.zeitNorm(x); }).catch(() => {})),
+      ...ids.filter(id => neu || !BG.boegen[id]).map(id => RB.datei(C, `daten/${o}/boegen/${id}/bogen.json`).then(b => { BG.boegen[id] = A.bogenNorm(b); }).catch(() => { BG.boegen[id] = null; })),
+      ...fbIds.map(id => RB.datei(C, `daten/${o}/bogen-feedback/${id}.json`).then(x => { BG.fb[id] = x; }).catch(() => {})),
+      ...zeitIds.map(id => RB.datei(C, ZEIT(o, id)).then(x => { BG.zeit[id] = A.zeitNorm(x); }).catch(() => {})),
       hbLaden(o), foLaden(o)
     ]);
     const lokal = [];
@@ -682,10 +695,11 @@ const HB = (o) => `daten/${o}/hinweisblatt`;
 const jetztLokal = () => { const d = new Date(), off = -d.getTimezoneOffset(), p = (n) => String(Math.floor(Math.abs(n))).padStart(2, '0'); return new Date(d.getTime() + off * 60000).toISOString().slice(0, 19) + (off >= 0 ? '+' : '-') + p(off / 60) + ':' + p(off % 60); };
 const hbVon = () => { const std = C.nur ? 'Großeltern' : 'Eltern'; try { return localStorage.getItem('bogen-von') || std; } catch (x) { return std; } };
 async function hbLaden(o) {
+  await RB.auffrischen(C, { maxAlter: 60000 }); // Liste höchstens 1 Min. alt (Abbild des Daten-Repos)
   try {
-    BG.hb = A.hinweisNorm(await U.dateiLesen(C, `${HB(o)}/hinweisblatt.json`));
+    BG.hb = A.hinweisNorm(await RB.datei(C, `${HB(o)}/hinweisblatt.json`));
     if (!BG.hb) return;
-    const g = await U.dateiLesen(C, `${HB(o)}/gedruckt.json`);
+    const g = await RB.datei(C, `${HB(o)}/gedruckt.json`);
     if (g) { BG.hbG = A.gedrucktNorm(g); return; }
     // Erster Start: Stand 23.10. gilt für alle Seiten als gedruckt
     const start = A.gedrucktStart(BG.hb, 'Eltern-App (Start)', jetztLokal());
@@ -702,7 +716,7 @@ function hbPdf(datei) {
   if (!datei) return 'fehlt';
   if (BG.hbPdf[datei] === undefined) {
     BG.hbPdf[datei] = null;
-    U.dateiBlob(C, `${HB(C.nutzer)}/${datei}`).then(x => { BG.hbPdf[datei] = x || 'fehlt'; zeichne(); }).catch(() => { BG.hbPdf[datei] = 'fehlt'; zeichne(); });
+    RB.blob(C, `${HB(C.nutzer)}/${datei}`).then(x => { BG.hbPdf[datei] = x || 'fehlt'; zeichne(); }).catch(() => { BG.hbPdf[datei] = 'fehlt'; zeichne(); });
   }
   return BG.hbPdf[datei];
 }
@@ -766,7 +780,7 @@ function hbBild(s) {
   const k = 'hb:' + s.bild;
   if (BG.bilder[k] === undefined) {
     BG.bilder[k] = null;
-    U.dateiBlob(C, `${HB(C.nutzer)}/${s.bild}`).then(x => { BG.bilder[k] = x ? URL.createObjectURL(x) : 'fehlt'; zeichne(); }).catch(() => { BG.bilder[k] = 'fehlt'; zeichne(); });
+    RB.blob(C, `${HB(C.nutzer)}/${s.bild}`).then(x => { BG.bilder[k] = x ? URL.createObjectURL(x) : 'fehlt'; zeichne(); }).catch(() => { BG.bilder[k] = 'fehlt'; zeichne(); });
   }
   return BG.bilder[k];
 }
@@ -813,9 +827,10 @@ function hbBogenBox(id) {
 // gedruckt.json (fassungen {id: datum}) schreibt nur die Eltern-App. Ohne gedruckt.json gilt keine Fassung als gedruckt.
 const FO = (o) => `daten/${o}/formelblatt`;
 async function foLaden(o) {
+  await RB.auffrischen(C, { maxAlter: 60000 }); // Liste höchstens 1 Min. alt (Abbild des Daten-Repos)
   try {
-    BG.fo = A.formelNorm(await U.dateiLesen(C, `${FO(o)}/formelblatt.json`));
-    if (BG.fo) BG.foG = A.formelGedrucktNorm(await U.dateiLesen(C, `${FO(o)}/gedruckt.json`).catch(() => null));
+    BG.fo = A.formelNorm(await RB.datei(C, `${FO(o)}/formelblatt.json`));
+    if (BG.fo) BG.foG = A.formelGedrucktNorm(await RB.datei(C, `${FO(o)}/gedruckt.json`).catch(() => null));
   } catch (e) { BG.fo = null; }
 }
 const foNeu = () => A.formelNeu(BG.fo, BG.foG);
@@ -824,7 +839,7 @@ function foPdf(datei) {
   if (!datei) return 'fehlt';
   if (BG.foPdf[datei] === undefined) {
     BG.foPdf[datei] = null;
-    U.dateiBlob(C, `${FO(C.nutzer)}/${datei}`).then(x => { BG.foPdf[datei] = x || 'fehlt'; zeichne(); }).catch(() => { BG.foPdf[datei] = 'fehlt'; zeichne(); });
+    RB.blob(C, `${FO(C.nutzer)}/${datei}`).then(x => { BG.foPdf[datei] = x || 'fehlt'; zeichne(); }).catch(() => { BG.foPdf[datei] = 'fehlt'; zeichne(); });
   }
   return BG.foPdf[datei];
 }
@@ -832,7 +847,7 @@ function foBild(pfad) {
   const k = 'fo:' + pfad;
   if (BG.bilder[k] === undefined) {
     BG.bilder[k] = null;
-    U.dateiBlob(C, `${FO(C.nutzer)}/${pfad}`).then(x => { BG.bilder[k] = x ? URL.createObjectURL(x) : 'fehlt'; zeichne(); }).catch(() => { BG.bilder[k] = 'fehlt'; zeichne(); });
+    RB.blob(C, `${FO(C.nutzer)}/${pfad}`).then(x => { BG.bilder[k] = x ? URL.createObjectURL(x) : 'fehlt'; zeichne(); }).catch(() => { BG.bilder[k] = 'fehlt'; zeichne(); });
   }
   return BG.bilder[k];
 }
@@ -1109,7 +1124,7 @@ function bgPdfLaden(id) {
     const k = id + ':' + w;
     if (!b.pdf[w] || BG.pdf[k] !== undefined) continue;
     BG.pdf[k] = null;
-    U.dateiBlob(C, `daten/${C.nutzer}/boegen/${id}/${b.pdf[w]}`).then(x => { BG.pdf[k] = x || 'fehlt'; zeichne(); }).catch(() => { BG.pdf[k] = 'fehlt'; zeichne(); });
+    RB.blob(C, `daten/${C.nutzer}/boegen/${id}/${b.pdf[w]}`).then(x => { BG.pdf[k] = x || 'fehlt'; zeichne(); }).catch(() => { BG.pdf[k] = 'fehlt'; zeichne(); });
   }
 }
 // PDF teilen (iOS: Teilen-Menü mit Drucken, AirPrint), sonst in einem neuen Fenster öffnen
@@ -1127,7 +1142,7 @@ function bgBild(id, pfad) {
   const k = id + ':' + pfad;
   if (BG.bilder[k] === undefined) {
     BG.bilder[k] = null;
-    U.dateiBlob(C, `daten/${C.nutzer}/boegen/${id}/${pfad}`).then(x => { BG.bilder[k] = x ? URL.createObjectURL(x) : 'fehlt'; zeichne(); }).catch(() => { BG.bilder[k] = 'fehlt'; zeichne(); });
+    RB.blob(C, `daten/${C.nutzer}/boegen/${id}/${pfad}`).then(x => { BG.bilder[k] = x ? URL.createObjectURL(x) : 'fehlt'; zeichne(); }).catch(() => { BG.bilder[k] = 'fehlt'; zeichne(); });
   }
   return BG.bilder[k];
 }
@@ -1365,7 +1380,7 @@ function lernplanLaden(ordner, neu = false) {
   const z = LPL[ordner] || (LPL[ordner] = {});
   if (z.laedt || (z.geholt && !neu)) return;
   z.laedt = true; z.fehler = null;
-  U.dateiLesen(C, `daten/${ordner}/lernplan.json`).then(d => {
+  RB.datei(C, `daten/${ordner}/lernplan.json`).then(d => {
     z.daten = d && d.format === 'lernplan-1' ? d : null; z.geholt = Date.now();
     if (z.inst && z.daten) z.inst.setzen(Lernplan.ausExport(z.daten));
     if (z.el) z.el.querySelector('.lp-info') && (z.el.querySelector('.lp-info').innerHTML = lernplanInfo(z.daten));
@@ -1483,22 +1498,24 @@ function lernplanEinhaengen() {
 const T = { liste: null, laedt: false, fehler: null, bilder: {} };
 const TICKET_STATUS = { neu: 'Neu', claude: 'Für Claude', erledigt: 'Erledigt' };
 async function ticketsLaden(still = false) {
+  await RB.auffrischen(C, { maxAlter: 60000 }); // Liste höchstens 1 Min. alt (Abbild des Daten-Repos)
   if (T.laedt) return;
   T.laedt = true; T.fehler = null; if (!still) { M.lauf('reiter', 'tickets'); zeichne(); }
   try {
-    const dateien = (await U.ordnerLesen(C, 'feedback')).filter(f => f.type === 'file' && f.name.endsWith('.json'));
+    const dateien = (await RB.ordner(C, 'feedback')).filter(f => f.type === 'file' && f.name.endsWith('.json'));
     T.namen = dateien.map(f => f.name + ':' + f.sha).sort().join('|');
-    T.liste = (await Promise.all(dateien.map(f => U.dateiLesen(C, f.path).catch(() => null)))).filter(t => t && t.id)
+    T.liste = (await Promise.all(dateien.map(f => RB.datei(C, f.path).catch(() => null)))).filter(t => t && t.id)
       .sort((a, b) => (a.erstellt < b.erstellt ? 1 : -1));
   } catch (e) { if (!still) T.fehler = e.message || 'Laden hat nicht geklappt.'; }
   T.laedt = false; T.geprueft = Date.now(); zeichne(); M.sichtbar();
 }
 // Neue Tickets (Hinweis in der Übersicht und Zahl am Reiter): beim Start und alle 5 Minuten nachsehen, ob sich etwas geändert hat
 async function ticketsPruefen() {
+  await RB.auffrischen(C, { maxAlter: 60000 }); // Liste höchstens 1 Min. alt (Abbild des Daten-Repos)
   if (!C.token || C.nur || T.laedt || document.hidden) return;
   if (T.liste && Date.now() - (T.geprueft || 0) < 5 * 60 * 1000) return;
   try {
-    const dateien = (await U.ordnerLesen(C, 'feedback')).filter(f => f.type === 'file' && f.name.endsWith('.json'));
+    const dateien = (await RB.ordner(C, 'feedback')).filter(f => f.type === 'file' && f.name.endsWith('.json'));
     const namen = dateien.map(f => f.name + ':' + f.sha).sort().join('|');
     if (!T.liste || namen !== T.namen) ticketsLaden(true); else T.geprueft = Date.now();
   } catch (e) { /* später */ }
@@ -1517,7 +1534,7 @@ function ticketHinweis() {
 function ticketBildLaden(name) {
   if (T.bilder[name] !== undefined) return;
   T.bilder[name] = null;
-  U.dateiBlob(C, `feedback/${name}`).then(b => { T.bilder[name] = b ? URL.createObjectURL(b) : ''; zeichne(); }).catch(() => { T.bilder[name] = ''; zeichne(); });
+  RB.blob(C, `feedback/${name}`).then(b => { T.bilder[name] = b ? URL.createObjectURL(b) : ''; zeichne(); }).catch(() => { T.bilder[name] = ''; zeichne(); });
 }
 const ticketWann = (iso) => { const d = new Date(iso); return `${d.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' })} ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`; };
 const ticketVon = (t) => (t.von ? t.von.charAt(0).toUpperCase() + t.von.slice(1) : '?') + (t.kontext && t.kontext.testgeraet ? ` · Testgerät${t.kontext.testAls ? ' als ' + t.kontext.testAls.charAt(0).toUpperCase() + t.kontext.testAls.slice(1) : ''}` : '');
@@ -2287,26 +2304,27 @@ function mehrSeite() {
 // Liest das Lese-Protokoll (daten/<name>/lesen/<geraet>/<tag>.json, 14 Tage), die Konto-Dateien und die Liste der Geschichten.
 const LS = { kind: null, eintraege: [], ersterTag: null, fragen: {}, texte: {}, fragenLaedt: false, konto: [], storylines: null, geladen: 0, laedt: false, fehler: null };
 async function leseLaden(o, neu = false) {
+  await RB.auffrischen(C, { maxAlter: 60000 }); // Liste höchstens 1 Min. alt (Abbild des Daten-Repos)
   if (LS.laedt || (!neu && LS.kind === o && Date.now() - LS.geladen < 5 * 60e3)) return;
   LS.laedt = true; M.lauf('reiter', 'lesen');
   try {
     const ab = letzteTageKey(29), ein = [];
-    const ordner = await U.ordnerLesen(C, `daten/${o}/lesen`);
+    const ordner = await RB.ordner(C, `daten/${o}/lesen`);
     let ersterTag = null;
     for (const d of ordner.filter(x => x.type === 'dir' && x.name !== 'inhalt')) {
-      const dateien = (await U.ordnerLesen(C, d.path)).filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f.name));
+      const dateien = (await RB.ordner(C, d.path)).filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f.name));
       // Erster Lesetag: aus den geladenen Karten; nur wenn es ältere Dateien als 30 Tage gibt, das Datum der ältesten Datei
       for (const f of dateien) if (f.name.slice(0, 10) < ab && (!ersterTag || f.name.slice(0, 10) < ersterTag)) ersterTag = f.name.slice(0, 10);
       for (const f of dateien.filter(f => f.name.slice(0, 10) >= ab)) {
-        const j = await U.dateiLesen(C, f.path);
+        const j = await RB.datei(C, f.path);
         for (const e of (j && j.eintraege) || []) ein.push({ ...e, geraet: d.name });
       }
     }
     const konto = [];
-    for (const f of (await U.ordnerLesen(C, `daten/${o}/konto`)).filter(f => f.name.endsWith('.json') && f.name !== 'auszahlungen.json')) {
-      try { const k = await U.dateiLesen(C, f.path); if (k) konto.push(k); } catch (e) { /* diese Quelle später */ }
+    for (const f of (await RB.ordner(C, `daten/${o}/konto`)).filter(f => f.name.endsWith('.json') && f.name !== 'auszahlungen.json')) {
+      try { const k = await RB.datei(C, f.path); if (k) konto.push(k); } catch (e) { /* diese Quelle später */ }
     }
-    let sl = null; try { sl = await U.dateiLesen(C, `daten/${o}/lesen/inhalt/storylines.json`); } catch (e) { /* ohne Liste */ }
+    let sl = null; try { sl = await RB.datei(C, `daten/${o}/lesen/inhalt/storylines.json`); } catch (e) { /* ohne Liste */ }
     Object.assign(LS, { kind: o, eintraege: ein, ersterTag, fragen: LS.kind === o ? LS.fragen : {}, texte: LS.kind === o ? LS.texte : {}, konto, storylines: sl && Array.isArray(sl.storylines) ? sl.storylines : [], geladen: Date.now(), fehler: null });
   } catch (e) { LS.fehler = e.message || 'Laden hat nicht geklappt.'; LS.kind = o; LS.geladen = Date.now(); }
   LS.laedt = false;
@@ -2361,8 +2379,8 @@ async function leseFragenLaden(ids, texte = []) {
   LS.fragenLaedt = true; M.lauf('reiter', 'leseverlauf');
   const o = LS.kind;
   await Promise.all([
-    ...fehlt.map(async id => { try { LS.fragen[id] = await U.dateiLesen(C, `daten/${o}/lesen/inhalt/fragen/${id}.json`); } catch (e) { LS.fragen[id] = null; } }),
-    ...fehltT.map(async id => { try { LS.texte[id] = await U.dateiLesen(C, `daten/${o}/lesen/inhalt/texte/${id}.json`); } catch (e) { LS.texte[id] = null; } })
+    ...fehlt.map(async id => { try { LS.fragen[id] = await RB.datei(C, `daten/${o}/lesen/inhalt/fragen/${id}.json`); } catch (e) { LS.fragen[id] = null; } }),
+    ...fehltT.map(async id => { try { LS.texte[id] = await RB.datei(C, `daten/${o}/lesen/inhalt/texte/${id}.json`); } catch (e) { LS.texte[id] = null; } })
   ]);
   LS.fragenLaedt = false;
   if (route.seite === 'leseverlauf' || route.seite === 'lesen') zeichne();
@@ -3568,7 +3586,8 @@ document.addEventListener('click', (ev) => {
     case 'abmelden':
       if (!confirm('Schlüssel von diesem Gerät löschen? Danach musst du ihn neu eintragen.')) break;
       C = { ...C, token: '' }; konfigSichern(); D.daten = null; D.nutzer = null;
-      try { caches.delete('eltern-tage-v1'); } catch (e) { /* egal */ }
+      try { caches.delete('eltern-tage-v1'); caches.delete('daten-blob-v1'); } catch (e) { /* egal */ }
+      RB.leeren();
       zeichneEinrichten(); break;
   }
 });

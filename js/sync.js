@@ -174,3 +174,19 @@ export function ohneTestphasen(log) {
   }
   return out;
 }
+
+// Abbild des Daten-Repos (23.11.): alle Dateien mit Fingerabdruck (sha) in einer Anfrage.
+// Gibt eine Map pfad → { sha, size, type: 'blob'|'tree' } zurück. Ist die Liste abgeschnitten, gibt es einen Fehler.
+export async function baumLesen(cfg) {
+  const r = await anfrage(cfg, 'GET', `${API}/repos/${cfg.repo}/git/trees/HEAD?recursive=1`, undefined, undefined, 'baum');
+  if (!r.ok) throw new UploadFehler(r.status, fehlerText(r.status));
+  const j = await r.json();
+  if (j.truncated || !Array.isArray(j.tree)) throw new UploadFehler(0, 'Liste zu lang');
+  return new Map(j.tree.map(t => [t.path, { sha: t.sha, size: t.size || 0, type: t.type }]));
+}
+// Inhalt zu einem Fingerabdruck (unveränderlich: gleicher sha = gleicher Inhalt)
+export async function blobLesen(cfg, sha) {
+  const r = await anfrage(cfg, 'GET', `${API}/repos/${cfg.repo}/git/blobs/${sha}`, undefined, 'application/vnd.github.raw+json', 'lesen');
+  if (!r.ok) throw new UploadFehler(r.status, fehlerText(r.status));
+  return r.blob();
+}
