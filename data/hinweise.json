@@ -545,9 +545,9 @@
         "tan α = Gegenkathete : Ankathete",
         "Welche zwei Seiten hast du? Die passende Formel nimmt genau diese zwei.",
         "Winkel gesucht → erst teilen, dann 2nd sin/cos/tan.",
-        "Seite gesucht → ohne 2nd: x = Zahl · sin/cos/tan."
+        "Seite gesucht → ohne 2nd. x oben → mal, x unten → geteilt."
       ],
-      "beispiel": "Winkel: 6 ÷ 8 = → 0,75 → 2nd cos 0,75 = → α ≈ 41,4°. Seite: x = 10 · cos 35° ≈ 8,19",
+      "beispiel": "Winkel: 6 ÷ 8 = → 0,75 → 2nd cos 0,75 = → α ≈ 41,4°. x oben: x = 10 · cos 35° ≈ 8,19. x unten: sin 35° = 6 : x → x = 6 : sin 35° ≈ 10,46",
       "fach": "mathe"
     }
   ]

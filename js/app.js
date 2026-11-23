@@ -39,7 +39,7 @@ import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 import { allesNeuLaden } from './neuladen.js';
 
-export const APP_VERSION = '2.57.1';
+export const APP_VERSION = '2.58.0';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Abschicken, Formelsammlung. Testgeräte laden keine Messung hoch.
 M.init({ app: 'mathe', version: APP_VERSION });
 

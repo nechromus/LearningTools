@@ -495,9 +495,10 @@ function dreieckZeichnen(bild, P0, bx, by, s, ox, oy) {
   // Winkelgröße (Auftrag 69, Seite berechnen): „β = 31°“ etwas weiter außen im Winkel
   if (bild.winkelWert) {
     // Auftrag 70: außen an der Ecke (innen lag die Zahl bei schmalen Dreiecken auf der Linie)
-    const o = [-bi[0], -bi[1]], tw = 70, anker = o[0] > 0.3 ? 'start' : o[0] < -0.3 ? 'end' : 'middle';
+    // Breite nach Textlänge (Auftrag 73: „β = 25°“ wurde links abgeschnitten)
+    const o = [-bi[0], -bi[1]], tw = (4 + String(bild.winkelWert).length) * 11 + 6, anker = o[0] > 0.3 ? 'start' : o[0] < -0.3 ? 'end' : 'middle';
     const wx = P.W[0] + o[0] * 14, wy = P.W[1] + o[1] * 14 + (o[1] > 0.3 ? 18 : o[1] < -0.3 ? -4 : 6);
-    const x0 = anker === 'start' ? wx - 10 : anker === 'end' ? wx - tw + 10 : wx - tw / 2;
+    const x0 = anker === 'start' ? wx - 2 : anker === 'end' ? wx - tw : wx - tw / 2;
     merke(x0, x0 + tw, wy - 18, wy + 6);
     inhalt += `<text x="${f(wx)}" y="${f(wy)}" text-anchor="${anker}" font-size="18" fill="${LINIE}"><tspan font-style="italic">${esc(bild.winkel || 'α')}</tspan> = <tspan font-weight="700">${esc(bild.winkelWert)}</tspan></text>`;
   } else inhalt += `<text x="${f(P.W[0] + bi[0] * 44)}" y="${f(P.W[1] + bi[1] * 44 + 6)}" text-anchor="middle" font-size="19" font-style="italic" fill="${LINIE}">${esc(bild.winkel || 'α')}</text>`;

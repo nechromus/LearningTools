@@ -1312,6 +1312,33 @@ export const TRIG = {
   tan: { z: 'geg', n: 'an', thema: 'tangens', f: (g) => Math.tan(g * Math.PI / 180), inv: (x) => Math.atan(x) * 180 / Math.PI }
 };
 const ROLLE_NAME = { hyp: 'Hypotenuse', an: 'Ankathete', geg: 'Gegenkathete' };
+// Seite gesucht (Auftrag 69/73): x oben im Bruch (Zähler-Seite gesucht, Nenner gegeben → mal) oder x unten
+// (Nenner-Seite gesucht: Hypotenuse bei sin/cos, Ankathete bei tan, Zähler gegeben → geteilt). Gibt die Zahlen und die drei Seiten fürs Bild.
+function trigSeiteZahlen(rng, fn, unten, komma) {
+  const T = TRIG[fn], F = T.f;
+  for (let v = 0; v < 500; v++) {
+    const g = unten ? zufall(rng, 25, 65) : zufall(rng, 20, 70);
+    if (g % 5 === 0 && rng() < 0.5) continue;
+    if ((fn === 'tan' && g === 45) || (unten && fn !== 'tan' && (g === 30 || g === 60))) continue;   // mal und geteilt wären gleich bzw. zu glatt
+    const geg = unten ? (komma ? zufall(rng, 30, 150) / 10 : zufall(rng, 3, 15)) : (komma ? zufall(rng, 40, 160) / 10 : zufall(rng, 4, 20));
+    const x = unten ? geg / F(g) : geg * F(g), xr = r2(x);
+    if (xr < 1 || xr > 40) continue;
+    const xRolle = unten ? T.n : T.z, gRolle = unten ? T.z : T.n;
+    const S3 = { [gRolle]: geg, [xRolle]: x };
+    if (fn === 'tan') S3.hyp = Math.hypot(S3.an, S3.geg);
+    else { const k = T.z === 'an' ? 'geg' : 'an'; S3[k] = Math.sqrt(S3.hyp * S3.hyp - S3[T.z] * S3[T.z]); }
+    if (!(S3.an > 0.3 && S3.geg > 0.3)) continue;
+    // Varianten: mit gerundetem sin/cos/tan-Wert (2–4 Stellen) gerechnet; das Ergebnis muss trotzdem eindeutig sein
+    const vari = [...new Set([2, 3, 4].map(k => r2(unten ? geg / rdK(F(g), k) : geg * rdK(F(g), k))))].filter(y => Math.abs(y - xr) > 1e-9);
+    if (unten && vari.some(y => Math.abs(y - xr) > 0.011)) continue;
+    return { g, geg, x, xr, vari, S3, xRolle, gRolle };
+  }
+  return null;
+}
+const obenUntenSchritt = (unten, fn, geg, g) => ({ text: 'x oben oder unten?', optionen: ['oben → mal', 'unten → geteilt'], richtig: unten ? 1 : 0, rollen: ['oben', 'unten'],
+  kos: 'obenunten', zwei_versuche: true, unten, fn, nenner: geg, grad: g });
+const seiteRechnen = (d, fn, unten) => ({ text: `x = ${zahlText(d.geg)} ${unten ? ':' : '·'} ${fn} ${d.g}° =`, wert: d.xr, stellen: 2, rundenAuf: 2, genau: r9(d.x),
+  ...(d.vari.length ? { varianten: d.vari } : {}), einheit: 'cm', kos: 'seite', grad: d.g, nenner: d.geg, fn, ...(unten ? { unten: true } : {}) });
 // Richtige Eingaben für sin/tan: auf 4 Stellen gerundet oder mit 2–3 Stellen gerundet; abgeschnitten nicht (Auftrag 69)
 function trigWerte(c) { return [...new Set([2, 3, 4].map(k => r9(rdK(c, k))))]; }
 // Sachtexte: Zahlen in der Reihenfolge an, hyp, geg (wie beim Kosinus); die gegebene Kathete berührt den gefragten Winkel
@@ -1413,38 +1440,30 @@ function trig(fn, stufe, rng, opts = {}) {
   }
   const bruchText = (z, n) => Number.isInteger(z) && Number.isInteger(n) ? `${z}/${n}` : `${zahlText(z)} : ${zahlText(n)}`;
   const fnWahl = (k) => ({ text: "sin, cos oder tan?", optionen: [`sin ${w}`, `cos ${w}`, `tan ${w}`], richtig: ['sin', 'cos', 'tan'].indexOf(fn), rollen: ['sin', 'cos', 'tan'], kos: 'fn', zwei_versuche: true, fn, gegeben: k });
-  // Seite berechnen (Auftrag 69, Stufe 3): x steht oben im Bruch → mal. Hypotenuse gesucht (geteilt) noch nicht.
+  // Seite berechnen (Auftrag 69, Stufe 3): x oben im Bruch → mal; seit Auftrag 73 etwa die Hälfte x unten → geteilt
   if (form === 'seite') {
-    for (let v = 0; v < 500; v++) {
-      const g = zufall(rng, 20, 70);
-      if (g % 5 === 0 && rng() < 0.5) continue;
-      const nen = rng() < 0.5 ? zufall(rng, 4, 20) : zufall(rng, 40, 160) / 10;
-      const x = nen * F(g), xr = r2(x);
-      if (xr < 1 || xr > 40) continue;
-      // Für das Bild: alle drei Seiten
-      const S3 = { [T.n]: nen, [T.z]: x };
-      if (fn === 'tan') S3.hyp = Math.hypot(nen, x); else S3[T.z === 'an' ? 'geg' : 'an'] = Math.sqrt(nen * nen - x * x);
-      const sx = { ...B, [T.z]: 'x' };
-      const L = { [T.n]: lt(nen, 'cm') };
-      const anderes = ['hyp', 'an', 'geg'].filter(k => k !== T.z && k !== T.n)[0];
-      const opt = ['Hypotenuse', `Ankathete zu ${w}`, `Gegenkathete zu ${w}`];
-      const rollen = ['hyp', 'an', 'geg'];
-      // Varianten: mit gerundetem sin/cos/tan-Wert (2–4 Stellen) gerechnet
-      const vari = [...new Set([2, 3, 4].map(k => r2(nen * rdK(F(g), k))))].filter(y => Math.abs(y - xr) > 1e-9);
-      return neu(gen, ['seite', bH, bA, bG, w === 'α' ? 'alpha' : 'beta', lage, g, nen], {
-        ...fest, form, stufe: 3,
-        frage: `Der Winkel ${w} ist ${g}°. Berechne die Seite x. Runde auf 2 Stellen nach dem Komma.`,
-        bild: { form: 'dreieck', lage, an: S3.an, geg: S3.geg, winkel: w, winkelWert: `${g}°`, namen: { hyp: sx.hyp, an: sx.an, geg: sx.geg }, laengen: L },
-        schritte: [
-          { text: 'Welche Seite ist x?', optionen: opt, richtig: rollen.indexOf(T.z), rollen, kos: 'gesucht', zwei_versuche: true, ...fnTeil },
-          fnWahl(T.n),
-          { text: `x = ${zahlText(nen)} · ${fn} ${g}° =`, wert: xr, stellen: 2, rundenAuf: 2, genau: r9(x), ...(vari.length ? { varianten: vari } : {}), einheit: 'cm', kos: 'seite', grad: g, nenner: nen, fn }
-        ],
-        loesungsweg: [`(1) x ist die ${ROLLE_NAME[T.z]}. Gegeben: ${ROLLE_NAME[T.n]} = ${lt(nen, 'cm')}`, `(2) ${fn} ${w} = ${ROLLE_NAME[T.z]} : ${ROLLE_NAME[T.n]} → x steht oben → mal`, `(3) x = ${zahlText(nen)} · ${fn} ${g}° ≈ ${zahlText(xr, 2)} cm`],
-        erklaerung: `x steht oben im Bruch. Dann rechnest du mal: x = ${ROLLE_NAME[T.n]} · ${fn} ${w}. ${anderes === 'hyp' ? '' : ''}Runden, nicht abschneiden.`.replace('  ', ' ')
-      });
-    }
-    return null;
+    const unten = opts.unten != null ? !!opts.unten : rng() < 0.5;
+    const d = trigSeiteZahlen(rng, fn, unten, rng() < 0.5);
+    if (!d) return null;
+    const sx = { ...B, [d.xRolle]: 'x' };
+    const opt = ['Hypotenuse', `Ankathete zu ${w}`, `Gegenkathete zu ${w}`];
+    const rollen = ['hyp', 'an', 'geg'];
+    const Z = ROLLE_NAME[T.z], N = ROLLE_NAME[T.n], G = zahlText(d.geg);
+    return neu(gen, ['seite', bH, bA, bG, w === 'α' ? 'alpha' : 'beta', lage, d.g, d.geg, ...(unten ? ['unten'] : [])], {
+      ...fest, form, stufe: 3, ...(unten ? { unten: true } : {}),
+      frage: `Der Winkel ${w} ist ${d.g}°. Berechne die Seite x. Runde auf 2 Stellen nach dem Komma.`,
+      bild: { form: 'dreieck', lage, an: d.S3.an, geg: d.S3.geg, winkel: w, winkelWert: `${d.g}°`, namen: { hyp: sx.hyp, an: sx.an, geg: sx.geg }, laengen: { [d.gRolle]: lt(d.geg, 'cm') } },
+      schritte: [
+        { text: 'Welche Seite ist x?', optionen: opt, richtig: rollen.indexOf(d.xRolle), rollen, kos: 'gesucht', zwei_versuche: true, ...fnTeil },
+        fnWahl(d.gRolle),
+        obenUntenSchritt(unten, fn, d.geg, d.g),
+        seiteRechnen(d, fn, unten)
+      ],
+      loesungsweg: unten
+        ? [`(1) x ist die ${N}. Gegeben: ${Z} = ${lt(d.geg, 'cm')}`, `(2) ${fn} ${w} = ${Z} : ${N} → ${fn} ${d.g}° = ${G} : x → x steht unten → geteilt`, `(3) x = ${G} : ${fn} ${d.g}° ≈ ${zahlText(d.xr, 2)} cm`]
+        : [`(1) x ist die ${Z}. Gegeben: ${N} = ${lt(d.geg, 'cm')}`, `(2) ${fn} ${w} = ${Z} : ${N} → x steht oben → mal`, `(3) x = ${G} · ${fn} ${d.g}° ≈ ${zahlText(d.xr, 2)} cm`],
+      erklaerung: unten ? `x steht unten im Bruch. Dann rechnest du geteilt: x = ${Z} : ${fn} ${w}. Runden, nicht abschneiden.` : `x steht oben im Bruch. Dann rechnest du mal: x = ${N} · ${fn} ${w}. Runden, nicht abschneiden.`
+    });
   }
   // Winkel berechnen (Stufe 2 und 3)
   const SACH = TRIG_SACH[fn];
@@ -1535,9 +1554,9 @@ export function trigMix(stufe, rng, opts = {}) {
   const B = { hyp: bH, an: bA, geg: bG };
   const lage = zufall(rng, 0, KOS_LAGEN - 1);
   const fest = { thema: 'trig-mix', typ: 'schritte', kategorie: 'text', hinweise: ['trig'], form, stufe: 1, fn, gesucht };
-  const merksatz = 'Winkel gesucht → erst teilen, dann 2nd. Seite gesucht → ohne 2nd, mal.';
+  const merksatz = 'Winkel gesucht → erst teilen, dann 2nd. Seite gesucht → ohne 2nd: x oben → mal, x unten → geteilt.';
   const tasteRichtig = TRIG_TASTEN.indexOf(winkel ? `2nd ${fn}` : fn);
-  const auswahl = (zahlen) => {
+  const auswahl = (zahlen, sd) => {
     const s = [
       { text: 'Was ist gesucht?', optionen: ['Winkel', 'Seite'], richtig: winkel ? 0 : 1, rollen: ['winkel', 'seite'], kos: 'tgesucht', gesucht, zwei_versuche: true, fn },
       { text: 'sin, cos oder tan?', optionen: [`sin ${w}`, `cos ${w}`, `tan ${w}`], richtig: ['sin', 'cos', 'tan'].indexOf(fn), rollen: ['sin', 'cos', 'tan'], kos: 'fn', zwei_versuche: true, fn, gegeben: T.n },
@@ -1547,6 +1566,13 @@ export function trigMix(stufe, rng, opts = {}) {
       const opt = [`${zahlText(zahlen[0])} ÷ ${zahlText(zahlen[1])} =`, fn];
       const r = rng() < 0.5 ? [0, 1] : [1, 0];
       s.push({ text: 'Was tippst du zuerst?', optionen: r.map(i => opt[i]), richtig: r.indexOf(0), rollen: r.map(i => ['teilen', 'fn'][i]), kos: 'zuerst', zwei_versuche: true, fn });
+    }
+    // Seite gesucht (Auftrag 73): Form taste „Was tippst du?“ (mal oder geteilt), Form rechnen „x oben oder unten?“
+    if (sd) {
+      const G = zahlText(sd.d.geg);
+      if (form === 'taste') s.push({ text: 'Was tippst du?', optionen: [`${G} × ${fn} ${sd.d.g} =`, `${G} ÷ ${fn} ${sd.d.g} =`], richtig: sd.unten ? 1 : 0, rollen: ['mal', 'geteilt'],
+        kos: 'tippen', zwei_versuche: true, unten: sd.unten, fn, nenner: sd.d.geg, grad: sd.d.g });
+      else s.push(obenUntenSchritt(sd.unten, fn, sd.d.geg, sd.d.g));
     }
     return s;
   };
@@ -1590,35 +1616,27 @@ export function trigMix(stufe, rng, opts = {}) {
     }
     return null;
   }
-  // Seite gesucht: x = Länge · sin/cos/tan g°
-  for (let v = 0; v < 500; v++) {
-    const g = zufall(rng, 20, 70);
-    if (g % 5 === 0 && rng() < 0.5) continue;
-    const nen = form === 'rechnen' && rng() < 0.4 ? zufall(rng, 40, 160) / 10 : zufall(rng, 4, 20);
-    const x = nen * F(g), xr = r2(x);
-    if (xr < 1 || xr > 40) continue;
-    const S3 = { [T.n]: nen, [T.z]: x };
-    if (fn === 'tan') S3.hyp = Math.hypot(nen, x); else S3[T.z === 'an' ? 'geg' : 'an'] = Math.sqrt(nen * nen - x * x);
-    if (!(S3.an > 0 && S3.geg > 0)) continue;
-    const sx = { ...B, [T.z]: 'x' };
-    const vari = [...new Set([2, 3, 4].map(k => r2(nen * rdK(F(g), k))))].filter(y => Math.abs(y - xr) > 1e-9);
-    const schritte = auswahl();
-    if (form === 'rechnen') schritte.push({ text: `x = ${zahlText(nen)} · ${fn} ${g}° =`, wert: xr, stellen: 2, rundenAuf: 2, genau: r9(x), ...(vari.length ? { varianten: vari } : {}), einheit: 'cm', kos: 'seite', grad: g, nenner: nen, fn });
-    return neu('trig-mix', [form, fn, 'seite', lage, w === 'α' ? 'alpha' : 'beta', g, nen], {
-      ...fest,
-      frage: form === 'taste' ? `Der Winkel ${w} ist ${g}°. Berechne die Seite x. Du musst nicht rechnen: Wähle nur die richtigen Tasten.` : `Der Winkel ${w} ist ${g}°. Berechne die Seite x. Runde auf 2 Stellen nach dem Komma.`,
-      bild: { form: 'dreieck', lage, an: S3.an, geg: S3.geg, winkel: w, winkelWert: `${g}°`, namen: { hyp: sx.hyp, an: sx.an, geg: sx.geg }, laengen: { [T.n]: lt(nen, 'cm') } },
-      schritte,
-      loesungsweg: [
-        `(1) Gesucht ist die Seite x (${ROLLE_NAME[T.z]}). Gegeben: ${w} = ${g}° und ${ROLLE_NAME[T.n]} = ${lt(nen, 'cm')} → ${fn}`,
-        `(2) x steht oben → mal, ohne 2nd: x = ${zahlText(nen)} · ${fn} ${g}°`,
-        ...(form === 'rechnen' ? [`(3) x ≈ ${zahlText(xr, 2)} cm`] : []),
-        merksatz
-      ],
-      erklaerung: `${regelText(fn, w)}. Die Seite x ist gesucht: x = ${ROLLE_NAME[T.n]} · ${fn} ${w}. Ohne 2nd.`
-    });
-  }
-  return null;
+  // Seite gesucht: x oben → x = Länge · sin/cos/tan g°; x unten (Auftrag 73, etwa die Hälfte) → x = Länge : sin/cos/tan g°
+  const unten = opts.unten != null ? !!opts.unten : rng() < 0.5;
+  const d = trigSeiteZahlen(rng, fn, unten, form === 'rechnen' && rng() < 0.4);
+  if (!d) return null;
+  const sx = { ...B, [d.xRolle]: 'x' };
+  const schritte = auswahl(null, { d, unten });
+  if (form === 'rechnen') schritte.push(seiteRechnen(d, fn, unten));
+  const G = zahlText(d.geg);
+  return neu('trig-mix', [form, fn, 'seite', lage, w === 'α' ? 'alpha' : 'beta', d.g, d.geg, ...(unten ? ['unten'] : [])], {
+    ...fest, ...(unten ? { unten: true } : {}),
+    frage: form === 'taste' ? `Der Winkel ${w} ist ${d.g}°. Berechne die Seite x. Du musst nicht rechnen: Wähle nur die richtigen Tasten.` : `Der Winkel ${w} ist ${d.g}°. Berechne die Seite x. Runde auf 2 Stellen nach dem Komma.`,
+    bild: { form: 'dreieck', lage, an: d.S3.an, geg: d.S3.geg, winkel: w, winkelWert: `${d.g}°`, namen: { hyp: sx.hyp, an: sx.an, geg: sx.geg }, laengen: { [d.gRolle]: lt(d.geg, 'cm') } },
+    schritte,
+    loesungsweg: [
+      `(1) Gesucht ist die Seite x (${ROLLE_NAME[d.xRolle]}). Gegeben: ${w} = ${d.g}° und ${ROLLE_NAME[d.gRolle]} = ${lt(d.geg, 'cm')} → ${fn}`,
+      unten ? `(2) ${fn} ${d.g}° = ${G} : x → x steht unten → geteilt, ohne 2nd: x = ${G} : ${fn} ${d.g}°` : `(2) x steht oben → mal, ohne 2nd: x = ${G} · ${fn} ${d.g}°`,
+      ...(form === 'rechnen' ? [`(3) x ≈ ${zahlText(d.xr, 2)} cm`] : []),
+      merksatz
+    ],
+    erklaerung: `${regelText(fn, w)}. Die Seite x ist gesucht: x = ${ROLLE_NAME[d.gRolle]} ${unten ? ':' : '·'} ${fn} ${w}. Ohne 2nd.`
+  });
 }
 
 // ---------- Lösungsweg selbst schreiben (sin, cos, tan; Thema „trig-weg“, Wunsch Eltern 22.11.) ----------
@@ -1662,36 +1680,38 @@ export function trigWeg(stufe, rng, opts = {}) {
       rollen: sel.map(o => o[1]), kos: 'weg', etappe, zeile: nr, weg: true, zwei_versuche: true, fn, gesucht, spalte: true };
   };
   if (!winkel) {
-    for (let v = 0; v < 500; v++) {
-      const g = zufall(rng, 20, 70);
-      if (g % 5 === 0 && rng() < 0.5) continue;
-      const nen = rng() < 0.4 ? zufall(rng, 40, 160) / 10 : zufall(rng, 4, 20);
-      const x = nen * F(g), xr = r2(x);
-      if (xr < 1 || xr > 40) continue;
-      const S3 = { [T.n]: nen, [T.z]: x };
-      if (fn === 'tan') S3.hyp = Math.hypot(nen, x); else S3[T.z === 'an' ? 'geg' : 'an'] = Math.sqrt(nen * nen - x * x);
-      if (!(S3.an > 0 && S3.geg > 0)) continue;
-      const ab = Math.trunc(x * 100 + 1e-9) / 100, rad = r2(nen * F(g * 180 / Math.PI)), get = r2(nen / F(g));
-      const N = zahlText(nen);
-      const schritte = [
-        zeile(1, 'formel', `${fn} ${g}° = x : ${N}`, [[`${andere[0]} ${g}° = x : ${N}`, 'fn'], [`${fn} ${g}° = ${N} : x`, 'kehr']]),
-        zeile(2, 'umgestellt', `x = ${N} · ${fn} ${g}°`, [[`x = ${N} : ${fn} ${g}°`, 'geteilt'], [`x = ${N} · ${fn}⁻¹(${g})`, 'umkehr']]),
-        zeile(3, 'ergebnis', `x ≈ ${zahlText(xr, 2)} cm`, [Math.abs(ab - xr) > 1e-9 ? [`x ≈ ${zahlText(ab, 2)} cm`, 'abgeschnitten'] : null, get > 0 && get < 1000 ? [`x ≈ ${zahlText(get, 2)} cm`, 'geteilt'] : null, rad > 0 ? [`x ≈ ${zahlText(rad, 2)} cm`, 'rad'] : null, [`x ≈ ${zahlText(r2(nen * TRIG[andere[0]].f(g)), 2)} cm`, 'fn']])
-      ];
-      const zeilen = { formel: schritte[0].optionen[schritte[0].richtig], umgestellt: schritte[1].optionen[schritte[1].richtig], ergebnis: schritte[2].optionen[schritte[2].richtig] };
-      const weg = { gesucht: 'seite', fn, w, u: x, g, n: nen, stellen: 2, zeilen };
-      const sch = st === 1 ? schritte : schreiben(WEG_ETAPPEN.seite, zeilen,
-        { formel: `${fn} ${g}° =`, umgestellt: 'x =', ergebnis: 'x ≈' },
-        { formel: ['x', N, ':', '·'], umgestellt: [N, '·', ':', `${fn} ${g}°`, `${fn}⁻¹(${g})`] }, { ergebnis: 'cm' });
-      return neu('trig-weg', [FORM, fn, 'seite', lage, w === 'α' ? 'alpha' : 'beta', g, nen], {
-        ...fest, weg, schritte: sch, ...(st === 4 ? { ende: 'x ≈ …' } : {}),
-        frage: `Der Winkel ${w} ist ${g}°. Berechne die Seite x. ${st === 4 ? 'Schreib den ganzen Weg selbst. Am Ende steht x ≈ … (2 Stellen nach dem Komma).' : 'Schreib den Weg Zeile für Zeile.'}`,
-        bild: { form: 'dreieck', lage, an: S3.an, geg: S3.geg, winkel: w, winkelWert: `${g}°`, namen: { ...B, [T.z]: 'x' }, laengen: { [T.n]: lt(nen, 'cm') } },
-        loesungsweg: schritte.map(s => s.optionen[s.richtig]),
-        erklaerung: `${regelText(fn, w)}. x steht oben: erst die Formel, dann mal ${N}, dann runden.`
-      });
-    }
-    return null;
+    // Auftrag 73: etwa die Hälfte x unten (sin 35° = 6 : x → x = 6 : sin 35°)
+    const unten = opts.unten != null ? !!opts.unten : rng() < 0.5;
+    const d = trigSeiteZahlen(rng, fn, unten, rng() < 0.4);
+    if (!d) return null;
+    const { g, geg: nen, x, xr } = d;
+    const ab = Math.trunc(x * 100 + 1e-9) / 100;
+    const rad = r2(unten ? nen / F(g * 180 / Math.PI) : nen * F(g * 180 / Math.PI));
+    const anders = r2(unten ? nen * F(g) : nen / F(g));          // mal statt geteilt bzw. geteilt statt mal
+    const andereFn = r2(unten ? nen / TRIG[andere[0]].f(g) : nen * TRIG[andere[0]].f(g));
+    const N = zahlText(nen);
+    const schritte = unten ? [
+      zeile(1, 'formel', `${fn} ${g}° = ${N} : x`, [[`${andere[0]} ${g}° = ${N} : x`, 'fn'], [`${fn} ${g}° = x : ${N}`, 'kehr']]),
+      zeile(2, 'umgestellt', `x = ${N} : ${fn} ${g}°`, [[`x = ${N} · ${fn} ${g}°`, 'mal'], [`x = ${N} : ${fn}⁻¹(${g})`, 'umkehr']]),
+      zeile(3, 'ergebnis', `x ≈ ${zahlText(xr, 2)} cm`, [Math.abs(ab - xr) > 1e-9 ? [`x ≈ ${zahlText(ab, 2)} cm`, 'abgeschnitten'] : null, anders > 0 ? [`x ≈ ${zahlText(anders, 2)} cm`, 'mal'] : null, rad > 0 && rad < 1000 ? [`x ≈ ${zahlText(rad, 2)} cm`, 'rad'] : null, [`x ≈ ${zahlText(andereFn, 2)} cm`, 'fn']])
+    ] : [
+      zeile(1, 'formel', `${fn} ${g}° = x : ${N}`, [[`${andere[0]} ${g}° = x : ${N}`, 'fn'], [`${fn} ${g}° = ${N} : x`, 'kehr']]),
+      zeile(2, 'umgestellt', `x = ${N} · ${fn} ${g}°`, [[`x = ${N} : ${fn} ${g}°`, 'geteilt'], [`x = ${N} · ${fn}⁻¹(${g})`, 'umkehr']]),
+      zeile(3, 'ergebnis', `x ≈ ${zahlText(xr, 2)} cm`, [Math.abs(ab - xr) > 1e-9 ? [`x ≈ ${zahlText(ab, 2)} cm`, 'abgeschnitten'] : null, anders > 0 && anders < 1000 ? [`x ≈ ${zahlText(anders, 2)} cm`, 'geteilt'] : null, rad > 0 ? [`x ≈ ${zahlText(rad, 2)} cm`, 'rad'] : null, [`x ≈ ${zahlText(andereFn, 2)} cm`, 'fn']])
+    ];
+    for (const sc of schritte) Object.assign(sc, { weg_n: nen, weg_g: g, ...(unten ? { weg_unten: true } : {}) });
+    const zeilen = { formel: schritte[0].optionen[schritte[0].richtig], umgestellt: schritte[1].optionen[schritte[1].richtig], ergebnis: schritte[2].optionen[schritte[2].richtig] };
+    const weg = { gesucht: 'seite', fn, w, u: x, g, n: nen, stellen: 2, zeilen, ...(unten ? { unten: true } : {}) };
+    const sch = st === 1 ? schritte : schreiben(WEG_ETAPPEN.seite, zeilen,
+      { formel: `${fn} ${g}° =`, umgestellt: 'x =', ergebnis: 'x ≈' },
+      { formel: ['x', N, ':', '·'], umgestellt: [N, '·', ':', `${fn} ${g}°`, `${fn}⁻¹(${g})`] }, { ergebnis: 'cm' });
+    return neu('trig-weg', [FORM, fn, 'seite', lage, w === 'α' ? 'alpha' : 'beta', g, nen, ...(unten ? ['unten'] : [])], {
+      ...fest, ...(unten ? { unten: true } : {}), weg, schritte: sch, ...(st === 4 ? { ende: 'x ≈ …' } : {}),
+      frage: `Der Winkel ${w} ist ${g}°. Berechne die Seite x. ${st === 4 ? 'Schreib den ganzen Weg selbst. Am Ende steht x ≈ … (2 Stellen nach dem Komma).' : 'Schreib den Weg Zeile für Zeile.'}`,
+      bild: { form: 'dreieck', lage, an: d.S3.an, geg: d.S3.geg, winkel: w, winkelWert: `${g}°`, namen: { ...B, [d.xRolle]: 'x' }, laengen: { [d.gRolle]: lt(nen, 'cm') } },
+      loesungsweg: schritte.map(s => s.optionen[s.richtig]),
+      erklaerung: unten ? `${regelText(fn, w)}. x steht unten: erst die Formel, dann ${N} geteilt durch ${fn} ${g}°, dann runden.` : `${regelText(fn, w)}. x steht oben: erst die Formel, dann mal ${N}, dann runden.`
+    });
   }
   for (let v = 0; v < 800; v++) {
     let zz, nn;

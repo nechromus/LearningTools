@@ -107,6 +107,10 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
       return trigFalsch(fn, n);
     }
     if (teil.kos === 'zuerst') return { typ: 'trig-erst-funktion', text: `Erst die zwei Seiten teilen. Dann 2nd ${fn}.` };
+    // Auftrag 73: x oben oder unten? / Was tippst du?
+    if (teil.kos === 'obenunten' || teil.kos === 'tippen') return teil.unten ? untenMal(fn, teil.nenner, teil.grad)
+      : { typ: 'trig-seite-geteilt', text: `x steht oben im Bruch → mal: x = ${String(teil.nenner).replace('.', ',')} · ${fn} ${teil.grad}°.` };
+    if (teil.kos === 'gesucht' && teil.rollen[teil.richtig] === 'hyp') return fn === 'cos' ? KOS_TIPP.hyp : TRIG_TIPP(fn, n).hyp;
     // Lösungsweg Zeile für Zeile (trig-weg, 22.11.): Tipp je Art der gewählten falschen Zeile
     if (teil.kos === 'weg') return WEG_TIPP(r, fn, n, teil);
     if (fn === 'cos') {
@@ -143,13 +147,16 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
 export const TRIG_THEMEN = ['kosinus', 'sinus', 'tangens', 'trig-mix', 'trig-weg'];
 export const istTrig = (a) => !!(a && TRIG_THEMEN.includes(a.thema));
 // Lösungsweg (trig-weg, 22.11.): Fehlerart der gewählten Zeile → Fehlertyp und kurzer Tipp
+// Auftrag 73: x unten, aber mal gerechnet/gewählt
+const untenMal = (fn, N, g) => ({ typ: 'trig-unten-mal', text: N != null && g != null ? `x steht unten → geteilt: x = ${String(N).replace('.', ',')} : ${fn} ${g}°.` : 'x steht unten → geteilt.' });
 function WEG_TIPP(r, fn, n, teil) {
   const [z, nn] = TZ[fn] || TZ.cos;
   switch (r) {
     case 'fn': return trigFalsch(fn, n);
     case 'kehr': return { typ: fn === 'cos' ? 'cos-kehrwert' : `${fn}-kehrwert`, text: `${fn} ${n} = ${RN[z]} : ${RN[nn]}. Die ${RN[nn]} steht unten.` };
     case 'geteilt': return { typ: 'trig-seite-geteilt', text: 'x steht oben im Bruch. Dann rechnest du mal.' };
-    case 'umkehr': return { typ: 'trig-taste-umkehr', text: `Die Seite ist gesucht. Dann ohne 2nd: x = Zahl · ${fn}.` };
+    case 'mal': return untenMal(teil.fn || fn, teil.weg_n, teil.weg_g);
+    case 'umkehr': return { typ: 'trig-taste-umkehr', text: `Die Seite ist gesucht. Dann ohne 2nd: x = Zahl ${teil.weg_unten ? ':' : '·'} ${fn}.` };
     case 'ohne2nd': return { typ: 'trig-taste-ohne-2nd', text: `Der Winkel ist gesucht. Dann brauchst du 2nd: ${fn}⁻¹.` };
     case 'vomBruch': return { typ: 'trig-vom-bruch', text: `Erst teilen. Hier noch kein ${fn} drücken.` };
     case 'wertWinkel': return { typ: 'trig-wert-statt-winkel', text: `Die Zahl ist der ${fn}-Wert. Vor ihr steht ${fn} ${n}, nicht ${n}.` };
@@ -268,6 +275,15 @@ function trigZahlFehler(teil, w, n) {
     if (fn === 'cos') return null;
     if (kosNah(w, TFr[fn](teil.grad), 0.006)) return { typ: 'trig-rad', text: 'Dein Rechner rechnet nicht in Grad. Stell ihn auf DEG.' };
     if (andere.some(f => kosNah(w, TF[f](teil.grad), 0.0006))) return { typ: 'trig-falsche-funktion', text: `Hier ist ${fn} gefragt. Tippe ${fn}, nicht ${andere.join(' oder ')}.` };
+    return null;
+  }
+  if (teil.kos === 'seite' && teil.unten) {     // Auftrag 73: x = Länge : sin/cos/tan
+    const x = teil.nenner / TF[fn](teil.grad);
+    if (kosNah(w, teil.wert, 0.006)) return null;
+    if (abgeschnitten(w, x, 1, 2)) return TRIG_ABGESCHNITTEN;
+    if (kosNah(w, teil.nenner * TF[fn](teil.grad), 0.02)) return untenMal(fn, teil.nenner, teil.grad);
+    if (andere.some(f => kosNah(w, teil.nenner / TF[f](teil.grad), 0.02) || kosNah(w, teil.nenner * TF[f](teil.grad), 0.02))) return trigFalsch(fn, n);
+    if (kosNah(w, teil.nenner / TFr[fn](teil.grad), 0.02)) return { typ: 'trig-rad', text: 'Dein Rechner rechnet nicht in Grad. Stell ihn auf DEG.' };
     return null;
   }
   if (teil.kos === 'seite') {     // x = Nenner · sin/cos/tan
@@ -1469,7 +1485,9 @@ function teilschrittNeu(a, t, l) {
     if (k === 'fn') return 'trigo.wahl@1';
     if (k === 'seiten') return 'trigo.seiten@1';   // Auftrag 72
     if (k === 'gesucht') return 'trigo.seite@1';
-    if (k === 'seite') return 'trigo.seite@2';
+    if (k === 'seite') return q.unten ? 'trigo.seite@3' : 'trigo.seite@2';
+    if (k === 'obenunten') return 'trigo.umstellen@1';   // Auftrag 73
+    if (k === 'tippen') return 'trigo.taste@1';
     if (k === 'sin' || k === 'tan') return 'trigo.rechner@1';
     if (k === 'winkel') return 'trigo.winkel@2';
     if (k === 'cos') return 'trigo.rechner@1';

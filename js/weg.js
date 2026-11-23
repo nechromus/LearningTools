@@ -185,7 +185,7 @@ const ETAPPE_TIPP = {
   formel: (c) => `Hier kommt die Formel: ${c.fn} ${c.gesucht === 'seite' ? c.g + '°' : c.w} = … : …`,
   wert: (c) => `Hier kommt der Wert: ${c.fn} ${c.w} ≈ Zahl. Erst teilen.`,
   umkehr: (c) => `Hier kommt der Winkel mit 2nd: ${c.w} = ${c.fn}⁻¹(…)`,
-  umgestellt: (c) => `Hier steht x allein: x = … · ${c.fn} ${c.g}°`,
+  umgestellt: (c) => `Hier steht x allein: x = … ${c.unten ? ':' : '·'} ${c.fn} ${c.g}°`,
   ergebnis: (c) => `Hier steht das Ergebnis: ${c.gesucht === 'seite' ? 'x' : c.w} ≈ Zahl`
 };
 
@@ -213,10 +213,12 @@ function fehlerArt(ctx, z, et, w) {
       if (nah(rechne(xs, ctx.u), 1 / FN[fn](g), 1e-6)) return T(fn === 'cos' ? 'cos-kehrwert' : `${fn}-kehrwert`, `${fn} ${n} = ${RN[zr]} : ${RN[nr]}. Die ${RN[nr]} steht unten.`);
       return null;
     }
-    if (ohne && (hatFn(ohne, true))) return T('trig-taste-umkehr', `Die Seite ist gesucht. Dann ohne 2nd: x = Zahl · ${fn}.`);
-    if (passt(N / FN[fn](g))) return T('trig-seite-geteilt', 'x steht oben im Bruch. Dann rechnest du mal.');
-    if (andere.some(f => passt(N * FN[f](g)))) return FALSCHE_FN();
-    if (passt(N * Math[fn](g))) return T('trig-rad', 'Der Rechner muss in Grad rechnen (DEG).');
+    const u = !!ctx.unten;   // Auftrag 73: x unten → geteilt
+    if (ohne && (hatFn(ohne, true))) return T('trig-taste-umkehr', `Die Seite ist gesucht. Dann ohne 2nd: x = Zahl ${u ? ':' : '·'} ${fn}.`);
+    if (!u && passt(N / FN[fn](g))) return T('trig-seite-geteilt', 'x steht oben im Bruch. Dann rechnest du mal.');
+    if (u && passt(N * FN[fn](g))) return T('trig-unten-mal', `x steht unten → geteilt: x = ${String(N).replace('.', ',')} : ${fn} ${g}°.`);
+    if (andere.some(f => passt(u ? N / FN[f](g) : N * FN[f](g)))) return FALSCHE_FN();
+    if (passt(u ? N / Math[fn](g) : N * Math[fn](g))) return T('trig-rad', 'Der Rechner muss in Grad rechnen (DEG).');
     return null;
   }
   // Winkel gesucht
