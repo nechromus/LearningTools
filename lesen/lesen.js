@@ -13,8 +13,9 @@ import { einrichtungLesen, kameraScan } from '../js/einrichtung.js';
 import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
+import { allesNeuLaden } from '../js/neuladen.js';
 
-export const LESE_VERSION = '0.13.1';
+export const LESE_VERSION = '0.13.2';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Inhalt, Abschicken. Testgeräte laden keine Messung hoch.
 M.init({ app: 'lesen', version: LESE_VERSION });
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
@@ -866,6 +867,8 @@ function zeigeEltern(meldung = '') {
       <button class="btn" data-act="testZurueck">Test-Lese-Zeit und Test-Konto löschen</button>` : ''}
     </section>
     <button class="btn" data-act="neuEinrichten">Neu einrichten (QR-Code)</button>
+    <button class="btn" data-act="allesNeu">Alles neu laden</button>
+    <p class="gedaempft klein">Alles neu laden holt das Archiv und alle Texte frisch vom Server. Hilft, wenn etwas Altes hängen bleibt. Fortschritt und Einrichtung bleiben.</p>
     <p class="gedaempft klein">Lese-Zeit, Lohnfaktor und „Nur heute mehr“ stellt ihr in der Eltern-App ein.</p>
   </div>`;
 }
@@ -960,6 +963,7 @@ document.addEventListener('click', async (ev) => {
     case 'persona': personaWahl(); break;
     case 'personaSetzen': S.upload.testAls = el.dataset.o; S.einst = null; sichern(); modalZu(); await einstellungenHolen().catch(() => {}); if (ansicht === 'eltern') zeigeEltern(); else zeigeStart(); break;
     case 'testZurueck': { if (S.kasse && test()) { S.kasse = null; S.tag = null; sichern(); } zeigeEltern('Test-Lese-Zeit und Test-Konto sind gelöscht.'); break; }
+    case 'allesNeu': allesNeuLaden([INHALT_KEY]); break;
     case 'neuEinrichten': S.name = ''; S.upload = { tage: {} }; S.einst = null; S.kasse = test() ? null : S.kasse; sichern(); zeigeEinrichtung(); break;
     case 'eltern': zeigeEltern(); break;
   }

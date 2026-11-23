@@ -37,8 +37,9 @@ import { ANLEITUNGEN } from './anleitungen.js';
 import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
+import { allesNeuLaden } from './neuladen.js';
 
-export const APP_VERSION = '2.56.0';
+export const APP_VERSION = '2.57.0';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Abschicken, Formelsammlung. Testgeräte laden keine Messung hoch.
 M.init({ app: 'mathe', version: APP_VERSION });
 
@@ -5720,6 +5721,12 @@ function zeigeEltern(meldung = '') {
     </section>` : ''}
 
     <section class="karte">
+      <h3>Alles neu laden</h3>
+      <p class="gedaempft klein">Lädt die App frisch vom Server. Hilft, wenn etwas Altes hängen bleibt. Fortschritt und Einrichtung bleiben.</p>
+      <button class="btn" data-act="allesNeu">Alles neu laden</button>
+    </section>
+
+    <section class="karte">
       <h3>Daten senden</h3>
       <p>Die Datei enthält jeden Versuch. Lade sie im Claude-Projekt hoch, dann werden die Aufgaben angepasst.</p>
       <button class="btn btn-haupt" data-act="export">Daten exportieren</button>
@@ -6387,6 +6394,7 @@ function klick(e) {
       sichern();
       zeigeEltern(el.checked ? 'Testgerät: Es werden keine Daten übertragen.' : 'Testgerät aus: Daten werden wieder übertragen (wenn eingerichtet).');
       break;
+    case 'allesNeu': sichern(); allesNeuLaden(); break;
     case 'syncJetzt':
       if (S.upload.testgeraet) { zeigeEltern('Testgerät: Übertragung ist ausgeschaltet.'); break; }
       el.textContent = 'Wird übertragen …';

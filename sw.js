@@ -1,11 +1,13 @@
 // Offline-Speicher. VERSION muss zu version.json und APP_VERSION in js/app.js passen.
-const VERSION = 'schrein-2.56.0';
+const VERSION = 'schrein-2.57.0';
 const DATEIEN = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest',
-  'js/app.js', 'js/kristallmine.js', 'js/kristallmine-ui.js', 'kristallmine/km.css', 'js/splitter.js', 'js/bildschirm.js', 'js/kasse.js', 'js/bz-stufen.js', 'js/bildschirm-bild.js', 'js/lernplan.js', 'js/wochenplan.js', 'js/steinschieber.js', 'js/steinschieber-level.js', 'js/steinschieber-ui.js', 'js/steinschieber-tipp.js', 'steinschieber/ss.css', 'js/anleitungen.js', 'js/spielbilder.js', 'anleitung.css', 'hinweiskarten.css', 'js/hinweiskarten.js', 'formeluebersicht.css', 'js/formeluebersicht.js', 'data/formeluebersicht.json', 'js/runenfall.js', 'js/runenfall-ui.js', 'runenfall/rn.css', 'js/runenreihen.js', 'js/runenreihen-ui.js', 'js/runenreihen-steine.js', 'runenreihen/rr.css', 'js/hoehlenkarte.js', 'js/hoehlenkarte-ui.js', 'hoehlenkarte/hk.css', 'js/runenbrecher.js', 'js/runenbrecher-ui.js', 'runenbrecher/rb.css', 'js/jadeschlange.js', 'js/jadeschlange-ui.js', 'jadeschlange/jsg.css', 'js/runengruft.js', 'js/runengruft-ui.js', 'js/runengruft-wesen.js', 'js/runengruft-ausruestung.js', 'js/runengruft-freischalten.js', 'js/kobold-bild.js', 'runengruft/rg.css', 'js/logic.js', 'js/namen.js', 'js/paket.js', 'js/bloecke.js', 'js/einrichtung.js', 'js/render.js', 'js/store.js', 'js/gen.js', 'js/sync.js', 'js/messung.js', 'js/weg.js', 'js/physik.js', 'js/umformen.js', 'js/feedback.js', 'vendor/html2canvas.min.js', 'js/gen-physik.js', 'js/gefaerbt.js', 'js/sternzeit.js', 'js/uebungszeit-bild.js', 'sternzeit.css',
+  'js/app.js', 'js/kristallmine.js', 'js/kristallmine-ui.js', 'kristallmine/km.css', 'js/splitter.js', 'js/bildschirm.js', 'js/kasse.js', 'js/bz-stufen.js', 'js/bildschirm-bild.js', 'js/lernplan.js', 'js/wochenplan.js', 'js/steinschieber.js', 'js/steinschieber-level.js', 'js/steinschieber-ui.js', 'js/steinschieber-tipp.js', 'steinschieber/ss.css', 'js/anleitungen.js', 'js/spielbilder.js', 'anleitung.css', 'hinweiskarten.css', 'js/hinweiskarten.js', 'formeluebersicht.css', 'js/formeluebersicht.js', 'data/formeluebersicht.json', 'js/runenfall.js', 'js/runenfall-ui.js', 'runenfall/rn.css', 'js/runenreihen.js', 'js/runenreihen-ui.js', 'js/runenreihen-steine.js', 'runenreihen/rr.css', 'js/hoehlenkarte.js', 'js/hoehlenkarte-ui.js', 'hoehlenkarte/hk.css', 'js/runenbrecher.js', 'js/runenbrecher-ui.js', 'runenbrecher/rb.css', 'js/jadeschlange.js', 'js/jadeschlange-ui.js', 'jadeschlange/jsg.css', 'js/runengruft.js', 'js/runengruft-ui.js', 'js/runengruft-wesen.js', 'js/runengruft-ausruestung.js', 'js/runengruft-freischalten.js', 'js/kobold-bild.js', 'runengruft/rg.css', 'js/logic.js', 'js/namen.js', 'js/paket.js', 'js/bloecke.js', 'js/einrichtung.js', 'js/render.js', 'js/store.js', 'js/gen.js', 'js/sync.js', 'js/messung.js', 'js/weg.js', 'js/neuladen.js', 'js/physik.js', 'js/umformen.js', 'js/feedback.js', 'vendor/html2canvas.min.js', 'js/gen-physik.js', 'js/gefaerbt.js', 'js/sternzeit.js', 'js/uebungszeit-bild.js', 'sternzeit.css',
   'data/aufgaben.json', 'data/hinweise.json', 'data/logbuch.json', 'data/wissensarchiv.json',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'
 ];
+
+const EIGENE = new Set(DATEIEN.map(u => { const x = new URL(u, self.registration.scope); return x.origin + x.pathname; }));
 
 self.addEventListener('install', e => {
   // cache: 'reload' umgeht den Browser-Zwischenspeicher, damit wirklich die neuen Dateien kommen
@@ -39,7 +41,24 @@ self.addEventListener('fetch', e => {
     e.respondWith(fetch(url.href, { cache: 'no-store' }).catch(() => new Response('{}', { headers: { 'Content-Type': 'application/json' } })));
     return;
   }
-  // Eigene Dateien: erst Netz (beim Server nachfragen, ob neu), sonst Speicher (offline)
+  // Programmdateien der Übungs-App (Liste oben): erst aus dem Speicher (23.11.). Neue Dateien kommen mit einer neuen VERSION:
+  // Die App fragt version.json, dann installiert sich diese Datei neu und lädt alle Dateien frisch.
+  // Nur für die Übungs-App selbst: Lese-App und Eltern-App nutzen dieselben js/-Dateien, haben aber eigene Versionen.
+  if (EIGENE.has(url.origin + url.pathname) && e.request.cache !== 'reload' && e.request.cache !== 'no-store') {
+    e.respondWith(caches.open(VERSION).then(async c => {
+      const von = e.request.mode === 'navigate' ? url : await self.clients.get(e.clientId).then(k => k ? new URL(k.url) : null).catch(() => null);
+      const fremd = !von || /\/(eltern|lesen)\//.test(von.pathname);
+      const hit = fremd ? null : await c.match(e.request, { ignoreSearch: true });
+      if (hit) return hit;
+      try {
+        const res = await fetch(url.href, { cache: 'no-cache', credentials: 'same-origin' });
+        if (res.ok && !fremd) c.put(e.request, res.clone());
+        return res;
+      } catch (err) { return (await caches.match(e.request, { ignoreSearch: true })) || caches.match('index.html'); }
+    }));
+    return;
+  }
+  // Andere eigene Dateien (Lese-App, Eltern-App): erst Netz (beim Server nachfragen, ob neu), sonst Speicher (offline)
   e.respondWith(fetch(url.href, { cache: 'no-cache', credentials: 'same-origin' }).then(res => {
     if (res.ok) { const kopie = res.clone(); caches.open(VERSION).then(c => c.put(e.request, kopie)); }
     return res;

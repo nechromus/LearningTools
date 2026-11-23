@@ -19,8 +19,9 @@ import * as FB from '../js/feedback.js';
 import { Lernplan } from './lernplan.mjs';
 import * as LA from './lesen-auswertung.js';
 import * as LL from '../lesen/lesen-logik.js';
+import { allesNeuLaden } from '../js/neuladen.js';
 
-export const ELTERN_VERSION = '1.75.0';
+export const ELTERN_VERSION = '1.76.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -3070,6 +3071,9 @@ function schluesselKarte() {
     ${kind ? `<label class="feld-label">Handy von ${esc(name())} (für beide Eltern)<input type="date" id="schl-handy" value="${esc(hb)}"></label>` : ''}
     <button class="knopf" data-act="schluesselBis">Datum speichern</button>${SCHL.meldung ? ` <span class="klein">${esc(SCHL.meldung)}</span>` : ''}
     <button class="knopf-text" data-act="abmelden">Schlüssel von diesem Gerät löschen</button>
+    <h3 class="bg-h3">Alles neu laden</h3>
+    <p class="klein gedaempft">Lädt die Eltern-App und alle Daten frisch vom Server. Hilft, wenn etwas Altes hängen bleibt. Fortschritt und Einrichtung bleiben.</p>
+    <button class="knopf" data-act="allesNeu">Alles neu laden</button>
   </section>`;
 }
 // Ablaufdatum der Schlüssel (16.11.): Eltern-App lokal (C.tokenBis), Handy des Kindes in daten/<kind>/schluessel.json (Format schluessel-1)
@@ -3560,6 +3564,7 @@ document.addEventListener('click', (ev) => {
     case 'verwerfen': entwurf = null; geaenderteStufen = new Set(); meldung = null; zeichne(); break;
     case 'speichern': if (geaendert()) speichern(); break;
     case 'schluesselBis': schluesselBisSpeichern(); break;
+    case 'allesNeu': allesNeuLaden(); break;
     case 'abmelden':
       if (!confirm('Schlüssel von diesem Gerät löschen? Danach musst du ihn neu eintragen.')) break;
       C = { ...C, token: '' }; konfigSichern(); D.daten = null; D.nutzer = null;
