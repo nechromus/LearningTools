@@ -38,7 +38,7 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 
-export const APP_VERSION = '2.55.0';
+export const APP_VERSION = '2.56.0';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Abschicken, Formelsammlung. Testgeräte laden keine Messung hoch.
 M.init({ app: 'mathe', version: APP_VERSION });
 
@@ -2508,6 +2508,7 @@ function neueAufgabe() {
   teileStarten(A.teile);
   if (A.serienPos === 1) { S.gesucht = { folge: 0 }; S.fsSitzung = false; S.malSitzung = false; } // neue Übungssitzung (wie beim Takt: Aufgabe 1 der Serie)
   gesuchtUmbauen();
+  seitenUmbauen();
   if (fsAufgabe(aufgabe) && !S.fsSitzung) { A.fsEinladung = true; S.fsSitzung = true; }
   if (aufgabe.modus === 'knobeln') A.knobeln = true;
   if (aufgabe.typ === 'zuordnung') zuordnungVorbereiten();
@@ -2971,7 +2972,7 @@ function zeigeAufgabe() {
         ${a.typ === 'detektiv' ? '<div class="detektiv-kopf"><span class="detektiv-marke">🔍 Fehler-Detektiv</span><button class="detektiv-hilfe" data-act="detektivHilfe" aria-label="Was ist der Fehler-Detektiv?">?</button></div>' : ''}
         ${a.geschichte ? geschichteHtml(a) : ''}
         ${a.rechnung ? `<div class="rechnung${a.rechnung.length > 22 ? ' lang' : ''}">${rechnungHtml(a)}</div>` : ''}
-        ${a.bild ? `<div class="bild${a.bild.form === 'tabelle' ? ' bild-tabelle' : ''}">${a.bild.linien ? linienBild(a) : a.bild.form === 'tabelle' ? tabelleBild(a) : a.bild.form === 'saeulen' ? saeulenBild(a) : bildSvg(a.bild)}</div>` : ''}
+        ${a.bild ? `<div class="bild${a.bild.form === 'tabelle' ? ' bild-tabelle' : ''}">${a.bild.linien ? linienBild(a) : a.bild.form === 'tabelle' ? tabelleBild(a) : a.bild.form === 'saeulen' ? saeulenBild(a) : bildSvg(trigBild(a))}</div>` : ''}
         ${a.typ === 'detektiv' && !liestNoch() ? fremdeRechnungHtml(a) : ''}
         ${liestNoch() ? '' : `${!(a.typ === 'auswahl' || (a.typ === 'formel' && a.eingabe === 'auswahl')) || (A.uf && !A.fertig) ? `<p class="frage">${a.typ === 'detektiv' ? `<b>${mathe(a.frage)}</b>` : A.signal ? L.signalMarkieren(mathe(a.frage)) : mathe(a.frage)}</p>` : ''}
         ${A.knobeln && !A.fertig ? '<div class="knobel-zeile">✦ Knobel erst selbst.</div>' : ''}
@@ -3314,7 +3315,9 @@ function zuSchnellMelden(t, eingabe, art = 'text') {
   A.meldung = art === 'tipp' ? SCHNELL_TIPP : art === 'auswahl' ? LESE_TIPP : 'Lies noch einmal. Welche Zahlen brauchst du?';
   // Auswahl zu schnell (Auftrag 37): Signalwörter markieren, keine Strafe, zählt nicht für den Hinweis gegen Durchklicken
   if (art === 'auswahl') {
-    A.meldung = null; t.leseSchnell = (t.leseSchnell || 0) + 1; A.signal = true; t.gewaehlt = null; t.seit = Date.now();
+    // Auftrag 72: bei sin, cos, tan ein Satz dazu
+    A.meldung = null;
+    t.leseSchnell = (t.leseSchnell || 0) + 1; A.signal = true; t.gewaehlt = null; t.seit = Date.now();
     t.lesenBis = Date.now() + L.LESEZEIT_MS;
     protokoll(S, 'zu_schnell', { id: A.aufgabe.id, teil: A.idx, eingabe, ms, art, ...hb('lesezeit.auswahl') }); sichern(); zeigeAufgabe();
     const teil = t;
@@ -3376,6 +3379,37 @@ function gesuchtUmbauen() {
   ersatz[ersatz.length - 1].gesuchtEnde = true;
   A.teile.splice(i, 1, ...ersatz);
   A.gesuchtModus = ersatz[0].gesuchtModus;
+}
+// Auftrag 72: „Welche zwei Seiten kommen vor?“ vor „sin, cos oder tan?“ (trig-mix, Stufe 3 der drei Baukästen) bzw. vor Zeile 1 (trig-weg Stufe 1).
+// Entfällt nach 3 Aufgaben in Folge mit „sin, cos oder tan?“ im 1. Versuch (S.verlauf.trigSeitenFolge), nach einem Fehler dort wieder da.
+const SEITEN_OPT = ['Gegenkathete und Hypotenuse', 'Ankathete und Hypotenuse', 'Gegenkathete und Ankathete'];
+function seitenUmbauen() {
+  const a = A.aufgabe;
+  A.trigFn = null; A.seitenModus = null;
+  if (!L.istTrig(a)) return;
+  let i = A.teile.findIndex(t => t.art === 'wahl' && t.quelle && t.quelle.kos === 'fn');
+  const fn = i >= 0 ? A.teile[i].quelle.fn : a.thema === 'trig-weg' && (a.stufe || 1) <= 1 ? a.fn : null;
+  if (!fn) return;
+  if (i < 0) i = A.teile.findIndex(t => !t.merk);
+  if (i < 0) return;
+  A.trigFn = fn;
+  A.seitenModus = (S.verlauf.trigSeitenFolge || 0) >= 3 ? 'ohne' : 'mit';
+  if (A.seitenModus === 'ohne') return;
+  const w = (a.bild && a.bild.winkel) || 'α';
+  const q = { text: 'Welche zwei Seiten?', optionen: SEITEN_OPT.slice(), richtig: ['sin', 'cos', 'tan'].indexOf(fn), kos: 'seiten', fn, rollen: ['sin', 'cos', 'tan'], zwei_versuche: true };
+  A.teile.splice(i, 0, { art: 'wahl', label: 'Welche zwei Seiten?', anzeige: `Welche zwei Seiten kommen vor? Schau vom Winkel ${w} aus. Die gesuchte Seite zählt mit.`, optionen: SEITEN_OPT.slice(),
+    richtig: ['sin', 'cos', 'tan'].indexOf(fn), quelle: q, zweiVersuche: true, seitenSchritt: true, versuche: [], status: 'offen', seit: Date.now(), hilfeStart: Date.now() });
+}
+// Bild farbig erst nach der richtigen Wahl der zwei Seiten (ohne den Schritt: nach „sin, cos oder tan?“)
+function trigBild(a) {
+  if (!A || !A.trigFn || !a.bild || a.bild.form !== 'dreieck') return a.bild;
+  const t = A.teile.find(x => x.seitenSchritt) || A.teile.find(x => x.quelle && x.quelle.kos === 'fn');
+  if (!t || !['erst', 'zweit', 'loesung'].includes(t.status)) return a.bild;
+  return { ...a.bild, farbig: A.trigFn === 'cos' ? true : A.trigFn, farbeAlle: true };
+}
+function seitenGezaehlt(t, richtig) {
+  if (!t.quelle || t.quelle.kos !== 'fn' || t.versuche.length !== 1 || !A.trigFn) return;
+  S.verlauf.trigSeitenFolge = richtig ? (S.verlauf.trigSeitenFolge || 0) + 1 : 0;
 }
 // Tipp bei einem Fehler: mit dem Signalwort aus dem Text, ohne die volle Lösung
 function gesuchtFehler(t) {
@@ -3755,8 +3789,9 @@ function teileHtml() {
       const rest = aktiv && A.phase === 'eingabe' && t.lesenBis ? t.lesenBis - Date.now() : 0;
       const frageMarkiert = a.frage && L.signalMarkieren(mathe(a.frage));
       const leseTipp = aktiv && t.leseSchnell && A.phase === 'eingabe'
-        ? `<div class="lese-tipp">${esc(LESE_TIPP)}${frageMarkiert && frageMarkiert.includes('<mark') ? `<div class="lese-frage">${frageMarkiert}</div>` : ' Die wichtigen Wörter sind oben markiert.'}</div>` : '';
-      inhalt = `<div class="teil-label">${nr}<span><b>${mathe(t.anzeige || t.label)}</b></span></div>${leseTipp}${aktiv ? fsPinHtml() : ''}<div class="wahl-reihe${t.spalte || /wahl-text lang/.test(knoepfe) || L.KOERPER_THEMEN.includes(a.thema) || a.thema === 'formelsammlung' ? ' wahl-spalte' : ''}${rest > 0 ? ' lesen' : ''}"${rest > 0 ? ` style="--lese-ms:${Math.round(rest)}ms"` : ''}>${knoepfe}</div>`;
+        ? L.istTrig(a) ? `<div class="lese-tipp">${esc(/^Welche Taste/.test(t.label || '') ? 'Lies noch einmal: Ist ein Winkel oder eine Seite gesucht?' : 'Lies noch einmal: Welche Seiten sind gegeben?')} Schau ins Bild.</div>`
+        : `<div class="lese-tipp">${esc(LESE_TIPP)}${frageMarkiert && frageMarkiert.includes('<mark') ? `<div class="lese-frage">${frageMarkiert}</div>` : ' Die wichtigen Wörter sind oben markiert.'}</div>` : '';
+      inhalt = `<div class="teil-label">${nr}<span><b>${mathe(t.anzeige || t.label)}</b></span></div>${leseTipp}${aktiv ? fsPinHtml() : ''}<div class="wahl-reihe${t.spalte || t.seitenSchritt || /wahl-text lang/.test(knoepfe) || L.KOERPER_THEMEN.includes(a.thema) || a.thema === 'formelsammlung' ? ' wahl-spalte' : ''}${rest > 0 ? ' lesen' : ''}"${rest > 0 ? ` style="--lese-ms:${Math.round(rest)}ms"` : ''}>${knoepfe}</div>`;
     } else if (t.art === 'zuordnung') {
       inhalt = zuordnungHtml(aktiv);
     } else if (t.art === 'legen') {
@@ -4240,10 +4275,11 @@ function versuchMerken(t, eingabe, richtig, fehler) {
     id: a.id, thema: a.thema, teil: A.idx, label: t.label || null, merk: !!t.merk, versuch: t.versuche.length, eingabe, richtig,
     fehler: fehler ? fehler.typ : null, ms, schnell: !!a.geschichte && ms < 4000,
     hinweiseOffen: A.hinweise.slice(), ...(a.typ === 'detektiv' ? { detektiv_schritt: A.idx + 1 } : {}),
-    ...(t.gesuchtModus ? { gesucht_modus: t.gesuchtModus } : {}), ...(A.fsPin ? { fs_angeheftet: `${A.fsPin.kasten}|${A.fsPin.zeile}` } : {}),
+    ...(t.gesuchtModus ? { gesucht_modus: t.gesuchtModus } : {}), ...(A.seitenModus && (t.seitenSchritt || (t.quelle && t.quelle.kos === 'fn')) ? { seiten_modus: A.seitenModus } : {}), ...(A.fsPin ? { fs_angeheftet: `${A.fsPin.kasten}|${A.fsPin.zeile}` } : {}),
     ...(t.art === 'saeule' ? { art_eingabe: t.artEingabe || null } : {})
   });
   if (t.gesuchtModus) gesuchtGezaehlt(t, richtig);
+  seitenGezaehlt(t, richtig);
   t.seit = Date.now();
   A.schnellFolge = 0;
   if (richtig) {
@@ -6135,7 +6171,7 @@ function klick(e) {
       // Falsch und zu schnell: Knöpfe 3 s gesperrt, die Seite bleibt stehen; Tippen in der Sperre zählt nicht und verlängert sie nicht.
       // Eine richtige Wahl zählt immer (Wunsch Vater: „zu schnell“ gibt es bei einer richtigen Antwort nicht).
       if (k !== t.richtig && t.lesenBis && Date.now() < t.lesenBis) { leseSperreZeigen(); break; }
-      if (k !== t.richtig && bed('teil_loesung') && L.leseAuswahl(A.aufgabe, t.label) && (!t.gesuchtModus || t.gesuchtModus === 'direkt') && !t.lesenBis && Date.now() - Math.min(t.seit, textSeit()) < L.LESEZEIT_MS) { zuSchnellMelden(t, String(k), 'auswahl'); break; }
+      if (k !== t.richtig && bed('teil_loesung') && L.leseAuswahl(A.aufgabe, t.label) && (!t.gesuchtModus || t.gesuchtModus === 'direkt') && !t.lesenBis && Date.now() - (L.istTrig(A.aufgabe) ? t.seit : Math.min(t.seit, textSeit())) < L.LESEZEIT_MS) { zuSchnellMelden(t, String(k), 'auswahl'); break; }
       t.gewaehlt = k;
       const dFehler = t.detektiv ? { typ: 'detektiv_urteil', text: A.aufgabe.stimmt ? 'Rechne selbst nach. Kommt dasselbe heraus?' : 'Schau genau hin. Rechne selbst nach.' } : null;
       let wf = k === t.richtig ? null : dFehler || L.erkenneWahlFehler(A.aufgabe, t.quelle, k);

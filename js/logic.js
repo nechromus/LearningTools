@@ -94,6 +94,8 @@ export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
     const n = (aufgabe.bild && aufgabe.bild.winkel) || 'α';
     const fn = teil.fn || 'cos';
     if (teil.kos === 'fn') return trigFalsch(teil.fn, n);
+    // Auftrag 72: Welche zwei Seiten kommen vor?
+    if (teil.kos === 'seiten') return { typ: 'trig-seiten', text: `Wo ist der rechte Winkel? Gegenüber liegt die Hypotenuse. Die Ankathete berührt ${n}.` };
     // Auftrag 70: Winkel oder Seite, welche Taste, was zuerst
     if (teil.kos === 'tgesucht') return teil.gesucht === 'winkel'
       ? { typ: 'trig-gesucht', text: `Zwei Längen sind gegeben. Gesucht ist der Winkel ${n}.` }
@@ -1465,6 +1467,7 @@ function teilschrittNeu(a, t, l) {
     if (k === 'bruch') return `trigo.${fn}@1`;
     if (k === 'wert') return `trigo.${fn}@2`;
     if (k === 'fn') return 'trigo.wahl@1';
+    if (k === 'seiten') return 'trigo.seiten@1';   // Auftrag 72
     if (k === 'gesucht') return 'trigo.seite@1';
     if (k === 'seite') return 'trigo.seite@2';
     if (k === 'sin' || k === 'tan') return 'trigo.rechner@1';
@@ -1502,7 +1505,10 @@ export function teilschrittAufgabe(a) {
 }
 // Auswahl-Schritte bei Körpern, die man nur nach dem Lesen beantworten kann: 3 Sekunden Lesezeit
 export const LESEZEIT_MS = 3000;
-export const leseAuswahl = (a, label) => !!a && ['zylinder', 'kegel', 'pyramide', 'kugel'].includes(a.thema) && /gesucht|^Welche (Höhe|Länge)|^Volumen oder/i.test(String(label || ''));
+export const leseAuswahl = (a, label) => !!a && ((['zylinder', 'kegel', 'pyramide', 'kugel'].includes(a.thema) && /gesucht|^Welche (Höhe|Länge)|^Volumen oder/i.test(String(label || '')))
+  || (istTrig(a) && TRIG_LESE.test(String(label || ''))));
+// Auftrag 72: Lesezeit bei sin, cos, tan
+export const TRIG_LESE = /^(Welche zwei Seiten|sin, cos oder tan\?|Welche Taste|Was tippst du zuerst)/;
 // Signalwörter im Text markieren (nach mathe(), nur im Text außerhalb von Tags)
 const SIGNAL = ['auch Boden und Deckel', 'mit Deckel und Boden', 'Deckel und Boden', 'Boden und Deckel', 'ohne Boden', 'ohne Deckel', 'passt hinein', 'passen hinein', 'rund herum', 'rundherum',
   'gerade nach unten', 'hinein', 'herum', 'füllt', 'gefüllt', 'füllen', 'Inhalt', 'fasst', 'außen', 'ganze', 'ganz', 'Folie', 'Etikett', 'Leder', 'Holz', 'Wachs', 'Boden', 'Deckel', 'beklebt', 'bekleben', 'bemalt', 'bemalen', 'anmalen', 'angemalt', 'streicht', 'Papier', 'Stoff', 'Pappe', 'Blech', 'Farbe', 'Wasser', 'Sand', 'Luft', 'schräg'];

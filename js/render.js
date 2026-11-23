@@ -461,8 +461,9 @@ function dreieckZeichnen(bild, P0, bx, by, s, ox, oy) {
   const einh = (a, b) => { const d = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / d, (b[1] - a[1]) / d]; };
   const n = bild.namen || { hyp: 'c', an: 'b', geg: 'a' }, L = bild.laengen || {};
   // farbig: true = Kosinus (Hypotenuse blau, Ankathete rot); 'sin' bzw. 'tan' (Auftrag 69): dazu Gegenkathete grün, die nicht gebrauchte Seite dünn
-  const fb = bild.farbig;
-  const farbe = { hyp: fb && fb !== 'tan' ? KOS_BLAU : LINIE, an: fb ? KOS_ROT : LINIE, geg: fb === 'sin' || fb === 'tan' ? KOS_GRUEN : LINIE };
+  // farbeAlle (Auftrag 72): alle drei Seiten farbig wie Hinweiskarte 28, die zwei gebrauchten dick
+  const fb = bild.farbig, alle = !!bild.farbeAlle;
+  const farbe = { hyp: fb && (fb !== 'tan' || alle) ? KOS_BLAU : LINIE, an: fb ? KOS_ROT : LINIE, geg: fb === 'sin' || fb === 'tan' || (fb && alle) ? KOS_GRUEN : LINIE };
   const dick = (k) => !!fb && (fb === true ? k !== 'geg' : fb === 'sin' ? k !== 'an' : k !== 'hyp');
   const seiten = { hyp: [P.W, P.T], an: [P.R, P.W], geg: [P.R, P.T] };
   let inhalt = '';
