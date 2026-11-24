@@ -59,6 +59,20 @@ function standard() {
   };
 }
 
+// Kind wechseln (24.11.): Ein QR-Code mit anderem Namen richtet das Handy für ein anderes Kind ein.
+// Vom bisherigen Kind bleibt nichts auf dem Handy (sonst landet sein Stand im Ordner des neuen Kindes).
+// Gleich bleiben Geräte-Id und Eltern-PIN. Der Stand des neuen Kindes kommt danach vom Server.
+export function neuesKind(s) {
+  const behalten = { geraetId: s.geraetId, erstelltAm: s.erstelltAm };
+  const pin = s.einstellungen ? s.einstellungen.pin : null;
+  const neu = standard();
+  for (const k of Object.keys(s)) delete s[k];
+  Object.assign(s, neu, behalten);
+  s.einstellungen.pin = pin || null;
+  logGeaendert = true;
+  return s;
+}
+
 function zusammenfuehren(basis, gespeichert) {
   const out = { ...basis, ...gespeichert };
   for (const k of ['spiel', 'einstellungen', 'verlauf', 'serie', 'tag', 'upload', 'fern']) out[k] = { ...basis[k], ...(gespeichert[k] || {}) };

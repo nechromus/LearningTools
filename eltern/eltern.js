@@ -31,7 +31,7 @@ import * as LL from '../lesen/lesen-logik.js';
 import { allesNeuLaden } from '../js/neuladen.js';
 import * as TWE from './themenwahl-eltern.js';
 
-export const ELTERN_VERSION = '1.78.0';
+export const ELTERN_VERSION = '1.78.1';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -105,6 +105,8 @@ function versionAlt(v, min) {
   return false;
 }
 const name = () => (D.daten && D.daten.name) || 'Kind';
+// Ordner zum Namen wie in der Übungs-App (nutzerOrdner)
+const ordnerVonName = (n) => (String(n || '').toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')) || 'ohne-namen';
 
 // ---------- Daten laden ----------
 
@@ -3049,7 +3051,7 @@ function spielzeitSeite() {
 // ---------- Handy per QR-Code einrichten ----------
 
 function qrSeite() {
-  if (!qr.name && D.daten && D.daten.name) qr.name = D.daten.name;
+  const kindName = D.daten && D.daten.ordner && !D.daten.leer ? D.daten.name : '';
   const eltern = qr.art === 'eltern' || qr.art === 'boegen', gross = qr.art === 'boegen';
   const svgCode = qr.link ? (() => {
     const q = qrcode(0, 'M');
@@ -3072,6 +3074,7 @@ function qrSeite() {
       : 'Nach dem Löschen der App vom Home-Bildschirm oder für ein neues Handy: Code zeigen und auf dem Kinder-Handy scannen. Danach kommen Spielzeit und Spielstände vom Server zurück.'}</p>
     ${qr.link ? `
     <section class="karte qr-karte">
+      ${eltern ? '' : `<p class="qr-fuer-gross">Für: <b>${esc(qr.name)}</b></p>`}
       <div class="qr-bild" role="img" aria-label="QR-Code zum Einrichten">${svgCode}</div>
       ${eltern ? `<p><b>So geht's auf dem anderen Gerät:</b></p>
       <ol class="klein">
@@ -3088,7 +3091,7 @@ function qrSeite() {
       <div class="knopf-reihe"><button class="knopf" data-act="qrLinkKopieren">Link kopieren</button><button class="knopf haupt breit" data-act="qrAus">Code ausblenden</button></div>
     </section>` : `
     <section class="karte">
-      ${eltern ? '' : `<label class="feld">Name des Kindes<input id="qr-name" type="text" maxlength="20" value="${esc(qr.name)}" autocomplete="off"></label>`}
+      ${eltern ? '' : `<div class="feld qr-fuer"><span>Für welches Kind?</span>${nutzerWahl('qr-kind')}<span class="klein gedaempft">${kindName ? `Der Code richtet das Handy für <b>${esc(kindName)}</b> ein.` : 'Daten werden geladen …'}</span></div>`}
       <label class="feld">Zugangsschlüssel für ${gross ? 'das Gerät der Großeltern' : eltern ? 'das andere Eltern-Gerät' : 'das Kinder-Handy'}<input id="qr-token" type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(qr.token)}"></label>
       <p class="klein gedaempft">Am besten ein eigener Schlüssel pro Gerät (nur Daten-Repo, „Contents: Read and write“)${gross ? ', mit Ablaufdatum kurz nach dem Besuch' : ''}. Er wird hier nicht gespeichert.</p>
       <button class="knopf-text" data-act="qrEigenerSchluessel">Schlüssel dieser Eltern-App verwenden</button>
@@ -3570,16 +3573,15 @@ document.addEventListener('click', (ev) => {
     case 'qrArt': qr = { name: qr.name, token: '', link: '', art: el.dataset.art }; meldung = null; zeichne(); break;
     case 'qrEigenerSchluessel': {
       if (!confirm('Dann nutzt das andere Gerät denselben Schlüssel wie diese Eltern-App. Sperrst du ihn später, gehen beide nicht mehr. Trotzdem verwenden?')) break;
-      const n = document.getElementById('qr-name'); if (n) qr.name = n.value;
       qr.token = C.token; meldung = null; zeichne(); break;
     }
     case 'qrZeigen': {
       const eltern = qr.art === 'eltern' || qr.art === 'boegen';
-      const nEl = document.getElementById('qr-name');
-      const name = nEl ? nEl.value.trim().replace(/\s+/g, ' ').slice(0, 20) : '';
+      // 24.11.: Name immer vom gewählten Kind, und er muss zu seinem Ordner passen (sonst schreibt das Handy woanders hin)
+      const name = D.daten && D.daten.ordner && !D.daten.leer ? String(D.daten.name || '').trim().replace(/\s+/g, ' ').slice(0, 20) : '';
       const token = document.getElementById('qr-token').value.trim();
-      qr.name = name || qr.name; qr.token = token;
-      if (!eltern && name.length < 2) { meldung = { art: 'fehler', text: 'Bitte den Namen des Kindes eingeben (wie in der App).' }; zeichne(); break; }
+      qr.name = name; qr.token = token;
+      if (!eltern && (name.length < 2 || ordnerVonName(name) !== D.daten.ordner)) { meldung = { art: 'fehler', text: name.length < 2 ? 'Die Daten des Kindes sind noch nicht geladen. Bitte kurz warten.' : `Der Name „${name}“ passt nicht zum Ordner ${D.daten.ordner}. Bitte melden.` }; zeichne(); break; }
       if (token.length < 20) { meldung = { art: 'fehler', text: 'Bitte den ganzen Zugangsschlüssel einfügen.' }; zeichne(); break; }
       meldung = null;
       qr.link = eltern
@@ -3622,6 +3624,7 @@ document.addEventListener('change', (ev) => {
   if (el.name === 'nutzer-wahl' || el.name === 'tag-wahl') {
     if (el.name === 'tag-wahl') { location.hash = '#verlauf/' + el.value; return; }
     C.nutzer = el.value; konfigSichern();
+    qr = { name: '', token: '', link: '', art: qr.art }; // 24.11.: kein Name vom vorigen Kind im QR-Code
     D.daten = null; entwurf = null; geaenderteStufen = new Set(); meldung = null;
     allesLaden(); return;
   }

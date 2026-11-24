@@ -35,13 +35,13 @@ import * as UF from './umformen.js';
 import * as FB from './feedback.js';
 import { ANLEITUNGEN } from './anleitungen.js';
 import { spielVorschau } from './spielbilder.js';
-import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
+import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch, neuesKind } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 import { allesNeuLaden } from './neuladen.js';
 import * as TW from './themenwahl.js';
 import * as TWU from './themenwahl-ui.js';
 
-export const APP_VERSION = '2.59.1';
+export const APP_VERSION = '2.59.2';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Abschicken, Formelsammlung. Testgeräte laden keine Messung hoch.
 M.init({ app: 'mathe', version: APP_VERSION });
 
@@ -218,7 +218,7 @@ async function einrichten(d, quelle) {
   if (nameNeu && S.einstellungen.name && quelle !== 'bestaetigt') {
     oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Anderer Name</h2>
       <p>Dieses Handy ist für <b>${esc(S.einstellungen.name)}</b> eingerichtet. Der Code ist für <b>${esc(d.name)}</b>.</p>
-      <p>Umstellen auf ${esc(d.name)}?</p>
+      <p>Umstellen auf ${esc(d.name)}? Dann startet das Handy neu für ${esc(d.name)}. Von ${esc(S.einstellungen.name)} bleibt nichts auf dem Handy. Was schon gesichert ist, bleibt auf dem Server.</p>
       <div class="knopf-reihe"><button class="btn btn-haupt" data-act="einrichtenNameJa">Umstellen</button><button class="btn" data-act="modalZu">Abbrechen</button></div></div>`);
     einrichtenWartet = d;
     return;
@@ -231,10 +231,8 @@ async function einrichten(d, quelle) {
     oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Das hat nicht geklappt</h2><p>${esc(e.message || 'Verbindung nicht möglich.')}</p><button class="btn btn-haupt" data-act="modalZu">OK</button></div>`);
     return;
   }
-  if (nameNeu) {
-    if (S.einstellungen.name) protokoll(S, 'name_geaendert', { von: S.einstellungen.name, nach: nameNeu });
-    S.einstellungen.name = nameNeu;
-  }
+  if (nameNeu && S.einstellungen.name) await kindWechseln(d, nameNeu);
+  else if (nameNeu) S.einstellungen.name = nameNeu;
   S.upload = { ...S.upload, repo: d.repo, token: d.token, fehler: null, tage: {}, standGeprueft: false, standKern: null, standRev: 0, standWartet: false };
   protokoll(S, 'einrichtung_qr', { repo: d.repo, quelle });
   sichern();
@@ -245,6 +243,27 @@ async function einrichten(d, quelle) {
   await syncen(true); // holt einen vorhandenen Spielstand vom Server („Willkommen zurück“)
 }
 let einrichtenWartet = null;
+
+// Anderes Kind (24.11.): Aliatras Handy bekam einen Code mit „Tobias“ und lud danach ihren Stand in seinen Ordner.
+// Jetzt: nicht übertragene Tage noch in den Ordner des bisherigen Kindes schicken, dann leer starten.
+async function kindWechseln(d, nameNeu) {
+  const alt = S.einstellungen.name, ordnerAlt = nutzerOrdner(alt), u = { ...S.upload, repo: d.repo, token: d.token };
+  let tageNachgeholt = 0;
+  try {
+    const tage = U.nachTagen(U.ohneTestphasen(S.log), e => L.tagKey(e));
+    const offen = Object.keys(tage).sort().filter(k => tage[k].length > ((S.upload.tage || {})[k] || 0)).slice(-14);
+    for (const tag of offen) {
+      const pfad = `daten/${ordnerAlt}/${S.geraetId}/${tag}.json`;
+      const server = await U.dateiLesen(u, pfad);
+      const eintraege = U.eintraegeZusammen(server && server.eintraege, tage[tag]);
+      await U.dateiSchreiben(u, pfad, JSON.stringify({ app: 'lernapp-2048', version: APP_VERSION, nutzer: alt, geraetId: S.geraetId, tag, hochgeladen: new Date().toISOString(), eintraege }), `Lerndaten ${tag}`);
+      tageNachgeholt++;
+    }
+  } catch (e) { /* Wechsel trotzdem: lieber ein Tag fehlt beim bisherigen Kind als falsche Daten beim neuen */ }
+  neuesKind(S);
+  S.einstellungen.name = nameNeu;
+  protokoll(S, 'kind_gewechselt', { von: alt, nach: nameNeu, tage_nachgeholt: tageNachgeholt });
+}
 
 function scannerStoppen() {
   if (scanner && scanner.stream) scanner.stream.getTracks().forEach(t => t.stop());
