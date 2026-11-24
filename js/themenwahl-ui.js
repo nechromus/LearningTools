@@ -10,6 +10,8 @@ const tw = () => C.tw();
 const D = () => C.D();
 const heute = () => C.heute();
 const FEEDBACK = '<div class="sz-hinweisbox">Wenn etwas nicht klappt oder du eine Idee hast: Schreib es über den <b class="sz-pfirsich">Feedback-Knopf</b>. Das liest jemand.</div>';
+// Für Themen, die es in der App noch nicht gibt (Wunsch Vater 24.11.)
+const VORBEREITET = '<div class="sz-hinweisbox tw-vorbereitet"><b class="sz-pfirsich">Wird vorbereitet:</b> Manche Themen gibt es in der App noch nicht. Wir bauen sie gerade. Das braucht ein paar Tage. Was du wählst, bauen wir zuerst. Ist dir ein Thema besonders wichtig? Schreib es über den <b class="sz-pfirsich">Feedback-Knopf</b>. Gerade jetzt brauchen wir deine Rückmeldung: Was klappt, was fehlt, was ist zu leicht oder zu schwer? So wird die App für deine Themen richtig gut.</div>';
 const WAHL_TXT = { pruefen: 'Sitzt', wiederholen: 'Wiederh.', neu: 'Neu', spaeter: 'Später', nicht: 'Nicht' };
 const SELBST_TXT = { kann: 'Kann ich', unsicher: 'Unsicher', noch_nicht: 'Noch nicht' };
 const STAND_TXT = { sitzt: 'sitzt', wackelt: 'wackelt', offen: 'noch offen' };
@@ -73,7 +75,7 @@ export function startHtml({ extras = '', gesperrt = false, wartet = false, versi
     ${ka ? `<button class="sz-panel gelb tw-ka" data-act="tw:meine"><div class="tw-tage">${Math.max(0, tageBis(ka.datum))}</div><div><div class="sz-label">${tageBis(ka.datum) === 1 ? 'Tag' : 'Tage'} bis zur Klassenarbeit</div><div>${esc(tname(ka.thema))} · ${wochentag(ka.datum)} ${DATUM(ka.datum)}</div></div></button>` : ''}
     ${gesperrt ? `<div class="sz-panel orange"><b class="sz-pfirsich">Für heute hast du dein Pensum erreicht.</b></div><button class="sz-knopf" data-act="uebungszeit">Eltern fragen <small>▶</small></button>`
       : kannUeben ? `<button class="sz-knopf sz-start-knopf" data-act="aufgaben">${wartet ? 'Weiter mit deiner Aufgabe' : z.kc ? 'Weiter mit dem Schnell-Check' : 'Aufgaben machen'} <small>▶</small></button>`
-        : '<div class="sz-hinweisbox">Deine aktiven Themen werden noch vorbereitet. Hol dir unter „Meine Themen“ ein Thema, das schon Aufgaben hat.</div>'}
+        : '<div class="sz-hinweisbox">Deine aktiven Themen werden noch vorbereitet. Hol dir unter „Meine Themen“ ein Thema, das schon Aufgaben hat.</div>' + VORBEREITET}
     <div class="sz-zeile"><button class="sz-knopf flieder klein" data-act="tw:meine">Meine Themen</button><button class="sz-knopf blau klein" data-act="tw:fortschritt" data-r="heute">Fortschritt</button></div>`
     : `<div class="sz-panel"><p style="margin:0">Physik ruht. Plane zuerst deine Mathe-Mission. Danach gibt es Aufgaben.</p></div>
     <button class="sz-knopf flieder" data-act="tw:planung" data-s="1">Missionsplanung <small>▶</small></button>`}
@@ -153,7 +155,7 @@ function themenListe(anlass) {
     return `<div class="tw-gruppe"><button class="tw-gk" data-act="tw:gruppe" data-g="${esc(g)}"><span>${esc(g)} (${ts.length})</span><span>${auf ? '▴' : '▾'}</span></button>
       ${auf ? ts.map(t => `<div class="tw-th"><div class="tw-thk" data-act="tw:detail" data-t="${t.id}"><div><div class="tw-thn">${esc(t.name)}</div>${marken(t.id)}</div><span class="sz-matt">${ui.detail === t.id ? '▴' : '▾'}</span></div>
         <div class="tw-seg">${TW.WAHLEN.map(w => `<button class="${w}${z.wahl[t.id] === w ? ' an' : ''}" data-act="tw:wahl" data-t="${t.id}" data-w="${w}" data-anlass="${anlass}">${WAHL_TXT[w]}</button>`).join('')}</div>
-        ${ui.detail === t.id ? `<div class="tw-detail"><p>${esc(t.kern || '')}</p>${vorHtml(t.id)}${hilftHtml(t.id)}${anlass === 'holen' ? holenKnopf(t.id) : ''}</div>` : ''}</div>`).join('') : ''}</div>`;
+        ${ui.detail === t.id ? `<div class="tw-detail"><p>${esc(t.kern || '')}</p>${vorHtml(t.id)}${hilftHtml(t.id)}${!TW.bereit(t.id) ? VORBEREITET : ''}${anlass === 'holen' ? holenKnopf(t.id) : ''}</div>` : ''}</div>`).join('') : ''}</div>`;
   }).join('')).join('');
 }
 function holenKnopf(t) {
@@ -176,6 +178,7 @@ function jetztHtml() {
     <div class="tw-slots" data-liste="jetzt">${[0, 1, 2].map(i => { const t = liste[i]; if (!t) return `<div class="tw-slot leer">Platz ${i + 1} frei</div>`;
       return `<div class="tw-slot p${i + 1}" data-i="${i}"><span class="tw-griff" aria-label="Verschieben">≡</span><span class="tw-platz">${i + 1}</span><div class="tw-slot-text"><div class="tw-thn">${esc(tname(t))}</div>${C.bereit(t) ? '' : '<span class="tw-mk vor">wird vorbereitet</span>'}${z.wahl[t] === 'pruefen' && TW.kurzcheckSchritte(D(), C.kc(), t).length ? '<span class="tw-mk check">erst Schnell-Check</span>' : ''}</div><span class="tw-anteil">${basis[i]} %</span><button class="tw-x" data-act="tw:jetztWeg" data-i="${i}" aria-label="Herausnehmen">✕</button></div>`; }).join('')}</div>
     ${vor.length && eff.some(x => x.ist) ? `<div class="sz-hinweisbox">Bis ${vor.map(x => esc(tname(x.thema))).join(' und ')} fertig vorbereitet ${vor.length > 1 ? 'sind' : 'ist'}, übst du: ${eff.filter(x => x.ist).map(x => `${esc(tname(x.thema))} <b class="sz-pfirsich">${x.ist} %</b>`).join(', ')}.</div>` : vor.length ? '<div class="sz-hinweisbox">Diese Themen werden noch vorbereitet. Nimm noch ein Thema dazu, das schon Aufgaben hat, damit du gleich üben kannst.</div>' : ''}
+    ${vor.length ? VORBEREITET : ''}
     ${liste.length < 3 && kand.length ? `<div class="sz-label" style="margin-top:8px">Weitere, antippen zum Hinzufügen</div><div class="tw-chips">${kand.map(t => `<button class="tw-chip klein" data-act="tw:jetztAdd" data-t="${t.id}">${esc(t.name)}</button>`).join('')}</div>` : ''}`;
 }
 // Ziehen am Griff (Reihenfolge)
@@ -215,6 +218,7 @@ export function meine() {
     <div class="tw-slots" data-liste="aktiv">${z.aktiv.map((a, i) => { const x = an.find(y => y.thema === a.thema) || {}; const kcT = TW.kurzcheckSchritte(D(), C.kc(), a.thema).length;
       return `<div class="tw-slot p${i + 1}" data-i="${i}"><span class="tw-griff">≡</span><span class="tw-platz">${i + 1}</span><div class="tw-slot-text"><div class="tw-thn">${esc(tname(a.thema))}</div><div class="sz-matt klein">${C.bereit(a.thema) ? `Etappe ${TW.etappeVon(z, a.thema)} von ${TW.ETAPPEN}` : '<span class="tw-mk vor">wird vorbereitet</span>'}</div>
       <div class="tw-slot-knoepfe">${kcT ? `<button class="sz-zurueck klein" data-act="tw:check" data-t="${a.thema}">Schnell-Check</button>` : ''}<button class="sz-zurueck klein" data-act="tw:pause" data-t="${a.thema}">Pausieren</button></div></div><span class="tw-anteil">${x.ist ? x.ist + ' %' : '–'}</span></div>`; }).join('') || '<div class="tw-slot leer">Noch kein Thema aktiv.</div>'}</div>
+    ${z.aktiv.some(a => !C.bereit(a.thema)) ? VORBEREITET : ''}
     ${ka && !z.aktiv.some(a => a.thema === ka.thema) ? `<div class="sz-matt klein">Bis zur Klassenarbeit kommt ${esc(tname(ka.thema))} zusätzlich dazu.</div>` : ''}
     ${ka ? `<p class="sz-matt klein">Bis zur Klassenarbeit bekommt ${esc(tname(ka.thema))} mindestens 50 %.</p>` : ''}
     <button class="sz-knopf blau klein" data-act="tw:holenListe"${z.aktiv.length >= TW.MAX_AKTIV ? ' disabled' : ''}>+ Thema holen</button>${z.aktiv.length >= TW.MAX_AKTIV ? '<p class="sz-matt klein" style="text-align:center;margin:0">Höchstens 3. Pausiere erst eins.</p>' : ''}
