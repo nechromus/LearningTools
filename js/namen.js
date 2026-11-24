@@ -46,6 +46,7 @@ export const FEHLER_NAMEN = {
   'scheitel-nullstelle': 'Scheitel und Nullstelle verwechselt', 'nur-positive': 'Nur die positive Lösung', 'quadrat-negativ': 'x² negativ: keine Lösung übersehen', 'null-verloren': 'Durch x geteilt, Lösung 0 verloren',
   'nullprodukt-vorzeichen': 'Nullprodukt: Vorzeichen nicht gedreht', 'pq-vorzeichen-p': 'pq-Formel: Vorzeichen von p', 'pq-vorzeichen-q': 'pq-Formel: Vorzeichen von q', 'pq-q-vorzeichen': 'pq-Formel: unter der Wurzel + q statt − q',
   'pq-halbe-vergessen': 'pq-Formel: p nicht halbiert', 'diskriminante': 'Anzahl der Lösungen falsch', 'normalform-nicht-geteilt': 'Normalform: nicht durch a geteilt', 'normalform-nur-teil': 'Normalform: nur ein Teil geteilt',
+  'ergaenzung-minus-ausklammern': 'Ausklammern: Vorzeichen nicht gedreht', 'ergaenzung-haelfte': 'Ergänzung: Hälfte vergessen', 'ausklammern-vergessen': 'Ausklammern: nicht durch a geteilt', 'ergaenzung-a-vergessen': 'Ergänzung: Faktor a beim Abziehen vergessen', 'nullstelle-umstellen': 'Nullstelle: Vorzeichen beim Umstellen', 'ergaenzung-eine-seite': 'Ergänzung nur auf einer Seite',
   'vieta-vorzeichen': 'Vieta: Summe ist −p', 'vieta-summe': 'Vieta: Produkt passt, Summe nicht', 'sache-gleichung': 'Textaufgabe: Gleichung falsch aufgestellt',
   // Auftrag 54
   'spannweite-max': 'Spannweite: nur das Maximum', 'spannweite-summe': 'Spannweite: Maximum + Minimum', 'spannweite-minusminus': 'Spannweite: Minus minus nicht plus',

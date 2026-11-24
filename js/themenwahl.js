@@ -18,8 +18,8 @@ export const UEBEN = {
   kegel: { gens: ['kegel', 'pyramide', 'kugel', 'zusammengesetzt'], pool: [] },
   trigo: { gens: ['kosinus', 'sinus', 'tangens', 'trig-mix', 'trig-weg'], pool: [] },
   boxplot: { gens: ['daten'], pool: [] },
-  qfkt: { gens: ['parabel'], pool: [] },     // 24.11.
-  qgl: { gens: ['qgleichung'], pool: [] }
+  qfkt: { gens: ['parabel'], pool: ['quadr-funktionen'], poolAnteil: 0.5 },     // 24.11., Pool-Aufgaben 74e: etwa halb Geschichten, halb Baukasten
+  qgl: { gens: ['qgleichung'], pool: ['quadr-gleichungen'], poolAnteil: 0.5 }
 };
 // Themen der Schnell-Check-Datei → Themen der Liste (zugeordnet wird über den Teilschritt, das hier ist nur zur Sicherheit)
 export const KC_THEMA = { wurzeln: 'wurzel', pythagoras: 'pyth', 'quadr-funktionen': 'qfkt', potenzgesetze: 'potenz', potenzfunktionen: 'potfkt' };

@@ -13,7 +13,12 @@ const r2 = (x) => Math.round(x * 100) / 100;
 
 function neu(generator, parameter, felder) {
   // Typische Fehler, die zufällig das richtige Ergebnis sind, und doppelte weglassen
-  for (const t of felder.schritte || []) if (Array.isArray(t.typische)) {
+  // Knobeln (Anmerkung 74e): Ergebnis-Felder zuerst, „In Schritten rechnen“ auf Wunsch
+  if (Array.isArray(felder.ergebnis) && felder.ergebnis.length) {
+    const z = [...felder.ergebnis].reverse().find(t => typeof t.wert === 'number');
+    felder = { ...felder, modus: 'knobeln', antwort: { wert: z ? z.wert : 0 } };
+  } else if (felder.ergebnis) { felder = { ...felder }; delete felder.ergebnis; }
+  for (const t of [...(felder.schritte || []), ...(felder.ergebnis || [])]) if (Array.isArray(t.typische)) {
     const gesehen = new Set();
     t.typische = t.typische.filter(f => Number.isFinite(f.wert) && Math.abs(f.wert - t.wert) > 1e-9 && !gesehen.has(glatt(f.wert)) && gesehen.add(glatt(f.wert)));
     if (!t.typische.length) delete t.typische;
@@ -37,7 +42,10 @@ export function normalTerm(a, b, c, v = 'x') {
   if (b) s += b === 1 ? ` + ${v}` : b === -1 ? ` ${M} ${v}` : `${plus(b)}${v}`;
   return s + plus(c);
 }
+const z2 = (x) => (x < 0 ? M : '') + Math.abs(r2(x)).toFixed(2).replace('.', ',');
 const kz = (x) => x < 0 ? `(${zt(x)})` : zt(x);
+// Lösungsmenge wie in der Schule: L = {−2; 4}, L = { }
+export const Lmenge = (...xs) => xs.length ? `L = {${xs.map(zt).join('; ')}}` : 'L = { }';
 const pkt = (x, y) => `(${zt(x)}|${zt(y)})`;
 
 const ANZAHL = ['keine', 'eine', 'zwei'];
@@ -50,7 +58,7 @@ const A_FORM = [-3, -2, -0.5, -0.25, 0.25, 0.5, 2, 3];
 
 export function parabel(stufe, rng, opts = {}) {
   const st = Math.max(1, Math.min(3, stufe || 1));
-  const formen = { 1: ['scheitel', 'scheitel', 'form', 'punkt'], 2: ['ausmult', 'ergaenzung', 'bild'], 3: ['aufstellen', 'aufstellen', 'sache'] }[st];
+  const formen = { 1: ['scheitel', 'scheitel', 'form', 'punkt'], 2: ['ausmult', 'ergaenzung', 'bild'], 3: ['aufstellen', 'sache', 'ergaenzung_a', 'nullstellen'] }[st];
   const form = opts.form || wahl(rng, formen);
   for (let v = 0; v < 200; v++) {
     const a = parabelForm(form, st, rng);
@@ -73,7 +81,7 @@ function parabelForm(form, st, rng) {
       ...basisF, typ: 'schritte', stufe: st, form, teilschritt: ts,
       rechnung: scheitelForm(1, d, e), frage: 'Wo liegt der Scheitel S?', schritte,
       loesungsweg: [d === 0 ? 'Keine Klammer: Der Scheitel liegt auf der y-Achse, x = 0.' : `In der Klammer x ${d > 0 ? M : '+'} ${zt(Math.abs(d))} → x = ${zt(d)} (Vorzeichen dreht sich)`, `Die Zahl hinten: y = ${zt(e)}`, `S${pkt(d, e)}`],
-      erklaerung: 'y = (x − d)² + e hat den Scheitel S(d|e). Die Zahl in der Klammer dreht ihr Vorzeichen, die Zahl hinten nicht.'
+      erklaerung: 'Scheitelpunktform y = (x − d)² + e → Scheitel S(d|e). Die Zahl in der Klammer dreht ihr Vorzeichen, die Zahl hinten nicht.'
     });
   }
   if (form === 'form') {
@@ -105,6 +113,7 @@ function parabelForm(form, st, rng) {
       schritte: [...(d !== 0 ? [{ text: `x ${d > 0 ? M : '+'} ${zt(Math.abs(d))} =`, wert: glatt(x - d), teilschritt: 'qfkt.normal@1' }] : []),
         { text: d === 0 ? `(${zt(x)})² =` : `(${zt(x - d)})² =`, wert: glatt(q), teilschritt: 'qfkt.normal@1', typische: x - d < 0 ? [{ wert: -glatt(q), typ: 'quadrat-minus', text: 'Minus mal Minus ist Plus. Ein Quadrat ist nie negativ.' }] : [] },
         ...(e !== 0 ? [{ text: 'y =', wert: y, teilschritt: 'qfkt.normal@1', typische }] : [])],
+      ...(d !== 0 || e !== 0 ? { ergebnis: [{ text: 'y =', wert: y, teilschritt: 'qfkt.normal@1', typische }] } : {}),
       loesungsweg: [`y = (${zt(x)}${plus(-d)})²${plus(e)}`, `= ${zt(q)}${plus(e)}`, `y = ${zt(y)}`],
       erklaerung: 'Für x die Zahl einsetzen, mit Klammer. Erst die Klammer, dann hoch 2, dann die Zahl hinten.'
     });
@@ -122,6 +131,8 @@ function parabelForm(form, st, rng) {
         { text: `c = ${zt(d * d)}${plus(e)} =`, wert: c, teilschritt: 'qfkt.scheitelform@1',
           typische: [{ wert: e, typ: 'binom-quadrat-vergessen', text: `${klammer(d)} hat hinten ${zt(d * d)}. Das kommt zu ${zt(e)} dazu.` }, { wert: d + e, typ: 'binom-quadrat-vergessen', text: `${zt(d)}² = ${zt(d * d)}, nicht ${zt(d)}.` }] }
       ],
+      ergebnis: [{ text: 'y = x² + bx + c. b =', wert: b, teilschritt: 'qfkt.scheitelform@1', typische: [{ wert: -d, typ: 'binom-2ab', text: `Das Mittelglied ist 2 · x · ${zt(Math.abs(d))}, mit dem Vorzeichen aus der Klammer.` }, { wert: 2 * d, typ: 'binom-vorzeichen', text: `In der Klammer steht ${d > 0 ? M : '+'}. Das Mittelglied hat dasselbe Vorzeichen.` }] },
+        { text: 'c =', wert: c, teilschritt: 'qfkt.scheitelform@1', typische: [{ wert: e, typ: 'binom-quadrat-vergessen', text: `${klammer(d)} hat hinten ${zt(d * d)}. Das kommt zu ${zt(e)} dazu.` }, { wert: d + e, typ: 'binom-quadrat-vergessen', text: `${zt(d)}² = ${zt(d * d)}, nicht ${zt(d)}.` }] }],
       loesungsweg: [`${klammer(d)} = x²${plus(b)}x + ${zt(d * d)} (binomische Formel)`, `y = x²${plus(b)}x + ${zt(d * d)}${plus(e)}`, `y = ${normalTerm(1, b, c)}`],
       erklaerung: `(x − d)² = x² − 2dx + d². Danach die Zahl hinten dazurechnen.`
     });
@@ -132,7 +143,7 @@ function parabelForm(form, st, rng) {
     const b = 2 * h, e = c - h * h;
     return neu('parabel', ['ergaenzung', b, c], {
       ...basisF, typ: 'schritte', stufe: st, form, teilschritt: 'qfkt.scheitelform@2',
-      rechnung: `y = ${normalTerm(1, b, c)}`, frage: 'Bring die Gleichung mit der quadratischen Ergänzung in die Scheitelform. Wo liegt der Scheitel?',
+      rechnung: `y = ${normalTerm(1, b, c)}`, frage: 'Bring die Gleichung mit der quadratischen Ergänzung in die Scheitelpunktform. Wo liegt der Scheitel?',
       schritte: [
         { text: `Hälfte von ${zt(b)} =`, wert: h, teilschritt: 'qfkt.scheitelform@2' },
         { text: `(${zt(h)})² =`, wert: h * h, teilschritt: 'qfkt.scheitelform@2', typische: h < 0 ? [{ wert: -h * h, typ: 'quadrat-minus', text: 'Minus mal Minus ist Plus.' }] : [] },
@@ -141,7 +152,8 @@ function parabelForm(form, st, rng) {
         { text: 'x-Wert vom Scheitel =', wert: -h, teilschritt: 'qfkt.verschieben@2', typische: [{ wert: h, ...SCHEITEL_VZ(-h) }] },
         { text: 'y-Wert vom Scheitel =', wert: e, teilschritt: 'qfkt.verschieben@2' }
       ],
-      loesungsweg: [`y = x²${plus(b)}x + ${zt(h * h)} ${M} ${zt(h * h)}${plus(c)}`, `y = (x${plus(h)})²${plus(e)}`, `S${pkt(-h, e)}`],
+      ergebnis: [{ text: 'x-Wert vom Scheitel =', wert: -h, teilschritt: 'qfkt.scheitelform@2', typische: [{ wert: h, ...SCHEITEL_VZ(-h) }] }, { text: 'y-Wert vom Scheitel =', wert: e, teilschritt: 'qfkt.scheitelform@2', typische: [{ wert: c + h * h, typ: 'ergaenzung-plus', text: `Du tust ${zt(h * h)} dazu. Damit es gleich bleibt, ziehst du es wieder ab.` }, { wert: c, typ: 'ergaenzung-vergessen', text: `Die ${zt(h * h)} steckt in der Klammer. Zieh sie hinten ab.` }] }],
+      loesungsweg: [`y = x²${plus(b)}x + ${zt(h * h)} ${M} ${zt(h * h)}${plus(c)}`, `y = (x${plus(h)})²${plus(e)} (Scheitelpunktform)`, `S${pkt(-h, e)}`],
       erklaerung: 'Hälfte der Zahl vor x, davon das Quadrat dazutun und gleich wieder abziehen. Die ersten drei Teile sind dann (x + Hälfte)².'
     });
   }
@@ -175,12 +187,30 @@ function parabelForm(form, st, rng) {
         { text: `${zt(py)}${plus(-e)} =`, wert: glatt(py - e), teilschritt: 'qfkt.aufstellen@1', typische: e !== 0 ? [{ wert: glatt(py + e), typ: 'aufstellen-e', text: `Die ${zt(e)} muss auf die andere Seite: ${e > 0 ? 'abziehen' : 'dazuzählen'}.` }] : [] },
         { text: `a = ${zt(py - e)} : ${zt(k)} =`, wert: a, teilschritt: 'qfkt.aufstellen@1', typische: [{ wert: glatt(k / (py - e)), typ: 'a-kehrwert', text: 'a steht vor der Klammer. Also: Zahl links geteilt durch die Klammer.' }] }
       ],
+      ergebnis: [{ text: 'a =', wert: a, teilschritt: 'qfkt.aufstellen@1', typische: [{ wert: glatt(k / (py - e)), typ: 'a-kehrwert', text: 'a steht vor der Klammer. Also: Zahl links geteilt durch die Klammer.' }] }],
       loesungsweg: [`${zt(py)} = a · ${zt(k)}${plus(e)}`, `${zt(py - e)} = a · ${zt(k)}`, `a = ${zt(a)}`, scheitelForm(a, d, e)],
       erklaerung: 'Den Punkt für x und y einsetzen. Dann so umstellen, dass a allein steht.'
     });
   }
   if (form === 'sache') {
-    if (rng() < 0.5) {
+    if (rng() < 0.25) {
+      // Wurf in Normalform (Anmerkung 74e): h(t) = −5t² + bt + c, Scheitel mit der Ergänzung
+      const d = wahl(rng, [1, 1.2, 1.5, 2, 2.5]), c = wahl(rng, [0, 1, 1.5, 2, 5]), e = glatt(5 * d * d + c), b = glatt(10 * d);
+      return neu('parabel', ['wurfn', d, c], {
+        ...basisF, typ: 'schritte', stufe: st, form: 'wurf', teilschritt: 'qfkt.sache@1', kategorie: 'text',
+        geschichte: `Ein Ball wird ${c ? `aus ${zt(c)} m Höhe ` : ''}nach oben geworfen. Seine Höhe in Metern ist h(t) = ${M}5t² + ${zt(b)}t${plus(c)}. t ist die Zeit in Sekunden.`,
+        frage: 'Wie hoch fliegt der Ball höchstens? Nach wie vielen Sekunden?',
+        schritte: [
+          { text: `Ausklammern: h(t) = ${M}5 · (t² ${M} □t)${plus(c)}. □ =`, wert: glatt(2 * d), teilschritt: 'qfkt.scheitelform@3', typische: [{ wert: glatt(-2 * d), typ: 'ergaenzung-minus-ausklammern', text: `Beim Ausklammern von ${M}5 dreht sich das Vorzeichen: ${zt(b)} : (${M}5) = ${zt(-2 * d)}.` }] },
+          { text: 'Scheitel: t =', wert: d, einheit: 's', teilschritt: 'qfkt.scheitelform@3', typische: [{ wert: glatt(2 * d), typ: 'ergaenzung-haelfte', text: 'Die Hälfte der Zahl im Kästchen.' }] },
+          { text: 'höchster Punkt h =', wert: e, einheit: 'm', teilschritt: 'qfkt.sache@1', typische: [{ wert: c, typ: 'scheitel-nullstelle', text: 'Das ist die Höhe beim Abwurf (t = 0). Gesucht ist der Scheitel.' }] }
+        ],
+        ergebnis: [{ text: 'Höchster Punkt: h =', wert: e, einheit: 'm', teilschritt: 'qfkt.sache@1', typische: [{ wert: c, typ: 'scheitel-nullstelle', text: 'Das ist die Höhe beim Abwurf (t = 0). Gesucht ist der Scheitel.' }] }, { text: 'nach t =', wert: d, einheit: 's', teilschritt: 'qfkt.sache@1' }],
+        loesungsweg: [`h(t) = ${M}5(t² ${M} ${zt(2 * d)}t)${plus(c)}`, `= ${M}5[(t ${M} ${zt(d)})² ${M} ${zt(d * d)}]${plus(c)}`, `= ${M}5(t ${M} ${zt(d)})² + ${zt(e)} (Scheitelpunktform)`, `S(${zt(d)}|${zt(e)}): nach ${zt(d)} s, ${zt(e)} m hoch`],
+        erklaerung: 'Erst −5 ausklammern (Vorzeichen in der Klammer drehen sich), dann quadratisch ergänzen. Der Scheitel ist der höchste Punkt.'
+      });
+    }
+    if (rng() < 0.4) {
       // Wurf: h(t) = −5(t − d)² + e
       const d = wahl(rng, [0.8, 1, 1.2, 1.5, 2]), e = glatt(5 * d * d + wahl(rng, [0, 1, 1.5, 2]));
       return neu('parabel', ['wurf', d, e], {
@@ -206,8 +236,53 @@ function parabelForm(form, st, rng) {
         { text: 'größte Fläche bei x =', wert: x, einheit: 'm', teilschritt: 'qfkt.sache@1', typische: [{ wert: U / 2, typ: 'scheitel-nullstelle', text: `Bei x = ${U / 2} ist die Fläche 0. Gesucht ist die Mitte zwischen 0 und ${U / 2}: der Scheitel.` }] },
         { text: 'größte Fläche A =', wert: x * x, einheit: 'm²', teilschritt: 'qfkt.sache@1' }
       ],
+      ergebnis: [{ text: 'größte Fläche bei x =', wert: x, einheit: 'm', teilschritt: 'qfkt.sache@1', typische: [{ wert: U / 2, typ: 'scheitel-nullstelle', text: `Bei x = ${U / 2} ist die Fläche 0. Gesucht ist der Scheitel.` }] }, { text: 'größte Fläche A =', wert: x * x, einheit: 'm²', teilschritt: 'qfkt.sache@1' }],
       loesungsweg: [`A(x) = ${M}x² + ${U / 2}x = ${M}(x ${M} ${x})² + ${x * x}`, `Scheitel S(${x}|${x * x})`, `x = ${x} m, A = ${x} · ${x} = ${x * x} m²`],
       erklaerung: 'Die Fläche ist eine nach unten geöffnete Parabel. Am Scheitel ist sie am größten. Das Rechteck ist dann ein Quadrat.'
+    });
+  }
+  if (form === 'ergaenzung_a') {
+    // Anmerkung 74e: quadratische Ergänzung mit a ≠ 1 (a ausklammern)
+    const a = wahl(rng, [-1, 2, -2]), d = zufall(rng, -4, 4), e = zufall(rng, -8, 8);
+    if (d === 0) return null;
+    const b = -2 * a * d, c = a * d * d + e;
+    if (Math.abs(c) > 40) return null;
+    const innen = -2 * d; // y = a(x² + innen·x) + c
+    return neu('parabel', ['ergaenzung_a', a, d, e], {
+      ...basisF, typ: 'schritte', stufe: st, form, teilschritt: 'qfkt.scheitelform@3',
+      rechnung: `y = ${normalTerm(a, b, c)}`, frage: 'Bring die Gleichung in die Scheitelpunktform. Wo liegt der Scheitel?',
+      schritte: [
+        { text: `Klammere ${zt(a)} aus: y = ${fak(a)}(x² + □x)${plus(c)}. □ =`, wert: innen, teilschritt: 'qfkt.scheitelform@3', typische: [{ wert: b, typ: 'ausklammern-vergessen', text: `Teile ${zt(b)} durch ${zt(a)}.` }, { wert: -innen, typ: 'ergaenzung-minus-ausklammern', text: `${zt(b)} : (${zt(a)}) = ${zt(innen)}. Achte auf das Vorzeichen.` }] },
+        { text: `Hälfte von ${zt(innen)} =`, wert: -d, teilschritt: 'qfkt.scheitelform@3' },
+        { text: `y = ${fak(a)}[(x${plus(-d)})² ${M} ${zt(d * d)}]${plus(c)}. Zahl hinten: ${zt(c)} ${M} ${kz(a)} · ${zt(d * d)} =`, wert: e, teilschritt: 'qfkt.scheitelform@3', typische: [{ wert: c - d * d, typ: 'ergaenzung-a-vergessen', text: `Die ${zt(d * d)} steht in der Klammer mit ${zt(a)} davor. Also ${kz(a)} · ${zt(d * d)} abziehen.` }, { wert: c + a * d * d, typ: 'ergaenzung-plus', text: 'Die Ergänzung wird wieder abgezogen, nicht dazugezählt.' }] },
+        { text: 'x-Wert vom Scheitel =', wert: d, teilschritt: 'qfkt.verschieben@2', typische: [{ wert: -d, ...SCHEITEL_VZ(d) }] },
+        { text: 'y-Wert vom Scheitel =', wert: e, teilschritt: 'qfkt.verschieben@2' }
+      ],
+      ergebnis: [{ text: 'x-Wert vom Scheitel =', wert: d, teilschritt: 'qfkt.scheitelform@3', typische: [{ wert: -d, ...SCHEITEL_VZ(d) }] }, { text: 'y-Wert vom Scheitel =', wert: e, teilschritt: 'qfkt.scheitelform@3', typische: [{ wert: c - d * d, typ: 'ergaenzung-a-vergessen', text: `Beim Abziehen der Ergänzung ${zt(a)} mitnehmen: ${zt(c)} ${M} ${kz(a)} · ${zt(d * d)}.` }] }],
+      loesungsweg: [`y = ${fak(a)}(x²${plus(innen)}x)${plus(c)}`, `= ${fak(a)}[(x${plus(-d)})² ${M} ${zt(d * d)}]${plus(c)}`, `= ${scheitelForm(a, d, e).slice(4)} (Scheitelpunktform)`, `S${pkt(d, e)}`],
+      erklaerung: 'Erst den Faktor vor x² ausklammern, nur aus den Teilen mit x. Dann in der Klammer ergänzen. Beim Herausziehen der Ergänzung den Faktor mitnehmen.'
+    });
+  }
+  if (form === 'nullstellen') {
+    // Anmerkung 74e: Nullstellen aus der Scheitelpunktform: (x − d)² = −e/a
+    const a = wahl(rng, [1, 1, -1, 2, -2]), d = zufall(rng, -5, 5), art = rng() < 0.15 ? 0 : rng() < 0.1 ? 1 : 2;
+    const k = art === 2 ? zufall(rng, 1, 5) : 0;
+    const e = art === 2 ? -a * k * k : art === 1 ? 0 : a * zufall(rng, 1, 6);
+    if (art === 1 && d === 0) return null;
+    const rhs = art === 2 ? k * k : art === 1 ? 0 : glatt(-e / a);
+    const [l1, l2] = art === 2 ? [d - k, d + k] : [d, d];
+    const anz = art;
+    const schritte = [
+      { text: `Setze y = 0: ${klammer(d)} =`, wert: rhs, teilschritt: 'qgl.rein@1', typische: [{ wert: -rhs, typ: 'nullstelle-umstellen', text: `${zt(e)} auf die andere Seite${a !== 1 ? `, dann durch ${zt(a)} teilen` : ''}. Das Vorzeichen dreht sich.` }] },
+      anzahlSchritt(anz, 'qgl.diskriminante@1', anz === 0 ? [null, NEGATIV, NEGATIV] : anz === 1 ? [{ typ: 'diskriminante', text: 'Nur 0 · 0 = 0. Genau eine Lösung: die Parabel berührt die x-Achse im Scheitel.' }, null, { typ: 'diskriminante', text: 'Nur 0 · 0 = 0. Genau eine Lösung.' }] : [NUR_POS(k), NUR_POS(k), null])
+    ];
+    if (anz > 0) schritte.push(...lsgSchritte(l1, l2, 'qgl.rein@1', anz === 2 ? [{ wert: d + k === l1 ? d - k : d + k, typ: 'nur-positive', text: `x ${d >= 0 ? M : '+'} ${zt(Math.abs(d))} = ${M}${k} oder ${k}. Beide Fälle rechnen.` }] : []));
+    return neu('parabel', ['nullstellen', a, d, e], {
+      ...basisF, typ: 'schritte', stufe: st, form, teilschritt: 'qgl.rein@1',
+      rechnung: scheitelForm(a, d, e), frage: 'Wo schneidet die Parabel die x-Achse? Berechne die Nullstellen.',
+      schritte, ergebnis: schritte.slice(1).map(t => ({ ...t })),
+      loesungsweg: [`${scheitelForm(a, d, e).slice(4)} = 0`, `${klammer(d)} = ${zt(rhs)}`, ...(anz === 2 ? [`x${plus(-d)} = ${M}${k} oder x${plus(-d)} = ${k}`] : []), anz === 2 ? Lmenge(l1, l2) : anz === 1 ? Lmenge(d) : 'L = { } (die Parabel schneidet die x-Achse nicht)'],
+      erklaerung: 'Nullstellen sind die x-Werte mit y = 0. Aus der Scheitelpunktform: Zahl hinten rüber, durch a teilen, Wurzel ziehen mit ±.'
     });
   }
   return null;
@@ -218,12 +293,13 @@ const basisG = { thema: 'quadr-gleichungen', fach: 'mathe', hinweise: ['qgl'] };
 const lsgSchritte = (l1, l2, ts, typ1 = [], typ2 = []) => l1 === l2
   ? [{ text: 'x =', wert: l1, teilschritt: ts, typische: typ1 }]
   : [{ text: 'x₁ (die kleinere) =', wert: l1, teilschritt: ts, typische: typ1 }, { text: 'x₂ (die größere) =', wert: l2, teilschritt: ts, typische: typ2 }];
+const D_TIPP = { 0: 'D < 0: Aus einer negativen Zahl gibt es keine Wurzel. Keine Lösung.', 1: 'D = 0: ± 0 ist dasselbe. Genau eine Lösung.', 2: 'D > 0: ± Wurzel gibt zwei Lösungen.' };
 const NUR_POS = (k) => ({ typ: 'nur-positive', text: `Auch die Zahl mit Minus passt: (${M}${k}) · (${M}${k}) = ${k * k}. Also zwei Lösungen.` });
 const NEGATIV = { typ: 'quadrat-negativ', text: 'Ein Quadrat ist nie negativ. Dann gibt es keine Lösung.' };
 
 export function qgleichung(stufe, rng, opts = {}) {
   const st = Math.max(1, Math.min(3, stufe || 1));
-  const formen = { 1: ['rein', 'rein', 'ausklammern', 'nullprodukt'], 2: ['pq', 'pq', 'pq', 'normalform'], 3: ['pqrund', 'pqrund', 'sache', 'vieta'] }[st];
+  const formen = { 1: ['rein', 'rein', 'ausklammern', 'nullprodukt'], 2: ['pq', 'pq', 'normalform', 'ergaenzung', 'achse'], 3: ['pqrund', 'pqrund', 'sache', 'vieta'] }[st];
   const form = opts.form || wahl(rng, formen);
   for (let v = 0; v < 300; v++) {
     const a = qglForm(form, st, rng);
@@ -242,7 +318,7 @@ function qglForm(form, st, rng) {
       return neu('qgleichung', ['rein', 'keine', c], {
         ...basisG, typ: 'schritte', stufe: st, form, teilschritt: 'qgl.rein@2', rechnung, frage: 'Löse die Gleichung.',
         schritte: [anzahlSchritt(0, 'qgl.rein@2', [null, NEGATIV, NEGATIV])],
-        loesungsweg: [`x² = ${M}${c}`, 'Ein Quadrat ist nie negativ.', 'keine Lösung'],
+        loesungsweg: [`x² = ${M}${c}`, 'Ein Quadrat ist nie negativ.', 'L = { }'],
         erklaerung: 'Jede Zahl mal sich selbst ergibt 0 oder mehr. x² kann nie negativ sein.'
       });
     }
@@ -252,7 +328,7 @@ function qglForm(form, st, rng) {
     return neu('qgleichung', ['rein', art, k, ...(art === 'faktor' ? [Number(rechnung.split('x')[0])] : [])], {
       ...basisG, typ: 'schritte', stufe: st, form, teilschritt: 'qgl.rein@1', rechnung, frage: 'Löse die Gleichung.',
       schritte: [anzahlSchritt(2, 'qgl.rein@1', [NUR_POS(k), NUR_POS(k), null]), ...lsgSchritte(-k, k, 'qgl.rein@1', [{ wert: k, ...NUR_POS(k) }])],
-      loesungsweg: [...weg, `x = ${M}${k} oder x = ${k}`],
+      loesungsweg: [...weg, `x = ${M}${k} oder x = ${k}`, Lmenge(-k, k)],
       erklaerung: `${k} · ${k} = ${k * k} und (${M}${k}) · (${M}${k}) = ${k * k}. Darum gibt es zwei Lösungen.`
     });
   }
@@ -266,7 +342,7 @@ function qglForm(form, st, rng) {
       schritte: [anzahlSchritt(2, 'qgl.ausklammern@1', [verlorenTyp, verlorenTyp, null]),
         ...lsgSchritte(l1, l2, 'qgl.ausklammern@1', l1 === 0 ? [{ wert: b, ...verlorenTyp }, { wert: -b, typ: 'nullprodukt-vorzeichen', text: `x${plus(-b)} = 0 → x = ${zt(b)}.` }] : [{ wert: -b, typ: 'nullprodukt-vorzeichen', text: `x${plus(-b)} = 0 → x = ${zt(b)}.` }],
           l2 === 0 ? [{ wert: b, ...verlorenTyp }] : [{ wert: -b, typ: 'nullprodukt-vorzeichen', text: `x${plus(-b)} = 0 → x = ${zt(b)}.` }])],
-      loesungsweg: [`x · (${f === 1 ? '' : f}x${plus(-f * b)}) = 0`, `x = 0 oder ${f === 1 ? '' : f}x${plus(-f * b)} = 0`, `x = 0 oder x = ${zt(b)}`],
+      loesungsweg: [`x · (${f === 1 ? '' : f}x${plus(-f * b)}) = 0`, `x = 0 oder ${f === 1 ? '' : f}x${plus(-f * b)} = 0`, `x = 0 oder x = ${zt(b)}`, Lmenge(l1, l2)],
       erklaerung: 'Ein Produkt ist 0, wenn einer der Faktoren 0 ist. Darum: x = 0 ist immer eine Lösung.'
     });
   }
@@ -279,11 +355,11 @@ function qglForm(form, st, rng) {
     return neu('qgleichung', ['nullprodukt', m, n], {
       ...basisG, typ: 'schritte', stufe: st, form, teilschritt: 'qgl.ausklammern@2', rechnung, frage: 'Löse die Gleichung.',
       schritte: [anzahlSchritt(2, 'qgl.ausklammern@2'), ...lsgSchritte(l1, l2, 'qgl.ausklammern@2', [{ wert: -l1, ...vz(l1) }], [{ wert: -l2, ...vz(l2) }])],
-      loesungsweg: [`x${plus(-m)} = 0 oder x${plus(-n)} = 0`, `x = ${zt(m)} oder x = ${zt(n)}`],
+      loesungsweg: [`x${plus(-m)} = 0 oder x${plus(-n)} = 0`, `x = ${zt(m)} oder x = ${zt(n)}`, Lmenge(l1, l2)],
       erklaerung: 'Ein Produkt ist 0, wenn eine Klammer 0 ist. Jede Klammer einzeln auf 0 setzen.'
     });
   }
-  if (form === 'pq' || form === 'normalform' || form === 'pqrund') {
+  if (form === 'pq' || form === 'normalform' || form === 'pqrund' || form === 'achse') {
     let p, q, l1, l2, n, f = 1;
     if (form === 'pqrund') {
       p = zufall(rng, -8, 8); q = zufall(rng, -12, 8);
@@ -310,12 +386,12 @@ function qglForm(form, st, rng) {
       { text: 'Die Zahl ohne x: q =', wert: q, teilschritt: 'qgl.normalform@1', typische: [{ wert: f * q, typ: 'normalform-nur-teil', text: `Jede Zahl durch ${zt(f)} teilen, auch die Zahl ohne x.` }, { wert: -q, typ: 'pq-vorzeichen-q', text: 'q ist die Zahl ohne x, mit ihrem Vorzeichen.' }] });
     else schritte.push({ text: 'p =', wert: p, teilschritt: ts, typische: [{ wert: -p, typ: 'pq-vorzeichen-p', text: 'p ist die Zahl vor x, mit ihrem Vorzeichen.' }] },
       { text: 'q =', wert: q, teilschritt: ts, typische: [{ wert: -q, typ: 'pq-vorzeichen-q', text: 'q ist die Zahl ohne x, mit ihrem Vorzeichen.' }] });
-    const typD = [{ wert: glatt((p / 2) ** 2 + q), typ: 'pq-q-vorzeichen', text: `Unter der Wurzel steht (p/2)² − q. ${q < 0 ? `Minus (${zt(q)}) wird plus.` : `Also ${M} ${zt(q)}.`}` },
+    const typD = [{ wert: glatt((p / 2) ** 2 + q), typ: 'pq-q-vorzeichen', text: `D = (p/2)² − q. ${q < 0 ? `Minus (${zt(q)}) wird plus.` : `Also ${M} ${zt(q)}.`}` },
       { wert: glatt(p * p - q), typ: 'pq-halbe-vergessen', text: `Erst p halbieren: ${zt(p)} : 2 = ${zt(p / 2)}. Dann hoch 2.` }];
-    schritte.push({ text: `(p/2)² ${M} q = (${zt(p / 2)})² ${M} ${q < 0 ? `(${zt(q)})` : zt(q)} =`, wert: D, teilschritt: ts, typische: typD });
-    schritte.push(anzahlSchritt(n, 'qgl.diskriminante@1', n === 0 ? [null, { typ: 'diskriminante', text: 'Unter der Wurzel ist die Zahl negativ. Aus einer negativen Zahl gibt es keine Wurzel: keine Lösung.' }, { typ: 'diskriminante', text: 'Unter der Wurzel ist die Zahl negativ. Aus einer negativen Zahl gibt es keine Wurzel: keine Lösung.' }]
-      : n === 1 ? [{ typ: 'diskriminante', text: 'Unter der Wurzel steht 0. Das gibt genau eine Lösung.' }, null, { typ: 'diskriminante', text: 'Unter der Wurzel steht 0. ± 0 ist dasselbe: genau eine Lösung.' }]
-      : [{ typ: 'diskriminante', text: 'Unter der Wurzel ist die Zahl positiv: zwei Lösungen (± Wurzel).' }, { typ: 'diskriminante', text: 'Unter der Wurzel ist die Zahl positiv: zwei Lösungen (± Wurzel).' }, null]));
+    schritte.push({ text: `Diskriminante D = (p/2)² ${M} q = (${zt(p / 2)})² ${M} ${q < 0 ? `(${zt(q)})` : zt(q)} =`, wert: D, teilschritt: 'qgl.diskriminante@1', typische: typD });
+    const dTipp = { typ: 'diskriminante', text: D_TIPP[n] };
+    const anzahl = anzahlSchritt(n, 'qgl.diskriminante@1', [0, 1, 2].map(i => i === n ? null : dTipp));
+    schritte.push(anzahl);
     if (n > 0) {
       const w = Math.sqrt(D), vzP = (x) => [{ wert: form === 'pqrund' ? r2(-x) : glatt(-x), typ: 'pq-vorzeichen-p', text: `Vorne steht −p/2 = ${zt(-p / 2)}. Das Vorzeichen von p dreht sich.` }];
       if (form === 'pqrund') {
@@ -323,15 +399,38 @@ function qglForm(form, st, rng) {
           { text: 'x₂ (die größere) ≈', wert: r2(l2), rundenAuf: 2, teilschritt: ts, typische: [{ wert: r2(p / 2 + w), typ: 'pq-vorzeichen-p', text: `Vorne steht −p/2 = ${zt(-p / 2)}.` }] });
       } else schritte.push(...lsgSchritte(l1, l2, ts, vzP(l2), vzP(l1)));
     }
-    const weg = [...(f !== 1 ? [`${rechnung}   | : ${zt(f)}`] : []), `${normalTerm(1, p, q)} = 0 → p = ${zt(p)}, q = ${zt(q)}`, `x = ${zt(-p / 2)} ± √(${zt(D)})`];
-    if (n === 0) weg.push('Unter der Wurzel negativ → keine Lösung');
-    else if (n === 1) weg.push(`x = ${zt(l1)}`);
-    else weg.push(form === 'pqrund' ? `x₁ ≈ ${zt(r2(l1))}, x₂ ≈ ${zt(r2(l2))}` : `x₁ = ${zt(l1)}, x₂ = ${zt(l2)}`);
+    const ergebnis = [{ ...anzahl, fehlerWahl: [0, 1, 2].map(i => i === n ? null : { typ: 'diskriminante', text: `Rechne die Diskriminante D = (p/2)² ${M} q aus. ${D_TIPP[n]}` }) }, ...schritte.slice(schritte.indexOf(anzahl) + 1).map(t => ({ ...t }))];
+    const weg = [...(f !== 1 ? [`${rechnung}   | : ${zt(f)}`] : []), `${normalTerm(1, p, q)} = 0 → p = ${zt(p)}, q = ${zt(q)}`, `D = (${zt(p / 2)})² ${M} ${q < 0 ? `(${zt(q)})` : zt(q)} = ${zt(D)}`];
+    if (n === 0) weg.push('D < 0 → keine Lösung', Lmenge());
+    else if (n === 1) weg.push(`D = 0 → x = ${zt(-p / 2)}`, Lmenge(l1));
+    else weg.push(`x₁,₂ = ${zt(-p / 2)} ± √${zt(D)}`, form === 'pqrund' ? `x₁ ≈ ${z2(l1)}, x₂ ≈ ${z2(l2)} → L = {${z2(l1)}; ${z2(l2)}}` : Lmenge(l1, l2));
     return neu('qgleichung', [form, f, p, q], {
-      ...basisG, typ: 'schritte', stufe: st, form, teilschritt: f !== 1 ? 'qgl.normalform@1' : ts, rechnung,
-      frage: form === 'pqrund' ? 'Löse mit der pq-Formel. Runde auf 2 Stellen nach dem Komma.' : f !== 1 ? 'Bring die Gleichung auf Normalform. Löse dann mit der pq-Formel.' : 'Löse mit der pq-Formel.',
-      schritte, loesungsweg: weg,
-      erklaerung: 'x² + px + q = 0 → x = −p/2 ± √((p/2)² − q). Der Wert unter der Wurzel sagt, wie viele Lösungen es gibt.'
+      ...basisG, typ: 'schritte', stufe: st, form, teilschritt: form === 'achse' ? 'qgl.pq@1' : f !== 1 ? 'qgl.normalform@1' : ts, rechnung,
+      ...(form === 'achse' ? { rechnung: `y = ${normalTerm(1, p, q)}` } : {}),
+      frage: form === 'achse' ? 'Wo schneidet die Parabel die x-Achse? Setze y = 0 und löse mit der pq-Formel.' : form === 'pqrund' ? 'Löse mit der pq-Formel. Runde auf 2 Stellen nach dem Komma.' : f !== 1 ? 'Bring die Gleichung auf Normalform. Löse dann mit der pq-Formel.' : 'Löse mit der pq-Formel.',
+      schritte, ergebnis, loesungsweg: form === 'achse' ? ['y = 0 setzen', ...weg, n === 0 ? 'Die Parabel schneidet die x-Achse nicht.' : n === 1 ? 'Die Parabel berührt die x-Achse im Scheitel.' : 'Zwei Schnittpunkte mit der x-Achse.'] : weg,
+      erklaerung: 'Lösungsformel (pq-Formel): x₁,₂ = −p/2 ± √D mit D = (p/2)² − q. D < 0 → keine Lösung, D = 0 → eine, D > 0 → zwei.'
+    });
+  }
+  if (form === 'ergaenzung') {
+    // Anmerkung 74e: Gleichung mit quadratischer Ergänzung lösen (qgl.ergaenzung)
+    const h = zufall(rng, -6, 6), k = zufall(rng, 1, 6);
+    if (h === 0) return null;
+    const p = 2 * h, q = h * h - k * k;
+    if (q === 0) return null;
+    const [l1, l2] = [-h - k, -h + k];
+    const schritte = [
+      { text: `${normalTerm(1, p, 0)} = ${zt(-q)}. Ergänze auf beiden Seiten. Die Ergänzung (${zt(p)} : 2)² =`, wert: h * h, teilschritt: 'qgl.ergaenzung@1', typische: [{ wert: p * p, typ: 'pq-halbe-vergessen', text: `Erst halbieren: ${zt(p)} : 2 = ${zt(h)}. Dann hoch 2.` }] },
+      { text: `(x${plus(h)})² = ${zt(-q)} + ${zt(h * h)} =`, wert: k * k, teilschritt: 'qgl.ergaenzung@1', typische: [{ wert: -q, typ: 'ergaenzung-eine-seite', text: 'Die Ergänzung kommt auf beide Seiten.' }] },
+      anzahlSchritt(2, 'qgl.ergaenzung@1', [NUR_POS(k), NUR_POS(k), null]),
+      ...lsgSchritte(l1, l2, 'qgl.ergaenzung@1', [{ wert: -l1, typ: 'nullprodukt-vorzeichen', text: `x${plus(h)} = ${M}${k} → x = ${zt(l1)}.` }], [{ wert: -l2, typ: 'nullprodukt-vorzeichen', text: `x${plus(h)} = ${k} → x = ${zt(l2)}.` }])
+    ];
+    return neu('qgleichung', ['ergaenzung', p, q], {
+      ...basisG, typ: 'schritte', stufe: st, form, teilschritt: 'qgl.ergaenzung@1', rechnung: `${normalTerm(1, p, q)} = 0`,
+      frage: 'Löse mit der quadratischen Ergänzung (ohne pq-Formel).',
+      schritte, ergebnis: schritte.slice(2).map(t => ({ ...t })),
+      loesungsweg: [`${normalTerm(1, p, 0)} = ${zt(-q)}`, `${normalTerm(1, p, 0)} + ${zt(h * h)} = ${zt(-q)} + ${zt(h * h)}`, `(x${plus(h)})² = ${zt(k * k)}`, `x${plus(h)} = ${M}${k} oder x${plus(h)} = ${k}`, Lmenge(l1, l2)],
+      erklaerung: 'Zahl ohne x auf die andere Seite. Dann (Hälfte der Zahl vor x)² auf beiden Seiten dazu. Links steht jetzt ein Quadrat: Wurzel ziehen mit ±.'
     });
   }
   if (form === 'vieta') {
@@ -348,13 +447,14 @@ function qglForm(form, st, rng) {
     const fw = { 1: { typ: 'vieta-vorzeichen', text: `Die Summe der Lösungen ist −p = ${zt(-p)}, nicht p.` }, 2: { typ: 'vieta-summe', text: `Das Produkt passt. Die Summe muss aber −p = ${zt(-p)} sein.` } };
     return neu('qgleichung', ['vieta', a, b], {
       ...basisG, typ: 'schritte', stufe: st, form, teilschritt: 'qgl.vieta@1', rechnung: `${normalTerm(1, p, q)} = 0`,
-      frage: 'Finde die Lösungen mit dem Satz von Vieta: x₁ + x₂ = −p und x₁ · x₂ = q.',
+      frage: 'Finde die Lösungen mit dem Satz von Vieta.',
       schritte: [
         { text: 'x₁ + x₂ = −p =', wert: -p, teilschritt: 'qgl.vieta@1', typische: [{ wert: p, typ: 'vieta-vorzeichen', text: 'Die Summe ist −p: Das Vorzeichen dreht sich.' }] },
         { text: 'x₁ · x₂ = q =', wert: q, teilschritt: 'qgl.vieta@1' },
         { text: 'Welche Zahlen sind die Lösungen?', optionen: reihen.map(i => pTxt(kand[i])), richtig: reihen.indexOf(0), zwei_versuche: true, teilschritt: 'qgl.vieta@1', fehlerWahl: reihen.map(i => fw[i] || null) }
       ],
-      loesungsweg: [`Summe ${zt(-p)}, Produkt ${zt(q)}`, `${kz(l1)} + ${kz(l2)} = ${zt(-p)} und ${kz(l1)} · ${kz(l2)} = ${zt(q)}`, `x₁ = ${zt(l1)}, x₂ = ${zt(l2)}`],
+      ergebnis: [{ text: 'x₁ (die kleinere) =', wert: l1, teilschritt: 'qgl.vieta@1' }, { text: 'x₂ (die größere) =', wert: l2, teilschritt: 'qgl.vieta@1' }],
+      loesungsweg: [`x₁ + x₂ = ${zt(-p)}, x₁ · x₂ = ${zt(q)}`, `${kz(l1)} + ${kz(l2)} = ${zt(-p)} und ${kz(l1)} · ${kz(l2)} = ${zt(q)}`, Lmenge(l1, l2)],
       erklaerung: 'Zwei Zahlen suchen: zusammen −p, malgenommen q. Erst die Paare fürs Produkt, dann die Summe prüfen.'
     });
   }
@@ -377,7 +477,8 @@ function qglForm(form, st, rng) {
         { text: 'kürzere Seite =', wert: k, einheit: 'm', teilschritt: 'qgl.pq@1' },
         { text: 'längere Seite =', wert: l, einheit: 'm', teilschritt: 'qgl.pq@1' }
       ],
-      loesungsweg: [`x · (${s} ${M} x) = ${A}`, `x² ${M} ${s}x + ${A} = 0`, `x = ${zt(s / 2)} ± √(${zt((s / 2) ** 2 - A)})`, `Seiten ${k} m und ${l} m`],
+      ergebnis: [{ text: 'kürzere Seite =', wert: k, einheit: 'm', teilschritt: 'qgl.sache@1' }, { text: 'längere Seite =', wert: l, einheit: 'm', teilschritt: 'qgl.sache@1' }],
+      loesungsweg: [`x · (${s} ${M} x) = ${A}`, `x² ${M} ${s}x + ${A} = 0`, `x₁,₂ = ${zt(s / 2)} ± √${zt((s / 2) ** 2 - A)}`, `${Lmenge(k, l)} → Seiten ${k} m und ${l} m`],
       erklaerung: 'Die andere Seite ist halber Umfang minus x. Fläche = x mal andere Seite. Beide Lösungen sind die zwei Seiten.'
     });
   }

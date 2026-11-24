@@ -41,7 +41,7 @@ import { allesNeuLaden } from './neuladen.js';
 import * as TW from './themenwahl.js';
 import * as TWU from './themenwahl-ui.js';
 
-export const APP_VERSION = '2.60.0';
+export const APP_VERSION = '2.61.0';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Abschicken, Formelsammlung. Testgeräte laden keine Messung hoch.
 M.init({ app: 'mathe', version: APP_VERSION });
 
@@ -1719,6 +1719,7 @@ function merkTeile(a) {
 }
 function teileVon(a) {
   // Knobeln: zuerst nur ein Ergebnisfeld, „In Schritten rechnen“ blendet die Schritte ein
+  if (a.modus === 'knobeln' && Array.isArray(a.ergebnis) && a.ergebnis.length) return schritteVon(a.ergebnis, a.thema).map(t => ({ ...t, knobel: true })); // 24.11.: mehrere Ergebnis-Felder (parabel, qgleichung)
   if (a.modus === 'knobeln') return [ergebnisTeil(a, true)];
   return [...merkTeile(a), ...hauptTeile(a)];
 }
@@ -1734,6 +1735,7 @@ function ergebnisTeil(a, knobel = false) {
 // Teile mit Schritten (nach „In Schritten rechnen“): Merkzettel, Schritte und, wenn nötig, das Ergebnisfeld
 function schritteTeile(a) {
   const st = schritteVon(a.schritte || [], a.thema);
+  if (Array.isArray(a.ergebnis)) return [...merkTeile(a), ...st]; // Baukästen mit Ergebnis-Feldern: der letzte Schritt ist das Ergebnis
   const w = a.antwort || {};
   const ziel = typeof w.mantisse === 'number' ? w.mantisse * 10 ** w.exponent : w.wert;
   const letzte = (a.schritte || [])[(a.schritte || []).length - 1];
@@ -1910,7 +1912,7 @@ function twAufgabeThema(t) {
   const gens = u.gens.filter(g => G.GENERATOREN[g]);
   const ausPool = () => (pool.length ? L.waehleAufgabe(pool, { kategorie: 'alle', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key, gesperrt: loesungGesperrt() }) : null);
   const ausGen = () => { if (!gens.length) return null; const g = wahl(gens); return erzeuge(g, Math.max(1, Math.min(genStufe(g), e))); };
-  const a = pool.length && Math.random() < 0.4 ? ausPool() || ausGen() : ausGen() || ausPool();
+  const a = pool.length && Math.random() < (u.poolAnteil || 0.4) ? ausPool() || ausGen() : ausGen() || ausPool();
   return a ? { ...a, tw: { thema: t, zweck: 'thema' } } : null;
 }
 function twAufgabeSchritt(liste) {
@@ -2603,7 +2605,7 @@ function serieWeiter() {
 function startInfoVon(A, extra = {}) {
   const aufgabe = A.aufgabe;
   const startInfo = { id: aufgabe.id, thema: aufgabe.thema, stufe: aufgabe.stufe, aufgabenTyp: aufgabe.typ, kategorie: A.kategorie, serienPos: A.serienPos, bonus: !!aufgabe.bonus, wiederholung: A.wdh || 0, ...(A.nachLoesung ? { nach_loesung: A.nachLoesung } : {}), ...(A.nachLoesungSchritt ? { nach_loesung_schritt: A.nachLoesungSchritt } : {}),
-    ...(A.paket ? { paket: A.paket } : {}), ...(A.etappe != null ? { etappe: A.etappe } : {}), ...(A.ausgleich ? { ausgleich: true } : {}), ...(A.wp ? { wochenplan: A.wp.grund, ...(A.wp.art ? { wp_art: A.wp.art } : {}) } : {}), ...(aufgabe.grenze_bis ? { grenze_bis: aufgabe.grenze_bis } : {}), ...extra };
+    ...(A.paket ? { paket: A.paket } : {}), ...(A.etappe != null ? { etappe: A.etappe } : {}), ...(A.anzahlModus ? { anzahl_modus: A.anzahlModus } : {}), ...(A.ausgleich ? { ausgleich: true } : {}), ...(A.wp ? { wochenplan: A.wp.grund, ...(A.wp.art ? { wp_art: A.wp.art } : {}) } : {}), ...(aufgabe.grenze_bis ? { grenze_bis: aufgabe.grenze_bis } : {}), ...extra };
   const sollJeFeld = () => A.teile.map(t => (t.art === 'zahl' || t.art === 'saeule') && t.ziel ? [t.label || null, t.ziel.wert] : t.art === 'bruch' && t.antwort ? [t.antwort.zaehler, t.antwort.nenner] : t.art === 'wahl' ? [t.label, t.richtig] : null);
   if (aufgabe.generator) Object.assign(startInfo, {
     generator: aufgabe.generator, parameter: aufgabe.parameter, rechnung: aufgabe.rechnung, geschichte: aufgabe.geschichte,
@@ -2691,6 +2693,7 @@ function neueAufgabe() {
     S.verlauf.musterIndex++;
   }
   aufgabe = L.kuerzelAufgabe(aufgabe);
+  const anzahlModus = anzahlAnpassen(aufgabe); if (anzahlModus) aufgabe = anzahlModus.aufgabe;
   A = {
     aufgabe, kategorie, serienPos: serieWeiter(), start: Date.now(),
     teile: teileVon(aufgabe), idx: 0, phase: 'eingabe', hinweise: [], verlassen: 0, strafe: 'keine',
@@ -2708,6 +2711,7 @@ function neueAufgabe() {
   seitenUmbauen();
   if (fsAufgabe(aufgabe) && !S.fsSitzung) { A.fsEinladung = true; S.fsSitzung = true; }
   if (aufgabe.modus === 'knobeln') A.knobeln = true;
+  if (anzahlModus) A.anzahlModus = anzahlModus.modus;
   if (aufgabe.typ === 'zuordnung') zuordnungVorbereiten();
   A.bzStart = bzStufe();
   protokoll(S, 'aufgabe_start', startInfoVon(A, bonusWdh ? { bonusWiederholung: true } : {}));
@@ -3122,7 +3126,7 @@ function schritteAn(auto = false) {
   const alt = A.teile[0];
   A.knobeln = false;
   A.schritteAn = true;
-  if (alt && alt.versuche.some(v => !v.richtig)) A.knobelFalsch = true;
+  if (A.teile.some(t => t.versuche && t.versuche.some(v => !v.richtig))) A.knobelFalsch = true;
   A.teile = schritteTeile(A.aufgabe);
   teileStarten(A.teile);
   A.idx = 0; A.phase = 'eingabe'; A.feld = 'z';
@@ -3603,6 +3607,22 @@ function trigBild(a) {
   const t = A.teile.find(x => x.seitenSchritt) || A.teile.find(x => x.quelle && x.quelle.kos === 'fn');
   if (!t || !['erst', 'zweit', 'loesung'].includes(t.status)) return a.bild;
   return { ...a.bild, farbig: A.trigFn === 'cos' ? true : A.trigFn, farbeAlle: true };
+}
+// 74e (Aliatra): „Wie viele Lösungen?“ entfällt nach 3 Aufgaben in Folge mit richtiger Anzahl im 1. Versuch (S.verlauf.anzahlFolge),
+// nach einem Fehler wieder da. Gibt es keine oder eine Lösung, bleibt die Frage (sonst gäbe es kein Feld für „keine Lösung“);
+// damit ihr Erscheinen nichts verrät, bleibt sie auch bei etwa jeder 3. Aufgabe mit zwei Lösungen.
+const ANZAHL_TEXT = 'Wie viele Lösungen?';
+function anzahlAnpassen(a) {
+  const hat = (l) => Array.isArray(l) && l.some(x => x && x.text === ANZAHL_TEXT);
+  if (!a || a.generator !== 'qgleichung' && a.generator !== 'parabel' || !(hat(a.schritte) || hat(a.ergebnis))) return null;
+  const t = (a.schritte || []).find(x => x.text === ANZAHL_TEXT) || a.ergebnis.find(x => x.text === ANZAHL_TEXT);
+  if ((S.verlauf.anzahlFolge || 0) < 3 || t.richtig < 2 || Math.random() < 1 / 3) return { aufgabe: a, modus: 'mit' };
+  const ohne = (l) => Array.isArray(l) ? l.filter(x => x.text !== ANZAHL_TEXT) : l;
+  return { aufgabe: { ...a, schritte: ohne(a.schritte), ...(a.ergebnis ? { ergebnis: ohne(a.ergebnis) } : {}) }, modus: 'ohne' };
+}
+function anzahlGezaehlt(t, richtig) {
+  if (!A.anzahlModus || !t.quelle || t.quelle.text !== ANZAHL_TEXT || t.versuche.length !== 1) return;
+  S.verlauf.anzahlFolge = richtig ? (S.verlauf.anzahlFolge || 0) + 1 : 0;
 }
 function seitenGezaehlt(t, richtig) {
   if (!t.quelle || t.quelle.kos !== 'fn' || t.versuche.length !== 1 || !A.trigFn) return;
@@ -4477,6 +4497,7 @@ function versuchMerken(t, eingabe, richtig, fehler) {
   });
   if (t.gesuchtModus) gesuchtGezaehlt(t, richtig);
   seitenGezaehlt(t, richtig);
+  anzahlGezaehlt(t, richtig);
   t.seit = Date.now();
   A.schnellFolge = 0;
   if (richtig) {

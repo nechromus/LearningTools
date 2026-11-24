@@ -559,13 +559,14 @@
       "farbe_hell": "#FEF3C7",
       "farbe_text": "#78350F",
       "regeln": [
-        "Scheitelform: y = a(x − d)² + e → Scheitel S(d|e)",
+        "Scheitelpunktform: y = a(x − d)² + e → Scheitel S(d|e)",
         "In der Klammer dreht sich das Vorzeichen: (x − 2)² → x = 2, (x + 2)² → x = −2",
         "Die Zahl hinten ist der y-Wert, mit ihrem Vorzeichen.",
-        "a positiv → nach oben, a negativ → nach unten",
-        "a ohne Vorzeichen größer als 1 → schmaler, zwischen 0 und 1 → breiter",
+        "a > 0 → nach oben geöffnet, a < 0 → nach unten",
+        "|a| > 1 (Betrag von a) → schmaler, 0 < |a| < 1 → breiter",
         "(x − d)² = x² − 2dx + d²",
-        "Quadratische Ergänzung: Hälfte der Zahl vor x, ins Quadrat, dazutun und gleich wieder abziehen."
+        "Quadratische Ergänzung: Hälfte der Zahl vor x, ins Quadrat, dazutun und gleich wieder abziehen. Mit a ≠ 1 zuerst a ausklammern.",
+        "Nullstellen: y = 0 setzen und nach x auflösen."
       ],
       "beispiel": "y = x² + 6x + 2 = x² + 6x + 9 − 9 + 2 = (x + 3)² − 7 → S(−3|−7)",
       "fach": "mathe"
@@ -579,15 +580,17 @@
       "farbe_hell": "#DBEAFE",
       "farbe_text": "#1E3A8A",
       "regeln": [
-        "x² = 25 → x = −5 oder x = 5 (zwei Lösungen)",
+        "x² = 25 → x = −5 oder x = 5 (reinquadratisch: zwei Lösungen)",
         "x² = −4 → keine Lösung (ein Quadrat ist nie negativ)",
         "Ein Produkt ist 0, wenn ein Faktor 0 ist: x · (x − 5) = 0 → x = 0 oder x = 5",
         "Nicht durch x teilen: Sonst geht die Lösung 0 verloren.",
         "Normalform: x² + px + q = 0 (vor x² steht 1, sonst durch diese Zahl teilen)",
-        "pq-Formel: x = −p/2 ± √((p/2)² − q)",
-        "Unter der Wurzel negativ → keine Lösung, 0 → eine, positiv → zwei"
+        "Lösungsformel (pq-Formel): x₁,₂ = −p/2 ± √((p/2)² − q)",
+        "Diskriminante D = (p/2)² − q: D > 0 → zwei Lösungen, D = 0 → eine, D < 0 → keine",
+        "Satz von Vieta: x₁ + x₂ = −p und x₁ · x₂ = q",
+        "Lösungsmenge angeben: L = {x₁; x₂}, ohne Lösung L = { }"
       ],
-      "beispiel": "x² − 2x − 8 = 0: p = −2, q = −8 → x = 1 ± √(1 + 8) = 1 ± 3 → x₁ = −2, x₂ = 4",
+      "beispiel": "x² − 2x − 8 = 0: p = −2, q = −8, D = 1 + 8 = 9 → x₁,₂ = 1 ± 3 → L = {−2; 4}",
       "fach": "mathe"
     }
   ]
