@@ -868,3 +868,21 @@ details.experte > summary { cursor: pointer; font-weight: 700; padding: 8px 0; l
 .weg-heft .weg-v.falsch s { text-decoration-color: rgba(138,90,0,.45); }
 .weg-heft .weg-v.falsch small { display: block; color: #6B7478; font-size: 12px; }
 .weg-heft .weg-v.loesung { color: #6B7478; font-style: italic; }
+
+/* Themenwahl (Auftrag 74) */
+.tw-e h3 { font-size: 15px; margin: 12px 0 4px; }
+.tw-e-tab { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px; }
+.tw-e-tab th, .tw-e-tab td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--linie, #ddd); vertical-align: top; }
+.tw-e-liste { margin: 4px 0; padding-left: 18px; font-size: 14px; line-height: 1.5; }
+.tw-e-ringe { display: flex; gap: 14px; align-items: center; margin: 6px 0 10px; }
+.tw-dunkel { background: #141726; color: #F1ECE4; }
+.tw-dunkel .abschnitt-in { color: #FFCC99; }
+.tw-e-kal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; max-width: 420px; }
+.tw-e-kal span { text-align: center; font-size: 11px; opacity: .7; }
+.tw-e-kal i { aspect-ratio: 1; border-radius: 7px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-style: normal; }
+.tw-e-kal i.leer { background: none !important; }
+.tw-dunkel .tw-e-kal i[style*="var(--flaeche"] { background: #1B1F33 !important; }
+.tw-e-kal b { font-size: 12px; } .tw-e-kal small { font-size: 10px; }
+.tw-karte { overflow-x: auto; background: #05060C; border-radius: 12px; }
+.tw-karte svg { display: block; }
+.tw-e h2.abschnitt-in { font-size: 17px; margin: 0 0 6px; }

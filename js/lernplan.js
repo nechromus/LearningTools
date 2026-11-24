@@ -10,8 +10,9 @@ function gewichteNorm(g) {
 }
 
 export const FORMAT2 = 'lernapp-paket-2';
-export const ROLLEN = ['grund', 'einheit', 'wiederholung'];
-export const ROLLEN_NAMEN = { grund: 'Grundpaket', einheit: 'Lerneinheit', wiederholung: 'Wiederholung' };
+// pause (Auftrag 74): Paket ruht mit Anteil 0, sein Stand bleibt gespeichert (z. B. Physik bei der Themenwahl)
+export const ROLLEN = ['grund', 'einheit', 'wiederholung', 'pause'];
+export const ROLLEN_NAMEN = { grund: 'Grundpaket', einheit: 'Lerneinheit', wiederholung: 'Wiederholung', pause: 'ruht' };
 export const WEITER = ['hand', 'vorschlag', 'automatisch'];
 export const FAECHER = ['mathe', 'physik'];
 // Varianten der Baukästen, die eine Etappe abschalten kann
@@ -126,7 +127,8 @@ export function startAusfuehren(liste, id) {
   // genau ein Grundpaket
   let grund = false;
   for (const x of liste) { if (x.rolle === 'grund') { if (grund) x.rolle = 'einheit'; grund = true; } }
-  if (!grund && liste.length) liste[0].rolle = 'grund';
+  const ohnePause = liste.filter(x => x.rolle !== 'pause');
+  if (!grund && ohnePause.length) ohnePause[0].rolle = 'grund';
   delete p.start;
   return { paket: p.id, ausgeloest_durch: st.wenn.paket, etappe: p.etappe, neu };
 }
@@ -162,7 +164,8 @@ export function paketeAusWerte(w) {
   if (!w || typeof w !== 'object') return null;
   if (Array.isArray(w.pakete) && w.pakete.length) {
     const liste = w.pakete.map(eintragNorm).filter(p => p.id);
-    if (!liste.some(p => p.rolle === 'grund') && liste.length) liste[0].rolle = 'grund';
+    const ohnePause = liste.filter(p => p.rolle !== 'pause');
+    if (!liste.some(p => p.rolle === 'grund') && ohnePause.length) ohnePause[0].rolle = 'grund';
     // genau ein Grundpaket
     let grund = false;
     for (const p of liste) { if (p.rolle === 'grund') { if (grund) p.rolle = 'einheit'; grund = true; } }
@@ -190,7 +193,7 @@ export function naechsteAnwenden(liste, heute) {
 const hatEtappen = (p) => !!(p.paket.etappen && p.paket.etappen.length);
 // Pakete, die gerade beitragen: Anteil > 0 und (ohne Etappen oder Etappe ≥ 1)
 export function aktive(liste) {
-  return (liste || []).filter(p => p.anteil > 0 && (!hatEtappen(p) || p.etappe > 0));
+  return (liste || []).filter(p => p.rolle !== 'pause' && p.anteil > 0 && (!hatEtappen(p) || p.etappe > 0));
 }
 export const grundpaket = (liste) => (liste || []).find(p => p.rolle === 'grund') || (liste || [])[0] || null;
 

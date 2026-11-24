@@ -38,8 +38,10 @@ import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch } from './store.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 import { allesNeuLaden } from './neuladen.js';
+import * as TW from './themenwahl.js';
+import * as TWU from './themenwahl-ui.js';
 
-export const APP_VERSION = '2.58.0';
+export const APP_VERSION = '2.59.0';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Abschicken, Formelsammlung. Testgeräte laden keine Messung hoch.
 M.init({ app: 'mathe', version: APP_VERSION });
 
@@ -67,7 +69,7 @@ function setzeAnsicht(name) {
   document.title = sternzeit() ? appName() : 'Schrein der Zahlen';
 }
 const sternzeit = () => S.gestaltung === 'sternzeit';
-const SZ_ANSICHTEN = ['start', 'aufgabe', 'wahl', 'logbuch', 'archiv', 'uebungszeit', 'bildschirm', 'logbuchNeu'];
+const SZ_ANSICHTEN = ['start', 'aufgabe', 'wahl', 'logbuch', 'archiv', 'uebungszeit', 'bildschirm', 'logbuchNeu', 'tw'];
 const appName = () => S.ansichtName || 'Logbuch Sternzeit';
 const sternzeitJetzt = () => PH.sternzeitText(PH.sternzeit(new Date()));
 function szKopf() {
@@ -171,6 +173,7 @@ export async function starten() {
     ]);
     LOGBUCH = (lb && lb.eintraege) || [];
     ARCHIV = (wa && wa.eintraege) || [];
+    await twLaden();
     eGrund();
   } catch (e) {
     $app.innerHTML = `<div class="screen"><div class="karte"><p>Die Aufgaben konnten nicht geladen werden. Schau, ob das Internet an ist, und öffne die App noch einmal.</p></div></div>`;
@@ -444,7 +447,7 @@ async function testAlsSetzen(ordner) {
   await fernHolen(true);
 }
 function personaZuruecksetzen(z) {
-  for (const f of ['gestaltung', 'ansichtName', 'uzRegeln', 'bzRegeln', 'szRegeln', 'etappeAnzeigen', 'fernEtappen', 'feedbackAn', 'liveAn', 'kasseAn', 'freigaben', 'wochenplan', 'eingriffe', 'wp', 'zuletzt']) delete z[f];
+  for (const f of ['gestaltung', 'ansichtName', 'uzRegeln', 'bzRegeln', 'szRegeln', 'etappeAnzeigen', 'fernEtappen', 'feedbackAn', 'liveAn', 'kasseAn', 'freigaben', 'wochenplan', 'eingriffe', 'wp', 'zuletzt', 'twRegeln', 'tw']) delete z[f];
   delete z.einstellungen.umformStufe;
   for (const b of L.BEDIENUNG) delete z.einstellungen[b.f];
 }
@@ -473,6 +476,7 @@ async function fernHolen(erzwingen = false) {
   }
   feedbackKnopfZeigen();
   if ((S.startOffen || []).length) startSenden();
+  if (geaendert && geaendert.includes('themenwahl')) await twLaden();
   if (geaendert) {
     if (ansicht === 'start') zeigeStart();
     else if (ansicht === 'eltern') zeigeEltern('Neue Einstellungen aus der Eltern-App übernommen.');
@@ -753,6 +757,7 @@ async function syncenInnen(erzwingen) {
   try { wpEingriffeMelden(); wpPlanIst('sync'); } catch (e) { /* egal */ }
   try { await standAbgleich(erzwingen); } catch (e) { /* später nochmal */ }
   standHochladen(erzwingen);
+  twHochladen().catch(() => {});
   kasseSync().catch(() => {});
   if (syncLaeuft) return null;
   if (!erzwingen && Date.now() - (u.versuch || 0) < 10 * 60 * 1000) return null;
@@ -1457,6 +1462,7 @@ async function uzTeilen() {
 
 // Startbildschirm in der Gestaltung Sternzeit
 function zeigeStartSternzeit({ bz, slot, serieAktiv }) {
+  if (twAn() && TWD) return twStart({ bz });
   const nm = S.einstellungen.name ? esc(S.einstellungen.name) : '';
   const etappen = S.etappeAnzeigen && pakete() ? S.pakete.filter(p => p.paket.etappen && p.etappe > 0) : [];
   const w = SZ.wissenVon(S.wissen);
@@ -1820,10 +1826,168 @@ function erzeuge(g, stufe, opts = {}) {
 }
 
 // Gewichte der Themen: aus dem Paket der Eltern-App, sonst Übungsthema auf „viel“
-const gewichte = () => pakete() ? LP.gewichteAlle(S.pakete, S.abweichungen) : (S.paket && S.paket.gewichte) ? P.gewichteNorm(S.paket.gewichte) : P.gewichteOhnePaket(S.einstellungen.thema);
+const gewichte = () => twAn() ? twGewichte() : pakete() ? LP.gewichteAlle(S.pakete, S.abweichungen) : (S.paket && S.paket.gewichte) ? P.gewichteNorm(S.paket.gewichte) : P.gewichteOhnePaket(S.einstellungen.thema);
+
+// ============ Themenwahl und Missionsplanung (Auftrag 74) ============
+// Nur mit einstellungen.json → werte.themenwahl.an. Pakete, Wochenplan, Logbuch und Wissenspunkte ruhen dann (Stand bleibt gespeichert).
+let TWD = null, KC = [], twLaedt = null;
+const twAn = () => !!(S.twRegeln && S.twRegeln.an);
+const twBereit = (t) => TW.bereit(t);
+function twZ() { if (!S.tw || S.tw.format !== TW.FORMAT) S.tw = TW.norm(S.tw, (S.twRegeln || {}).vorbelegung || {}, TWD); return S.tw; }
+function twLaden() {
+  if (!twAn()) return Promise.resolve(false);
+  if (TWD) return Promise.resolve(true);
+  if (!twLaedt) twLaedt = Promise.all([fetch('data/themen.json').then(r => r.json()), fetch('data/kurzcheck.json').then(r => r.json()).catch(() => ({ aufgaben: [] }))])
+    .then(([t, k]) => {
+      TWD = TW.datenVon(t);
+      KC = (k.aufgaben || []).filter(a => a.zweck === 'kurzpruefung' && a.teilschritt);
+      S.tw = TW.norm(S.tw, (S.twRegeln || {}).vorbelegung || {}, TWD);
+      TWU.init(twCtx());
+      return true;
+    }).catch(() => { twLaedt = null; return false; });
+  return twLaedt;
+}
+// Gewichte nur als Filter (wartende Aufgaben, Wiederholungen): alle Themen, die die Themenwahl üben kann
+function twGewichte() {
+  const g = Object.fromEntries(L.THEMEN.map(t => [t, 0]));
+  for (const u of Object.values(TW.UEBEN)) { for (const x of u.gens) if (LP.GEN_THEMA[x]) g[LP.GEN_THEMA[x]] = 2; for (const t of u.pool) g[t] = 2; }
+  for (const t of Object.keys(TW.KC_THEMA)) g[t] = 2;
+  return g;
+}
+// Baukästen für Voraussetzungen ohne Schnell-Check-Aufgabe (C3)
+const TW_TS_GEN = { 'runden.stellen': 'runden', 'potenz.hoch': 'potenz', 'gl.einfach': 'gleichung', 'formeln.umstellen': 'formel-umstellen', 'kegel.volumen': 'kegel', 'kugel.volumen': 'kugel', 'mittel.spann': 'daten' };
+function twWaehle() {
+  const z = twZ();
+  if (!TWD) return { aufgabe: einmaleinsBlock(1), wdh: 0, paket: null };
+  // Schnell-Check läuft: dessen Aufgaben der Reihe nach
+  if (z.kc && z.kc.idx < z.kc.ids.length) {
+    const a = KC.find(x => x.id === z.kc.ids[z.kc.idx]);
+    if (a) return { aufgabe: { ...TW.gemischt(a), tw: { thema: z.kc.thema, zweck: 'kc' } }, wdh: 0, paket: null };
+    z.kc.idx++;
+  }
+  // C3: etwa jede 5. Aufgabe aus einer wackelnden oder offenen Voraussetzung („trotzdem starten“)
+  const c3 = TW.c3Schritte(TWD, z);
+  if (c3.length && S.verlauf.zaehler % 5 === 4) { const a = twAufgabeSchritt(c3); if (a) return { aufgabe: a, wdh: 0, paket: null }; }
+  const an = TW.anteile(z, L.tagKey(), twBereit);
+  let t = TW.themaWaehlen(an, heuteTag().twMs || {});
+  if (!t) t = Object.keys(TW.UEBEN).find(x => ['neu', 'wiederholen', 'pruefen'].includes(z.wahl[x])) || 'umstellen';
+  const a = twAufgabeThema(t) || twAufgabeThema('umstellen');
+  return { aufgabe: a, wdh: 0, paket: null };
+}
+// Aufgabe aus einem Thema: Baukasten (Stufe höchstens die Etappe) oder Pool-Aufgabe des Themas
+function twAufgabeThema(t) {
+  const u = TW.UEBEN[t]; if (!u) return null;
+  const e = TW.etappeVon(twZ(), t);
+  const pool = alleAufgaben().filter(a => u.pool.includes(a.thema) && !a.bonus && a.typ !== 'detektiv' && (a.stufe || 1) <= e && heuteOk(a));
+  const gens = u.gens.filter(g => G.GENERATOREN[g]);
+  const ausPool = () => (pool.length ? L.waehleAufgabe(pool, { kategorie: 'alle', statistik: S.statistik, verlauf: S.verlauf, heute: S.tag.key, gesperrt: loesungGesperrt() }) : null);
+  const ausGen = () => { if (!gens.length) return null; const g = wahl(gens); return erzeuge(g, Math.max(1, Math.min(genStufe(g), e))); };
+  const a = pool.length && Math.random() < 0.4 ? ausPool() || ausGen() : ausGen() || ausPool();
+  return a ? { ...a, tw: { thema: t, zweck: 'thema' } } : null;
+}
+function twAufgabeSchritt(liste) {
+  for (const id of L.mischen(liste.slice())) {
+    const pool = KC.filter(a => TW.ohneStufe(a.teilschritt) === id && heuteOk(a));
+    if (pool.length) { const a = wahl(pool); return { ...TW.gemischt(a), tw: { thema: TW.KC_THEMA[a.thema] || null, zweck: 'voraus', fuer: id } }; }
+    const g = TW_TS_GEN[id];
+    if (g && G.GENERATOREN[g]) { const a = erzeuge(g, 1); if (a) return { ...a, teilschritt: `${id}@1`, tw: { thema: null, zweck: 'voraus', fuer: id } }; }
+  }
+  return null;
+}
+// Kopfzeile der Aufgabe: Schnell-Check, Voraussetzung oder Thema mit Etappe
+function twLabel(a) {
+  const n = (t) => esc((TWD.T[t] || {}).name || t || '');
+  if (a.tw.zweck === 'kc') { const z = twZ(); return `Schnell-Check · ${n(a.tw.thema)}${z.kc ? ` · ${z.kc.idx + 1} von ${z.kc.ids.length}` : ''}`; }
+  if (a.tw.zweck === 'voraus') return `Grundlage · ${esc(TW.schrittName(TWD, a.tw.fuer))}`;
+  return `Mathe · ${n(a.tw.thema)} · Etappe ${TW.etappeVon(twZ(), a.tw.thema)}`;
+}
+const twEtappeText = (t, nr) => { const x = ((S.twRegeln || {}).etappen_texte || {})[t]; return (x && x[nr]) || `Etappe ${nr}: Die Aufgaben werden schwerer.`; };
+// Nach einer fertigen Aufgabe: Stand der Teilschritte, Schnell-Check, Etappe, Tagesringe. Gibt Etappen-Feiern zurück.
+function twNachAufgabe(a, ergebnis, ms) {
+  if (!twAn() || !TWD || A.test || !a.tw) return [];
+  const z = twZ(), heute = L.tagKey(), erst = ergebnis === 'erst' && !A.gleich, ok = erst || ergebnis === 'zweit';
+  const neuListe = [], feier = [];
+  if (a.tw.zweck === 'kc') S.wiederholen = S.wiederholen.filter(w => w.aufgabe.id !== a.id);   // im Schnell-Check keine Wiederholung nach der Lösung
+  if (a.tw.zweck === 'kc' && z.kc && z.kc.ids[z.kc.idx] === a.id) {
+    const ts = TW.ohneStufe(a.teilschritt);
+    (z.kc.erg[ts] = z.kc.erg[ts] || []).push(ok);
+    z.kc.idx++;
+    if (z.kc.idx >= z.kc.ids.length) {
+      const r = TW.kurzcheckAuswerten(z, z.kc.erg, heute);
+      for (const x of r.aenderungen) protokoll(S, 'teilschritt_stand', x);
+      z.kcGemacht = (z.kcGemacht || 0) + 1;
+      z.kcErgebnis = { thema: z.kc.thema, art: z.kc.art, ergebnis: r.ergebnis, n: z.kc.ids.length, ms: Date.now() - z.kc.start, angenommen: null };
+      z.kc = null;
+    }
+  } else {
+    const liste = new Map();
+    const tsA = L.teilschrittAufgabe(a) || TW.teilschrittFuer(a);
+    if (tsA) liste.set(TW.ohneStufe(tsA), [tsA, erst]);
+    for (const t of A.teile) { if (t.bonus || t.merk) continue; const ts = L.teilschrittVon(a, t); if (ts && !liste.has(TW.ohneStufe(ts))) liste.set(TW.ohneStufe(ts), [ts, t.status === 'erst']); }
+    for (const [ts, e] of liste.values()) { const r = TW.uebenBuchen(z, ts, e, heute); if (r.aenderung) protokoll(S, 'teilschritt_stand', r.aenderung); if (r.neu) neuListe.push(TW.ohneStufe(ts)); }
+    if (a.tw.zweck === 'thema' && a.tw.thema) {
+      const reg = S.twRegeln || {};
+      const et = TW.etappeBuchen(z, a.tw.thema, erst, heute, { min: reg.etappe_min_aufgaben || 0, tage: reg.etappe_min_tage || 1 }, ms);
+      if (et) { protokoll(S, 'etappe_neu', { thema: et.thema, von: et.von, nach: et.nach, grund: 'themenwahl' }); feier.push({ paket: et.thema, name: (TWD.T[et.thema] || {}).name || et.thema, nr: et.nach, von: et.von, anzahl: TW.ETAPPEN, etappeName: twEtappeText(et.thema, et.nach) }); }
+    }
+  }
+  const knobel = a.modus === 'knobeln';
+  TW.tagBuchen(z, heute, { thema: a.tw.zweck === 'kc' ? null : a.tw.thema, ms, ergebnis, stufe: a.stufe, knobel, knobelOhne: knobel && !A.schritteAn, neu: neuListe });
+  const tg = heuteTag(); tg.twMs = tg.twMs || {};
+  if (a.tw.thema && a.tw.zweck === 'thema') tg.twMs[a.tw.thema] = (tg.twMs[a.tw.thema] || 0) + Math.min(ms, 600000);
+  TW.geaendert(z);
+  return feier;
+}
+function szKopfMit(titel) { return `<div class="sz-kopf"><div class="sz-ellbogen"></div><div class="sz-titelzeile"><div class="sz-titel">${titel}</div><div class="sz-zeit">Sternzeit<b>${sternzeitJetzt()}</b></div></div><div class="sz-leiste"><i></i><i></i><i></i></div></div>`; }
+function twAufgabenLos() {
+  setzeAnsicht('start');
+  if (!zweck && !bed('spielzeit_zeigen')) { zweck = BZ().an && BS.restSek(bzKonto(), BZ()) > 0 ? 'bild' : 'spiel'; protokoll(S, 'zweck', { zweck, grund: 'ohne_spielzeit' }); }
+  if (BZ().an && !zweck) return zeigeWahl();
+  if (!zweck) zweck = 'spiel';
+  neueAufgabe();
+}
+function twCtx() {
+  return {
+    tw: twZ, D: () => TWD, kc: () => KC, regeln: () => S.twRegeln || {}, app: $app, esc, mathe,
+    kopf: szKopfMit, startKopf: () => `<div class="logo sz-logo-flaeche" id="logo">${szKopf()}</div>`, name: () => S.einstellungen.name || '',
+    ansicht: setzeAnsicht, protokoll: (typ, d) => protokoll(S, typ, d), sichern, heute: () => L.tagKey(), bereit: twBereit,
+    zeigeStart, aufgabenStarten: twAufgabenLos, modal: oeffneModal, modalZu: schliesseModal
+  };
+}
+function twStart({ bz }) {
+  const z = twZ();
+  if (z.planung.status === 'fertig' && TW.rueckblickFaellig(z, L.tagKey())) return TWU.rueckblickZeigen();
+  // Beim ersten Öffnen nach dem Update einmal gleich die Missionsplanung (danach Knopf auf dem Start)
+  if (z.planung.status === 'offen' && !z.planung.gezeigt && !S.upload.testgeraet) return TWU.planung(1);
+  const extras = [
+    S.upload.testgeraet ? testLeisteHtml() : '',
+    schluesselKaputt() ? `<div class="sz-panel orange"><b class="sz-pfirsich">${esc(SCHLUESSEL_KIND)}</b><div class="sz-matt">Deine Zeit bleibt auf dem Handy.</div></div>` : '',
+    bz && bz.stand > 0 ? `<div class="sz-panel blau sz-bz"><div><div class="sz-label">Bildschirmzeit gesammelt</div><div class="sz-wert">${BS.minText(bz.stand)}</div></div>${BS.kannAbschicken(bz, BZ()) ? '<button class="sz-knopf blau klein" data-act="bzSeite">Abschicken</button>' : `<span class="sz-matt klein">${abText(bz)}</span>`}</div>` : ''
+  ].join('');
+  $app.innerHTML = `<div class="screen sz-screen start tw-screen">${TWU.startHtml({ extras, gesperrt: uzGesperrt(), wartet: !!S.wartet, version: APP_VERSION })}
+    ${hatSpeicherFehler() ? '<p class="warnung">Der Speicher ist voll oder gesperrt. Bitte einem Erwachsenen Bescheid geben.</p>' : ''}</div>`;
+  langDruecken(document.getElementById('logo'), elternZugang);
+  if (z.planung.status === 'fertig') TWU.kaRueckmeldungFrage();
+}
+// daten/<name>/themenwahl.json: nur schreiben, wenn sich etwas geändert hat und der Server keinen neueren Stand hat
+let twHochLaeuft = false;
+async function twHochladen() {
+  const u = S.upload;
+  if (!twAn() || !S.tw || twHochLaeuft || u.testgeraet || u.testAls || !u.repo || !u.token || !S.einstellungen.name) return;
+  if ((u.twVersion || 0) === (S.tw.version || 0)) return;
+  twHochLaeuft = true;
+  try {
+    const pfad = `daten/${nutzerOrdner()}/themenwahl.json`;
+    const server = await U.dateiLesen(u, pfad);
+    if (server && (server.version || 0) > (S.tw.version || 0)) { u.twVersion = S.tw.version; return; }
+    await U.dateiSchreiben(u, pfad, JSON.stringify(TW.dateiVon(S.tw, nutzerOrdner(), L.tagKey(), TWD), null, 1), `Themenwahl ${S.tw.version}`);
+    u.twVersion = S.tw.version;
+    sichern();
+  } catch (e) { /* später nochmal */ } finally { twHochLaeuft = false; }
+}
 
 // ---------- Mehrere Pakete und Etappen (js/lernplan.js) ----------
-const pakete = () => (Array.isArray(S.pakete) && S.pakete.length ? S.pakete : null);
+const pakete = () => (!twAn() && Array.isArray(S.pakete) && S.pakete.length ? S.pakete : null);   // Themenwahl (Auftrag 74): Pakete ruhen, ihr Stand bleibt
 let grenzenCache = null;
 function grenzen() {
   const pk = pakete();
@@ -2019,6 +2183,8 @@ function waehleAufgabe(kategorie) {
     const auf = faellig.bonus ? aehnlicheAufgabe(faellig.aufgabe) : faellig.aufgabe;
     return { aufgabe: auf, wdh: faellig.wdh, paket: paketFuerThema(auf.thema), bonus: !!faellig.bonus };
   }
+  // Themenwahl (Auftrag 74): das Kind steuert selbst, Pakete und Wochenplan ruhen
+  if (twAn()) return twWaehle();
   // Wochenplan (Auftrag 24): Art nach Übungszeit, Takt und Erinnerungen; ohne laufenden Plan wie bisher.
   // Einstieg und Takt (motivierende Aufgabe) gehen dem Mindestanteil der Etappe vor.
   const wpl = wpJetzt();
@@ -2422,8 +2588,9 @@ function startInfoVon(A, extra = {}) {
   const dar = darstellungVon(A);
   if (dar) startInfo.darstellung = dar;
   // LK-095: oberster Teilschritt der Aufgabe schon beim Start (wie aufgabe_ende.teilschritt)
-  const ts = L.teilschrittAufgabe(aufgabe);
+  const ts = L.teilschrittAufgabe(aufgabe) || (aufgabe.tw ? TW.teilschrittFuer(aufgabe) : null);
   if (ts) startInfo.teilschritt = ts;
+  if (aufgabe.tw) { startInfo.tw_thema = aufgabe.tw.thema; startInfo.tw_zweck = aufgabe.tw.zweck; if (aufgabe.niveau) startInfo.niveau = aufgabe.niveau; if (aufgabe.zweck) startInfo.zweck = aufgabe.zweck; }
   return startInfo;
 }
 function darstellungVon(A) {
@@ -2969,7 +3136,7 @@ function zeigeAufgabe() {
       ${A.uzHinweis && !A.fertig ? '<div class="uz-hinweis"><b>Für heute hast du dein Pensum erreicht.</b><br>Die laufende Aufgabe kannst du noch fertig machen.</div>' : ''}
       <article class="karte aufgabe${a.bonus ? ' bonus' : ''}">
         ${a.bonus ? `<div class="bonus-kopf"><span class="bonus-label">Bonus · freiwillig</span>${!A.fertig && A.teile.every(t => !t.versuche.length) ? '<button class="btn-text klein" data-act="ueberspringen">Überspringen</button>' : ''}</div>` : ''}
-        ${sternzeit() ? `<div class="sz-label">${physik(a) ? 'Physik' : 'Mathe'} · ${esc(THEMA_NAMEN[a.thema] || a.thema)}</div>` : ''}
+        ${sternzeit() ? `<div class="sz-label">${a.tw && TWD ? twLabel(a) : `${physik(a) ? 'Physik' : 'Mathe'} · ${esc(THEMA_NAMEN[a.thema] || a.thema)}`}</div>` : ''}
         ${a.typ === 'detektiv' ? '<div class="detektiv-kopf"><span class="detektiv-marke">🔍 Fehler-Detektiv</span><button class="detektiv-hilfe" data-act="detektivHilfe" aria-label="Was ist der Fehler-Detektiv?">?</button></div>' : ''}
         ${a.geschichte ? geschichteHtml(a) : ''}
         ${a.rechnung ? `<div class="rechnung${a.rechnung.length > 22 ? ' lang' : ''}">${rechnungHtml(a)}</div>` : ''}
@@ -4270,7 +4437,7 @@ function versuchMerken(t, eingabe, richtig, fehler) {
   const ms = Date.now() - t.seit;
   t.versuche.push({ eingabe, richtig });
   if (!richtig) A.letzterFehler = { typ: fehler ? fehler.typ : null, teil: A.idx };
-  const ts = L.teilschrittVon(a, t);
+  const ts = L.teilschrittVon(a, t) || (a.tw ? TW.teilschrittFuer(a) : null);
   protokoll(S, 'versuch', {
     ...(ts ? { teilschritt: ts } : {}),
     id: a.id, thema: a.thema, teil: A.idx, label: t.label || null, merk: !!t.merk, versuch: t.versuche.length, eingabe, richtig,
@@ -4436,7 +4603,7 @@ function abschliessen() {
   if (a.form === 'gpw' && !A.test) { const v = S.verlauf; v.gpwFolge = ergebnis === 'erst' ? (v.gpwFolge || 0) + 1 : 0; if (v.gpwFolge >= 5 && !v.gpwSelten) { v.gpwSelten = true; protokoll(S, 'gpw_seltener', { folge: v.gpwFolge }); } }
   S.verlauf.themaZuletzt[a.thema] = { ergebnis, stufe: a.stufe };
   // Wissenspunkte (nur Gestaltung Sternzeit)
-  A.wp = sternzeit() && !A.test ? L.wissenspunkteFuer(a, { ergebnis, schritte: !!A.schritteAn && !A.ufSofort }) : 0;
+  A.wp = sternzeit() && !A.test && !twAn() ? L.wissenspunkteFuer(a, { ergebnis, schritte: !!A.schritteAn && !A.ufSofort }) : 0;
   S.serie.letzteAktivitaet = Date.now();
   S.serie.erledigt = (S.serie.erledigt || 0) + 1; S.abschlussAufgabe = Date.now(); // für die Abschlussfrage
   // Lösungsweg (trig-weg): Zeilen mit Etappe, Versuchen und ob die Lösung kam; haengt_an = erste Etappe mit 2 Fehlversuchen oder Lösung
@@ -4444,7 +4611,8 @@ function abschliessen() {
   protokoll(S, 'aufgabe_ende', {
     ...(wegZ ? { weg: { zeilen: wegZ.length, etappen: wegZ.map(z => z.etappe), versuche: wegZ.map(z => z.versuche), haengt_an: (wegZ.find(z => z.status === 'loesung' || z.versuche >= 2) || {}).etappe || null } } : {}),
     id: a.id, thema: a.thema, stufe: a.stufe, ergebnis, sekunden: A.sekunden, serienPos: A.serienPos,
-    ...(L.teilschrittAufgabe(a) ? { teilschritt: L.teilschrittAufgabe(a) } : {}),
+    ...(L.teilschrittAufgabe(a) || (a.tw && TW.teilschrittFuer(a)) ? { teilschritt: L.teilschrittAufgabe(a) || TW.teilschrittFuer(a) } : {}),
+    ...(a.tw ? { tw_thema: a.tw.thema, tw_zweck: a.tw.zweck } : {}),
     ...(A.bild ? { bildschirm: A.bild.plus, voll: A.bild.voll || undefined } : {}),
     ...(A.bild && A.bzSt ? { uebung_min: A.bzSt.uebMin, bz_stufe: A.bzSt.stufe, stufe_faktor: A.bzSt.faktor, ...(A.bzSt.extraRunde ? { extra_runde: true } : {}) } : {}),
     ...(A.kopf ? { kopf: true } : {}), ...(A.sz && A.sz.voll ? { spielzeitVoll: true } : {}),
@@ -4465,6 +4633,7 @@ function abschliessen() {
     protokoll(S, 'wissenspunkte', { id: a.id, n: A.wp, stand: S.wissen.stand, grund });
   }
   A.neueEtappe = [etappeAutomatisch(), ...paketStarts()].filter(Boolean);
+  try { A.neueEtappe.push(...twNachAufgabe(a, ergebnis, Date.now() - A.start)); } catch (e) { protokoll(S, 'fehler_themenwahl', { text: String(e && e.message || e).slice(0, 200) }); }
   // Runensplitter für diese Aufgabe
   S.splitter = SP.splitterVon(S.splitter);
   A.splitter = SP.nachAufgabe(S.splitter, {
@@ -6035,10 +6204,12 @@ function klick(e) {
     sichern(); schliesseModal(); // geht über modalSchliessen weiter
     return;
   }
+  if (act.startsWith('tw:')) { if (!TWD) return; TWU.aktion(act.slice(3), el); return; }
   if (act === 'bogenNachsehen') { bogenPruefen(true).finally(() => { if (!bogenGesperrt()) zeigeStart(); }); return; }
   switch (act) {
     case 'aufgaben':
       if (ansicht === 'spiel') spielBeenden();
+      if (twAn() && TWD && twZ().planung.status !== 'fertig' && !twZ().kc) { TWU.planung(1); break; }
       // Vor der ersten Aufgabe einer Runde fragen: Spielzeit oder Bildschirmzeit?
       // Ohne Spielzeit (Schalter pro Kind): keine Frage, es zählt Bildschirmzeit, wenn sie an ist und noch etwas geht
       if (ansicht === 'start' && !zweck && !bed('spielzeit_zeigen')) { zweck = BZ().an && BS.restSek(bzKonto(), BZ()) > 0 ? 'bild' : 'spiel'; protokoll(S, 'zweck', { zweck, grund: 'ohne_spielzeit' }); }
@@ -6113,7 +6284,7 @@ function klick(e) {
     case 'kartenPruefen': kartenPruefen(); break;
     case 'wegTaste': wegTaste(el.dataset.k); break;
     case 'wegPruefen': wegPruefen(); break;
-    case 'naechste': neueAufgabe(); break;
+    case 'naechste': if (twAn() && TWD && twZ().kcErgebnis) { TWU.kcErgebnis(); break; } neueAufgabe(); break;
     case 'ueberspringen':
       protokoll(S, 'uebersprungen', { id: A.aufgabe.id });
       S.serie.pos = Math.max(0, S.serie.pos - 1);

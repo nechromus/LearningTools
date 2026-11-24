@@ -165,7 +165,7 @@ export async function dauerhaftSpeichernAnfragen() {
 export const STAND_FORMAT = 'lernapp-spielstand-1';
 const STAND_FELDER = ['guthaben', 'basisSlot', 'spiel', 'bloecke', 'statistik', 'verlauf', 'serie', 'tag', 'extraAufgaben',
   'genStufen', 'wiederholen', 'spielzeit', 'paket', 'fern', 'wartet', 'kristallmine', 'splitter', 'anleitungen', 'steinschieber', 'runenfall', 'runenreihen', 'hoehlenkarte', 'runenbrecher', 'jadeschlange', 'bzRegeln', 'bildschirm', 'szRegeln', 'pakete', 'abweichungen', 'etappeAnzeigen',
-  'gestaltung', 'ansichtName', 'fernEtappen', 'uzRegeln', 'uebung', 'wissen', 'logbuch', 'archiv'];
+  'gestaltung', 'ansichtName', 'fernEtappen', 'uzRegeln', 'uebung', 'wissen', 'logbuch', 'archiv', 'tw', 'twRegeln'];
 
 export function spielstandAus(s, jetzt = new Date()) {
   const zustand = {};

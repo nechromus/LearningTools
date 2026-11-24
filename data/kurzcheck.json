@@ -1,0 +1,1083 @@
+{
+"info": "Schnell-Checken (Mathe Klasse 9): 2 Aufgaben je Teilschritt für die Themen mit „hatten wir“ (Wurzeln, Pythagoras, quadratische Funktionen, Potenzgesetze, Potenzfunktionen). 22 Teilschritte nach der Lernplattform (themen-b-teilschritte.json, 24.11.2026), 44 Aufgaben, per Code nachgerechnet. Neue Felder (Okay Vater 24.11.): zweck „kurzpruefung“, teilschritt, niveau. Stand 2026-11-24. Review Vater 24.11.: 44 von 44 OK.",
+"aufgaben": [
+{
+"id": "app-pruef-wurzel-quadrat-1",
+"fach": "mathe",
+"thema": "wurzeln",
+"zweck": "kurzpruefung",
+"teilschritt": "wurzel.quadrat@1",
+"typ": "zahl",
+"stufe": 1,
+"rechnung": "√196 =",
+"frage": "Berechne ohne Rechner.",
+"antwort": {
+"wert": 14
+},
+"loesungsweg": [
+"14 · 14 = 196",
+"√196 = 14"
+],
+"erklaerung": "Die Wurzel fragt: Welche positive Zahl ergibt mal sich selbst 196?",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-wurzel-quadrat-2",
+"fach": "mathe",
+"thema": "wurzeln",
+"zweck": "kurzpruefung",
+"teilschritt": "wurzel.quadrat@3",
+"typ": "zahl",
+"stufe": 3,
+"rechnung": "√38 ≈",
+"taschenrechner": true,
+"frage": "Berechne mit dem Rechner und runde auf zwei Stellen nach dem Komma.",
+"antwort": {
+"wert": 6.1644,
+"gueltige_ziffern": 3
+},
+"loesungsweg": [
+"√38 = 6,1644…",
+"≈ 6,16"
+],
+"erklaerung": "6² = 36 und 7² = 49: Das Ergebnis muss knapp über 6 liegen. So prüfst du den Rechner.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-wurzel-irrational-1",
+"fach": "mathe",
+"thema": "wurzeln",
+"zweck": "kurzpruefung",
+"teilschritt": "wurzel.irrational@1",
+"typ": "auswahl",
+"stufe": 1,
+"optionen": [
+"√50",
+"√49",
+"0,3̅",
+"7/9"
+],
+"frage": "Welche Zahl ist irrational?",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"√49 = 7 (ganze Zahl)",
+"0,3̅ = 1/3 und 7/9 sind Brüche",
+"50 ist keine Quadratzahl → √50 ist irrational"
+],
+"erklaerung": "Die Wurzel einer natürlichen Zahl ist entweder ganz oder irrational. 50 liegt zwischen 49 und 64.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-wurzel-irrational-2",
+"fach": "mathe",
+"thema": "wurzeln",
+"zweck": "kurzpruefung",
+"teilschritt": "wurzel.irrational@2",
+"typ": "auswahl",
+"stufe": 2,
+"optionen": [
+"5,4 < √30 < 5,5",
+"5,5 < √30 < 5,6",
+"5,3 < √30 < 5,4",
+"5,0 < √30 < 5,4"
+],
+"frage": "Welche Einschachtelung stimmt? Prüfe durch Quadrieren, ohne Wurzeltaste.",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"5,4² = 29,16 < 30",
+"5,5² = 30,25 > 30",
+"also 5,4 < √30 < 5,5"
+],
+"erklaerung": "Einschachteln heißt: zwei Zahlen finden, deren Quadrate links und rechts von 30 liegen. Das geht beliebig genau weiter.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-wurzel-regeln-1",
+"fach": "mathe",
+"thema": "wurzeln",
+"zweck": "kurzpruefung",
+"teilschritt": "wurzel.regeln@1",
+"typ": "zahl",
+"stufe": 1,
+"rechnung": "√3 · √12 =",
+"frage": "Berechne ohne Rechner.",
+"antwort": {
+"wert": 6
+},
+"loesungsweg": [
+"√3 · √12 = √36",
+"= 6"
+],
+"erklaerung": "Unter einer Wurzel darf man multiplizieren: √a · √b = √(a · b).",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-wurzel-regeln-2",
+"fach": "mathe",
+"thema": "wurzeln",
+"zweck": "kurzpruefung",
+"teilschritt": "wurzel.regeln@3",
+"typ": "auswahl",
+"stufe": 3,
+"optionen": [
+"2√3",
+"3√2",
+"√3/2",
+"6√3"
+],
+"frage": "Mache den Nenner rational: Welcher Term ist gleich 6/√3?",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"6/√3 = 6 · √3 / (√3 · √3)",
+"= 6√3 / 3",
+"= 2√3"
+],
+"erklaerung": "Mit √3 erweitern: Im Nenner steht dann √3 · √3 = 3, eine rationale Zahl.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-wurzel-kubik-1",
+"fach": "mathe",
+"thema": "wurzeln",
+"zweck": "kurzpruefung",
+"teilschritt": "wurzel.kubik@1",
+"typ": "zahl",
+"stufe": 1,
+"rechnung": "∛343 =",
+"frage": "Berechne ohne Rechner.",
+"antwort": {
+"wert": 7
+},
+"loesungsweg": [
+"7 · 7 · 7 = 343",
+"∛343 = 7"
+],
+"erklaerung": "Die Kubikwurzel kehrt das Hoch-3 um.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-wurzel-kubik-2",
+"fach": "mathe",
+"thema": "wurzeln",
+"zweck": "kurzpruefung",
+"teilschritt": "wurzel.kubik@2",
+"typ": "zahl",
+"stufe": 2,
+"rechnung": "∛(−64) =",
+"frage": "Berechne.",
+"antwort": {
+"wert": -4
+},
+"loesungsweg": [
+"(−4) · (−4) · (−4) = −64",
+"∛(−64) = −4"
+],
+"erklaerung": "Anders als die Quadratwurzel geht die Kubikwurzel auch aus negativen Zahlen: Minus mal minus mal minus ist minus.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-pyth-seiten-1",
+"fach": "mathe",
+"thema": "pythagoras",
+"zweck": "kurzpruefung",
+"teilschritt": "pyth.seiten@1",
+"typ": "auswahl",
+"stufe": 1,
+"optionen": [
+"PR",
+"PQ",
+"QR"
+],
+"frage": "Im Dreieck PQR liegt der rechte Winkel bei Q. Welche Seite ist die Hypotenuse?",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"Die Hypotenuse liegt dem rechten Winkel gegenüber.",
+"Gegenüber von Q liegt PR."
+],
+"erklaerung": "Die Buchstaben ändern sich, die Regel nicht: Erst den rechten Winkel suchen.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-pyth-seiten-2",
+"fach": "mathe",
+"thema": "pythagoras",
+"zweck": "kurzpruefung",
+"teilschritt": "pyth.seiten@2",
+"typ": "auswahl",
+"stufe": 2,
+"optionen": [
+"AC",
+"AB",
+"BC",
+"CD"
+],
+"frage": "Im Rechteck ABCD betrachtest du das Dreieck ABC. Welche Strecke ist darin die Hypotenuse?",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"Im Rechteck ist der Winkel bei B ein rechter.",
+"Gegenüber von B liegt die Diagonale AC."
+],
+"erklaerung": "Diagonalen in Rechtecken sind immer Hypotenusen von rechtwinkligen Teildreiecken.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-pyth-hypotenuse-1",
+"fach": "mathe",
+"thema": "pythagoras",
+"zweck": "kurzpruefung",
+"teilschritt": "pyth.hypotenuse@1",
+"typ": "zahl",
+"stufe": 1,
+"frage": "Ein rechtwinkliges Dreieck hat die Katheten a = 9 cm und b = 12 cm. Berechne die Hypotenuse c.",
+"antwort": {
+"wert": 15,
+"einheit": "cm"
+},
+"loesungsweg": [
+"c² = 9² + 12² = 81 + 144 = 225",
+"c = √225 = 15 cm"
+],
+"erklaerung": "Erst die Quadrate addieren, dann die Wurzel ziehen.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-pyth-hypotenuse-2",
+"fach": "mathe",
+"thema": "pythagoras",
+"zweck": "kurzpruefung",
+"teilschritt": "pyth.hypotenuse@2",
+"typ": "zahl",
+"stufe": 2,
+"taschenrechner": true,
+"frage": "Katheten a = 4 cm und b = 7 cm. Berechne c und runde auf eine Stelle nach dem Komma.",
+"antwort": {
+"wert": 8.0623,
+"einheit": "cm",
+"gueltige_ziffern": 2
+},
+"loesungsweg": [
+"c² = 16 + 49 = 65",
+"c = √65 ≈ 8,06…",
+"c ≈ 8,1 cm"
+],
+"erklaerung": "Probe: c muss länger als die längere Kathete (7 cm) und kürzer als a + b (11 cm) sein.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-pyth-kathete-1",
+"fach": "mathe",
+"thema": "pythagoras",
+"zweck": "kurzpruefung",
+"teilschritt": "pyth.kathete@1",
+"typ": "zahl",
+"stufe": 1,
+"frage": "Hypotenuse c = 25 cm, Kathete a = 7 cm. Berechne die Kathete b.",
+"antwort": {
+"wert": 24,
+"einheit": "cm"
+},
+"loesungsweg": [
+"b² = c² − a² = 625 − 49 = 576",
+"b = √576 = 24 cm"
+],
+"erklaerung": "Für eine Kathete wird abgezogen: Die Hypotenuse ist die längste Seite.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-pyth-kathete-2",
+"fach": "mathe",
+"thema": "pythagoras",
+"zweck": "kurzpruefung",
+"teilschritt": "pyth.kathete@1",
+"typ": "zahl",
+"stufe": 1,
+"geschichte": "Eine 6,5 m lange Leiter lehnt an einer senkrechten Wand. Ihr Fuß steht 2,5 m von der Wand entfernt.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check",
+"taschenrechner": true,
+"frage": "Wie hoch reicht die Leiter an der Wand?",
+"antwort": {
+"wert": 6,
+"einheit": "m"
+},
+"loesungsweg": [
+"Leiter = Hypotenuse = 6,5 m, Abstand am Boden = 2,5 m",
+"h² = 6,5² − 2,5² = 42,25 − 6,25 = 36",
+"h = 6 m"
+],
+"erklaerung": "Wand und Boden bilden den rechten Winkel, die Leiter liegt ihm gegenüber.",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-pyth-umkehr-1",
+"fach": "mathe",
+"thema": "pythagoras",
+"zweck": "kurzpruefung",
+"teilschritt": "pyth.umkehr@1",
+"typ": "auswahl",
+"stufe": 1,
+"optionen": [
+"8, 15, 17 cm",
+"6, 8, 11 cm",
+"5, 11, 12 cm",
+"7, 9, 12 cm"
+],
+"frage": "Welches Dreieck mit diesen Seitenlängen ist rechtwinklig?",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"Prüfen: kleine Quadrate zusammen = Quadrat der längsten Seite?",
+"64 + 225 = 289 = 17² ✓",
+"25 + 121 = 146 ≠ 144"
+],
+"erklaerung": "Die Umkehrung des Satzes: Gilt a² + b² = c² für die längste Seite c, dann ist das Dreieck rechtwinklig.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-pyth-umkehr-2",
+"fach": "mathe",
+"thema": "pythagoras",
+"zweck": "kurzpruefung",
+"teilschritt": "pyth.umkehr@1",
+"typ": "auswahl",
+"stufe": 1,
+"optionen": [
+"ja",
+"nein"
+],
+"frage": "Ist ein Dreieck mit den Seiten 20 cm, 21 cm und 29 cm rechtwinklig?",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"20² + 21² = 400 + 441 = 841",
+"29² = 841 ✓"
+],
+"erklaerung": "Solche ganzzahligen Tripel nennt man pythagoreische Tripel. 3, 4, 5 ist das bekannteste.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-pyth-anwenden-1",
+"fach": "mathe",
+"thema": "pythagoras",
+"zweck": "kurzpruefung",
+"teilschritt": "pyth.anwenden@1",
+"typ": "zahl",
+"stufe": 1,
+"frage": "Berechne den Abstand der Punkte A(−1|3) und B(5|11) im Koordinatensystem.",
+"antwort": {
+"wert": 10
+},
+"loesungsweg": [
+"Unterschied in x: 5 − (−1) = 6",
+"Unterschied in y: 11 − 3 = 8",
+"d = √(6² + 8²) = √100 = 10"
+],
+"erklaerung": "Die Unterschiede in x und y sind die Katheten, der Abstand ist die Hypotenuse.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-pyth-anwenden-2",
+"fach": "mathe",
+"thema": "pythagoras",
+"zweck": "kurzpruefung",
+"teilschritt": "pyth.anwenden@2",
+"typ": "zahl",
+"stufe": 2,
+"geschichte": "Ein Container ist innen 12 m lang, 4 m breit und 3 m hoch.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check",
+"frage": "Wie lang darf eine Stange höchstens sein, die ganz in den Container passt?",
+"antwort": {
+"wert": 13,
+"einheit": "m"
+},
+"loesungsweg": [
+"Bodendiagonale: e² = 12² + 4² = 160",
+"Raumdiagonale: d² = e² + 3² = 160 + 9 = 169",
+"d = 13 m"
+],
+"erklaerung": "Zweimal Pythagoras: erst über den Boden, dann schräg nach oben. Kurz: d² = a² + b² + c².",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-pyth-satzgruppe-1",
+"fach": "mathe",
+"thema": "pythagoras",
+"zweck": "kurzpruefung",
+"teilschritt": "pyth.satzgruppe@1",
+"typ": "zahl",
+"stufe": 1,
+"frage": "In einem rechtwinkligen Dreieck teilt die Höhe h die Hypotenuse in p = 4 cm und q = 16 cm. Berechne h.",
+"antwort": {
+"wert": 8,
+"einheit": "cm"
+},
+"loesungsweg": [
+"Höhensatz: h² = p · q = 4 · 16 = 64",
+"h = 8 cm"
+],
+"erklaerung": "Der Höhensatz folgt aus zwei Mal Pythagoras in den beiden Teildreiecken.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-pyth-satzgruppe-2",
+"fach": "mathe",
+"thema": "pythagoras",
+"zweck": "kurzpruefung",
+"teilschritt": "pyth.satzgruppe@1",
+"typ": "zahl",
+"stufe": 1,
+"frage": "Hypotenuse c = 25 cm, der Hypotenusenabschnitt unter der Kathete a ist p = 9 cm. Berechne a.",
+"antwort": {
+"wert": 15,
+"einheit": "cm"
+},
+"loesungsweg": [
+"Kathetensatz: a² = c · p = 25 · 9 = 225",
+"a = 15 cm"
+],
+"erklaerung": "Zu jeder Kathete gehört der Abschnitt der Hypotenuse, der an ihr anliegt.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-qfkt-normal-1",
+"fach": "mathe",
+"thema": "quadr-funktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "qfkt.normal@1",
+"typ": "auswahl",
+"stufe": 1,
+"optionen": [
+"(−3|9)",
+"(−3|−9)",
+"(3|6)",
+"(9|3)"
+],
+"frage": "Welcher Punkt liegt auf der Normalparabel y = x²?",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"(−3)² = 9, nicht −9",
+"(3|6): 3² = 9 ≠ 6"
+],
+"erklaerung": "Die Normalparabel ist symmetrisch zur y-Achse: x und −x haben denselben y-Wert.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-qfkt-normal-2",
+"fach": "mathe",
+"thema": "quadr-funktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "qfkt.normal@1",
+"typ": "zahl",
+"stufe": 1,
+"frage": "y = x². Berechne y für x = −1,5.",
+"antwort": {
+"wert": 2.25
+},
+"loesungsweg": [
+"(−1,5)² = (−1,5) · (−1,5)",
+"= 2,25"
+],
+"erklaerung": "Ein Minus mal ein Minus ergibt Plus: Die Parabel liegt nie unter der x-Achse.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-qfkt-verschieben-1",
+"fach": "mathe",
+"thema": "quadr-funktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "qfkt.verschieben@1",
+"typ": "auswahl",
+"stufe": 1,
+"optionen": [
+"S(0|−5)",
+"S(−5|0)",
+"S(5|0)",
+"S(0|5)"
+],
+"frage": "Wo liegt der Scheitel von y = x² − 5?",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"− 5 hinter dem x² verschiebt nach unten",
+"S(0|−5)"
+],
+"erklaerung": "Was hinter dem Quadrat steht, verschiebt die Parabel nach oben oder unten.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-qfkt-verschieben-2",
+"fach": "mathe",
+"thema": "quadr-funktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "qfkt.verschieben@2",
+"typ": "auswahl",
+"stufe": 2,
+"optionen": [
+"S(−3|−2)",
+"S(3|−2)",
+"S(−3|2)",
+"S(3|2)"
+],
+"frage": "Wo liegt der Scheitel von y = (x + 3)² − 2?",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"(x + 3)² ist null für x = −3",
+"dann y = −2",
+"S(−3|−2)"
+],
+"erklaerung": "Das Vorzeichen in der Klammer kehrt sich um: Die Parabel rutscht nach links, wenn in der Klammer + steht.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-qfkt-strecken-1",
+"fach": "mathe",
+"thema": "quadr-funktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "qfkt.strecken@1",
+"typ": "auswahl",
+"stufe": 1,
+"optionen": [
+"nach unten geöffnet, schmaler als die Normalparabel",
+"nach unten geöffnet, breiter als die Normalparabel",
+"nach oben geöffnet, schmaler",
+"nach oben geöffnet, breiter"
+],
+"frage": "Was gilt für die Parabel y = −2x²?",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"Minus → nach unten geöffnet",
+"|−2| > 1 → gestreckt, also schmaler"
+],
+"erklaerung": "Der Betrag des Faktors sagt, wie steil: größer als 1 schmaler, zwischen 0 und 1 breiter.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-qfkt-strecken-2",
+"fach": "mathe",
+"thema": "quadr-funktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "qfkt.strecken@1",
+"typ": "auswahl",
+"stufe": 1,
+"optionen": [
+"y = 0,25x²",
+"y = x²",
+"y = −2x²",
+"y = 4x²"
+],
+"frage": "Welche Parabel ist am breitesten?",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"Beträge der Faktoren: 0,25; 1; 2; 4",
+"der kleinste Betrag gibt die breiteste Parabel"
+],
+"erklaerung": "Breit heißt: Die y-Werte wachsen langsam.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-qfkt-scheitelform-1",
+"fach": "mathe",
+"thema": "quadr-funktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "qfkt.scheitelform@1",
+"typ": "auswahl",
+"stufe": 1,
+"optionen": [
+"x² − 8x + 19",
+"x² − 8x + 7",
+"x² + 8x + 19",
+"x² − 4x + 19"
+],
+"frage": "Multipliziere die Scheitelpunktform y = (x − 4)² + 3 aus. Welche Normalform kommt heraus?",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"(x − 4)² = x² − 8x + 16 (2. binomische Formel)",
+"+ 3 → x² − 8x + 19"
+],
+"erklaerung": "Das Mittelglied 2 · x · 4 = 8x nicht vergessen.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-qfkt-scheitelform-2",
+"fach": "mathe",
+"thema": "quadr-funktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "qfkt.scheitelform@2",
+"typ": "auswahl",
+"stufe": 2,
+"optionen": [
+"(x + 3)² − 7",
+"(x + 3)² + 2",
+"(x + 6)² − 34",
+"(x − 3)² − 7"
+],
+"frage": "Bringe y = x² + 6x + 2 mit quadratischer Ergänzung in Scheitelpunktform.",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"x² + 6x + 2 = x² + 6x + 9 − 9 + 2",
+"= (x + 3)² − 7",
+"Scheitel S(−3|−7)"
+],
+"erklaerung": "Ergänzen heißt: die Hälfte von 6 quadrieren, addieren und gleich wieder abziehen.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-qfkt-aufstellen-1",
+"fach": "mathe",
+"thema": "quadr-funktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "qfkt.aufstellen@1",
+"typ": "zahl",
+"stufe": 1,
+"frage": "Eine Parabel hat den Scheitel S(2|1) und geht durch P(4|9). Bestimme a in y = a(x − 2)² + 1.",
+"antwort": {
+"wert": 2
+},
+"loesungsweg": [
+"9 = a · (4 − 2)² + 1",
+"8 = 4a",
+"a = 2"
+],
+"erklaerung": "Scheitel einsetzen, dann den Punkt: Es bleibt eine Gleichung mit einer Unbekannten.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-qfkt-aufstellen-2",
+"fach": "mathe",
+"thema": "quadr-funktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "qfkt.aufstellen@1",
+"typ": "zahl",
+"stufe": 1,
+"frage": "Scheitel S(−1|4), die Parabel geht durch P(1|−4). Bestimme a in y = a(x + 1)² + 4.",
+"antwort": {
+"wert": -2
+},
+"loesungsweg": [
+"−4 = a · (1 + 1)² + 4",
+"−8 = 4a",
+"a = −2"
+],
+"erklaerung": "Ein negatives a passt: Der Punkt liegt unter dem Scheitel, die Parabel ist nach unten geöffnet.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-qfkt-sache-1",
+"fach": "mathe",
+"thema": "quadr-funktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "qfkt.sache@1",
+"typ": "zahl",
+"stufe": 1,
+"geschichte": "Die Höhe eines geworfenen Balls in Metern ist h(t) = −5(t − 1,2)² + 7,2, t in Sekunden nach dem Wurf.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check",
+"frage": "Wie hoch fliegt der Ball höchstens?",
+"antwort": {
+"wert": 7.2,
+"einheit": "m"
+},
+"loesungsweg": [
+"h(t) = −5(t − 1,2)² + 7,2 ist die Scheitelpunktform",
+"Scheitel S(1,2|7,2)",
+"höchster Punkt 7,2 m nach 1,2 s"
+],
+"erklaerung": "Der Scheitel einer nach unten geöffneten Parabel ist ihr höchster Punkt.",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-qfkt-sache-2",
+"fach": "mathe",
+"thema": "quadr-funktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "qfkt.sache@1",
+"typ": "zahl",
+"stufe": 1,
+"geschichte": "Mit 40 m Zaun soll eine rechteckige Fläche eingezäunt werden.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check",
+"frage": "Wie groß kann die Fläche höchstens werden?",
+"antwort": {
+"wert": 100,
+"einheit": "m²"
+},
+"loesungsweg": [
+"Länge x, Breite 20 − x (weil 2x + 2(20 − x) = 40)",
+"A(x) = x(20 − x) = −x² + 20x = −(x − 10)² + 100",
+"größte Fläche 100 m² bei x = 10 m (Quadrat)"
+],
+"erklaerung": "Von allen Rechtecken mit gleichem Umfang hat das Quadrat die größte Fläche.",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-potenz-gesetze-1",
+"fach": "mathe",
+"thema": "potenzgesetze",
+"zweck": "kurzpruefung",
+"teilschritt": "potenz.gesetze@1",
+"typ": "zahl",
+"stufe": 1,
+"frage": "a³ · a⁵ = aⁿ. Bestimme n.",
+"antwort": {
+"wert": 8
+},
+"loesungsweg": [
+"gleiche Basis: Hochzahlen addieren",
+"3 + 5 = 8"
+],
+"erklaerung": "a³ · a⁵ sind 3 + 5 Faktoren a.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-potenz-gesetze-2",
+"fach": "mathe",
+"thema": "potenzgesetze",
+"zweck": "kurzpruefung",
+"teilschritt": "potenz.gesetze@2",
+"typ": "zahl",
+"stufe": 2,
+"frage": "(x²)⁴ · x³ = xⁿ. Bestimme n.",
+"antwort": {
+"wert": 11
+},
+"loesungsweg": [
+"(x²)⁴ = x⁸ (Hochzahlen multiplizieren)",
+"x⁸ · x³ = x¹¹"
+],
+"erklaerung": "Potenz einer Potenz: multiplizieren. Produkt gleicher Basen: addieren.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-potenz-negativ-1",
+"fach": "mathe",
+"thema": "potenzgesetze",
+"zweck": "kurzpruefung",
+"teilschritt": "potenz.negativ@1",
+"typ": "zahl",
+"stufe": 1,
+"frage": "2⁻⁴ = 1/n. Bestimme n.",
+"antwort": {
+"wert": 16
+},
+"loesungsweg": [
+"2⁻⁴ = 1/2⁴",
+"= 1/16"
+],
+"erklaerung": "Eine negative Hochzahl heißt: Kehrwert. Negativ wird die Zahl dadurch nicht.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-potenz-negativ-2",
+"fach": "mathe",
+"thema": "potenzgesetze",
+"zweck": "kurzpruefung",
+"teilschritt": "potenz.negativ@2",
+"typ": "zehnerpotenz",
+"stufe": 2,
+"rechnung": "0,000072",
+"frage": "Schreibe in wissenschaftlicher Schreibweise.",
+"antwort": {
+"mantisse": 7.2,
+"exponent": -5
+},
+"loesungsweg": [
+"Komma um 5 Stellen nach rechts → 7,2",
+"0,000072 = 7,2 · 10⁻⁵"
+],
+"erklaerung": "Bei kleinen Zahlen ist die Hochzahl negativ.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-potenz-rational-1",
+"fach": "mathe",
+"thema": "potenzgesetze",
+"zweck": "kurzpruefung",
+"teilschritt": "potenz.rational@1",
+"typ": "zahl",
+"stufe": 1,
+"rechnung": "27¹ᐟ³ =",
+"niveau": "H",
+"frage": "Berechne ohne Rechner.",
+"antwort": {
+"wert": 3
+},
+"loesungsweg": [
+"27¹ᐟ³ = ∛27",
+"= 3"
+],
+"erklaerung": "Eine Hochzahl 1/n bedeutet die n-te Wurzel.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-potenz-rational-2",
+"fach": "mathe",
+"thema": "potenzgesetze",
+"zweck": "kurzpruefung",
+"teilschritt": "potenz.rational@1",
+"typ": "zahl",
+"stufe": 1,
+"rechnung": "16³ᐟ⁴ =",
+"niveau": "H",
+"frage": "Berechne ohne Rechner.",
+"antwort": {
+"wert": 8
+},
+"loesungsweg": [
+"16³ᐟ⁴ = (⁴√16)³",
+"= 2³ = 8"
+],
+"erklaerung": "Erst die Wurzel (Nenner), dann die Potenz (Zähler): Mit kleinen Zahlen rechnet es sich leichter.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-potfkt-graph-1",
+"fach": "mathe",
+"thema": "potenzfunktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "potfkt.graph@1",
+"typ": "auswahl",
+"stufe": 1,
+"optionen": [
+"(−2|−8)",
+"(−2|8)",
+"(2|6)",
+"(−8|−2)"
+],
+"frage": "Welcher Punkt liegt auf dem Graphen von y = x³?",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"(−2)³ = −8"
+],
+"erklaerung": "Bei ungerader Hochzahl bleibt das Vorzeichen erhalten: S-förmiger Graph durch (0|0).",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-potfkt-graph-2",
+"fach": "mathe",
+"thema": "potenzfunktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "potfkt.graph@2",
+"typ": "auswahl",
+"stufe": 2,
+"optionen": [
+"Für x = 0 ist sie nicht definiert.",
+"Ihr Graph geht durch (0|0).",
+"Für negative x sind die y-Werte negativ.",
+"Ihr Graph ist eine Gerade."
+],
+"frage": "Was gilt für y = x⁻²?",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"x⁻² = 1/x²",
+"durch 0 teilen geht nicht → Polstelle bei 0",
+"x² ist immer positiv → y immer positiv"
+],
+"erklaerung": "Negative Hochzahlen ergeben Hyperbeln. y = x⁻² hat zwei Äste, beide über der x-Achse.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-potfkt-wurzelfkt-1",
+"fach": "mathe",
+"thema": "potenzfunktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "potfkt.wurzelfkt@1",
+"typ": "auswahl",
+"stufe": 1,
+"optionen": [
+"y = √x",
+"y = x⁻²",
+"y = −x²",
+"y = x : 2"
+],
+"frage": "Welche Funktion ist die Umkehrfunktion von y = x² für x ≥ 0?",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"Umkehren heißt: x und y tauschen",
+"x = y² → y = √x (für x ≥ 0)"
+],
+"erklaerung": "Der Graph der Umkehrfunktion entsteht durch Spiegeln an der Winkelhalbierenden y = x.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-potfkt-wurzelfkt-2",
+"fach": "mathe",
+"thema": "potenzfunktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "potfkt.wurzelfkt@1",
+"typ": "auswahl",
+"stufe": 1,
+"optionen": [
+"(9|3)",
+"(3|9)",
+"(−9|3)",
+"(3|√3)"
+],
+"frage": "Der Punkt (3|9) liegt auf y = x². Welcher Punkt liegt dann auf y = √x?",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"Beim Spiegeln an y = x tauschen x und y die Plätze",
+"(3|9) → (9|3)"
+],
+"erklaerung": "Probe: √9 = 3.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-potfkt-gleichung-1",
+"fach": "mathe",
+"thema": "potenzfunktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "potfkt.gleichung@1",
+"typ": "auswahl",
+"stufe": 1,
+"optionen": [
+"x = 2 oder x = −2",
+"x = 2",
+"x = 4",
+"x = 4 oder x = −4"
+],
+"frage": "Löse x⁴ = 16.",
+"antwort": {
+"richtig": 0
+},
+"loesungsweg": [
+"⁴√16 = 2",
+"gerade Hochzahl → auch −2: (−2)⁴ = 16"
+],
+"erklaerung": "Bei gerader Hochzahl gibt es für eine positive Zahl immer zwei Lösungen.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+},
+{
+"id": "app-pruef-potfkt-gleichung-2",
+"fach": "mathe",
+"thema": "potenzfunktionen",
+"zweck": "kurzpruefung",
+"teilschritt": "potfkt.gleichung@1",
+"typ": "zahl",
+"stufe": 1,
+"frage": "Löse x³ = −27. x =",
+"antwort": {
+"wert": -3
+},
+"loesungsweg": [
+"x = ∛(−27)",
+"= −3"
+],
+"erklaerung": "Bei ungerader Hochzahl gibt es genau eine Lösung, auch für negative Zahlen.",
+"quelle": "Aufgaben-Chat 2026-11-24, Schnell-Check, neutrale Zahlen",
+"bonus": false,
+"hinweise": []
+}
+]
+}

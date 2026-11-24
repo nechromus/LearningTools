@@ -29,8 +29,9 @@ import { Lernplan } from './lernplan.mjs';
 import * as LA from './lesen-auswertung.js';
 import * as LL from '../lesen/lesen-logik.js';
 import { allesNeuLaden } from '../js/neuladen.js';
+import * as TWE from './themenwahl-eltern.js';
 
-export const ELTERN_VERSION = '1.77.0';
+export const ELTERN_VERSION = '1.78.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -203,6 +204,7 @@ async function datenLaden() {
   eRechnen();
   datenHinweisWeg();
   berichteLaden(n.ordner);
+  themenwahlLaden(n.ordner);
   liveLaden(n.ordner);
   lernplanLaden(n.ordner); // für den Reiter „Trend“ (meta.trend)
 }
@@ -283,7 +285,7 @@ function nutzerWahl(klasse) {
 // Navigation Variante C (Auftrag 59 Schritt 5): Heute · Verlauf · Mathe · Lesen · Mehr.
 // „Mathe“ bündelt Trend, Lernplan, Bögen, Berichte und Pakete (Umschalter oben), „Mehr“ Bildschirmzeit, Einstellungen, Tickets.
 // „Lesen“ gibt es nur mit Kassenbuch (werte.kasse).
-const MATHE_SEITEN = ['mathe', 'trend', 'lernplan', 'boegen', 'berichte', 'pakete', 'paket', 'einheit', 'gewichte'];
+const MATHE_SEITEN = ['mathe', 'trend', 'lernplan', 'themenwahl', 'boegen', 'berichte', 'pakete', 'paket', 'einheit', 'gewichte'];
 const MEHR_SEITEN = ['mehr', 'tickets', 'ticket', 'einstellungen', 'spielzeit', 'splitter', 'qr', 'bildschirmzeit'];
 function lesenAn() { const w = D.daten && D.daten.einst && D.daten.einst.werte; return !!(w && w.kasse === true); }
 function navLinks(art) {
@@ -295,7 +297,7 @@ function navLinks(art) {
     `<a href="#${k}" class="${art}${aktiv === k ? ' aktiv' : ''}"${aktiv === k ? ' aria-current="page"' : ''}>${svg(k, 24)}<span>${t}</span>${k === 'mehr' && neu ? `<i class="nav-zahl" aria-label="${neu} neue Tickets">${neu}</i>` : ''}</a>`).join('');
 }
 function matheSeiten() {
-  return [...(trendAn() ? [['trend', 'Trend']] : []), ['lernplan', 'Lernplan'], ...(boegenAn() ? [['boegen', 'Bögen']] : []), ...(berichteAn() ? [['berichte', 'Berichte']] : []), ['pakete', 'Pakete']];
+  return [...(trendAn() ? [['trend', 'Trend']] : []), ...(themenwahlAn() ? [['themenwahl', 'Themenwahl']] : []), ['lernplan', 'Lernplan'], ...(boegenAn() ? [['boegen', 'Bögen']] : []), ...(berichteAn() ? [['berichte', 'Berichte']] : []), ['pakete', 'Pakete']];
 }
 function matheZiel() {
   let z = null; try { z = localStorage.getItem('eltern-mathe'); } catch (e) { /* egal */ }
@@ -506,6 +508,7 @@ function seiteHtml() {
     case 'tickets': return ticketsSeite();
     case 'boegen': return (C.nur ? '' : matheUmschalter()) + boegenSeite();
     case 'berichte': return matheUmschalter() + berichteSeite();
+    case 'themenwahl': return matheUmschalter() + themenwahlSeite();
     case 'ticket': return ticketSeite(route.arg);
     default: return uebersichtSeite();
   }
@@ -533,6 +536,24 @@ function liveKarte() {
   return `<section class="karte live-karte an"><span class="live-punkt"></span><span class="live-text"><b>${nm} ist gerade in der App</b><span>${was}</span><span class="klein gedaempft">${zahlen}</span></span><button class="knopf-icon" data-act="neuLaden" aria-label="Neu laden" title="Neu laden">${svg('neu', 20)}</button></section>`;
 }
 const SPIELNAMEN = { '2048': '2048', runenfeld: 'Runenfeld', kristallmine: 'Kristallmine', steinschieber: 'Steinschieber', runenfall: 'Runenfall', runenreihen: 'Runenreihen', hoehlenkarte: 'Höhlenkarte' };
+
+// ---------- Themenwahl (Auftrag 74): daten/<name>/themenwahl.json, schreibt die Übungs-App. Hier nur lesen. ----------
+const TWE_S = { kind: null, datei: null, laedt: false };
+function themenwahlAn() { const w = D.daten && D.daten.einst && D.daten.einst.werte; return !!((w && w.themenwahl && w.themenwahl.an) || (TWE_S.kind === C.nutzer && TWE_S.datei)); }
+async function themenwahlLaden(o, neu = false) {
+  if (TWE_S.laedt || (TWE_S.kind === o && TWE_S.datei && !neu)) return;
+  if (TWE_S.kind !== o) Object.assign(TWE_S, { kind: o, datei: null });
+  TWE_S.laedt = true;
+  try { TWE_S.datei = await RB.datei(C, `daten/${o}/themenwahl.json`); } catch (e) { /* noch keine */ }
+  TWE_S.laedt = false; zeichne();
+}
+function themenwahlSeite() {
+  TWE.themenLaden(zeichne);
+  if (TWE_S.kind !== C.nutzer) themenwahlLaden(C.nutzer);
+  return `<div class="seite">${breit.matches ? '<h1>Themenwahl</h1>' : kopfSchmal('Themenwahl')}
+    ${TWE.seite({ tw: TWE_S.kind === C.nutzer ? TWE_S.datei : null, eintraege: (D.daten && D.daten.eintraege) || [], heute: L.tagKey(), name: name(), laedt: TWE_S.laedt })}
+    <button class="knopf bg-neu-laden" data-act="twNeuLaden">${TWE_S.laedt ? 'Lädt …' : 'Neu laden'}</button></div>`;
+}
 
 // ---------- Berichte (Auftrag 28) ----------
 // daten/<name>/berichte/index.json (berichte-1) und <id>.html schreibt der Kinder-Chat. Hier nur lesen.
@@ -3440,6 +3461,7 @@ document.addEventListener('click', (ev) => {
     case 'liveAn': entwurf.live = el.dataset.w === 'true'; meldung = null; zeichne(); break;
     case 'brArt': BR.art = el.dataset.w === 'bericht' ? 'bericht' : 'plan'; if (route.arg) location.hash = '#berichte'; else zeichne(); break;
     case 'brNeuLaden': berichteLaden(C.nutzer, true); break;
+    case 'twNeuLaden': RB.auffrischen(C, { maxAlter: 0 }).then(() => themenwahlLaden(C.nutzer, true)); break;
     case 'bgNeuLaden': BG.hbPdf = {}; bgLaden(true); break;
     case 'hbDrucken': hbDrucken(el.dataset.w); break;
     case 'hbWarnDrucken': hbDrucken('neu'); if (route.arg !== 'hinweisblatt') location.hash = '#boegen/hinweisblatt'; break;

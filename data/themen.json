@@ -1,0 +1,4472 @@
+{
+"format": "themen-1",
+"stand": "2026-11-24",
+"quelle": "Lernplattform, Rolle Inhalte (2026-11-24, themen-b-teilschritte.json) mit Ergänzungen der App (Auftrag 74): Themen umstellen und trigo, Körper mit Volumen von Kegel und Kugel; „braucht“ für diese aus dem Katalog der Lernplattform.",
+"faecher": {
+"mathe": "Mathe",
+"physik": "Physik"
+},
+"gruppen": [
+"Schulstoff Klasse 9",
+"Mehr aus dem Schulstoff",
+"Aus Klasse 10",
+"Aus der Oberstufe",
+"Knobel- und Wettbewerbsthemen",
+"Grundlage"
+],
+"themen": [
+{
+"id": "wurzel",
+"name": "Wurzeln und reelle Zahlen",
+"gruppe": "Schulstoff Klasse 9",
+"kern": "Die Wurzel kehrt das Quadrieren um. Manche Wurzeln lassen sich nicht als Bruch schreiben: Mit ihnen werden die Zahlen zu den reellen Zahlen erweitert.",
+"einfuehren": "Fläche eines Quadrats ist gegeben, gesucht ist die Seite. Erst Quadratzahlen, dann √2 mit dem Rechner und durch Einschachteln: Die Nachkommastellen hören nicht auf.",
+"schritte": [
+{
+"id": "wurzel.quadrat",
+"name": "Quadratwurzel ziehen",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Quadratzahlen bis zu den Hundertern",
+"niveau": "F",
+"beispiel": "√144 = 12"
+},
+{
+"s": 2,
+"text": "Dezimalzahlen und Brüche",
+"niveau": "F",
+"beispiel": "√0,49 = 0,7; √(9/16) = 3/4"
+},
+{
+"s": 3,
+"text": "Näherungswert mit dem Rechner, runden",
+"niveau": "F",
+"beispiel": "√20 ≈ 4,47"
+}
+],
+"typische_fehler": [
+"√ als Halbieren (√16 = 8)",
+"√0,4 = 0,2 (Kommastellen falsch)"
+]
+},
+{
+"id": "wurzel.irrational",
+"name": "Rationale und irrationale Zahlen unterscheiden",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "einordnen: Bruch, abbrechende oder periodische Dezimalzahl, Wurzel",
+"niveau": "G",
+"beispiel": "Ist √49 irrational? Nein, = 7"
+},
+{
+"s": 2,
+"text": "Wurzel durch Einschachteln eingrenzen",
+"niveau": "G",
+"beispiel": "1,41 < √2 < 1,42"
+}
+],
+"typische_fehler": [
+"Jede Wurzel sei irrational",
+"Gerundeter Rechnerwert gilt als exakt"
+]
+},
+{
+"id": "wurzel.regeln",
+"name": "Mit Wurzeln rechnen: Wurzelgesetze",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Produkt und Quotient unter der Wurzel",
+"niveau": "G",
+"beispiel": "√2 · √8 = √16 = 4"
+},
+{
+"s": 2,
+"text": "teilweise Wurzel ziehen",
+"niveau": "G",
+"beispiel": "√50 = 5√2"
+},
+{
+"s": 3,
+"text": "Nenner rational machen",
+"niveau": "G",
+"beispiel": "1/√2 = √2/2"
+}
+],
+"typische_fehler": [
+"√(a + b) = √a + √b",
+"√(a²) = a auch bei negativem a"
+]
+},
+{
+"id": "wurzel.kubik",
+"name": "Kubikwurzel und höhere Wurzeln",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Kubikzahlen",
+"niveau": "G",
+"beispiel": "∛125 = 5"
+},
+{
+"s": 2,
+"text": "mit dem Rechner, auch negative Zahl unter der Kubikwurzel",
+"niveau": "G",
+"beispiel": "∛(−8) = −2"
+}
+],
+"typische_fehler": [
+"∛ als Drittel (∛27 = 9)"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "pyth",
+"name": "Satz des Pythagoras",
+"gruppe": "Schulstoff Klasse 9",
+"kern": "Im rechtwinkligen Dreieck ist die Fläche des Quadrats über der längsten Seite so groß wie die beiden anderen Quadrate zusammen: a² + b² = c².",
+"einfuehren": "Drei Quadrate an ein rechtwinkliges Dreieck legen (Kästchenpapier) und auszählen. Danach immer zuerst die Hypotenuse markieren.",
+"schritte": [
+{
+"id": "pyth.seiten",
+"name": "Hypotenuse und Katheten erkennen",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "Dreieck in verschiedenen Lagen, andere Buchstaben",
+"niveau": "F",
+"beispiel": "Rechter Winkel bei C: Hypotenuse ist c"
+},
+{
+"s": 2,
+"text": "rechtwinkliges Teildreieck in einer Figur finden",
+"niveau": "F",
+"beispiel": "Diagonale im Rechteck"
+}
+],
+"typische_fehler": [
+"Längste Seite nach Lage statt nach dem rechten Winkel"
+]
+},
+{
+"id": "pyth.hypotenuse",
+"name": "Hypotenuse berechnen",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "ganzzahlige Ergebnisse",
+"niveau": "F",
+"beispiel": "a = 6, b = 8 → c = 10"
+},
+{
+"s": 2,
+"text": "Ergebnis runden",
+"niveau": "F",
+"beispiel": "a = 5, b = 7 → c ≈ 8,6"
+}
+],
+"typische_fehler": [
+"Wurzel am Ende vergessen",
+"a + b = c",
+"(a + b)² statt a² + b²"
+]
+},
+{
+"id": "pyth.kathete",
+"name": "Kathete berechnen",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Umstellen: Quadrat minus Quadrat",
+"niveau": "F",
+"beispiel": "c = 13, a = 5 → b = 12"
+}
+],
+"typische_fehler": [
+"Plus statt minus (c² + a²)"
+]
+},
+{
+"id": "pyth.umkehr",
+"name": "Prüfen, ob ein Dreieck rechtwinklig ist",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "mit der Umkehrung des Satzes",
+"niveau": "F",
+"beispiel": "5, 12, 13: 25 + 144 = 169 → ja"
+}
+],
+"typische_fehler": [
+"Längste Seite nicht als c genommen"
+]
+},
+{
+"id": "pyth.anwenden",
+"name": "Pythagoras in Figuren und Sachaufgaben",
+"basis": "basis.angaben",
+"stufen": [
+{
+"s": 1,
+"text": "Diagonale, Höhe im gleichschenkligen Dreieck, Abstand im Koordinatensystem",
+"niveau": "F",
+"beispiel": "Abstand von (1|2) und (4|6) = 5"
+},
+{
+"s": 2,
+"text": "räumlich: Raumdiagonale, Höhe einer Pyramide",
+"niveau": "G",
+"beispiel": "Würfel a = 3: d = √27"
+}
+],
+"typische_fehler": [
+"Falsches Teildreieck gewählt",
+"Räumlich nur eine Ebene gerechnet"
+]
+},
+{
+"id": "pyth.satzgruppe",
+"name": "Höhensatz und Kathetensatz",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Höhensatz und Kathetensatz anwenden",
+"niveau": "G",
+"beispiel": "p = 4, q = 9 → h = 6"
+}
+],
+"typische_fehler": [
+"p und q den falschen Katheten zugeordnet"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "strahl",
+"name": "Strahlensätze und zentrische Streckung",
+"gruppe": "Schulstoff Klasse 9",
+"kern": "Wird eine Figur von einem Punkt aus gestreckt, wachsen alle Strecken mit demselben Faktor. Daraus folgen gleiche Verhältnisse an Parallelen.",
+"einfuehren": "Daumensprung oder Försterdreieck: eine Baumhöhe über ähnliche Dreiecke schätzen.",
+"schritte": [
+{
+"id": "strahl.streckung",
+"name": "Zentrische Streckung mit Streckfaktor",
+"basis": "basis.konstruieren",
+"stufen": [
+{
+"s": 1,
+"text": "Figur vergrößern oder verkleinern, Faktor größer und kleiner als eins",
+"niveau": "F",
+"beispiel": "k = 2: alle Strecken doppelt so lang"
+},
+{
+"s": 2,
+"text": "negativer Streckfaktor",
+"niveau": "G",
+"beispiel": "k = −1: Punktspiegelung am Zentrum"
+}
+],
+"typische_fehler": [
+"Flächen wachsen mit k statt mit k²"
+]
+},
+{
+"id": "strahl.erster",
+"name": "Erster Strahlensatz: Verhältnisse auf den Strahlen",
+"basis": "basis.formel",
+"stufen": [
+{
+"s": 1,
+"text": "Verhältnis aufstellen und lösen",
+"niveau": "G",
+"beispiel": "SA : SA′ = SB : SB′"
+}
+],
+"typische_fehler": [
+"Teilstück und ganze Strecke gemischt"
+]
+},
+{
+"id": "strahl.zweiter",
+"name": "Zweiter Strahlensatz: Verhältnis der Parallelen",
+"basis": "basis.formel",
+"stufen": [
+{
+"s": 1,
+"text": "Parallelen zu Strecken vom Zentrum",
+"niveau": "G",
+"beispiel": "AB : A′B′ = SA : SA′"
+}
+],
+"typische_fehler": [
+"Teilstück AA′ statt SA′ genommen"
+]
+},
+{
+"id": "strahl.sache",
+"name": "Höhen und Entfernungen messen",
+"basis": "basis.angaben",
+"stufen": [
+{
+"s": 1,
+"text": "Figur zur Sachsituation zeichnen und Strahlensatz wählen",
+"niveau": "G",
+"beispiel": "Schatten von Stab und Turm"
+}
+],
+"typische_fehler": [
+"Messgrößen der falschen Figur zugeordnet"
+]
+},
+{
+"id": "strahl.umkehr",
+"name": "Umkehrung der Strahlensätze: Sind die Geraden parallel?",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "nur für den ersten Strahlensatz",
+"niveau": "H",
+"beispiel": "Verhältnisse gleich → parallel"
+}
+],
+"typische_fehler": [
+"Umkehrung beim zweiten Strahlensatz benutzt"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "qfkt",
+"name": "Quadratische Funktionen",
+"gruppe": "Schulstoff Klasse 9",
+"kern": "Der Graph ist eine Parabel. Der Scheitel sagt, wo sie ihr Minimum oder Maximum hat, der Faktor vor dem Quadrat, wie steil und in welche Richtung sie geöffnet ist.",
+"einfuehren": "Normalparabel mit Wertetabelle zeichnen, dann mit einem Schieberegler (Geometrie-Software) verschieben und strecken.",
+"schritte": [
+{
+"id": "qfkt.normal",
+"name": "Normalparabel: Wertetabelle und Graph",
+"basis": "basis.konstruieren",
+"stufen": [
+{
+"s": 1,
+"text": "Wertetabelle, Graph zeichnen, Symmetrie",
+"niveau": "G",
+"beispiel": "y = x²: (−2|4), (2|4)"
+}
+],
+"typische_fehler": [
+"(−2)² = −4"
+]
+},
+{
+"id": "qfkt.verschieben",
+"name": "Verschobene Parabel: Scheitel ablesen",
+"basis": "basis.lesen",
+"stufen": [
+{
+"s": 1,
+"text": "nach oben und unten",
+"niveau": "G",
+"beispiel": "y = x² + 3 → S(0|3)"
+},
+{
+"s": 2,
+"text": "nach links und rechts, Vorzeichen beachten",
+"niveau": "G",
+"beispiel": "y = (x − 2)² + 1 → S(2|1)"
+}
+],
+"typische_fehler": [
+"S(−2|1) bei (x − 2)²"
+]
+},
+{
+"id": "qfkt.strecken",
+"name": "Gestreckte, gestauchte und gespiegelte Parabel",
+"basis": "basis.lesen",
+"stufen": [
+{
+"s": 1,
+"text": "Faktor vor dem Quadrat deuten",
+"niveau": "G",
+"beispiel": "y = −0,5x²: nach unten, flacher"
+}
+],
+"typische_fehler": [
+"Faktor größer als eins = breiter"
+]
+},
+{
+"id": "qfkt.scheitelform",
+"name": "Normalform und Scheitelpunktform umwandeln",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Scheitelform ausmultiplizieren",
+"niveau": "G",
+"beispiel": "(x − 3)² + 1 = x² − 6x + 10"
+},
+{
+"s": 2,
+"text": "quadratische Ergänzung",
+"niveau": "G",
+"beispiel": "x² + 4x + 1 = (x + 2)² − 3"
+},
+{
+"s": 3,
+"text": "mit Faktor vor dem Quadrat",
+"niveau": "H",
+"beispiel": "2x² + 8x = 2(x + 2)² − 8"
+}
+],
+"typische_fehler": [
+"Ergänzung nicht wieder abgezogen",
+"Binomische Formel ohne Mittelglied"
+]
+},
+{
+"id": "qfkt.aufstellen",
+"name": "Funktionsgleichung aus Graph oder Punkten",
+"basis": "basis.angaben",
+"stufen": [
+{
+"s": 1,
+"text": "aus Scheitel und einem Punkt",
+"niveau": "G",
+"beispiel": "S(1|2), P(3|10) → a = 2"
+},
+{
+"s": 2,
+"text": "aus drei Punkten mit einem Gleichungssystem",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Punkt in falsche Variable eingesetzt"
+]
+},
+{
+"id": "qfkt.sache",
+"name": "Quadratische Funktionen in Sachsituationen",
+"basis": "basis.angaben",
+"stufen": [
+{
+"s": 1,
+"text": "Wurfbahn, Brückenbogen, größte Fläche",
+"niveau": "G",
+"beispiel": "Höchster Punkt eines Balls"
+}
+],
+"typische_fehler": [
+"Scheitel und Nullstelle verwechselt"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "umstellen",
+"name": "Gleichungen umstellen",
+"fach": "mathe",
+"gruppe": "Schulstoff Klasse 9",
+"kern": "Eine Gleichung oder Formel so umbauen, dass die gesuchte Größe allein steht.",
+"schritte": [
+{
+"id": "gl.einfach",
+"name": "Einfache Gleichungen lösen",
+"stufen": [
+{
+"s": 1,
+"text": "ein Schritt",
+"niveau": "E",
+"beispiel": "x + 3 = 7"
+},
+{
+"s": 2,
+"text": "zwei Schritte",
+"niveau": "E",
+"beispiel": "2x + 3 = 11"
+}
+]
+},
+{
+"id": "formeln.umstellen",
+"name": "Formel nach einer Größe umstellen",
+"stufen": [
+{
+"s": 1,
+"text": "Formel nach einer Größe umstellen",
+"niveau": "F",
+"beispiel": "ρ = m : V → V = m : ρ"
+}
+]
+}
+]
+},
+{
+"id": "qgl",
+"name": "Quadratische Gleichungen",
+"gruppe": "Schulstoff Klasse 9",
+"kern": "Eine quadratische Gleichung hat keine, eine oder zwei Lösungen. Das sind die Nullstellen der passenden Parabel.",
+"einfuehren": "Erst x² = 9 (zwei Lösungen!), dann Ausklammern, dann die quadratische Ergänzung und daraus die Lösungsformel.",
+"schritte": [
+{
+"id": "qgl.rein",
+"name": "Reinquadratische Gleichungen lösen",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "zwei Lösungen mit Wurzel",
+"niveau": "G",
+"beispiel": "x² = 25 → x = ±5"
+},
+{
+"s": 2,
+"text": "keine Lösung erkennen",
+"niveau": "G",
+"beispiel": "x² = −4 → keine"
+}
+],
+"typische_fehler": [
+"Nur die positive Lösung"
+]
+},
+{
+"id": "qgl.ausklammern",
+"name": "Ausklammern und Satz vom Nullprodukt",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "x ausklammern",
+"niveau": "G",
+"beispiel": "x² − 5x = 0 → x = 0 oder x = 5"
+},
+{
+"s": 2,
+"text": "Produkt aus zwei Klammern",
+"niveau": "G",
+"beispiel": "(x − 2)(x + 3) = 0"
+}
+],
+"typische_fehler": [
+"Durch x geteilt, Lösung null verloren"
+]
+},
+{
+"id": "qgl.normalform",
+"name": "Auf Normalform bringen",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "alles auf eine Seite, durch den Faktor vor dem Quadrat teilen",
+"niveau": "G",
+"beispiel": "2x² + 4x − 6 = 0 → x² + 2x − 3 = 0"
+}
+],
+"typische_fehler": [
+"Nur einen Summanden geteilt"
+]
+},
+{
+"id": "qgl.pq",
+"name": "Lösungsformel (pq-Formel) anwenden",
+"basis": "basis.formel",
+"stufen": [
+{
+"s": 1,
+"text": "ganzzahlige p und q",
+"niveau": "G",
+"beispiel": "x² + 2x − 3 = 0 → x = 1 oder −3"
+},
+{
+"s": 2,
+"text": "Brüche und Dezimalzahlen, runden",
+"niveau": "G",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Vorzeichen von p/2 falsch",
+"q mit falschem Vorzeichen unter der Wurzel"
+]
+},
+{
+"id": "qgl.ergaenzung",
+"name": "Mit quadratischer Ergänzung lösen",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Normalform",
+"niveau": "G",
+"beispiel": "x² + 6x + 5 = 0 → (x + 3)² = 4"
+}
+],
+"typische_fehler": [
+"Ergänzung nur auf einer Seite"
+]
+},
+{
+"id": "qgl.diskriminante",
+"name": "Anzahl der Lösungen bestimmen",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "mit dem Wert unter der Wurzel",
+"niveau": "G",
+"beispiel": "(p/2)² − q < 0 → keine Lösung"
+}
+],
+"typische_fehler": [
+"Diskriminante null als keine Lösung"
+]
+},
+{
+"id": "qgl.sache",
+"name": "Textaufgaben mit quadratischen Gleichungen",
+"basis": "basis.angaben",
+"stufen": [
+{
+"s": 1,
+"text": "Gleichung aufstellen, unpassende Lösung verwerfen",
+"niveau": "G",
+"beispiel": "Rechteck mit Fläche 24 und Umfang 20"
+}
+],
+"typische_fehler": [
+"Negative Länge als Antwort"
+]
+},
+{
+"id": "qgl.vieta",
+"name": "Satz von Vieta: Lösungen erraten und prüfen",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Summe und Produkt der Lösungen",
+"niveau": "H",
+"beispiel": "x² − 5x + 6 = 0: 2 + 3 = 5, 2 · 3 = 6"
+},
+{
+"s": 2,
+"text": "Gleichung aus Lösungen bauen, Linearfaktoren",
+"niveau": "H",
+"beispiel": "Lösungen 4 und −1 → x² − 3x − 4 = 0"
+}
+],
+"typische_fehler": [
+"Vorzeichen bei p: Summe = −p"
+]
+},
+{
+"id": "qgl.biquadratisch",
+"name": "Biquadratische Gleichungen durch Ersetzen lösen",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Ersetzen und zurückrechnen",
+"niveau": "H",
+"beispiel": "x⁴ − 5x² + 4 = 0 → z = x²"
+}
+],
+"typische_fehler": [
+"Nach dem Ersetzen nicht zurückgerechnet"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "potenz",
+"name": "Potenz- und Wurzelgesetze",
+"gruppe": "Schulstoff Klasse 9",
+"kern": "Potenzen mit gleicher Basis multipliziert man, indem man die Hochzahlen addiert. Daraus folgt, was eine negative oder gebrochene Hochzahl bedeutet.",
+"einfuehren": "Zehnerpotenzen aus der Physik: 10³ · 10² = 10⁵. Dann rückwärts: 10⁰ = 1, 10⁻¹ = 0,1.",
+"schritte": [
+{
+"id": "potenz.gesetze",
+"name": "Potenzgesetze anwenden",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "gleiche Basis oder gleiche Hochzahl",
+"niveau": "F",
+"beispiel": "a³ · a⁴ = a⁷"
+},
+{
+"s": 2,
+"text": "Potenz einer Potenz, Terme vereinfachen",
+"niveau": "G",
+"beispiel": "(a²)³ = a⁶"
+}
+],
+"typische_fehler": [
+"a³ · a⁴ = a¹²",
+"a³ + a⁴ = a⁷"
+]
+},
+{
+"id": "potenz.negativ",
+"name": "Hochzahl null und negative Hochzahlen",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "als Bruch schreiben",
+"niveau": "G",
+"beispiel": "2⁻³ = 1/8"
+},
+{
+"s": 2,
+"text": "Zehnerpotenzen, wissenschaftliche Schreibweise",
+"niveau": "G",
+"beispiel": "0,00045 = 4,5 · 10⁻⁴"
+}
+],
+"typische_fehler": [
+"2⁻³ = −8"
+]
+},
+{
+"id": "potenz.rational",
+"name": "Gebrochene Hochzahlen und Wurzeln",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Wurzel als Potenz schreiben",
+"niveau": "H",
+"beispiel": "8¹ᐟ³ = 2"
+}
+],
+"typische_fehler": [
+"8¹ᐟ³ = 8/3"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "potfkt",
+"name": "Potenzfunktionen",
+"gruppe": "Schulstoff Klasse 9",
+"kern": "Bei y = xⁿ bestimmt die Hochzahl die Form: gerade Hochzahl ergibt eine Parabelform, ungerade eine S-Form, negative eine Hyperbel.",
+"einfuehren": "Graphen von x², x³, x⁻¹ nebeneinander zeichnen und vergleichen.",
+"schritte": [
+{
+"id": "potfkt.graph",
+"name": "Graph einer Potenzfunktion zuordnen",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "gerade und ungerade Hochzahl",
+"niveau": "G",
+"beispiel": "y = x³ geht durch (−1|−1)"
+},
+{
+"s": 2,
+"text": "negative Hochzahl",
+"niveau": "G",
+"beispiel": "y = x⁻² hat eine Polstelle bei null"
+}
+],
+"typische_fehler": [
+"x⁻¹ als fallende Gerade"
+]
+},
+{
+"id": "potfkt.wurzelfkt",
+"name": "Wurzelfunktion als Umkehrfunktion",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Graph an der Winkelhalbierenden spiegeln",
+"niveau": "G",
+"beispiel": "y = √x zu y = x²"
+}
+],
+"typische_fehler": [
+"Ganze Parabel gespiegelt, Definitionsbereich vergessen"
+]
+},
+{
+"id": "potfkt.gleichung",
+"name": "Potenzgleichungen lösen",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "xⁿ = c, gerade und ungerade Hochzahl",
+"niveau": "G",
+"beispiel": "x⁴ = 81 → x = ±3; x³ = −8 → x = −2"
+}
+],
+"typische_fehler": [
+"Bei gerader Hochzahl nur eine Lösung"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "boxplot",
+"name": "Beschreibende Statistik",
+"gruppe": "Schulstoff Klasse 9",
+"kern": "Kennwerte fassen viele Daten zusammen: wo die Mitte liegt (Median, Mittelwert) und wie weit sie streuen (Quartile, Standardabweichung).",
+"einfuehren": "Eigene Daten der Klasse (Schulweg in Minuten) sortieren, Median finden, Boxplot zeichnen.",
+"schritte": [
+{
+"id": "boxplot.klassen",
+"name": "Daten ordnen: Rangliste, Häufigkeitstabelle, Klassen",
+"basis": "basis.lesen",
+"stufen": [
+{
+"s": 1,
+"text": "Rangliste und Häufigkeitstabelle",
+"niveau": "E",
+"beispiel": "Strichliste zu Noten"
+},
+{
+"s": 2,
+"text": "Klassen bilden",
+"niveau": "F",
+"beispiel": "Schulweg 0–10, 10–20 Minuten"
+}
+],
+"typische_fehler": [
+"Klassen überlappen"
+]
+},
+{
+"id": "boxplot.median",
+"name": "Median und Quartile bestimmen",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Median bei gerader und ungerader Anzahl",
+"niveau": "E",
+"beispiel": "2, 4, 7, 9 → 5,5"
+},
+{
+"s": 2,
+"text": "unteres und oberes Quartil",
+"niveau": "G",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Median aus ungeordneten Daten"
+]
+},
+{
+"id": "boxplot.zeichnen",
+"name": "Boxplot zeichnen",
+"basis": "basis.konstruieren",
+"stufen": [
+{
+"s": 1,
+"text": "fünf Kennwerte eintragen",
+"niveau": "G",
+"beispiel": "Min, Q1, Median, Q3, Max"
+}
+],
+"typische_fehler": [
+"Box vom Minimum bis zum Median"
+]
+},
+{
+"id": "boxplot.vergleichen",
+"name": "Boxplots lesen und vergleichen",
+"basis": "basis.lesen",
+"stufen": [
+{
+"s": 1,
+"text": "Spannweite und Boxbreite deuten",
+"niveau": "G",
+"beispiel": "Klasse A streut weniger"
+}
+],
+"typische_fehler": [
+"Längere Box = mehr Werte"
+]
+},
+{
+"id": "boxplot.streuung",
+"name": "Standardabweichung und mittlere Abweichung",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "mittlere Abweichung vom Mittelwert",
+"niveau": "G",
+"beispiel": null
+},
+{
+"s": 2,
+"text": "Varianz und Standardabweichung mit dem Rechner",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Abweichungen mit Vorzeichen addiert (Summe null)"
+]
+},
+{
+"id": "boxplot.grafik",
+"name": "Irreführende Diagramme erkennen",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "abgeschnittene Achse, verzerrte Flächen",
+"niveau": "G",
+"beispiel": "Achse beginnt bei 90 %"
+}
+],
+"typische_fehler": [
+"Höhe der Säule statt Achsenwert gelesen"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "kegel",
+"name": "Körper: Pyramide, Kegel, Kugel (Ergänzung)",
+"gruppe": "Schulstoff Klasse 9",
+"kern": "Spitze Körper haben ein Drittel des Volumens eines Prismas oder Zylinders mit gleicher Grundfläche und Höhe. Für Höhen und Mantellinien braucht man oft Pythagoras.",
+"einfuehren": "Umschüttversuch: Kegel und Zylinder gleicher Grundfläche und Höhe mit Sand füllen.",
+"schritte": [
+{
+"id": "kegel.volumen",
+"name": "Volumen von Pyramide und Kegel",
+"stufen": [
+{
+"s": 1,
+"text": "Pyramide und Kegel",
+"niveau": "F",
+"beispiel": "Kegel r = 3, h = 4: V = 1/3 · π · 3² · 4 ≈ 37,7"
+}
+]
+},
+{
+"id": "kugel.volumen",
+"name": "Kugelvolumen ausrechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Radius gegeben",
+"niveau": "F",
+"beispiel": "r = 3: V = 4/3 · π · 3³ ≈ 113,1"
+}
+]
+},
+{
+"id": "kegel.hoehe",
+"name": "Höhe, Seitenhöhe oder Mantellinie mit Pythagoras",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Kegel: Radius, Höhe, Mantellinie",
+"niveau": "G",
+"beispiel": "r = 3, h = 4 → s = 5"
+},
+{
+"s": 2,
+"text": "Pyramide: Körperhöhe und Seitenhöhe",
+"niveau": "G",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Körperhöhe als Seitenhöhe benutzt"
+]
+},
+{
+"id": "kegel.oberflaeche",
+"name": "Oberfläche von Pyramide und Kegel",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Grundfläche plus Mantel",
+"niveau": "G",
+"beispiel": "O = πr² + πrs"
+}
+],
+"typische_fehler": [
+"Grundfläche vergessen oder doppelt"
+]
+},
+{
+"id": "kegel.netz",
+"name": "Kegelmantel als Kreisausschnitt",
+"basis": "basis.konstruieren",
+"stufen": [
+{
+"s": 1,
+"text": "Mittelpunktswinkel des Mantels",
+"niveau": "H",
+"beispiel": "α = 360° · r/s"
+}
+],
+"typische_fehler": [
+"α = 360° · s/r"
+]
+},
+{
+"id": "kugel.umkehr",
+"name": "Radius aus Volumen oder Oberfläche",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Formel umstellen, dritte Wurzel",
+"niveau": "H",
+"beispiel": "V = 113 cm³ → r ≈ 3 cm"
+}
+],
+"typische_fehler": [
+"Durch drei statt dritte Wurzel"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "lgs",
+"name": "Gleichungssysteme",
+"gruppe": "Mehr aus dem Schulstoff",
+"kern": "Mehrere Bedingungen gleichzeitig: Die Lösung erfüllt alle Gleichungen. Man eliminiert Schritt für Schritt eine Unbekannte.",
+"einfuehren": "Rätsel „Zwei Zahlen, Summe 20, Differenz 4“. Danach drei Unbekannte mit dem Gauß-Verfahren als Treppenform.",
+"schritte": [
+{
+"id": "lgs.zwei",
+"name": "Zwei Gleichungen mit zwei Unbekannten lösen",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Einsetzen und Gleichsetzen",
+"niveau": "F",
+"beispiel": "y = 2x, x + y = 9 → x = 3"
+},
+{
+"s": 2,
+"text": "Additionsverfahren",
+"niveau": "F",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Nur eine Unbekannte bestimmt"
+]
+},
+{
+"id": "lgs.anzahl",
+"name": "Keine, eine oder unendlich viele Lösungen",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "am Graphen und an der Rechnung",
+"niveau": "G",
+"beispiel": "parallele Geraden → keine"
+}
+],
+"typische_fehler": [
+"0 = 5 als Lösung null gedeutet"
+]
+},
+{
+"id": "lgs.drei",
+"name": "Drei Gleichungen mit drei Unbekannten (Gauß-Verfahren)",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Stufenform herstellen",
+"niveau": "H",
+"beispiel": null
+},
+{
+"s": 2,
+"text": "Rückwärts einsetzen, Probe",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Beim Addieren eine Gleichung doppelt benutzt"
+]
+},
+{
+"id": "lgs.sache",
+"name": "Mischungs-, Bewegungs- und Zahlrätsel als Gleichungssystem",
+"basis": "basis.angaben",
+"stufen": [
+{
+"s": 1,
+"text": "zwei Unbekannte",
+"niveau": "G",
+"beispiel": "Eintritt für Kinder und Erwachsene"
+},
+{
+"s": 2,
+"text": "drei Unbekannte",
+"niveau": "H",
+"beispiel": "Parabel durch drei Punkte"
+}
+],
+"typische_fehler": [
+"Unbekannte nicht festgelegt"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "kreis",
+"name": "Kreisausschnitt und Kreisbogen",
+"gruppe": "Mehr aus dem Schulstoff",
+"kern": "Ein Kreisausschnitt ist ein Bruchteil des ganzen Kreises: Winkel durch 360° ist der Anteil an Umfang und Fläche.",
+"einfuehren": "Pizza-Stück: Welcher Anteil der Pizza ist ein Stück mit 45°?",
+"schritte": [
+{
+"id": "kreis.sektor",
+"name": "Bogenlänge und Fläche eines Kreisausschnitts",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "aus Radius und Winkel",
+"niveau": "G",
+"beispiel": "r = 6, α = 60° → b = 2π"
+},
+{
+"s": 2,
+"text": "Winkel oder Radius gesucht",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Anteil α/180 statt α/360"
+]
+},
+{
+"id": "kreis.ring",
+"name": "Kreisring und zusammengesetzte Kreisflächen",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Kreisring, Halbkreise",
+"niveau": "G",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Radien statt Flächen subtrahiert"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "kreisgeo",
+"name": "Kreisgeometrie: Thales, Mittelpunkts- und Umfangswinkel",
+"gruppe": "Knobel- und Wettbewerbsthemen",
+"kern": "Winkel, deren Schenkel denselben Kreisbogen einschließen, hängen fest zusammen: Der Mittelpunktswinkel ist doppelt so groß wie jeder Umfangswinkel. Thales ist der Sonderfall Halbkreis.",
+"einfuehren": "Mit Geometrie-Software einen Punkt auf dem Kreis wandern lassen: Der Umfangswinkel bleibt gleich.",
+"schritte": [
+{
+"id": "kreisgeo.thales",
+"name": "Satz des Thales und seine Umkehrung",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "rechten Winkel im Halbkreis erkennen",
+"niveau": "F",
+"beispiel": null
+},
+{
+"s": 2,
+"text": "Konstruktionen mit dem Thaleskreis",
+"niveau": "G",
+"beispiel": "Tangente von einem Punkt an einen Kreis"
+}
+],
+"typische_fehler": [
+"Rechter Winkel am Mittelpunkt vermutet"
+]
+},
+{
+"id": "kreisgeo.winkel",
+"name": "Mittelpunktswinkel und Umfangswinkel",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Umfangswinkel ist halb so groß",
+"niveau": "H",
+"beispiel": "Mittelpunktswinkel 100° → Umfangswinkel 50°"
+},
+{
+"s": 2,
+"text": "Sehnen-Tangenten-Winkel",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Doppelt und halb vertauscht"
+]
+},
+{
+"id": "kreisgeo.viereck",
+"name": "Sehnenviereck: Gegenwinkel ergeben zusammen einen gestreckten Winkel",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Winkel berechnen, Sehnenviereck erkennen",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Benachbarte statt gegenüberliegende Winkel"
+]
+},
+{
+"id": "kreisgeo.dreieck",
+"name": "Besondere Punkte im Dreieck: Umkreis, Inkreis, Schwerpunkt",
+"basis": "basis.konstruieren",
+"stufen": [
+{
+"s": 1,
+"text": "Mittelsenkrechten, Winkelhalbierende, Seitenhalbierende",
+"niveau": "F",
+"beispiel": null
+},
+{
+"s": 2,
+"text": "Lage begründen, Euler-Gerade",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Inkreis über Mittelsenkrechten"
+]
+},
+{
+"id": "kreisgeo.tangente",
+"name": "Tangente steht senkrecht auf dem Radius",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "Winkel und Längen mit Tangenten",
+"niveau": "G",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Tangente durch den Mittelpunkt gezeichnet"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "trigo",
+"name": "sin, cos, tan",
+"fach": "mathe",
+"gruppe": "Aus Klasse 10",
+"kern": "Im rechtwinkligen Dreieck Seiten und Winkel aus Seitenverhältnissen berechnen.",
+"schritte": [
+{
+"id": "trigo.hypotenuse",
+"name": "Hypotenuse im rechtwinkligen Dreieck finden"
+},
+{
+"id": "trigo.ankathete",
+"name": "Ankathete zum Winkel finden"
+},
+{
+"id": "trigo.gegenkathete",
+"name": "Gegenkathete zum Winkel finden"
+},
+{
+"id": "trigo.sin",
+"name": "Sinus als Seitenverhältnis"
+},
+{
+"id": "trigo.cos",
+"name": "Kosinus als Seitenverhältnis"
+},
+{
+"id": "trigo.tan",
+"name": "Tangens als Seitenverhältnis"
+},
+{
+"id": "trigo.wahl",
+"name": "Passende Funktion wählen: sin, cos oder tan"
+},
+{
+"id": "trigo.rechner",
+"name": "Taschenrechner: sin, cos, tan in Grad"
+},
+{
+"id": "trigo.winkel",
+"name": "Winkel aus sin, cos oder tan berechnen"
+},
+{
+"id": "trigo.seite",
+"name": "Seite mit sin, cos oder tan berechnen"
+},
+{
+"id": "trigo.sache",
+"name": "sin, cos, tan in Sachaufgaben"
+}
+]
+},
+{
+"id": "sinsatz",
+"name": "Sinus- und Kosinussatz",
+"gruppe": "Aus Klasse 10",
+"kern": "Auch in Dreiecken ohne rechten Winkel lassen sich Seiten und Winkel berechnen: der Sinussatz bei Paaren aus Seite und Gegenwinkel, der Kosinussatz als erweiterter Pythagoras.",
+"einfuehren": "Ein beliebiges Dreieck durch die Höhe in zwei rechtwinklige zerlegen und daraus den Sinussatz herleiten.",
+"schritte": [
+{
+"id": "sinsatz.sinus",
+"name": "Sinussatz anwenden",
+"basis": "basis.formel",
+"stufen": [
+{
+"s": 1,
+"text": "Seite gesucht",
+"niveau": "G",
+"beispiel": "a/sin α = b/sin β"
+},
+{
+"s": 2,
+"text": "Winkel gesucht, zwei mögliche Winkel beachten",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Seite nicht dem Gegenwinkel zugeordnet",
+"Zweite Lösung 180° − α übersehen"
+]
+},
+{
+"id": "sinsatz.kosinus",
+"name": "Kosinussatz anwenden",
+"basis": "basis.formel",
+"stufen": [
+{
+"s": 1,
+"text": "dritte Seite aus zwei Seiten und Zwischenwinkel",
+"niveau": "H",
+"beispiel": "c² = a² + b² − 2ab · cos γ"
+},
+{
+"s": 2,
+"text": "Winkel aus drei Seiten",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Minus statt Klammer: (a² + b² − 2ab) · cos γ"
+]
+},
+{
+"id": "sinsatz.wahl",
+"name": "Welcher Satz passt?",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "aus den gegebenen Stücken entscheiden",
+"niveau": "H",
+"beispiel": "SWS → Kosinussatz"
+}
+],
+"typische_fehler": [
+"Sinussatz ohne Paar aus Seite und Gegenwinkel"
+]
+},
+{
+"id": "sinsatz.flaeche",
+"name": "Flächeninhalt mit dem Sinus",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "A = halbes Produkt zweier Seiten mal Sinus des Zwischenwinkels",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Winkel nicht zwischen den Seiten"
+]
+},
+{
+"id": "sinsatz.sache",
+"name": "Vermessung und Navigation",
+"basis": "basis.angaben",
+"stufen": [
+{
+"s": 1,
+"text": "Figur skizzieren, Teildreiecke nacheinander",
+"niveau": "H",
+"beispiel": "Entfernung über einen See"
+}
+],
+"typische_fehler": [
+"Skizze nicht maßstäblich, Winkel falsch übertragen"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "expfkt",
+"name": "Exponentielles Wachstum",
+"gruppe": "Aus Klasse 10",
+"kern": "Beim exponentiellen Wachstum kommt in gleichen Zeiten immer derselbe Faktor dazu, nicht derselbe Betrag.",
+"einfuehren": "Zinseszins gegen festen Taschengeld-Zuwachs: Wer liegt nach 10, 20, 30 Jahren vorn?",
+"schritte": [
+{
+"id": "expfkt.faktor",
+"name": "Wachstumsfaktor aus Prozent und zurück",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Zunahme und Abnahme",
+"niveau": "G",
+"beispiel": "+3 % → Faktor 1,03; −20 % → 0,8"
+}
+],
+"typische_fehler": [
+"Faktor 0,03 statt 1,03"
+]
+},
+{
+"id": "expfkt.term",
+"name": "Exponentialterm aufstellen und Werte berechnen",
+"basis": "basis.angaben",
+"stufen": [
+{
+"s": 1,
+"text": "Anfangswert und Faktor",
+"niveau": "H",
+"beispiel": "N(t) = 500 · 1,2ᵗ"
+},
+{
+"s": 2,
+"text": "aus zwei Werten bestimmen",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Linear gerechnet (500 + 1,2t)"
+]
+},
+{
+"id": "expfkt.graph",
+"name": "Graphen von Exponentialfunktionen",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "wachsend, fallend, Asymptote",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Graph schneidet die x-Achse"
+]
+},
+{
+"id": "expfkt.verdopplung",
+"name": "Verdopplungszeit und Halbwertszeit",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "durch Probieren und mit dem Logarithmus",
+"niveau": "H",
+"beispiel": "Halbwertszeit 5 Jahre: nach 15 Jahren ein Achtel"
+}
+],
+"typische_fehler": [
+"Halbe Zeit = halbe Menge"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "log",
+"name": "Logarithmus",
+"gruppe": "Aus Klasse 10",
+"kern": "Der Logarithmus beantwortet die Frage: Mit welcher Hochzahl muss ich die Basis potenzieren, um die Zahl zu erhalten?",
+"einfuehren": "Wie oft muss man 2 verdoppeln, bis man über 1000 ist? Erst probieren, dann log.",
+"schritte": [
+{
+"id": "log.begriff",
+"name": "Logarithmus als gesuchte Hochzahl",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "im Kopf",
+"niveau": "H",
+"beispiel": "log₂ 8 = 3; lg 1000 = 3"
+},
+{
+"s": 2,
+"text": "mit dem Rechner",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"log₂ 8 = 4 (8 : 2)"
+]
+},
+{
+"id": "log.gesetze",
+"name": "Logarithmengesetze",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Produkt, Quotient, Potenz",
+"niveau": "H",
+"beispiel": "lg(a · b) = lg a + lg b"
+}
+],
+"typische_fehler": [
+"lg(a + b) = lg a + lg b"
+]
+},
+{
+"id": "log.gleichung",
+"name": "Exponentialgleichungen lösen",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Basis hoch x gleich Zahl",
+"niveau": "H",
+"beispiel": "1,05ˣ = 2 → x ≈ 14,2"
+}
+],
+"typische_fehler": [
+"Zahl durch die Basis geteilt"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "kombi",
+"name": "Kombinatorik und Pascalsches Dreieck",
+"gruppe": "Aus Klasse 10",
+"kern": "Zählen ohne alles aufzuschreiben: Bei mehreren Stufen multiplizieren sich die Möglichkeiten. Ob die Reihenfolge zählt, entscheidet über die Formel.",
+"einfuehren": "Wie viele Outfits aus 3 Hosen und 4 Shirts? Dann: Wie viele Siegertreppchen bei 8 Läufern?",
+"schritte": [
+{
+"id": "kombi.produkt",
+"name": "Produktregel für mehrstufige Auswahl",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Baum oder Tabelle",
+"niveau": "G",
+"beispiel": "3 · 4 = 12"
+}
+],
+"typische_fehler": [
+"Addiert statt multipliziert"
+]
+},
+{
+"id": "kombi.anordnung",
+"name": "Anordnungen und Fakultät",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "alle anordnen",
+"niveau": "H",
+"beispiel": "5! = 120"
+},
+{
+"s": 2,
+"text": "einige aus vielen mit Reihenfolge",
+"niveau": "H",
+"beispiel": "8 · 7 · 6"
+}
+],
+"typische_fehler": [
+"Mit Wiederholung gerechnet, obwohl jeder nur einmal"
+]
+},
+{
+"id": "kombi.auswahl",
+"name": "Auswahl ohne Reihenfolge: Binomialkoeffizient",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Lotto, Teams bilden",
+"niveau": "H",
+"beispiel": "(6 aus 49)"
+}
+],
+"typische_fehler": [
+"Reihenfolge mitgezählt"
+]
+},
+{
+"id": "kombi.art",
+"name": "Mit oder ohne Reihenfolge, mit oder ohne Wiederholung?",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "Situation einordnen",
+"niveau": "H",
+"beispiel": "Zahlenschloss: mit Reihenfolge, mit Wiederholung"
+}
+],
+"typische_fehler": [
+"Art verwechselt"
+]
+},
+{
+"id": "kombi.pascal",
+"name": "Pascalsches Dreieck",
+"basis": "basis.lesen",
+"stufen": [
+{
+"s": 1,
+"text": "Zeilen bilden, Muster finden",
+"niveau": "G",
+"beispiel": null
+},
+{
+"s": 2,
+"text": "Zusammenhang mit binomischen Formeln und Auswahlen",
+"niveau": "H",
+"beispiel": "(a + b)⁴"
+}
+],
+"typische_fehler": [
+"Zeilen ab eins statt ab null gezählt"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "aend",
+"name": "Änderungsraten: Wie steil ist eine Kurve?",
+"gruppe": "Aus Klasse 10",
+"kern": "Die Steigung einer Geraden ist überall gleich, die einer Kurve nicht. Man nähert sie mit Sekanten an, die immer kürzer werden: Grenzlage ist die Tangente.",
+"einfuehren": "Fahrt mit dem Auto: Durchschnittsgeschwindigkeit gegen Tachowert.",
+"schritte": [
+{
+"id": "aend.mittlere",
+"name": "Mittlere Änderungsrate (Sekante)",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "aus Tabelle oder Graph",
+"niveau": "H",
+"beispiel": "f(x) = x²: zwischen 1 und 3 → 4"
+}
+],
+"typische_fehler": [
+"Nur Differenz der y-Werte, nicht geteilt"
+]
+},
+{
+"id": "aend.lokal",
+"name": "Lokale Änderungsrate an einer Tangente",
+"basis": "basis.lesen",
+"stufen": [
+{
+"s": 1,
+"text": "Tangente anlegen, Steigungsdreieck",
+"niveau": "H",
+"beispiel": null
+},
+{
+"s": 2,
+"text": "Sekanten immer kürzer machen",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Tangente schneidet die Kurve"
+]
+},
+{
+"id": "aend.grafisch",
+"name": "Graph der Steigung skizzieren (grafisch ableiten)",
+"basis": "basis.konstruieren",
+"stufen": [
+{
+"s": 1,
+"text": "Hoch- und Tiefpunkte geben Nullstellen",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Graph abgeschrieben statt Steigung"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "diff",
+"name": "Ableitung",
+"gruppe": "Aus der Oberstufe",
+"kern": "Die Ableitung gibt zu jeder Stelle die Steigung des Graphen. Für Potenzen gibt es eine einfache Regel: Hochzahl nach vorn, Hochzahl eins kleiner.",
+"einfuehren": "Aus den Sekanten von x² die Steigung 2x erraten, danach Regel für x³ vermuten.",
+"schritte": [
+{
+"id": "diff.grenzwert",
+"name": "Ableitung als Grenzwert des Differenzenquotienten",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "h-Methode bei x²",
+"niveau": "Q",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"h vor dem Kürzen null gesetzt"
+]
+},
+{
+"id": "diff.potenz",
+"name": "Potenzregel",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "ganzzahlige Hochzahl",
+"niveau": "Q",
+"beispiel": "(x⁵)′ = 5x⁴"
+},
+{
+"s": 2,
+"text": "Wurzel und negative Hochzahl",
+"niveau": "Q",
+"beispiel": "(1/x)′ = −1/x²"
+}
+],
+"typische_fehler": [
+"(x⁵)′ = 5x⁵",
+"Hochzahl größer statt kleiner"
+]
+},
+{
+"id": "diff.summen",
+"name": "Faktor- und Summenregel",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Polynome ableiten",
+"niveau": "Q",
+"beispiel": "(3x² − 4x + 1)′ = 6x − 4"
+}
+],
+"typische_fehler": [
+"Konstante bleibt stehen"
+]
+},
+{
+"id": "diff.tangente",
+"name": "Tangentengleichung aufstellen",
+"basis": "basis.angaben",
+"stufen": [
+{
+"s": 1,
+"text": "Steigung und Punkt",
+"niveau": "Q",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Funktionswert statt Steigung als m"
+]
+},
+{
+"id": "diff.extrem",
+"name": "Hoch- und Tiefpunkte berechnen",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Ableitung null setzen",
+"niveau": "Q",
+"beispiel": null
+},
+{
+"s": 2,
+"text": "Art mit Vorzeichenwechsel",
+"niveau": "Q",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"x-Wert als Punkt angegeben, y vergessen"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "integ",
+"name": "Fläche unter einer Kurve",
+"gruppe": "Aus der Oberstufe",
+"kern": "Die Fläche unter einer Kurve lässt sich mit immer schmaleren Rechtecken annähern. Rückwärts zur Ableitung findet man sie exakt.",
+"einfuehren": "Fläche unter x² zwischen 0 und 1 mit 4, 8, 16 Streifen schätzen: Die Werte nähern sich einem Drittel.",
+"schritte": [
+{
+"id": "integ.streifen",
+"name": "Ober- und Untersumme mit Streifen",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "wenige Streifen von Hand",
+"niveau": "Q",
+"beispiel": null
+},
+{
+"s": 2,
+"text": "Grenzwert vermuten",
+"niveau": "Q",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Streifenbreite vergessen"
+]
+},
+{
+"id": "integ.stamm",
+"name": "Stammfunktion finden",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Potenzen",
+"niveau": "Q",
+"beispiel": "x² → x³/3"
+}
+],
+"typische_fehler": [
+"Abgeleitet statt aufgeleitet"
+]
+},
+{
+"id": "integ.flaeche",
+"name": "Bestimmtes Integral und Fläche",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Obergrenze minus Untergrenze",
+"niveau": "Q",
+"beispiel": "∫₀¹ x² dx = 1/3"
+},
+{
+"s": 2,
+"text": "Flächen unter der x-Achse",
+"niveau": "Q",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Negative Fläche nicht als Betrag genommen"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "vektor",
+"name": "Vektoren und Rechnen im Raum",
+"gruppe": "Aus der Oberstufe",
+"kern": "Ein Vektor ist eine Verschiebung: Er hat Richtung und Länge. Mit drei Koordinaten beschreibt man Punkte und Wege im Raum.",
+"einfuehren": "Einen Würfel ins räumliche Koordinatensystem zeichnen, Ecken ablesen.",
+"schritte": [
+{
+"id": "vektor.koord",
+"name": "Punkte im räumlichen Koordinatensystem",
+"basis": "basis.lesen",
+"stufen": [
+{
+"s": 1,
+"text": "ablesen und eintragen",
+"niveau": "Q",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Achsen vertauscht, Schrägbild falsch gelesen"
+]
+},
+{
+"id": "vektor.pfeil",
+"name": "Vektor zwischen zwei Punkten",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Ende minus Anfang",
+"niveau": "Q",
+"beispiel": "A(1|2|0), B(4|6|0) → (3, 4, 0)"
+}
+],
+"typische_fehler": [
+"Anfang minus Ende"
+]
+},
+{
+"id": "vektor.rechnen",
+"name": "Vektoren addieren und vervielfachen",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "rechnerisch und als Pfeil",
+"niveau": "Q",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Koordinaten multipliziert statt addiert"
+]
+},
+{
+"id": "vektor.laenge",
+"name": "Länge eines Vektors (Pythagoras im Raum)",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Betrag berechnen",
+"niveau": "Q",
+"beispiel": "|(3, 4, 12)| = 13"
+}
+],
+"typische_fehler": [
+"Wurzel aus der Summe ohne Quadrate"
+]
+},
+{
+"id": "vektor.gerade",
+"name": "Geraden im Raum",
+"basis": "basis.angaben",
+"stufen": [
+{
+"s": 1,
+"text": "Parameterform aufstellen, Punktprobe",
+"niveau": "Q",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Zwei Punkte statt Punkt und Richtung"
+]
+},
+{
+"id": "vektor.skalar",
+"name": "Skalarprodukt und rechter Winkel",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "senkrecht prüfen",
+"niveau": "Q",
+"beispiel": "(1, 2, 0) · (2, −1, 5) = 0"
+}
+],
+"typische_fehler": [
+"Ergebnis als Vektor angegeben"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "zufgr",
+"name": "Galtonbrett und Binomialverteilung",
+"gruppe": "Aus der Oberstufe",
+"kern": "Wird ein Versuch mit zwei Ausgängen oft wiederholt, verteilt sich die Zahl der Treffer nach einem festen Muster, das man mit dem Pascalschen Dreieck berechnet.",
+"einfuehren": "Galtonbrett (Video oder Simulation): Warum landen die meisten Kugeln in der Mitte?",
+"schritte": [
+{
+"id": "zufgr.pfad",
+"name": "Pfadregeln im Baumdiagramm",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Produkt entlang, Summe über Pfade",
+"niveau": "G",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Wahrscheinlichkeiten entlang des Pfades addiert"
+]
+},
+{
+"id": "zufgr.bernoulli",
+"name": "Bernoulli-Kette erkennen",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "Treffer, Niete, gleiche Wahrscheinlichkeit",
+"niveau": "Q",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Ziehen ohne Zurücklegen als Bernoulli-Kette"
+]
+},
+{
+"id": "zufgr.binom",
+"name": "Wahrscheinlichkeit für genau k Treffer",
+"basis": "basis.formel",
+"stufen": [
+{
+"s": 1,
+"text": "Formel mit Binomialkoeffizient",
+"niveau": "Q",
+"beispiel": null
+},
+{
+"s": 2,
+"text": "höchstens und mindestens",
+"niveau": "Q",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Binomialkoeffizient vergessen"
+]
+},
+{
+"id": "zufgr.erwartung",
+"name": "Erwartungswert n mal p",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "deuten",
+"niveau": "Q",
+"beispiel": "100 Würfe, Sechs: 16,7 erwartet"
+}
+],
+"typische_fehler": [
+"Erwartungswert als sicherer Wert gedeutet"
+]
+},
+{
+"id": "zufgr.galton",
+"name": "Galtonbrett erklären",
+"basis": "basis.lesen",
+"stufen": [
+{
+"s": 1,
+"text": "Wege zählen, Pascalsches Dreieck",
+"niveau": "Q",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Alle Fächer gleich wahrscheinlich"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "teilbar",
+"name": "Teilbarkeit und Primzahlen",
+"gruppe": "Knobel- und Wettbewerbsthemen",
+"kern": "Jede natürliche Zahl lässt sich eindeutig in Primfaktoren zerlegen. Damit lassen sich Teilbarkeit, ggT und kgV begründen statt nur ausrechnen.",
+"einfuehren": "Warum ist jede Zahl mit Quersumme 9 durch 9 teilbar? Am Stellenwert begründen.",
+"schritte": [
+{
+"id": "teilbar.regeln",
+"name": "Teilbarkeitsregeln anwenden und begründen",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "Regeln für zwei, drei, fünf, neun, zehn",
+"niveau": "C",
+"beispiel": "4 712 ist durch 2, nicht durch 3"
+},
+{
+"s": 2,
+"text": "Regel begründen",
+"niveau": "G",
+"beispiel": "Quersummenregel über Stellenwerte"
+}
+],
+"typische_fehler": [
+"Quersummenregel für vier benutzt"
+]
+},
+{
+"id": "teilbar.zerlegung",
+"name": "Primfaktorzerlegung",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Zahlen bis tausend",
+"niveau": "D",
+"beispiel": "360 = 2³ · 3² · 5"
+}
+],
+"typische_fehler": [
+"Nicht prime Faktoren stehen gelassen"
+]
+},
+{
+"id": "teilbar.ggt",
+"name": "ggT und kgV, euklidischer Algorithmus",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "über Primfaktoren",
+"niveau": "D",
+"beispiel": null
+},
+{
+"s": 2,
+"text": "euklidischer Algorithmus",
+"niveau": "G",
+"beispiel": "ggT(84, 30) = 6"
+}
+],
+"typische_fehler": [
+"ggT und kgV vertauscht"
+]
+},
+{
+"id": "teilbar.prim",
+"name": "Primzahlen erkennen und über sie argumentieren",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "Sieb des Eratosthenes, bis Wurzel prüfen",
+"niveau": "D",
+"beispiel": null
+},
+{
+"s": 2,
+"text": "Beweis: unendlich viele Primzahlen",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Eins als Primzahl"
+]
+},
+{
+"id": "teilbar.terme",
+"name": "Teilbarkeit von Termen beweisen",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Produkt aufeinanderfolgender Zahlen",
+"niveau": "H",
+"beispiel": "n³ − n = (n − 1)n(n + 1) ist durch 6 teilbar"
+}
+],
+"typische_fehler": [
+"Nur Beispiele statt Beweis"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "rest",
+"name": "Rechnen mit Resten",
+"gruppe": "Knobel- und Wettbewerbsthemen",
+"kern": "Oft zählt nur der Rest bei der Division. Reste kann man addieren und multiplizieren, ohne die großen Zahlen auszurechnen.",
+"einfuehren": "Welcher Wochentag ist in 100 Tagen? Nur der Rest bei Division durch 7 zählt.",
+"schritte": [
+{
+"id": "rest.division",
+"name": "Division mit Rest",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Rest bestimmen",
+"niveau": "C",
+"beispiel": "47 = 6 · 7 + 5"
+}
+],
+"typische_fehler": [
+"Quotient statt Rest"
+]
+},
+{
+"id": "rest.rechnen",
+"name": "Mit Resten rechnen (Kongruenzen)",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Summen und Produkte",
+"niveau": "H",
+"beispiel": "(37 · 42) mod 5 = 2 · 2 = 4"
+}
+],
+"typische_fehler": [
+"Erst ausgerechnet, dann Rest (zu groß)"
+]
+},
+{
+"id": "rest.potenz",
+"name": "Endziffern und Reste großer Potenzen",
+"basis": "basis.lesen",
+"stufen": [
+{
+"s": 1,
+"text": "Zyklen finden",
+"niveau": "H",
+"beispiel": "7¹⁰⁰ endet auf 1 (Zyklus 7, 9, 3, 1)"
+}
+],
+"typische_fehler": [
+"Zykluslänge falsch gezählt"
+]
+},
+{
+"id": "rest.anwendung",
+"name": "Anwendungen: Kalender, Prüfziffern",
+"basis": "basis.angaben",
+"stufen": [
+{
+"s": 1,
+"text": "Wochentage, ISBN, IBAN",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Gewichte der Prüfziffer vergessen"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "beweis",
+"name": "Beweistricks",
+"gruppe": "Knobel- und Wettbewerbsthemen",
+"kern": "Ein Beweis zeigt, dass etwas immer gilt, nicht nur in Beispielen. Es gibt wenige Grundmuster: direkt, durch Widerspruch, mit Fallunterscheidung, durch vollständige Induktion.",
+"einfuehren": "„Die Summe zweier ungerader Zahlen ist gerade“: erst Beispiele, dann mit 2n + 1 allgemein.",
+"schritte": [
+{
+"id": "beweis.gegenbeispiel",
+"name": "Mit einem Gegenbeispiel widerlegen",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "Behauptung prüfen",
+"niveau": "F",
+"beispiel": "n² + n + 41 ist immer prim? n = 40"
+}
+],
+"typische_fehler": [
+"Ein Beispiel als Beweis"
+]
+},
+{
+"id": "beweis.direkt",
+"name": "Direkter Beweis mit Variablen",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "gerade und ungerade Zahlen als Terme",
+"niveau": "G",
+"beispiel": "(2n + 1) + (2m + 1) = 2(n + m + 1)"
+}
+],
+"typische_fehler": [
+"Mit derselben Variablen für zwei Zahlen"
+]
+},
+{
+"id": "beweis.fall",
+"name": "Beweis mit Fallunterscheidung",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "gerade und ungerade, Reste",
+"niveau": "G",
+"beispiel": "n² lässt bei Division durch 4 Rest 0 oder 1"
+}
+],
+"typische_fehler": [
+"Ein Fall vergessen"
+]
+},
+{
+"id": "beweis.widerspruch",
+"name": "Beweis durch Widerspruch",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Gegenteil annehmen",
+"niveau": "G",
+"beispiel": null
+},
+{
+"s": 2,
+"text": "Wurzel aus zwei ist irrational",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Annahme nicht sauber verneint"
+]
+},
+{
+"id": "beweis.induktion",
+"name": "Vollständige Induktion",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Summenformeln",
+"niveau": "H",
+"beispiel": "1 + 3 + … + (2n − 1) = n²"
+}
+],
+"typische_fehler": [
+"Induktionsanfang weggelassen"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "zaehlen",
+"name": "Schubfachprinzip und geschicktes Zählen",
+"gruppe": "Knobel- und Wettbewerbsthemen",
+"kern": "Verteilt man mehr Gegenstände als Schubfächer, liegen in einem Fach mindestens zwei. Mit klugem Ordnen und Invarianten löst man viele Rätsel ohne Rechnen.",
+"einfuehren": "13 Personen: Haben zwei im selben Monat Geburtstag? Warum sicher?",
+"schritte": [
+{
+"id": "zaehlen.system",
+"name": "Fälle systematisch aufzählen",
+"basis": "basis.angaben",
+"stufen": [
+{
+"s": 1,
+"text": "Liste oder Baum ohne Lücken",
+"niveau": "F",
+"beispiel": "Alle Wege im Gitter"
+}
+],
+"typische_fehler": [
+"Fälle doppelt gezählt"
+]
+},
+{
+"id": "zaehlen.schubfach",
+"name": "Schubfachprinzip anwenden",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "Fächer und Gegenstände festlegen",
+"niveau": "G",
+"beispiel": null
+},
+{
+"s": 2,
+"text": "verallgemeinert: mindestens k in einem Fach",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Fächer falsch gewählt"
+]
+},
+{
+"id": "zaehlen.invariante",
+"name": "Invarianten und Färbungen",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "Was bleibt bei jedem Zug gleich?",
+"niveau": "H",
+"beispiel": "Schachbrett ohne zwei Ecken mit Dominos"
+}
+],
+"typische_fehler": [
+"Nur probiert, nicht begründet"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "ungl",
+"name": "Ungleichungen",
+"gruppe": "Knobel- und Wettbewerbsthemen",
+"kern": "Ungleichungen formt man fast wie Gleichungen um; beim Malnehmen mit einer negativen Zahl dreht sich das Zeichen. Viele Beweise starten bei: Ein Quadrat ist nie negativ.",
+"einfuehren": "Warum ist a² + b² ≥ 2ab? Aus (a − b)² ≥ 0.",
+"schritte": [
+{
+"id": "ungl.loesen",
+"name": "Lineare Ungleichungen lösen",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Zeichen umdrehen bei negativem Faktor",
+"niveau": "F",
+"beispiel": "−2x < 6 → x > −3"
+}
+],
+"typische_fehler": [
+"Zeichen nicht umgedreht"
+]
+},
+{
+"id": "ungl.quadrat",
+"name": "Ungleichungen mit Quadraten beweisen",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Quadrat ist nie negativ",
+"niveau": "G",
+"beispiel": "a² + b² ≥ 2ab"
+}
+],
+"typische_fehler": [
+"Mit Beispielen statt allgemein"
+]
+},
+{
+"id": "ungl.mittel",
+"name": "Arithmetisches und geometrisches Mittel",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "Ungleichung anwenden",
+"niveau": "H",
+"beispiel": "Rechteck mit festem Umfang: Quadrat hat größte Fläche"
+}
+],
+"typische_fehler": [
+"Für negative Zahlen benutzt"
+]
+},
+{
+"id": "ungl.betrag",
+"name": "Ungleichungen mit Beträgen",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "zwei Fälle",
+"niveau": "H",
+"beispiel": "|x − 3| < 2 → 1 < x < 5"
+}
+],
+"typische_fehler": [
+"Nur ein Fall"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "folgen",
+"name": "Folgen, Fibonacci, Goldener Schnitt",
+"gruppe": "Knobel- und Wettbewerbsthemen",
+"kern": "Eine Folge ist eine nummerierte Liste von Zahlen mit einem Bildungsgesetz. Bei Fibonacci entsteht jede Zahl aus den beiden davor, ihr Verhältnis nähert sich dem Goldenen Schnitt.",
+"einfuehren": "Kaninchenaufgabe von Fibonacci, dann Verhältnisse benachbarter Zahlen berechnen.",
+"schritte": [
+{
+"id": "folgen.muster",
+"name": "Bildungsgesetz einer Folge erkennen",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "Zahlenfolgen fortsetzen",
+"niveau": "E",
+"beispiel": "2, 5, 8, 11, …"
+},
+{
+"s": 2,
+"text": "allgemeines Glied angeben",
+"niveau": "G",
+"beispiel": "aₙ = 3n − 1"
+}
+],
+"typische_fehler": [
+"Nur ein Folgeglied geprüft"
+]
+},
+{
+"id": "folgen.arith",
+"name": "Arithmetische Folgen und ihre Summe",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Summe mit dem Gauß-Trick",
+"niveau": "G",
+"beispiel": "1 + 2 + … + 100 = 5050"
+}
+],
+"typische_fehler": [
+"Anzahl der Glieder um eins falsch"
+]
+},
+{
+"id": "folgen.geom",
+"name": "Geometrische Folgen",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Faktor, allgemeines Glied",
+"niveau": "H",
+"beispiel": null
+},
+{
+"s": 2,
+"text": "Summe einer geometrischen Folge",
+"niveau": "H",
+"beispiel": "Schachbrett-Reiskörner"
+}
+],
+"typische_fehler": [
+"Faktor mit Differenz verwechselt"
+]
+},
+{
+"id": "folgen.rekursiv",
+"name": "Rekursive Folgen, Fibonacci",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Glieder berechnen, Eigenschaften entdecken",
+"niveau": "G",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Index verschoben"
+]
+},
+{
+"id": "folgen.golden",
+"name": "Goldener Schnitt",
+"basis": "basis.umkehr",
+"stufen": [
+{
+"s": 1,
+"text": "aus einer quadratischen Gleichung",
+"niveau": "H",
+"beispiel": "φ = (1 + √5)/2"
+},
+{
+"s": 2,
+"text": "in Fibonacci und Geometrie wiederfinden",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Negative Lösung als Verhältnis"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "zahlsys",
+"name": "Binärzahlen und andere Zahlensysteme",
+"gruppe": "Knobel- und Wettbewerbsthemen",
+"kern": "Im Zehnersystem zählt jede Stelle zehnmal so viel wie die rechts daneben. Im Binärsystem doppelt so viel: Damit rechnen Computer.",
+"einfuehren": "Mit fünf Fingern bis 31 zählen (Finger oben = 1).",
+"schritte": [
+{
+"id": "zahlsys.lesen",
+"name": "Binärzahl in Dezimalzahl umrechnen",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Stellenwerte als Zweierpotenzen",
+"niveau": "D",
+"beispiel": "1011₂ = 11"
+}
+],
+"typische_fehler": [
+"Stellen von links gezählt"
+]
+},
+{
+"id": "zahlsys.schreiben",
+"name": "Dezimalzahl in ein anderes Zahlensystem umrechnen",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "Binär",
+"niveau": "E",
+"beispiel": "25 = 11001₂"
+},
+{
+"s": 2,
+"text": "Basis drei bis sechzehn",
+"niveau": "G",
+"beispiel": "255 = FF₁₆"
+}
+],
+"typische_fehler": [
+"Reste in falscher Reihenfolge gelesen"
+]
+},
+{
+"id": "zahlsys.rechnen",
+"name": "Im Binärsystem addieren",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "mit Übertrag",
+"niveau": "F",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Übertrag bei zwei vergessen"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "graphen",
+"name": "Graphen und Logikrätsel",
+"gruppe": "Knobel- und Wettbewerbsthemen",
+"kern": "Ein Graph besteht aus Punkten und Verbindungen. Ob man alle Wege genau einmal ablaufen kann, verrät die Zahl der Verbindungen an jedem Punkt.",
+"einfuehren": "Haus vom Nikolaus: Von welcher Ecke aus geht es, von welcher nicht? Grad jeder Ecke zählen.",
+"schritte": [
+{
+"id": "graphen.modell",
+"name": "Situation als Graph darstellen",
+"basis": "basis.angaben",
+"stufen": [
+{
+"s": 1,
+"text": "Orte und Wege, Freundschaften",
+"niveau": "F",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Richtung vergessen, wo sie zählt"
+]
+},
+{
+"id": "graphen.euler",
+"name": "Eulerweg und Eulerkreis",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "Grad der Ecken zählen",
+"niveau": "F",
+"beispiel": "Haus vom Nikolaus: zwei ungerade Ecken"
+},
+{
+"s": 2,
+"text": "begründen",
+"niveau": "G",
+"beispiel": "Königsberger Brücken"
+}
+],
+"typische_fehler": [
+"Ecken statt Kanten gezählt"
+]
+},
+{
+"id": "graphen.logik",
+"name": "Aussagen verknüpfen: und, oder, wenn–dann",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "Wahrheitstabellen",
+"niveau": "G",
+"beispiel": null
+},
+{
+"s": 2,
+"text": "Umkehrung und Kontraposition",
+"niveau": "H",
+"beispiel": null
+}
+],
+"typische_fehler": [
+"Wenn–dann mit genau-dann verwechselt"
+]
+},
+{
+"id": "graphen.raetsel",
+"name": "Logikrätsel systematisch lösen",
+"basis": "basis.angaben",
+"stufen": [
+{
+"s": 1,
+"text": "Tabelle, Ausschlussverfahren",
+"niveau": "F",
+"beispiel": "Wer wohnt wo?"
+}
+],
+"typische_fehler": [
+"Annahme nicht zurückgenommen"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "binom",
+"name": "Binomische Formeln",
+"gruppe": "Grundlage",
+"kern": "(a + b)² = a² + 2ab + b²: Das Mittelglied kommt vom Ausmultiplizieren beider Klammern.",
+"einfuehren": "Quadrat mit Seite a + b in vier Teile zerlegen.",
+"schritte": [
+{
+"id": "binom.formeln",
+"name": "Binomische Formeln anwenden",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "ausmultiplizieren",
+"niveau": "F",
+"beispiel": "(x + 3)² = x² + 6x + 9"
+},
+{
+"s": 2,
+"text": "rückwärts faktorisieren",
+"niveau": "G",
+"beispiel": "x² − 10x + 25 = (x − 5)²"
+}
+],
+"typische_fehler": [
+"Mittelglied vergessen: (a + b)² = a² + b²"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "term",
+"name": "Terme",
+"gruppe": "Grundlage",
+"kern": "Mit Variablen rechnet man wie mit Zahlen: zusammenfassen, ausmultiplizieren, ausklammern.",
+"einfuehren": "Streichholzmuster als Term beschreiben.",
+"schritte": [
+{
+"id": "term.vereinfachen",
+"name": "Terme vereinfachen, ausmultiplizieren, ausklammern",
+"basis": "basis.rechnen",
+"stufen": [
+{
+"s": 1,
+"text": "zusammenfassen",
+"niveau": "D",
+"beispiel": "3a + 2b − a = 2a + 2b"
+},
+{
+"s": 2,
+"text": "Klammern auflösen und ausklammern",
+"niveau": "E",
+"beispiel": "2(n + m + 1)"
+}
+],
+"typische_fehler": [
+"Ungleichartige Glieder zusammengefasst"
+]
+}
+],
+"fach": "mathe"
+},
+{
+"id": "muster",
+"name": "Muster und Folgen (Grundschule)",
+"gruppe": "Grundlage",
+"kern": "Regelmäßigkeiten erkennen und fortsetzen.",
+"einfuehren": "Plättchenmuster weiterlegen.",
+"schritte": [
+{
+"id": "muster.fortsetzen",
+"name": "Zahlen- und Bildmuster fortsetzen",
+"basis": "basis.einordnen",
+"stufen": [
+{
+"s": 1,
+"text": "eine Regel",
+"niveau": "A",
+"beispiel": "2, 4, 6, …"
+}
+],
+"typische_fehler": [
+"Regel nur an zwei Gliedern geprüft"
+]
+}
+],
+"fach": "mathe"
+}
+],
+"kanten": [
+{
+"von": "pot.quadrat",
+"nach": "wurzel.quadrat",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "wurzel.quadrat",
+"nach": "wurzel.irrational",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "wurzel.quadrat",
+"nach": "wurzel.regeln",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "teilbar.zerlegung",
+"nach": "wurzel.regeln",
+"ab_stufe": 2,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "wurzel.quadrat",
+"nach": "wurzel.kubik",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "potenz.hoch",
+"nach": "wurzel.kubik",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "pyth.seiten",
+"nach": "pyth.hypotenuse",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "wurzel.quadrat",
+"nach": "pyth.hypotenuse",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "runden.stellen",
+"nach": "pyth.hypotenuse",
+"ab_stufe": 2,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "pyth.hypotenuse",
+"nach": "pyth.kathete",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "pyth.hypotenuse",
+"nach": "pyth.umkehr",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "pyth.kathete",
+"nach": "pyth.anwenden",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "pyth.seiten",
+"nach": "pyth.anwenden",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "pyth.kathete",
+"nach": "pyth.satzgruppe",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "strahl.streckung",
+"nach": "strahl.erster",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "prop.dreisatz",
+"nach": "strahl.erster",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "strahl.erster",
+"nach": "strahl.zweiter",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "strahl.zweiter",
+"nach": "strahl.sache",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "strahl.erster",
+"nach": "strahl.umkehr",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "strahl.erster",
+"nach": "trigo.cos",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "pot.quadrat",
+"nach": "qfkt.normal",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qfkt.normal",
+"nach": "qfkt.verschieben",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qfkt.normal",
+"nach": "qfkt.strecken",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qfkt.verschieben",
+"nach": "qfkt.scheitelform",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "binom.formeln",
+"nach": "qfkt.scheitelform",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qfkt.strecken",
+"nach": "qfkt.scheitelform",
+"ab_stufe": 3,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qfkt.scheitelform",
+"nach": "qfkt.aufstellen",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "lgs.zwei",
+"nach": "qfkt.aufstellen",
+"ab_stufe": 2,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "lgs.drei",
+"nach": "qfkt.aufstellen",
+"ab_stufe": 2,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "qfkt.verschieben",
+"nach": "qfkt.sache",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "wurzel.quadrat",
+"nach": "qgl.rein",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qgl.rein",
+"nach": "qgl.ausklammern",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "qgl.ausklammern",
+"nach": "qgl.normalform",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "qgl.normalform",
+"nach": "qgl.pq",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qgl.rein",
+"nach": "qgl.pq",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qfkt.scheitelform",
+"nach": "qgl.ergaenzung",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "qgl.rein",
+"nach": "qgl.ergaenzung",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qgl.pq",
+"nach": "qgl.diskriminante",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qgl.pq",
+"nach": "qgl.sache",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qgl.pq",
+"nach": "qgl.vieta",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qgl.ausklammern",
+"nach": "qgl.vieta",
+"ab_stufe": 2,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "qgl.pq",
+"nach": "qgl.biquadratisch",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qfkt.verschieben",
+"nach": "qgl.diskriminante",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "potenz.hoch",
+"nach": "potenz.gesetze",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "potenz.gesetze",
+"nach": "potenz.negativ",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "dez.mal10",
+"nach": "potenz.negativ",
+"ab_stufe": 2,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "potenz.negativ",
+"nach": "potenz.rational",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "wurzel.kubik",
+"nach": "potenz.rational",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qfkt.normal",
+"nach": "potfkt.graph",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "potenz.negativ",
+"nach": "potfkt.graph",
+"ab_stufe": 2,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "potfkt.graph",
+"nach": "potfkt.wurzelfkt",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "wurzel.quadrat",
+"nach": "potfkt.wurzelfkt",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qgl.rein",
+"nach": "potfkt.gleichung",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "wurzel.kubik",
+"nach": "potfkt.gleichung",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "daten.lesen",
+"nach": "boxplot.klassen",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "boxplot.klassen",
+"nach": "boxplot.median",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "mittel.spann",
+"nach": "boxplot.median",
+"ab_stufe": 2,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "boxplot.median",
+"nach": "boxplot.zeichnen",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "boxplot.zeichnen",
+"nach": "boxplot.vergleichen",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "mittel.mittelwert",
+"nach": "boxplot.streuung",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "wurzel.quadrat",
+"nach": "boxplot.streuung",
+"ab_stufe": 2,
+"braucht_stufe": 3,
+"art": "braucht"
+},
+{
+"von": "daten.lesen",
+"nach": "boxplot.grafik",
+"ab_stufe": 1,
+"braucht_stufe": 3,
+"art": "braucht"
+},
+{
+"von": "pyth.anwenden",
+"nach": "kegel.hoehe",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "kegel.hoehe",
+"nach": "kegel.oberflaeche",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "kegel.mantel",
+"nach": "kegel.oberflaeche",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "kreis.flaeche",
+"nach": "kegel.oberflaeche",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "kegel.mantel",
+"nach": "kegel.netz",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "kreis.sektor",
+"nach": "kegel.netz",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "kugel.volumen",
+"nach": "kugel.umkehr",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "wurzel.kubik",
+"nach": "kugel.umkehr",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "gl.einfach",
+"nach": "lgs.zwei",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "lgs.zwei",
+"nach": "lgs.anzahl",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "lgs.zwei",
+"nach": "lgs.drei",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "lgs.zwei",
+"nach": "lgs.sache",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "lgs.drei",
+"nach": "lgs.sache",
+"ab_stufe": 2,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "kreis.umfang",
+"nach": "kreis.sektor",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "kreis.flaeche",
+"nach": "kreis.sektor",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "kreis.flaeche",
+"nach": "kreis.ring",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "winkel.rechnen",
+"nach": "kreisgeo.thales",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "kreisgeo.thales",
+"nach": "kreisgeo.winkel",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "kreisgeo.winkel",
+"nach": "kreisgeo.viereck",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "winkel.zeichnen",
+"nach": "kreisgeo.dreieck",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "kreisgeo.thales",
+"nach": "kreisgeo.tangente",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "hilft"
+},
+{
+"von": "pyth.anwenden",
+"nach": "kreisgeo.tangente",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "trigo.sin",
+"nach": "sinsatz.sinus",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "trigo.winkel",
+"nach": "sinsatz.sinus",
+"ab_stufe": 2,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "trigo.cos",
+"nach": "sinsatz.kosinus",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "pyth.hypotenuse",
+"nach": "sinsatz.kosinus",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "sinsatz.sinus",
+"nach": "sinsatz.wahl",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "sinsatz.kosinus",
+"nach": "sinsatz.wahl",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "trigo.sin",
+"nach": "sinsatz.flaeche",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "sinsatz.wahl",
+"nach": "sinsatz.sache",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "prozent.aenderung",
+"nach": "expfkt.faktor",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "expfkt.faktor",
+"nach": "expfkt.term",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "potenz.gesetze",
+"nach": "expfkt.term",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "expfkt.term",
+"nach": "expfkt.graph",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "potenz.negativ",
+"nach": "expfkt.graph",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "expfkt.term",
+"nach": "expfkt.verdopplung",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "log.gleichung",
+"nach": "expfkt.verdopplung",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "potenz.negativ",
+"nach": "log.begriff",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "log.begriff",
+"nach": "log.gesetze",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "potenz.gesetze",
+"nach": "log.gesetze",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "log.begriff",
+"nach": "log.gleichung",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "muldiv.mul",
+"nach": "kombi.produkt",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "kombi.produkt",
+"nach": "kombi.anordnung",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "kombi.anordnung",
+"nach": "kombi.auswahl",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "kombi.auswahl",
+"nach": "kombi.art",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "kombi.auswahl",
+"nach": "kombi.pascal",
+"ab_stufe": 2,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "binom.formeln",
+"nach": "kombi.pascal",
+"ab_stufe": 2,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "qfkt.normal",
+"nach": "aend.mittlere",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "aend.mittlere",
+"nach": "aend.lokal",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "aend.lokal",
+"nach": "aend.grafisch",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "aend.lokal",
+"nach": "diff.grenzwert",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "diff.grenzwert",
+"nach": "diff.potenz",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "binom.formeln",
+"nach": "diff.grenzwert",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "aend.lokal",
+"nach": "diff.potenz",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "potenz.negativ",
+"nach": "diff.potenz",
+"ab_stufe": 2,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "diff.potenz",
+"nach": "diff.summen",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "diff.summen",
+"nach": "diff.tangente",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "diff.summen",
+"nach": "diff.extrem",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qgl.pq",
+"nach": "diff.extrem",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "aend.grafisch",
+"nach": "diff.extrem",
+"ab_stufe": 2,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "qfkt.normal",
+"nach": "integ.streifen",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "folgen.arith",
+"nach": "integ.streifen",
+"ab_stufe": 2,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "diff.potenz",
+"nach": "integ.stamm",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "integ.stamm",
+"nach": "integ.flaeche",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "integ.streifen",
+"nach": "integ.flaeche",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "vektor.koord",
+"nach": "vektor.pfeil",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "vektor.pfeil",
+"nach": "vektor.rechnen",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "vektor.pfeil",
+"nach": "vektor.laenge",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "pyth.anwenden",
+"nach": "vektor.laenge",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "vektor.rechnen",
+"nach": "vektor.gerade",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "vektor.rechnen",
+"nach": "vektor.skalar",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "wkeit.laplace",
+"nach": "zufgr.pfad",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "zufgr.pfad",
+"nach": "zufgr.bernoulli",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "zufgr.bernoulli",
+"nach": "zufgr.binom",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "kombi.auswahl",
+"nach": "zufgr.binom",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "zufgr.binom",
+"nach": "zufgr.erwartung",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "kombi.pascal",
+"nach": "zufgr.galton",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "zufgr.pfad",
+"nach": "zufgr.galton",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "muldiv.div",
+"nach": "teilbar.regeln",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "teilbar.regeln",
+"nach": "teilbar.zerlegung",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "teilbar.zerlegung",
+"nach": "teilbar.ggt",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "teilbar.regeln",
+"nach": "teilbar.prim",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "beweis.widerspruch",
+"nach": "teilbar.prim",
+"ab_stufe": 2,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "beweis.direkt",
+"nach": "teilbar.terme",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "teilbar.prim",
+"nach": "teilbar.terme",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "beweis.direkt",
+"nach": "teilbar.regeln",
+"ab_stufe": 2,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "muldiv.div",
+"nach": "rest.division",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "rest.division",
+"nach": "rest.rechnen",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "rest.rechnen",
+"nach": "rest.potenz",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "potenz.hoch",
+"nach": "rest.potenz",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "rest.rechnen",
+"nach": "rest.anwendung",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "term.vereinfachen",
+"nach": "beweis.direkt",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "beweis.gegenbeispiel",
+"nach": "beweis.direkt",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "rest.division",
+"nach": "beweis.fall",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "beweis.direkt",
+"nach": "beweis.widerspruch",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "wurzel.irrational",
+"nach": "beweis.widerspruch",
+"ab_stufe": 2,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "teilbar.zerlegung",
+"nach": "beweis.widerspruch",
+"ab_stufe": 2,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "beweis.direkt",
+"nach": "beweis.induktion",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "folgen.arith",
+"nach": "beweis.induktion",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "zaehlen.system",
+"nach": "zaehlen.schubfach",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "zaehlen.schubfach",
+"nach": "zaehlen.invariante",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "kombi.produkt",
+"nach": "zaehlen.system",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "gl.einfach",
+"nach": "ungl.loesen",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "neg.addsub",
+"nach": "ungl.loesen",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "binom.formeln",
+"nach": "ungl.quadrat",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "ungl.loesen",
+"nach": "ungl.quadrat",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "ungl.quadrat",
+"nach": "ungl.mittel",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "wurzel.quadrat",
+"nach": "ungl.mittel",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "ungl.loesen",
+"nach": "ungl.betrag",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "beweis.fall",
+"nach": "ungl.betrag",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "muster.fortsetzen",
+"nach": "folgen.muster",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "folgen.muster",
+"nach": "folgen.arith",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "folgen.muster",
+"nach": "folgen.geom",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "braucht"
+},
+{
+"von": "potenz.hoch",
+"nach": "folgen.geom",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "folgen.muster",
+"nach": "folgen.rekursiv",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "folgen.rekursiv",
+"nach": "folgen.golden",
+"ab_stufe": 2,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "qgl.pq",
+"nach": "folgen.golden",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "strahl.erster",
+"nach": "folgen.golden",
+"ab_stufe": 2,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "zahlen.stellenwert",
+"nach": "zahlsys.lesen",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "potenz.hoch",
+"nach": "zahlsys.lesen",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "zahlsys.lesen",
+"nach": "zahlsys.schreiben",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "rest.division",
+"nach": "zahlsys.schreiben",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "zahlsys.lesen",
+"nach": "zahlsys.rechnen",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "graphen.modell",
+"nach": "graphen.euler",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "graphen.raetsel",
+"nach": "graphen.logik",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "hilft"
+},
+{
+"von": "graphen.logik",
+"nach": "beweis.widerspruch",
+"ab_stufe": 1,
+"braucht_stufe": 2,
+"art": "hilft"
+},
+{
+"von": "muldiv.div",
+"nach": "gl.einfach",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "gl.einfach",
+"nach": "formeln.umstellen",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "trigo.hypotenuse",
+"nach": "trigo.ankathete",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "trigo.hypotenuse",
+"nach": "trigo.gegenkathete",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "trigo.ankathete",
+"nach": "trigo.cos",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "trigo.gegenkathete",
+"nach": "trigo.sin",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "trigo.hypotenuse",
+"nach": "trigo.sin",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "trigo.gegenkathete",
+"nach": "trigo.tan",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "trigo.ankathete",
+"nach": "trigo.tan",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "runden.stellen",
+"nach": "trigo.cos",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "runden.stellen",
+"nach": "trigo.sin",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "runden.stellen",
+"nach": "trigo.tan",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "trigo.ankathete",
+"nach": "trigo.wahl",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "trigo.gegenkathete",
+"nach": "trigo.wahl",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "trigo.rechner",
+"nach": "trigo.winkel",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "trigo.cos",
+"nach": "trigo.winkel",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "runden.stellen",
+"nach": "trigo.winkel",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "trigo.wahl",
+"nach": "trigo.seite",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "trigo.rechner",
+"nach": "trigo.seite",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "runden.stellen",
+"nach": "trigo.seite",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "trigo.cos",
+"nach": "trigo.sache",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "trigo.winkel",
+"nach": "trigo.sache",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "pot.quadrat",
+"nach": "kegel.volumen",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "kreis.flaeche",
+"nach": "kegel.volumen",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "runden.stellen",
+"nach": "kegel.volumen",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "muldiv.mul",
+"nach": "kegel.mantel",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "potenz.hoch",
+"nach": "kugel.volumen",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+},
+{
+"von": "runden.stellen",
+"nach": "kugel.volumen",
+"ab_stufe": 1,
+"braucht_stufe": 1,
+"art": "braucht"
+}
+],
+"namen": {
+"pot.quadrat": "Eine Zahl quadrieren",
+"runden.stellen": "Runden",
+"potenz.hoch": "Potenzen mit Hochzahl ab drei",
+"dez.mal10": "Mal und durch 10, 100, 1000",
+"prop.dreisatz": "Proportionaler Dreisatz",
+"daten.lesen": "Werte aus Tabelle oder Diagramm ablesen",
+"mittel.spann": "Kleinster und größter Wert, Spannweite",
+"mittel.mittelwert": "Mittelwert ausrechnen",
+"kegel.mantel": "Mantel von Pyramide und Kegel",
+"kegel.volumen": "Volumen von Pyramide und Kegel",
+"kugel.volumen": "Kugelvolumen ausrechnen",
+"kreis.flaeche": "Kreisfläche berechnen",
+"kreis.umfang": "Kreisumfang berechnen",
+"gl.einfach": "Einfache Gleichungen lösen",
+"formeln.umstellen": "Formel nach einer Größe umstellen",
+"winkel.rechnen": "Fehlenden Winkel ausrechnen",
+"winkel.zeichnen": "Winkel zeichnen",
+"prozent.aenderung": "Rabatt und neuer Preis",
+"muldiv.mul": "Multiplizieren",
+"muldiv.div": "Dividieren",
+"wkeit.laplace": "Wahrscheinlichkeit ausrechnen",
+"neg.addsub": "Plus und minus mit negativen Zahlen",
+"zahlen.stellenwert": "Stellenwert ganzer Zahlen",
+"hilf.rechner": "Taschenrechner benutzen",
+"kreis.rd": "Radius aus dem Durchmesser",
+"trigo.hypotenuse": "Hypotenuse im rechtwinkligen Dreieck finden",
+"trigo.ankathete": "Ankathete zum Winkel finden",
+"trigo.gegenkathete": "Gegenkathete zum Winkel finden",
+"trigo.cos": "Kosinus als Seitenverhältnis",
+"trigo.sin": "Sinus als Seitenverhältnis",
+"trigo.tan": "Tangens als Seitenverhältnis",
+"trigo.winkel": "Winkel aus sin, cos oder tan berechnen",
+"trigo.rechner": "Taschenrechner: sin, cos, tan in Grad",
+"trigo.wahl": "Passende Funktion wählen: sin, cos oder tan",
+"trigo.seite": "Seite mit sin, cos oder tan berechnen",
+"trigo.sache": "sin, cos, tan in Sachaufgaben"
+}
+}

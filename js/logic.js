@@ -1106,7 +1106,8 @@ export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
   }
   if (typeof a.bonus !== 'boolean') f.push(`${id}: Feld „bonus“ muss true oder false sein`);
   if (a.typ && !TYPEN.includes(a.typ)) f.push(`${id}: unbekannter typ „${a.typ}“`);
-  if (a.thema && !THEMEN.includes(a.thema)) f.push(`${id}: unbekanntes thema „${a.thema}“`);
+  // Schnell-Check der Themenwahl (Auftrag 74): Themen der Lernplattform, zugeordnet über den Teilschritt
+  if (a.thema && !THEMEN.includes(a.thema) && !(a.zweck === 'kurzpruefung' && a.teilschritt)) f.push(`${id}: unbekanntes thema „${a.thema}“`);
   if (a.stufe != null && ![1, 2, 3].includes(a.stufe)) f.push(`${id}: stufe muss 1, 2 oder 3 sein`);
   if (vorhandeneIds.has(a.id)) f.push(`${id}: id gibt es schon`);
   if (Array.isArray(a.hinweise)) {
@@ -1603,6 +1604,24 @@ export const bedienung = (e, k) => { const b = BEDIENUNG.find(x => x.k === k); r
 import { paketeAusWerte } from './lernplan.js';
 import { pruefeFormel as pruefeFormelFn, pruefeGueltig } from './physik.js';
 
+// werte.themenwahl { an, vorbelegung {thema: wahl | Antwort der Befragung}, hinweise {thema: text}, etappen_texte {thema: {nr: text}} },
+// werte.etappe_min_aufgaben, werte.etappe_min_tage (Auftrag 74, D3). Ohne Abschnitt: null (aus).
+export function twRegelnNorm(w) {
+  const t = w && w.themenwahl;
+  if (!t || typeof t !== 'object') return null;
+  const obj = (x) => (x && typeof x === 'object' && !Array.isArray(x) ? x : {});
+  const text = (x, n) => String(x == null ? '' : x).slice(0, n);
+  const zahl = (x, min, max) => (Number.isInteger(x) && x >= min && x <= max ? x : 0);
+  return {
+    an: t.an === true,
+    vorbelegung: Object.fromEntries(Object.entries(obj(t.vorbelegung)).filter(([k, v]) => /^[a-z0-9-]{1,30}$/.test(k) && typeof v === 'string').map(([k, v]) => [k, text(v, 20)])),
+    hinweise: Object.fromEntries(Object.entries(obj(t.hinweise)).filter(([k]) => /^[a-z0-9-]{1,30}$/.test(k)).map(([k, v]) => [k, text(v, 60)])),
+    etappen_texte: Object.fromEntries(Object.entries(obj(t.etappen_texte)).filter(([k]) => /^[a-z0-9-]{1,30}$/.test(k)).map(([k, v]) => [k, Object.fromEntries(Object.entries(obj(v)).map(([n, x]) => [n, text(x, 300)]))])),
+    etappe_min_aufgaben: zahl(w.etappe_min_aufgaben, 0, 100),
+    etappe_min_tage: zahl(w.etappe_min_tage, 0, 30)
+  };
+}
+
 export function fernAnwenden(z, datei) {
   const alt = (z.fern && z.fern.version) || 0;
   if (!datei || typeof datei !== 'object' || !(Number(datei.version) > alt)) return null;
@@ -1685,6 +1704,12 @@ export function fernAnwenden(z, datei) {
   if (typeof w.feedback === 'boolean' && w.feedback !== !!z.feedbackAn) { z.feedbackAn = w.feedback; geaendert.push('feedback'); }
   // Live-Anzeige pro Kind: App meldet „übt“, „spielt“, „weg“ nach daten/<name>/live.json
   if (typeof w.live === 'boolean' && w.live !== !!z.liveAn) { z.liveAn = w.live; geaendert.push('live'); }
+  // Themenwahl und Missionsplanung (Auftrag 74): das Kind steuert seine Themen selbst; Pakete und Wochenplan ruhen
+  {
+    const neu = twRegelnNorm(w);
+    if (JSON.stringify(neu) !== JSON.stringify(z.twRegeln || null)) geaendert.push('themenwahl');
+    if (neu) z.twRegeln = neu; else delete z.twRegeln;
+  }
   // Kassenbuch der Bildschirmzeit (Auftrag 59): ein Konto für Mathe- und Lese-App
   if (typeof w.kasse === 'boolean' && w.kasse !== !!z.kasseAn) { z.kasseAn = w.kasse; geaendert.push('kasse'); }
   if (typeof w.etappe_anzeigen === 'boolean' && w.etappe_anzeigen !== !!z.etappeAnzeigen) { z.etappeAnzeigen = w.etappe_anzeigen; geaendert.push('etappeAnzeigen'); }
