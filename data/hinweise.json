@@ -549,6 +549,46 @@
       ],
       "beispiel": "Winkel: 6 ÷ 8 = → 0,75 → 2nd cos 0,75 = → α ≈ 41,4°. x oben: x = 10 · cos 35° ≈ 8,19. x unten: sin 35° = 6 : x → x = 6 : sin 35° ≈ 10,46",
       "fach": "mathe"
+    },
+    {
+      "nr": 29,
+      "id": "parabel",
+      "titel": "Parabeln",
+      "symbol": "y=x²",
+      "farbe": "#B45309",
+      "farbe_hell": "#FEF3C7",
+      "farbe_text": "#78350F",
+      "regeln": [
+        "Scheitelform: y = a(x − d)² + e → Scheitel S(d|e)",
+        "In der Klammer dreht sich das Vorzeichen: (x − 2)² → x = 2, (x + 2)² → x = −2",
+        "Die Zahl hinten ist der y-Wert, mit ihrem Vorzeichen.",
+        "a positiv → nach oben, a negativ → nach unten",
+        "a ohne Vorzeichen größer als 1 → schmaler, zwischen 0 und 1 → breiter",
+        "(x − d)² = x² − 2dx + d²",
+        "Quadratische Ergänzung: Hälfte der Zahl vor x, ins Quadrat, dazutun und gleich wieder abziehen."
+      ],
+      "beispiel": "y = x² + 6x + 2 = x² + 6x + 9 − 9 + 2 = (x + 3)² − 7 → S(−3|−7)",
+      "fach": "mathe"
+    },
+    {
+      "nr": 30,
+      "id": "qgl",
+      "titel": "Quadratische Gleichungen",
+      "symbol": "x²=0",
+      "farbe": "#1D4ED8",
+      "farbe_hell": "#DBEAFE",
+      "farbe_text": "#1E3A8A",
+      "regeln": [
+        "x² = 25 → x = −5 oder x = 5 (zwei Lösungen)",
+        "x² = −4 → keine Lösung (ein Quadrat ist nie negativ)",
+        "Ein Produkt ist 0, wenn ein Faktor 0 ist: x · (x − 5) = 0 → x = 0 oder x = 5",
+        "Nicht durch x teilen: Sonst geht die Lösung 0 verloren.",
+        "Normalform: x² + px + q = 0 (vor x² steht 1, sonst durch diese Zahl teilen)",
+        "pq-Formel: x = −p/2 ± √((p/2)² − q)",
+        "Unter der Wurzel negativ → keine Lösung, 0 → eine, positiv → zwei"
+      ],
+      "beispiel": "x² − 2x − 8 = 0: p = −2, q = −8 → x = 1 ± √(1 + 8) = 1 ± 3 → x₁ = −2, x₂ = 4",
+      "fach": "mathe"
     }
   ]
 }

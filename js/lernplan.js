@@ -25,7 +25,7 @@ export const GEN_THEMA = {
   'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'prozent-formel': 'prozent-formel', 'rabatt-geschichte': 'rabatt', 'runden': 'runden', 'kugel': 'kugel',
   'einmaleins': 'einmaleins', 'mal10': 'mal-10', 'zylinder': 'zylinder', 'kegel': 'kegel', 'pyramide': 'pyramide', 'quader': 'quader', 'zusammengesetzt': 'zusammengesetzt', 'daten': 'daten', 'saeulen': 'diagramm', 'kosinus': 'kosinus', 'sinus': 'sinus', 'tangens': 'tangens', 'trig-mix': 'trig-mix', 'trig-weg': 'trig-weg', 'kreisdiagramm': 'kreisdiagramm',
   'zehnerpotenz': 'zehnerpotenzen', 'einheiten': 'einheiten', 'gewichtskraft': 'gewichtskraft', 'gleichung': 'umstellen', 'formel-umstellen': 'umstellen',
-  'dichte': 'dichte'
+  'dichte': 'dichte', 'parabel': 'quadr-funktionen', 'qgleichung': 'quadr-gleichungen'
 };
 // Schlüssel in „grenzen“: Name eines Baukastens (seit Auftrag 13) oder eines Themas (gilt dann für alle Baukästen des Themas)
 export const grenzenSchluesselOk = (k) => !!GEN_THEMA[k] || THEMEN.includes(k);

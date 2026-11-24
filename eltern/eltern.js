@@ -31,7 +31,7 @@ import * as LL from '../lesen/lesen-logik.js';
 import { allesNeuLaden } from '../js/neuladen.js';
 import * as TWE from './themenwahl-eltern.js';
 
-export const ELTERN_VERSION = '1.78.2';
+export const ELTERN_VERSION = '1.79.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -2698,7 +2698,7 @@ function splitterSeite() {
 // Welches Thema die Häufigkeit eines Baukastens steuert. Geschichten hängen an einem anderen Baukasten-Thema.
 const GEN_THEMA = {
   'minus-plus': 'minus-zahlen', 'reihenfolge': 'reihenfolge', 'potenz': 'potenzen', 'einmaleins': 'einmaleins', 'mal10': 'mal-10',
-  'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'prozent-formel': 'prozent-formel', 'runden': 'runden', 'bruch-bild': 'bruch-bild', 'kugel': 'kugel', 'zylinder': 'zylinder', 'kegel': 'kegel', 'pyramide': 'pyramide', 'kreisdiagramm': 'kreisdiagramm', 'quader': 'quader', 'zusammengesetzt': 'zusammengesetzt', 'daten': 'daten', 'saeulen': 'diagramm', 'kosinus': 'kosinus'
+  'prozent': 'prozent', 'baukasten': 'prozent-baukasten', 'prozent-formel': 'prozent-formel', 'runden': 'runden', 'bruch-bild': 'bruch-bild', 'kugel': 'kugel', 'zylinder': 'zylinder', 'kegel': 'kegel', 'pyramide': 'pyramide', 'kreisdiagramm': 'kreisdiagramm', 'quader': 'quader', 'zusammengesetzt': 'zusammengesetzt', 'daten': 'daten', 'saeulen': 'diagramm', 'kosinus': 'kosinus', 'parabel': 'quadr-funktionen', 'qgleichung': 'quadr-gleichungen'
 };
 const GEN_WIE = { 'geld-geschichte': ['minus-zahlen'], 'rabatt-geschichte': ['rabatt', 'neuer-preis'] };
 

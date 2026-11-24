@@ -520,3 +520,20 @@ function dreieckZeichnen(bild, P0, bx, by, s, ox, oy) {
   if (bild.deko) { const bo = seiten[bodenK]; merke(Math.min(bo[0][0], bo[1][0]) - 24, Math.max(bo[0][0], bo[1][0]) + (bild.deko === 'wand' ? 12 : 24), Math.min(P.R[1], P.W[1], P.T[1]) - 12, Math.max(bo[0][1], bo[1][1]) + 4); }
   return { inhalt, box };
 }
+
+// Parabel im Koordinatensystem (24.11., Baukasten „parabel“): bild { form: 'parabel', a, d, e }, Raster −6 … 6
+export function parabelSvg(b) {
+  const R = 6, px = 22, w = 2 * R * px + 20, o = w / 2;
+  const X = (x) => o + x * px, Y = (y) => o - y * px;
+  let raster = '';
+  for (let i = -R; i <= R; i++) {
+    raster += `<line x1="${X(i)}" y1="${Y(-R)}" x2="${X(i)}" y2="${Y(R)}" stroke="#D8E3E3" stroke-width="1"/><line x1="${X(-R)}" y1="${Y(i)}" x2="${X(R)}" y2="${Y(i)}" stroke="#D8E3E3" stroke-width="1"/>`;
+    if (i && i % 2 === 0) raster += `<text x="${X(i)}" y="${Y(0) + 15}" font-size="11" text-anchor="middle" fill="#5B6B6C">${i < 0 ? '−' + -i : i}</text><text x="${X(0) - 6}" y="${Y(i) + 4}" font-size="11" text-anchor="end" fill="#5B6B6C">${i < 0 ? '−' + -i : i}</text>`;
+  }
+  const achsen = `<line x1="${X(-R)}" y1="${Y(0)}" x2="${X(R) + 6}" y2="${Y(0)}" stroke="#1E2A2B" stroke-width="1.6"/><line x1="${X(0)}" y1="${Y(-R)}" x2="${X(0)}" y2="${Y(R) - 6}" stroke="#1E2A2B" stroke-width="1.6"/>
+    <text x="${X(R) + 4}" y="${Y(0) - 6}" font-size="13" font-style="italic" fill="#1E2A2B">x</text><text x="${X(0) + 6}" y="${Y(R) - 2}" font-size="13" font-style="italic" fill="#1E2A2B">y</text>`;
+  const pts = [];
+  for (let x = -R; x <= R + 1e-9; x += 0.05) { const y = b.a * (x - b.d) ** 2 + b.e; if (y >= -R - 0.5 && y <= R + 0.5) pts.push(`${X(x).toFixed(1)},${Y(Math.max(-R - 0.5, Math.min(R + 0.5, y))).toFixed(1)}`); else if (pts.length && pts[pts.length - 1] !== '|') pts.push('|'); }
+  const linien = pts.join(' ').split('|').map(s => s.trim()).filter(s => s.split(' ').length > 1).map(s => `<polyline points="${s}" fill="none" stroke="#B45309" stroke-width="3" stroke-linecap="round"/>`).join('');
+  return `<svg viewBox="0 0 ${w} ${w}" width="100%" style="max-width:320px" role="img" aria-label="Parabel im Koordinatensystem"><defs><clipPath id="pb-clip"><rect x="${X(-R)}" y="${Y(R)}" width="${2 * R * px}" height="${2 * R * px}"/></clipPath></defs>${raster}${achsen}<g clip-path="url(#pb-clip)">${linien}</g>${b.scheitel ? `<circle cx="${X(b.d)}" cy="${Y(b.e)}" r="4" fill="#B45309"/>` : ''}</svg>`;
+}

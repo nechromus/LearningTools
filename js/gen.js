@@ -3,6 +3,8 @@
 
 import { zehnerpotenz, einheiten, gewichtskraft, gleichung, formelUmstellen, dichte } from './gen-physik.js';
 export { zehnerpotenz, einheiten, gewichtskraft, gleichung, formelUmstellen, dichte };
+import { parabel, qgleichung } from './gen-quadrat.js';
+export { parabel, qgleichung };
 
 const M = '−';
 const zufall = (rng, a, b) => a + Math.floor(rng() * (b - a + 1));
@@ -1750,7 +1752,8 @@ export const GENERATOREN = {
   'minus-plus': minusPlus, 'reihenfolge': reihenfolge, 'potenz': potenz, 'einmaleins': einmaleins, 'mal10': mal10,
   'prozent': prozent, 'baukasten': baukasten, 'runden': runden, 'bruch-bild': bruchBild, 'kugel': kugel, 'zylinder': zylinder,
   'geld-geschichte': geldGeschichte, 'rabatt-geschichte': rabattGeschichte, 'prozent-formel': prozentFormel, 'kegel': kegel, 'pyramide': pyramide, 'kreisdiagramm': kreisdiagramm, 'quader': quader, 'zusammengesetzt': zusammengesetzt, 'daten': daten, 'saeulen': saeulen, 'kosinus': kosinus, 'sinus': sinus, 'tangens': tangens, 'trig-mix': trigMix, 'trig-weg': trigWeg,
-  'zehnerpotenz': zehnerpotenz, 'einheiten': einheiten, 'gewichtskraft': gewichtskraft, 'gleichung': gleichung, 'formel-umstellen': formelUmstellen, 'dichte': dichte
+  'zehnerpotenz': zehnerpotenz, 'einheiten': einheiten, 'gewichtskraft': gewichtskraft, 'gleichung': gleichung, 'formel-umstellen': formelUmstellen, 'dichte': dichte,
+  'parabel': parabel, 'qgleichung': qgleichung
 };
 
 // Welche Baukästen zu welchem Übungsthema gehören
@@ -1759,7 +1762,8 @@ export const THEMA_GENERATOREN = {
   'bruch-bild': ['bruch-bild'], 'zuordnung': ['bruch-bild'], 'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'],
   'prozent-formel': ['prozent-formel'], 'rabatt': ['prozent', 'baukasten'], 'neuer-preis': ['prozent', 'baukasten'], 'kreisdiagramm': ['kreisdiagramm'],
   'runden': ['runden'], 'kugel': ['potenz', 'runden'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'daten': ['daten'], 'diagramm': ['saeulen'], 'kosinus': ['kosinus'], 'sinus': ['sinus'], 'tangens': ['tangens'], 'trig-mix': ['trig-mix'], 'trig-weg': ['trig-weg'],
-  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte']
+  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte'],
+  'quadr-funktionen': ['parabel'], 'quadr-gleichungen': ['qgleichung']
 };
 export const MIX_GENERATOREN = ['einmaleins', 'potenz', 'mal10', 'prozent', 'runden', 'bruch-bild', 'minus-plus', 'reihenfolge', 'baukasten', 'einmaleins'];
 export const BLOCK_GENERATOREN = ['einmaleins', 'potenz', 'mal10', 'minus-plus', 'einmaleins'];

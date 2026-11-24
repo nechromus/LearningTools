@@ -79,6 +79,7 @@ export function potenzWert(ausdruck) {
 // Auswahl-Schritte bei Körpern: falsche Länge gewählt. Gibt { typ, text } oder null zurück.
 export function erkenneWahlFehler(aufgabe, teil, gewaehlt) {
   if (!teil || !Array.isArray(teil.optionen) || gewaehlt === teil.richtig) return null;
+  if (Array.isArray(teil.fehlerWahl) && teil.fehlerWahl[gewaehlt]) return teil.fehlerWahl[gewaehlt]; // 24.11.: am Schritt hinterlegt (Baukästen parabel, qgleichung)
   const o = String(teil.optionen[gewaehlt] || ''), frage = teil.text || '';
   if (aufgabe.thema === 'pyramide' && /Volumen/.test(frage) && /^hₛ/.test(o)) return { typ: 'pyramide-hs-statt-h', text: 'hₛ liegt außen auf der Seitenfläche. Für das Volumen brauchst du h: von der Spitze gerade nach unten.' };
   if (aufgabe.thema === 'pyramide' && /Seitenfl/.test(frage) && /^h\s*=/.test(o)) return { typ: 'pyramide-h-statt-hs', text: 'Die Seitenfläche ist ein Dreieck außen. Seine Höhe ist hₛ.' };
@@ -329,6 +330,8 @@ export function erkenneFehler(aufgabe, teil, eingabeText) {
   const w = p.wert;
   const ziel = teil ? teil.wert : aufgabe.antwort && aufgabe.antwort.wert;
   if (ziel == null) return null;
+  // 24.11.: typische Fehler am Schritt (Baukästen parabel, qgleichung)
+  if (teil && Array.isArray(teil.typische)) { const f = teil.typische.find(x => gleich(w, x.wert)); if (f) return { typ: f.typ, text: f.text }; }
 
   // Doppeltes Minus und Minus vor einer Klammer mit Minus innen (Auftrag 21)
   const par = (aufgabe.parameter || []).filter(x => typeof x === 'number');
@@ -787,6 +790,7 @@ export function muehGruppe(a, { umformen = false, gruppen = null } = {}) {
   if (a.thema === 'quader') return 'normal';                               // Quader-Volumen (Auftrag 43)
   if (a.thema === 'trig-mix') return a.form === 'taste' ? 'kurz' : 'normal';  // Auftrag 70
   if (a.thema === 'trig-weg') return (a.stufe || 1) <= 1 ? 'kurz' : (a.stufe || 1) === 2 ? 'normal' : 'lang';  // Lösungsweg (22.11.)
+  if (a.thema === 'quadr-funktionen' || a.thema === 'quadr-gleichungen') return a.form === 'form' ? 'kurz' : ['pqrund', 'sache', 'ergaenzung'].includes(a.form) ? 'lang' : 'normal'; // 24.11.
   if (a.thema === 'daten' || a.thema === 'diagramm' || istTrig(a)) return (a.stufe || 1) >= 2 ? 'normal' : 'kurz'; // Auftrag 54, 55, 69
   if (KOERPER.includes(a.thema) || a.typ === 'detektiv' || a.modus === 'knobeln') return 'schwer';
   if (a.typ === 'auswahl') return 'normal';
@@ -1089,13 +1093,13 @@ export function hoechsteKachel(feld) {
 // ---------- Aufgaben aus JSON kontrollieren (Elternbereich, Tools) ----------
 
 export const TYPEN = ['zahl', 'auswahl', 'bruch', 'schritte', 'zuordnung', 'mehrfrage', 'zehnerpotenz', 'formel', 'detektiv'];
-export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'prozent-formel', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte', 'quader', 'zusammengesetzt', 'daten', 'diagramm', 'kosinus', 'sinus', 'tangens', 'trig-mix', 'trig-weg'];
+export const THEMEN = ['minus-zahlen', 'reihenfolge', 'potenzen', 'bruch-bild', 'zuordnung', 'prozent', 'prozent-baukasten', 'prozent-formel', 'rabatt', 'neuer-preis', 'kreisdiagramm', 'runden', 'kugel', 'einmaleins', 'mal-10', 'zylinder', 'kegel', 'pyramide', 'zehnerpotenzen', 'einheiten', 'gewichtskraft', 'umstellen', 'dichte', 'quader', 'zusammengesetzt', 'daten', 'diagramm', 'kosinus', 'sinus', 'tangens', 'trig-mix', 'trig-weg', 'quadr-funktionen', 'quadr-gleichungen'];
 // Fach je Thema (Auftrag 13). Fehlt das Feld fach an der Aufgabe, gilt das Fach des Themas.
 export const PHYSIK_THEMEN = ['zehnerpotenzen', 'einheiten', 'gewichtskraft', 'dichte'];
 export const fachVon = (a) => (a && (a.fach || (PHYSIK_THEMEN.includes(a.thema) ? 'physik' : 'mathe'))) || 'mathe';
 // Körper mit Taschenrechner: eigene Plätze (Schritte und Abschluss), nicht bei Text und Struktur aus dem allgemeinen Pool
 export const KOERPER = ['kugel', 'zylinder', 'kegel', 'pyramide', 'quader', 'zusammengesetzt'];
-export const BILDFORMEN = ['streifen', 'kreis', 'quadrat', 'rechteck', 'kreisdiagramm', 'kugel', 'zylinder', 'kegel', 'pyramide', 'quader', 'quader-kegel', 'tabelle', 'saeulen', 'dreieck'];
+export const BILDFORMEN = ['streifen', 'kreis', 'quadrat', 'rechteck', 'kreisdiagramm', 'kugel', 'zylinder', 'kegel', 'pyramide', 'quader', 'quader-kegel', 'tabelle', 'saeulen', 'dreieck', 'parabel'];
 
 export function kontrolliereAufgabe(a, hinweisIds, vorhandeneIds = new Set()) {
   const f = [];
@@ -1278,6 +1282,7 @@ export function ergebnisWerte(a) {
 }
 export function kopfGlatt(a) {
   if (!a) return true;
+  if (a.thema === 'quadr-funktionen' || a.thema === 'quadr-gleichungen') return false; // 24.11.: Rechner frei, Kopf-Bonus
   if (a.thema === 'daten') return false; // Auftrag 54: Rechner frei, im Kopf gerechnet Kopf-Bonus
   if (a.thema === 'trig-weg') return (a.stufe || 1) <= 1;   // Lösungsweg: ab Stufe 2 wird gerechnet
   if (istTrig(a)) return !(a.schritte || []).some(x => x.wert != null); // Auftrag 55: mit Zahlen Rechner frei, Seiten finden ohne Rechner
@@ -1454,6 +1459,7 @@ const zylDezimal = (a) => [a.bild && a.bild.r, a.bild && a.bild.d, a.bild && a.b
 // LK-095 (Auftrag 54 und weitere): Daten, Säulendiagramm, Prozent mit Formel, Kreisdiagramm. undefined = nicht zuständig.
 function teilschrittNeu(a, t, l) {
   const q = t.quelle || {};
+  if (q.teilschritt && (a.generator === 'parabel' || a.generator === 'qgleichung')) return q.teilschritt; // 24.11.: steht am Schritt
   if (a.thema === 'daten') return 'mittel.spann@2';                       // Werte ungeordnet in einer Tabelle
   if (a.thema === 'diagramm') {
     if (Number.isInteger(q.saeule_setzen) || t.art === 'saeule') return 'daten.zeichnen@1';
@@ -1499,6 +1505,7 @@ function teilschrittNeu(a, t, l) {
 }
 export function teilschrittAufgabe(a) {
   if (a && a.typ !== 'detektiv') {
+    if ((a.generator === 'parabel' || a.generator === 'qgleichung') && a.teilschritt) return a.teilschritt; // 24.11.
     if (a.thema === 'daten') return 'mittel.spann@2';
     if (a.thema === 'diagramm') return (a.stufe || 1) >= 2 ? 'daten.zeichnen@3' : 'daten.rechnen@1';
     if (a.generator === 'prozent-formel') {

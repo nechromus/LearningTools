@@ -17,7 +17,9 @@ export const UEBEN = {
   potenz: { gens: ['potenz', 'zehnerpotenz'], pool: [] },
   kegel: { gens: ['kegel', 'pyramide', 'kugel', 'zusammengesetzt'], pool: [] },
   trigo: { gens: ['kosinus', 'sinus', 'tangens', 'trig-mix', 'trig-weg'], pool: [] },
-  boxplot: { gens: ['daten'], pool: [] }
+  boxplot: { gens: ['daten'], pool: [] },
+  qfkt: { gens: ['parabel'], pool: [] },     // 24.11.
+  qgl: { gens: ['qgleichung'], pool: [] }
 };
 // Themen der Schnell-Check-Datei → Themen der Liste (zugeordnet wird über den Teilschritt, das hier ist nur zur Sicherheit)
 export const KC_THEMA = { wurzeln: 'wurzel', pythagoras: 'pyth', 'quadr-funktionen': 'qfkt', potenzgesetze: 'potenz', potenzfunktionen: 'potfkt' };

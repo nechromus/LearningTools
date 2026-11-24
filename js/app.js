@@ -5,7 +5,7 @@ import * as U from './sync.js';
 import * as WEG from './weg.js';
 import * as M from './messung.js';
 import * as FU from './formeluebersicht.js';
-import { esc, mathe, bruchHtml, bildSvg, linienSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck, stellentafelHtml, tabelleHtml, saeulenSvg, dreieckSvg } from './render.js';
+import { esc, mathe, bruchHtml, bildSvg, linienSvg, hinweisIcon, hinweisBlatt, formatWert, sechseck, stellentafelHtml, tabelleHtml, saeulenSvg, dreieckSvg, parabelSvg } from './render.js';
 import * as GF from './gefaerbt.js';
 import { THEMA_NAMEN, GEN_NAMEN, FEHLER_NAMEN } from './namen.js';
 import * as P from './paket.js';
@@ -41,7 +41,7 @@ import { allesNeuLaden } from './neuladen.js';
 import * as TW from './themenwahl.js';
 import * as TWU from './themenwahl-ui.js';
 
-export const APP_VERSION = '2.59.3';
+export const APP_VERSION = '2.60.0';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Abschicken, Formelsammlung. Testgeräte laden keine Messung hoch.
 M.init({ app: 'mathe', version: APP_VERSION });
 
@@ -1754,7 +1754,7 @@ function schritteVon(liste, thema) {
     : Number.isInteger(s.saeule_setzen)
     ? { art: 'saeule', label: s.text, ziel: { wert: s.wert }, quelle: s }
     : s.optionen
-    ? { art: 'wahl', label: s.text, optionen: L.KOERPER_THEMEN.includes(thema) ? s.optionen.map(L.mitKuerzel) : s.optionen, richtig: s.richtig, quelle: s, formel: !s.fs_html && s.optionen.every(o => /=/.test(o) && !/\d\s*(?:cm|mm|m|°)(?![\wäöüß])/.test(o)), ...(s.fs_html ? { fsHtml: s.fs_html } : {}), ...(s.zwei_versuche ? { zweiVersuche: true } : {}) }
+    ? { art: 'wahl', label: s.text, optionen: L.KOERPER_THEMEN.includes(thema) ? s.optionen.map(L.mitKuerzel) : s.optionen, richtig: s.richtig, quelle: s, formel: !s.fs_html && s.optionen.every(o => /=/.test(o) && !/\d\s*(?:cm|mm|m|°)(?![\wäöüß])/.test(o)), ...(s.fs_html ? { fsHtml: s.fs_html } : {}), ...(s.zwei_versuche ? { zweiVersuche: true } : {}), ...(s.spalte ? { spalte: true } : {}) }
     : { art: 'zahl', label: s.text, ziel: { wert: s.wert, toleranz: s.toleranz, runden: s.runden, gueltige: s.gueltige_ziffern || undefined, genau: s.genau, varianten: s.varianten, abgeschnitten: s.abgeschnitten, auch: s.auch, stellen: s.stellen, rundenAuf: s.rundenAuf }, einheit: s.einheit || '', quelle: s });
 }
 
@@ -2107,7 +2107,8 @@ const TEST_GEN = {
   'minus-zahlen': ['minus-plus', 'geld-geschichte'], 'reihenfolge': ['reihenfolge'], 'potenzen': ['potenz'], 'bruch-bild': ['bruch-bild'],
   'prozent': ['prozent'], 'prozent-baukasten': ['baukasten'], 'prozent-formel': ['prozent-formel'], 'kreisdiagramm': ['kreisdiagramm'], 'rabatt': ['rabatt-geschichte'], 'neuer-preis': ['rabatt-geschichte'],
   'runden': ['runden'], 'kugel': ['kugel'], 'einmaleins': ['einmaleins'], 'mal-10': ['mal10'], 'zylinder': ['zylinder'], 'kegel': ['kegel'], 'pyramide': ['pyramide'], 'quader': ['quader'], 'zusammengesetzt': ['zusammengesetzt'],
-  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte'], 'daten': ['daten'], 'diagramm': ['saeulen'], 'kosinus': ['kosinus'], 'sinus': ['sinus'], 'tangens': ['tangens'], 'trig-mix': ['trig-mix'], 'trig-weg': ['trig-weg']
+  'zehnerpotenzen': ['zehnerpotenz'], 'einheiten': ['einheiten'], 'gewichtskraft': ['gewichtskraft'], 'umstellen': ['gleichung', 'formel-umstellen'], 'dichte': ['dichte'], 'daten': ['daten'], 'diagramm': ['saeulen'], 'kosinus': ['kosinus'], 'sinus': ['sinus'], 'tangens': ['tangens'], 'trig-mix': ['trig-mix'], 'trig-weg': ['trig-weg'],
+  'quadr-funktionen': ['parabel'], 'quadr-gleichungen': ['qgleichung']
 };
 const testFokus = () => (S.upload.testgeraet && S.testFokus && (L.THEMEN.includes(S.testFokus.thema) || S.testFokus.thema === 'formelsammlung') ? S.testFokus : null);
 
@@ -3168,7 +3169,7 @@ function zeigeAufgabe() {
         ${a.typ === 'detektiv' ? '<div class="detektiv-kopf"><span class="detektiv-marke">🔍 Fehler-Detektiv</span><button class="detektiv-hilfe" data-act="detektivHilfe" aria-label="Was ist der Fehler-Detektiv?">?</button></div>' : ''}
         ${a.geschichte ? geschichteHtml(a) : ''}
         ${a.rechnung ? `<div class="rechnung${a.rechnung.length > 22 ? ' lang' : ''}">${rechnungHtml(a)}</div>` : ''}
-        ${a.bild ? `<div class="bild${a.bild.form === 'tabelle' ? ' bild-tabelle' : ''}">${a.bild.linien ? linienBild(a) : a.bild.form === 'tabelle' ? tabelleBild(a) : a.bild.form === 'saeulen' ? saeulenBild(a) : bildSvg(trigBild(a))}</div>` : ''}
+        ${a.bild ? `<div class="bild${a.bild.form === 'tabelle' ? ' bild-tabelle' : ''}">${a.bild.linien ? linienBild(a) : a.bild.form === 'tabelle' ? tabelleBild(a) : a.bild.form === 'saeulen' ? saeulenBild(a) : a.bild.form === 'parabel' ? parabelSvg(a.bild) : bildSvg(trigBild(a))}</div>` : ''}
         ${a.typ === 'detektiv' && !liestNoch() ? fremdeRechnungHtml(a) : ''}
         ${liestNoch() ? '' : `${!(a.typ === 'auswahl' || (a.typ === 'formel' && a.eingabe === 'auswahl')) || (A.uf && !A.fertig) ? `<p class="frage">${a.typ === 'detektiv' ? `<b>${mathe(a.frage)}</b>` : A.signal ? L.signalMarkieren(mathe(a.frage)) : mathe(a.frage)}</p>` : ''}
         ${A.knobeln && !A.fertig ? '<div class="knobel-zeile">✦ Knobel erst selbst.</div>' : ''}
@@ -4835,7 +4836,7 @@ function hinweisOeffnen(id) {
   }
   // Stufe „Gleich lang“: sofort der lange Hinweis, ohne Kosten.
   // Hinweis 23 „Prozent mit Formel“ (Auftrag 47): immer gleich die Karte, denn die Formelübersicht zeigt W/G = p/100, die Formelsammlung W/p = G/100.
-  if (langStufe() === 0 || id === 'formel' || id === 'daten' || id === 'kosinus' || id === 'sinus' || id === 'tangens' || id === 'trig') {
+  if (langStufe() === 0 || id === 'formel' || id === 'daten' || id === 'kosinus' || id === 'sinus' || id === 'tangens' || id === 'trig' || id === 'parabel' || id === 'qgl') {
     protokoll(S, 'hinweis_lang', { hinweis: id, stufe: 0, kosten: 'keine', id: aufgabeId(), ...hb(id) });
     sichern();
     return zeigeHilfe(`<div class="hinweis-blatt">${hinweisBlatt(h)}</div>`, h.titel);

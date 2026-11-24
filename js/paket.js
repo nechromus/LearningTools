@@ -22,6 +22,8 @@ export const KOPF_GEN = {
   'sinus': ['sinus'], 'tangens': ['tangens'],
   // Auftrag 70: sin, cos, tan gemischt
   'trig-mix': ['trig-mix'],
+  // 24.11.: Quadratische Funktionen und Gleichungen (Themenwahl)
+  'quadr-funktionen': ['parabel'], 'quadr-gleichungen': ['qgleichung'],
   // Lösungsweg Zeile für Zeile (22.11.)
   'trig-weg': ['trig-weg']
 };

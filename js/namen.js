@@ -6,7 +6,7 @@ export const THEMA_NAMEN = {
   'prozent-baukasten': 'Prozent-Baukasten', 'prozent-formel': 'Prozent mit Formel', 'rabatt': 'Rabatt', 'neuer-preis': 'Neuer Preis',
   'kreisdiagramm': 'Kreisdiagramm', 'runden': 'Runden', 'kugel': 'Kugel',
   'einmaleins': 'Einmaleins', 'mal-10': 'Mal 10 und durch 10',
-  'zylinder': 'Zylinder', 'kegel': 'Kegel', 'pyramide': 'Pyramide', 'quader': 'Quader', 'zusammengesetzt': 'Quader mit ausgeschnittenem Kegel', 'daten': 'Daten (Minimum, Maximum, Spannweite)', 'diagramm': 'Säulendiagramm', 'kosinus': 'Kosinus', 'sinus': 'Sinus', 'tangens': 'Tangens', 'trig-mix': 'sin, cos, tan gemischt', 'trig-weg': 'sin, cos, tan: Lösungsweg',
+  'zylinder': 'Zylinder', 'kegel': 'Kegel', 'pyramide': 'Pyramide', 'quader': 'Quader', 'zusammengesetzt': 'Quader mit ausgeschnittenem Kegel', 'daten': 'Daten (Minimum, Maximum, Spannweite)', 'diagramm': 'Säulendiagramm', 'kosinus': 'Kosinus', 'sinus': 'Sinus', 'tangens': 'Tangens', 'trig-mix': 'sin, cos, tan gemischt', 'trig-weg': 'sin, cos, tan: Lösungsweg', 'quadr-funktionen': 'Quadratische Funktionen', 'quadr-gleichungen': 'Quadratische Gleichungen',
   'zehnerpotenzen': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Masse und Gewichtskraft', 'umstellen': 'Gleichungen umstellen', 'dichte': 'Dichte',
   'formelsammlung': 'Formelsammlung: Finde es'
 };
@@ -15,7 +15,7 @@ export const GEN_NAMEN = {
   'minus-plus': 'Minus-Zahlen', 'reihenfolge': 'Reihenfolge', 'potenz': 'Potenzen', 'einmaleins': 'Einmaleins',
   'mal10': 'Mal 10 / durch 10', 'prozent': 'Prozent von …', 'baukasten': 'Prozent-Baukasten', 'runden': 'Runden',
   'bruch-bild': 'Bruch aus Bild', 'kugel': 'Kugel', 'zylinder': 'Zylinder', 'geld-geschichte': 'Geld-Geschichten', 'rabatt-geschichte': 'Rabatt-Geschichten', 'prozent-formel': 'Prozent mit Formel', 'kegel': 'Kegel', 'pyramide': 'Pyramide', 'quader': 'Quader', 'zusammengesetzt': 'Quader − Kegel', 'kreisdiagramm': 'Kreisdiagramm',
-  'zehnerpotenz': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Gewichtskraft', 'gleichung': 'Gleichungen', 'formel-umstellen': 'Formeln umstellen', 'dichte': 'Dichte', 'daten': 'Daten (Tabelle)', 'saeulen': 'Säulendiagramm', 'kosinus': 'Kosinus', 'sinus': 'Sinus', 'tangens': 'Tangens', 'trig-weg': 'sin, cos, tan: Lösungsweg', 'trig-mix': 'sin, cos, tan gemischt'
+  'zehnerpotenz': 'Zehnerpotenzen', 'einheiten': 'Einheiten', 'gewichtskraft': 'Gewichtskraft', 'gleichung': 'Gleichungen', 'formel-umstellen': 'Formeln umstellen', 'dichte': 'Dichte', 'daten': 'Daten (Tabelle)', 'saeulen': 'Säulendiagramm', 'kosinus': 'Kosinus', 'sinus': 'Sinus', 'tangens': 'Tangens', 'trig-weg': 'sin, cos, tan: Lösungsweg', 'trig-mix': 'sin, cos, tan gemischt', 'parabel': 'Parabeln', 'qgleichung': 'Quadratische Gleichungen'
 };
 
 export const FEHLER_NAMEN = {
@@ -38,6 +38,15 @@ export const FEHLER_NAMEN = {
   'tastenmuster': 'Tastenmuster (eher durchgeklickt)', 'komma-verschoben': 'Komma verschoben (×/÷ 10, 100, 1000)', 'anderer-teil': 'Ergebnis eines anderen Felds',
   'um-eins': 'Um 1 daneben', 'knapp': 'Knapp daneben (unter 1 %)', 'zahlendreher': 'Zahlendreher',
   'einmaleins-nachbar': 'Einmaleins: Nachbaraufgabe', 'einmaleins-reihe': 'Einmaleins: andere Zahl aus der Reihe', 'potenz-nachbarbasis': 'Potenz: Nachbarzahl gerechnet',
+  // 24.11.: Quadratische Funktionen und Gleichungen
+  'scheitel-vorzeichen': 'Scheitel: Vorzeichen in der Klammer nicht gedreht', 'scheitel-y-vorzeichen': 'Scheitel: y-Wert mit falschem Vorzeichen', 'scheitel-x-y-vertauscht': 'Scheitel: x und y vertauscht',
+  'parabel-oeffnung': 'Parabel: nach oben/unten verwechselt', 'parabel-breite': 'Parabel: schmaler/breiter verwechselt', 'quadrat-minus': 'Quadrat einer Minus-Zahl negativ',
+  'binom-2ab': 'Binomische Formel: Mittelglied ohne 2', 'binom-vorzeichen': 'Binomische Formel: Vorzeichen Mittelglied', 'binom-quadrat-vergessen': 'Binomische Formel: d² vergessen',
+  'ergaenzung-plus': 'Quadratische Ergänzung: addiert statt abgezogen', 'ergaenzung-vergessen': 'Quadratische Ergänzung: nicht abgezogen', 'aufstellen-e': 'a bestimmen: e nicht auf die andere Seite', 'a-kehrwert': 'a bestimmen: Kehrwert',
+  'scheitel-nullstelle': 'Scheitel und Nullstelle verwechselt', 'nur-positive': 'Nur die positive Lösung', 'quadrat-negativ': 'x² negativ: keine Lösung übersehen', 'null-verloren': 'Durch x geteilt, Lösung 0 verloren',
+  'nullprodukt-vorzeichen': 'Nullprodukt: Vorzeichen nicht gedreht', 'pq-vorzeichen-p': 'pq-Formel: Vorzeichen von p', 'pq-vorzeichen-q': 'pq-Formel: Vorzeichen von q', 'pq-q-vorzeichen': 'pq-Formel: unter der Wurzel + q statt − q',
+  'pq-halbe-vergessen': 'pq-Formel: p nicht halbiert', 'diskriminante': 'Anzahl der Lösungen falsch', 'normalform-nicht-geteilt': 'Normalform: nicht durch a geteilt', 'normalform-nur-teil': 'Normalform: nur ein Teil geteilt',
+  'vieta-vorzeichen': 'Vieta: Summe ist −p', 'vieta-summe': 'Vieta: Produkt passt, Summe nicht', 'sache-gleichung': 'Textaufgabe: Gleichung falsch aufgestellt',
   // Auftrag 54
   'spannweite-max': 'Spannweite: nur das Maximum', 'spannweite-summe': 'Spannweite: Maximum + Minimum', 'spannweite-minusminus': 'Spannweite: Minus minus nicht plus',
   'daten-erster-letzter': 'Daten: erster/letzter Wert statt Min./Max.', 'daten-min-ohne-minus': 'Daten: Minimum ohne Minus',
