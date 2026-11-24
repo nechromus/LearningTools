@@ -85,6 +85,7 @@ export function startHtml({ extras = '', gesperrt = false, wartet = false, versi
 // ---------- Missionsplanung ----------
 const punkte = (n) => `<div class="tw-punkte">${[1, 2, 3, 4, 5, 6].map(i => `<i class="${i < n ? 'fertig' : i === n ? 'an' : ''}"></i>`).join('')}</div>`;
 const b2aThemen = () => { const z = tw(), l = z.schule.themen.filter(t => D().T[t]); const ka = (z.klassenarbeiten || []).find(k => k.entwurf || k.datum >= heute()); if (ka && ka.thema && D().T[ka.thema] && !l.includes(ka.thema)) l.push(ka.thema); return l; };
+const morgen = () => { const [y, m, d] = heute().split('-').map(Number); const x = new Date(Date.UTC(y, m - 1, d + 1)); return x.toISOString().slice(0, 10); };
 const kaEntwurf = () => tw().klassenarbeiten.find(k => k.datum >= heute()) || null;
 export function planung(schritt = ui.schritt) {
   ui.schritt = schritt; ui.ort = 'planung';
@@ -105,9 +106,9 @@ export function planung(schritt = ui.schritt) {
       <div class="tw-chips">${schul.map(t => `<button class="tw-chip${z.schule.themen.includes(t) ? ' an' : ''}" data-act="tw:schule" data-t="${t}">${esc(tname(t))}</button>`).join('')}<button class="tw-chip${z.schule.anders ? ' an' : ''}" data-act="tw:schule" data-t="_anders">anderes …</button></div>
       ${z.schule.anders || ui.anders ? `<input class="tw-feld" id="tw-anders" maxlength="120" placeholder="Was noch?" value="${esc(z.schule.freitext || '')}">` : ''}
       <div class="sz-panel gelb"><div class="sz-label">Nächste Klassenarbeit (freiwillig)</div>
-        ${ui.kaWeiss ? '<p>Weiß ich noch nicht.</p>' : `<input class="tw-feld" type="date" id="tw-ka-datum" min="${heute()}" value="${ka ? ka.datum : ''}">
+        ${!(ui.kaOffen || ka) ? '<p class="sz-matt" style="margin:4px 0">Keine eingetragen.</p>' : `<input class="tw-feld" type="date" id="tw-ka-datum" min="${morgen()}" value="${ka ? ka.datum : ''}">
         <select class="tw-feld" id="tw-ka-thema"><option value="">Thema wählen</option>${TW.listenThemen(D()).map(t => `<option value="${t.id}"${ka && ka.thema === t.id ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select>`}
-        <button class="sz-zurueck" data-act="tw:kaWeiss">${ui.kaWeiss ? 'Doch eintragen' : 'Weiß ich nicht'}</button></div>
+        ${ka ? '' : `<button class="sz-zurueck" data-act="tw:kaWeiss">${ui.kaOffen ? 'Doch keine eintragen' : 'Klassenarbeit eintragen'}</button>`}</div>
       ${fuss()}`;
   } else if (schritt === 3) {
     const themen = b2aThemen();
@@ -305,14 +306,14 @@ export function kcErgebnis() {
 function kaForm() {
   const ka = TW.klassenarbeitJetzt(tw(), heute());
   zeigen(`${kopf('Klassenarbeit')}<h2 class="tw-h">${ka ? 'Klassenarbeit ändern' : 'Klassenarbeit eintragen'}</h2>
-    <div class="sz-panel gelb"><div class="sz-label">Datum</div><input class="tw-feld" type="date" id="tw-ka-datum" min="${heute()}" value="${ka ? ka.datum : ''}">
+    <div class="sz-panel gelb"><div class="sz-label">Datum</div><input class="tw-feld" type="date" id="tw-ka-datum" min="${morgen()}" value="${ka ? ka.datum : ''}">
     <div class="sz-label" style="margin-top:8px">Thema</div><select class="tw-feld" id="tw-ka-thema"><option value="">Thema wählen</option>${TW.listenThemen(D()).map(t => `<option value="${t.id}"${ka && ka.thema === t.id ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></div>
     <p class="sz-matt klein">Bis zum Tag der Klassenarbeit bekommt das Thema mindestens die Hälfte der Zeit.</p>
     <button class="sz-knopf" data-act="tw:kaSpeichern">Speichern</button><button class="sz-zurueck" data-act="tw:meine">‹ Zurück</button>`);
 }
 function kaSpeichern(datum, thema, anlass = 'meine') {
   const z = tw();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(datum) || !thema || datum < heute()) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datum) || !thema || datum <= heute()) return false; // 24.11.: iPhone setzt beim Antippen heute ein, Klassenarbeit frühestens morgen
   const alt = TW.klassenarbeitJetzt(z, heute());
   if (alt) { alt.datum = datum; alt.thema = thema; C.protokoll('klassenarbeit', { aktion: 'geaendert', datum, thema }); }
   else { z.klassenarbeiten.push({ datum, thema, eingetragen: new Date().toISOString(), rueckmeldung: null }); C.protokoll('klassenarbeit', { aktion: 'eingetragen', datum, thema, anlass }); }
@@ -448,11 +449,12 @@ function fsKalender() {
 }
 
 // ---------- Aktionen ----------
-function feldWerte() {
+function feldWerte(kaForm = false) {
   const z = tw();
   const a = document.getElementById('tw-anders'); if (a) { z.schule.freitext = a.value.trim().slice(0, 120); }
   const k = document.getElementById('tw-kurs-text'); if (k) z.kurs.freitext = k.value.trim().slice(0, 500);
   const d = document.getElementById('tw-ka-datum'), t = document.getElementById('tw-ka-thema');
+  if (!kaForm && !ui.kaOffen && !kaEntwurf()) return null; // 24.11.: nur, wenn sie „Klassenarbeit eintragen“ getippt hat
   if (d && t && d.value && t.value) return { datum: d.value, thema: t.value };
   return null;
 }
@@ -476,7 +478,7 @@ export function aktion(act, el) {
       else z.schule.themen = z.schule.themen.includes(t) ? z.schule.themen.filter(x => x !== t) : [...z.schule.themen, t];
       feldWerte(); TW.geaendert(z); C.sichern(); return planung(2);
     }
-    case 'kaWeiss': ui.kaWeiss = !ui.kaWeiss; return planung(2);
+    case 'kaWeiss': ui.kaOffen = !ui.kaOffen; return planung(2);
     case 'selbst': {
       const key = d.k, w = d.w, t = d.t;
       const anlass = (kaEntwurf() || {}).thema === t && !z.schule.themen.includes(t) ? 'klassenarbeit' : 'schule';
@@ -556,7 +558,7 @@ export function aktion(act, el) {
       return C.aufgabenStarten();
     }
     case 'kaForm': return kaForm();
-    case 'kaSpeichern': { const w = feldWerte(); if (!w || !kaSpeichern(w.datum, w.thema)) { const p = document.querySelector('.tw-screen .sz-panel.gelb'); if (p && !p.querySelector('.tw-fehler')) p.insertAdjacentHTML('beforeend', '<p class="tw-fehler">Bitte Datum (ab heute) und Thema wählen.</p>'); return; } return meine(); }
+    case 'kaSpeichern': { const w = feldWerte(true); if (!w || !kaSpeichern(w.datum, w.thema)) { const p = document.querySelector('.tw-screen .sz-panel.gelb'); if (p && !p.querySelector('.tw-fehler')) p.insertAdjacentHTML('beforeend', '<p class="tw-fehler">Bitte Datum (ab morgen) und Thema wählen.</p>'); return; } return meine(); }
     case 'kaWeg': { const k = TW.klassenarbeitJetzt(z, heute()); if (k) { z.klassenarbeiten = z.klassenarbeiten.filter(x => x !== k); C.protokoll('klassenarbeit', { aktion: 'geloescht', datum: k.datum, thema: k.thema }); TW.geaendert(z); C.sichern(); } return meine(); }
     case 'kaAntwort': { const k = z.klassenarbeiten.find(x => x.datum === d.d && x.rueckmeldung == null); if (k) { k.rueckmeldung = d.w; C.protokoll('klassenarbeit', { aktion: 'rueckmeldung', datum: k.datum, thema: k.thema, antwort: d.w }); TW.geaendert(z); C.sichern(); } C.modalZu(); return; }
     case 'fortschritt': return fortschritt(d.r || 'heute');

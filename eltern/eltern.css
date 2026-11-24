@@ -244,6 +244,8 @@ textarea { width: 100%; border-radius: 10px; border: 1.5px solid #8A9696; backgr
 .qr-fuer { display: flex; flex-direction: column; gap: 6px; }
 .qr-fuer select { font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--linie, #ccc); background: var(--karte, #fff); color: inherit; }
 .qr-fuer-gross { font-size: 1.4rem; text-align: center; margin: 0; }
+.qr-schritt { font-size: 1.05rem; margin: 18px 0 6px; }
+.qr-bild.klein { width: min(70%, 240px); }
 .scan-bild { position: relative; width: 100%; max-width: 420px; align-self: center; aspect-ratio: 1; border-radius: 14px; overflow: hidden; background: #111; }
 .scan-bild video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .scan-rahmen { position: absolute; inset: 14%; border: 3px solid var(--amber); border-radius: 12px; box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.35); }

@@ -31,7 +31,7 @@ import * as LL from '../lesen/lesen-logik.js';
 import { allesNeuLaden } from '../js/neuladen.js';
 import * as TWE from './themenwahl-eltern.js';
 
-export const ELTERN_VERSION = '1.78.1';
+export const ELTERN_VERSION = '1.78.2';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -3072,6 +3072,8 @@ function qrSeite() {
       : eltern
       ? 'Für ein weiteres Eltern-Gerät (z. B. iPad oder das Handy der Mutter): Code zeigen und dort in der Eltern-App scannen.'
       : 'Nach dem Löschen der App vom Home-Bildschirm oder für ein neues Handy: Code zeigen und auf dem Kinder-Handy scannen. Danach kommen Spielzeit und Spielstände vom Server zurück.'}</p>
+    ${eltern ? '' : qrHolenKarte()}
+    ${eltern ? '' : '<h2 class="qr-schritt">2. In der App einrichten</h2>'}
     ${qr.link ? `
     <section class="karte qr-karte">
       ${eltern ? '' : `<p class="qr-fuer-gross">Für: <b>${esc(qr.name)}</b></p>`}
@@ -3083,10 +3085,11 @@ function qrSeite() {
         <li>Kamera auf diesen Code halten.</li>
       </ol>` : `<p><b>So geht's auf dem Kinder-Handy:</b></p>
       <ol class="klein">
-        <li>Übungs-App öffnen.</li>
+        <li>Übungs-App vom Home-Bildschirm öffnen (oder die Lese-App).</li>
         <li>Beim Namen auf „Mit QR-Code aus der Eltern-App einrichten“ tippen (oder im Elternbereich „QR-Code scannen“).</li>
         <li>Kamera auf diesen Code halten.</li>
       </ol>`}
+      ${eltern ? '' : '<p class="hinweis-box klein">Nicht mit der Kamera-App scannen, sondern in der App auf dem Home-Bildschirm. Sonst öffnet sich der Browser.</p>'}
       <p class="hinweis-box klein">Der Code enthält den Zugangsschlüssel. Nur zum Scannen zeigen, nicht fotografieren oder verschicken.</p>
       <div class="knopf-reihe"><button class="knopf" data-act="qrLinkKopieren">Link kopieren</button><button class="knopf haupt breit" data-act="qrAus">Code ausblenden</button></div>
     </section>` : `
@@ -3099,6 +3102,24 @@ function qrSeite() {
       <button class="knopf haupt breit" data-act="qrZeigen">QR-Code zeigen</button>
     </section>`}
   </div>`;
+}
+
+// 24.11.: Schritt 1 ohne Schlüssel. Die Kamera-App öffnet Links im Browser; dort soll kein Schlüssel ankommen.
+function qrHolenKarte() {
+  const lesen = lesenAn() && qr.holen === 'lesen';
+  const url = new URL(lesen ? '../lesen/' : '../', location.href).href;
+  const q = qrcode(0, 'M'); q.addData(url); q.make();
+  return `<h2 class="qr-schritt">1. App aufs Handy holen</h2>
+    <section class="karte qr-karte">
+      ${lesenAn() ? `<div class="segmente" role="group" aria-label="Welche App?"><button class="segment${lesen ? '' : ' an'}" data-act="qrHolen" data-w="mathe">Übungs-App</button><button class="segment${lesen ? ' an' : ''}" data-act="qrHolen" data-w="lesen">Lese-App</button></div>` : ''}
+      <div class="qr-bild klein" role="img" aria-label="QR-Code mit der Adresse der App">${q.createSvgTag({ cellSize: 5, margin: 4, scalable: true })}</div>
+      <ol class="klein">
+        <li>Mit der Kamera-App scannen. Die Seite öffnet sich in Safari.</li>
+        <li>Unten auf „Teilen“ tippen, dann „Zum Home-Bildschirm“.</li>
+        <li>Die App auf dem Home-Bildschirm öffnen. Weiter mit Schritt 2.</li>
+      </ol>
+      <p class="klein gedaempft">Dieser Code enthält nur die Adresse (${esc(url)}), keinen Schlüssel. Ist die App schon auf dem Home-Bildschirm, gleich Schritt 2.</p>
+    </section>`;
 }
 
 function schluesselKarte() {
@@ -3589,6 +3610,7 @@ document.addEventListener('click', (ev) => {
         : einrichtungsLink(new URL('../', location.href).href, { repo: C.repo, token, name });
       zeichne(); break;
     }
+    case 'qrHolen': qr.holen = el.dataset.w; zeichne(); break;
     case 'qrAus': qr = { name: qr.name, token: '', link: '', art: qr.art }; zeichne(); break;
     case 'elternScan': elternScan(); break;
     case 'elternScanText': {

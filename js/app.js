@@ -10,7 +10,7 @@ import * as GF from './gefaerbt.js';
 import { THEMA_NAMEN, GEN_NAMEN, FEHLER_NAMEN } from './namen.js';
 import * as P from './paket.js';
 import * as B from './bloecke.js';
-import { einrichtungLesen } from './einrichtung.js';
+import { einrichtungLesen, imHandyBrowser, ERST_HOME } from './einrichtung.js';
 import { kristallmineStarten } from './kristallmine-ui.js';
 import { steinschieberStarten } from './steinschieber-ui.js';
 import { runenfallStarten } from './runenfall-ui.js';
@@ -41,7 +41,7 @@ import { allesNeuLaden } from './neuladen.js';
 import * as TW from './themenwahl.js';
 import * as TWU from './themenwahl-ui.js';
 
-export const APP_VERSION = '2.59.2';
+export const APP_VERSION = '2.59.3';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Abschicken, Formelsammlung. Testgeräte laden keine Messung hoch.
 M.init({ app: 'mathe', version: APP_VERSION });
 
@@ -205,8 +205,10 @@ export async function starten() {
   zeigeStart();
   M.sichtbar();
   M.hochladenMit(() => { const u = S.upload; return S.einstellungen.name && !u.testgeraet && !u.testAls && u.repo && u.token && S.geraetId ? { U, cfg: u, ordner: nutzerOrdner(), geraet: S.geraetId } : null; });
-  if (ausLink) einrichten(ausLink, 'link');
+  if (ausLink && imHandyBrowser()) oeffneModal(`<div class="hinweis-text"><h2 class="modal-titel">Erst auf den Home-Bildschirm</h2>${ERST_HOME}<div class="knopf-reihe"><button class="btn btn-haupt" data-act="modalZu">OK</button></div><button class="btn-text klein" data-act="linkImBrowser">Doch hier im Browser einrichten</button></div>`), linkImBrowser = ausLink;
+  else if (ausLink) einrichten(ausLink, 'link');
 }
+let linkImBrowser = null;
 
 // ============ Einrichtung per QR-Code ============
 
@@ -1861,6 +1863,13 @@ function twLaden() {
       TWD = TW.datenVon(t);
       KC = (k.aufgaben || []).filter(a => a.zweck === 'kurzpruefung' && a.teilschritt);
       S.tw = TW.norm(S.tw, (S.twRegeln || {}).vorbelegung || {}, TWD);
+      // 24.11.: Klassenarbeit mit dem Datum des Eintragens (iPhone setzt beim Antippen heute ein) war nie gemeint
+      const kaAlt = S.tw.klassenarbeiten.filter(k => k.rueckmeldung == null && k.eingetragen && k.datum <= L.tagKey(new Date(k.eingetragen)));
+      if (kaAlt.length) {
+        S.tw.klassenarbeiten = S.tw.klassenarbeiten.filter(k => !kaAlt.includes(k));
+        for (const k of kaAlt) protokoll(S, 'klassenarbeit', { aktion: 'entfernt', datum: k.datum, thema: k.thema, grund: 'datum_beim_eintragen' });
+        TW.geaendert(S.tw); sichern();
+      }
       TWU.init(twCtx());
       return true;
     }).catch(() => { twLaedt = null; return false; });
@@ -6508,6 +6517,7 @@ function klick(e) {
       if (!d || d.art !== 'kind') { const i = document.getElementById('scan-info'); if (i) i.textContent = 'Der Link ist nicht richtig. Bitte den ganzen Link aus der Eltern-App einfügen.'; break; }
       scannerStoppen(); schliesseModal(); einrichten(d, 'text'); break;
     }
+    case 'linkImBrowser': { const d = linkImBrowser; linkImBrowser = null; schliesseModal(); if (d) einrichten(d, 'link_browser'); break; }
     case 'einrichtenNameJa': { const d = einrichtenWartet; einrichtenWartet = null; schliesseModal(); if (d) einrichten(d, 'bestaetigt'); break; }
     case 'standSichernJetzt':
       el.textContent = 'Wird gesichert …';

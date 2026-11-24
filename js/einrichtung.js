@@ -70,3 +70,15 @@ export async function kameraScan(video, jsqrUrl, beiText) {
   requestAnimationFrame(runde);
   return stopp;
 }
+
+// 24.11.: Mit der Kamera-App gescannt öffnet sich der Link im Browser (Safari). Dort eingerichtet, kennt die App
+// auf dem Home-Bildschirm den Schlüssel nicht (eigener Speicher), und der Schlüssel steht im Browser-Verlauf.
+// Auf Handys deshalb erst zum Home-Bildschirm hinzufügen und dort in der App scannen.
+export function imHandyBrowser() {
+  try {
+    const home = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+    return !home && window.matchMedia('(pointer: coarse)').matches;
+  } catch (e) { return false; }
+}
+export const ERST_HOME = `<p>Der Code wurde im Browser geöffnet. Der Schlüssel wird hier <b>nicht</b> gespeichert.</p>
+  <ol><li>Unten auf „Teilen“ tippen, dann „Zum Home-Bildschirm“.</li><li>Die App auf dem Home-Bildschirm öffnen.</li><li>Dort „Mit QR-Code einrichten“ antippen und den Code noch einmal scannen.</li></ol>`;

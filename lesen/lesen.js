@@ -9,13 +9,13 @@ import * as K from '../js/kasse.js';
 import * as BS from '../js/bildschirm.js';
 import { kasseAblauf } from '../js/kasse-ablauf.js';
 import { bildschirmBild } from '../js/bildschirm-bild.js';
-import { einrichtungLesen, kameraScan } from '../js/einrichtung.js';
+import { einrichtungLesen, kameraScan, imHandyBrowser, ERST_HOME } from '../js/einrichtung.js';
 import { esc, sechseck } from '../js/render.js';
 import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 import { allesNeuLaden } from '../js/neuladen.js';
 
-export const LESE_VERSION = '0.13.2';
+export const LESE_VERSION = '0.13.3';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Inhalt, Abschicken. Testgeräte laden keine Messung hoch.
 M.init({ app: 'lesen', version: LESE_VERSION });
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
@@ -989,6 +989,11 @@ async function versionPruefen() {
 // Auftrag 66: Karte vom letzten Mal nicht zu Ende gespielt
 if (S.laufend) abbruch(S.laufend.hintergrund ? 'hintergrund' : 'app_neu');
 // Start: Einrichtungs-Link in der Adresse (Kamera-App) übernehmen
-if (einrichtungLesen(location.hash)) einrichten(location.hash);
+if (einrichtungLesen(location.hash) && imHandyBrowser()) {
+  // 24.11.: im Handy-Browser nicht einrichten (Schlüssel bliebe im Browser, nicht in der App auf dem Home-Bildschirm)
+  const roh = location.hash; history.replaceState(null, '', location.pathname);
+  zeigeStart(); M.sichtbar();
+  modal(`<div class="hinweis-text"><h2 class="modal-titel">Erst auf den Home-Bildschirm</h2>${ERST_HOME}<button class="knopf" data-act="modalZu">OK</button></div>`);
+} else if (einrichtungLesen(location.hash)) einrichten(location.hash);
 else { zeigeStart(); versionPruefen(); if (INH || !offen() || !inhaltLaedt) M.sichtbar(); else inhaltLaedt.then(() => M.sichtbar(), () => M.sichtbar()); }
 setInterval(() => { if (!document.hidden) syncen(); }, 10 * 60 * 1000);
