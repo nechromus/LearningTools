@@ -36,12 +36,13 @@ import * as FB from './feedback.js';
 import { ANLEITUNGEN } from './anleitungen.js';
 import { spielVorschau } from './spielbilder.js';
 import { spielstandAus, spielstandKern, spielstandAnwenden, istFrisch, neuesKind } from './store.js';
+import * as Z from './zusammen.js';
 import { laden, speichern, protokoll, protokollBeobachten, tagAktualisieren, dauerhaftSpeichernAnfragen, hatSpeicherFehler, speicherInfo } from './store.js';
 import { allesNeuLaden } from './neuladen.js';
 import * as TW from './themenwahl.js';
 import * as TWU from './themenwahl-ui.js';
 
-export const APP_VERSION = '2.61.0';
+export const APP_VERSION = '2.62.0';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Abschicken, Formelsammlung. Testgeräte laden keine Messung hoch.
 M.init({ app: 'mathe', version: APP_VERSION });
 
@@ -573,11 +574,54 @@ async function standAbgleich(erzwingen = false) {
   u.standOnline = { gespeichert: datei.gespeichert, geraetId: datei.geraetId };
   if (eigeneFassung(datei)) { u.standWartet = false; sichern(); return false; }
   if (revVon(datei) > (u.standRev || 0) || (!u.standRev && istFrisch(S))) {
+    if (mehrGeraete() && zusammenMoeglich()) return standZusammen(datei);
     if (!ruhigeAnsicht()) { u.standWartet = true; sichern(); return false; }
     return standUebernehmen(datei, 'server-neuer');
   }
   sichern();
   return false;
+}
+
+// Mehrere Geräte (25.11., Schalter werte.mehrgeraete): Beide Stände zusammenführen statt „Server gewinnt“ (js/zusammen.js).
+// Nur wenn dieses Gerät seit dem letzten Abgleich etwas geändert hat; sonst einfach übernehmen.
+// Nicht während eines Spiels (dessen Feld liegt im Spielstand), sonst jederzeit, auch während einer Aufgabe.
+const mehrGeraete = () => bed('mehrgeraete');
+const zusammenMoeglich = () => ruhigeAnsicht() || ansicht === 'aufgabe' || /^tw/.test(String(ansicht || ''));
+function standZusammen(datei) {
+  const u = S.upload;
+  let basis = null;
+  try { basis = u.standKern ? JSON.parse(u.standKern).zustand : null; } catch (e) { basis = null; }
+  const kern = spielstandKern(S);
+  if (!basis || kern === u.standKern) {
+    if (!ruhigeAnsicht() && ansicht !== 'aufgabe') { u.standWartet = true; sichern(); return false; }
+    return standUebernehmen(datei, 'server-neuer');
+  }
+  const lokal = spielstandAus(S).zustand;
+  const { zustand, konflikte } = Z.zusammenfuehren(basis, lokal, datei.zustand || {});
+  const neu = {};
+  for (const k of Object.keys(zustand)) if (JSON.stringify(zustand[k]) !== JSON.stringify(lokal[k])) neu[k] = zustand[k];
+  const lokaleCodes = (S.bildschirm && S.bildschirm.gesendet) || [];
+  if (Object.keys(neu).length) spielstandAnwenden(S, { ...datei, zustand: neu, einstellungen: null });
+  const weg = BS.schonGesendetPruefen(bzKonto(), lokaleCodes);
+  if (weg) protokoll(S, 'bildschirm_korrigiert', { ...weg, rev: revVon(datei) });
+  kasseStand();
+  u.standRev = revVon(datei);
+  u.standKern = JSON.stringify({ zustand: datei.zustand, einstellungen: datei.einstellungen }); // Basis = Server; der zusammengeführte Stand geht gleich hoch
+  u.standOnline = { gespeichert: datei.gespeichert, geraetId: datei.geraetId };
+  u.standWartet = false;
+  protokoll(S, 'spielstand_zusammen', { von: datei.geraetId, rev: u.standRev, felder: Object.keys(neu), konflikte: konflikte.length, ...(konflikte.length ? { pfade: konflikte.slice(0, 20) } : {}) });
+  sichern();
+  if (ansicht === 'start') zeigeStart();
+  standNochmal = true;
+  setTimeout(() => standHochladen(true), 0);
+  return true;
+}
+// Nach jeder fertigen Aufgabe kurz danach hochladen und vor jeder neuen Aufgabe nachsehen (nur mit Schalter)
+let standBaldT = null;
+function standBald() {
+  if (!mehrGeraete()) return;
+  clearTimeout(standBaldT);
+  standBaldT = setTimeout(() => standHochladen().catch(() => {}), 3000);
 }
 
 // Spielstand hochladen, wenn sich etwas geändert hat. Vorher prüfen, ob der Server eine neuere Fassung hat –
@@ -605,6 +649,7 @@ async function standHochladen(erzwingen = false) {
     const server = await U.dateiLesen(u, standPfad());
     u.standGeprueft = true;
     if (server && revVon(server) > (u.standRev || 0) && !eigeneFassung(server)) {
+      if (mehrGeraete() && zusammenMoeglich()) { standLaeuft = false; standZusammen(server); return false; }
       if (ruhigeAnsicht()) standUebernehmen(server, 'server-neuer');
       else u.standWartet = true;
       return false;
@@ -2678,6 +2723,7 @@ function neueAufgabe() {
     zeigeAufgabe();
     return;
   }
+  if (mehrGeraete()) standAbgleich().catch(() => {}); // anderes Gerät? (höchstens alle 20 s)
   const fokus = testFokus();
   let kategorie, aufgabe, wdh = 0, bonusWdh = false, ausgleich = false, wpInfo = null, nachLoesung = null, nachLoesungSchritt = null;
   if (!fokus) { wpEingriffeMelden(); wpPlanIst('tag'); }
@@ -4677,6 +4723,7 @@ function abschliessen() {
     ...(a.modus === 'knobeln' ? { knobeln: true, schritte: !!A.schritteAn } : {}), ...(a.fach ? { fach: a.fach } : {}), ...(A.wp ? { wp: A.wp } : {}),
     ...(A.gesuchtModus ? { gesucht_modus: A.gesuchtModus } : {}), ...(fsAufgabe(a) ? { formelsammlung: A.fsAnzahl || 0, ...(A.notfall ? { notfall: true } : {}) } : {})
   });
+  standBald();
   if (A.wp > 0) {
     const grund = a.modus === 'knobeln' ? (A.schritteAn ? 'schritte' : 'knobeln') : 'aufgabe';
     S.wissen = SZ.wissenPlus(SZ.wissenVon(S.wissen), A.wp, grund, a.id);

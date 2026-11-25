@@ -31,7 +31,7 @@ import * as LL from '../lesen/lesen-logik.js';
 import { allesNeuLaden } from '../js/neuladen.js';
 import * as TWE from './themenwahl-eltern.js';
 
-export const ELTERN_VERSION = '1.79.0';
+export const ELTERN_VERSION = '1.80.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
