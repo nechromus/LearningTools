@@ -1344,3 +1344,33 @@ body:has(.aufgabe-screen.bz-warm) { background: #FAF1DE; }
 .fach-inhalt p { margin: 0 0 10px; }
 .fach-inhalt .modal-titel { margin-right: 0; }
 .werkzeug-leiste .wz-hw.an { background: #E3F1EF; color: var(--teal-dunkel); border-width: 3px; }
+
+/* Breiter Bildschirm (Mac, Wunsch Vater 25.11.): Aufgabe links, rechts Werkzeuge, Hilfe und Tastatur bzw. Rechner zugleich.
+   Die Seite ist genau so hoch wie das Fenster; links und rechts scrollen getrennt. */
+.tw-seite { display: contents; }
+@media (min-width: 1100px) and (orientation: landscape) {
+  .aufgabe-screen, .aufgabe-screen.mit-uf { max-width: 1320px; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(400px, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr); column-gap: 28px; row-gap: 12px; align-items: stretch; align-content: stretch;
+    height: calc(100dvh / var(--zoom, 1)); min-height: 0; overflow: hidden; padding: calc(env(safe-area-inset-top, 0px) + 12px) 32px 16px; }
+  .aufgabe-screen > *, .aufgabe-screen.mit-uf > * { grid-column: 1 / -1; }
+  .aufgabe-screen > .aufgabe-inhalt, .aufgabe-screen.mit-uf > .aufgabe-inhalt { grid-column: 1; grid-row: 4; min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 12px; }
+  .aufgabe-screen > .eingabe-bereich, .aufgabe-screen.mit-uf > .eingabe-bereich { grid-column: 2; grid-row: 4; position: static; margin: 0; padding: 0 0 4px; box-shadow: none;
+    min-height: 0; max-height: none; overflow-y: auto; overscroll-behavior: contain; background: transparent; display: flex; flex-direction: column; }
+  body.sz #app .aufgabe-screen > .eingabe-bereich { background: transparent; }
+  .aufgabe-screen > .eingabe-bereich > * { flex: none; }
+  .aufgabe-screen .werkzeug-leiste { flex-wrap: wrap; }
+  .aufgabe-screen > .eingabe-bereich > .fach { flex: 0 1 auto; min-height: 180px; display: flex; flex-direction: column; margin: 0 0 12px; border-radius: 14px; box-shadow: none; border: 1.5px solid var(--teal); border-top-width: 3px; padding: 0 14px; }
+  .aufgabe-screen .fach-inhalt { max-height: none; flex: 1 1 auto; min-height: 0; }
+  .aufgabe-screen .aufgabe .frage { font-size: 1.1em; }
+  .aufgabe-screen .tastatur .taste { min-height: 58px; }
+  .aufgabe-screen .rechner-panel .r-taste { height: 42px; }
+  .aufgabe-screen .rechner-panel .rechner-tasten { gap: 5px; }
+  /* Start mit Themenwahl: rechts der Tag */
+  .tw-screen { max-width: 1000px; display: grid; grid-template-columns: minmax(0, 1fr) 340px; column-gap: 24px; row-gap: 10px; align-content: start; padding-left: 32px; padding-right: 32px; }
+  .tw-screen > * { grid-column: 1; }
+  .tw-screen > .logo { grid-column: 1 / -1; }
+  .tw-screen > .tw-seite { display: flex; flex-direction: column; gap: 10px; grid-column: 2; grid-row: 2 / span 7; align-self: start; }
+  .tw-seite .tw-mini { flex-direction: column; align-items: flex-start; padding: 16px; gap: 12px; }
+  .tw-seite .tw-mini > svg { width: 120px; height: 120px; align-self: center; }
+  .tw-seite .tw-mini > .sz-matt:last-child { display: none; }
+}

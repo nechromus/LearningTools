@@ -42,7 +42,7 @@ import { allesNeuLaden } from './neuladen.js';
 import * as TW from './themenwahl.js';
 import * as TWU from './themenwahl-ui.js';
 
-export const APP_VERSION = '2.62.0';
+export const APP_VERSION = '2.63.0';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Abschicken, Formelsammlung. Testgeräte laden keine Messung hoch.
 M.init({ app: 'mathe', version: APP_VERSION });
 
@@ -196,6 +196,7 @@ export async function starten() {
   });
   document.addEventListener('visibilitychange', sichtbarkeit);
   document.addEventListener('keydown', taste);
+  if (BREIT_MQ) { const neu = () => { if (ansicht === 'aufgabe' && A) zeigeAufgabe(); }; BREIT_MQ.addEventListener ? BREIT_MQ.addEventListener('change', neu) : BREIT_MQ.addListener(neu); }
   setInterval(spielTick, 1000);
   setInterval(uebungTick, 5000);
   setInterval(() => { if (ansicht === 'start') zeigeStart(); }, 30000);
@@ -3237,7 +3238,7 @@ function zeigeAufgabe() {
       ${A.meldung && A.phase === 'eingabe' && !(A.uf && !A.fertig) && !tippInKarte ? `<div class="meldung${A.meldung === SCHNELL_TIPP ? ' schnell' : ''}">${meldungHtml()}</div>` : ''}
       ${A.fertig ? ergebnisHtml() : ''}
     </main>
-    <footer class="eingabe-bereich">${werkzeugLeiste()}${fachOffen() && !fach.klein && !A.rechnerOffen ? fachHtml() : fussHtml()}</footer>
+    <footer class="eingabe-bereich">${werkzeugLeiste()}${fussInhalt()}</footer>
   </div>`;
   const aktiv = document.querySelector('.teil.aktiv');
   // Umformen: Tastatur fest am unteren Rand, darüber so viel Platz, dass sich jedes Feld über sie scrollen lässt
@@ -3250,7 +3251,7 @@ function zeigeAufgabe() {
     // Die Tastatur klebt unten: der aktive Schritt soll über ihr stehen, nicht dahinter
     aktiv.scrollIntoView({ block: 'nearest' });
     const fuss = document.querySelector('.aufgabe-screen > .eingabe-bereich');
-    if (fuss && fuss.offsetHeight && getComputedStyle(fuss).position === 'sticky') {
+    if (fuss && fuss.offsetHeight && getComputedStyle(fuss).position === 'sticky' && !breit()) {
       const r = aktiv.getBoundingClientRect(), oben = fuss.getBoundingClientRect().top;
       const mehr = Math.min(r.bottom + 12 - oben, r.top - 12);
       if (mehr > 0) window.scrollBy(0, mehr);
@@ -4848,7 +4849,7 @@ let fach = null;   // { html, titel, id (Aufgabe) }
 function zeigeHilfe(html, titel) {
   if (ansicht === 'aufgabe' && A && !A.fertig) {
     fach = { html, titel: titel || 'Hilfe', id: A.aufgabe.id, klein: false };
-    A.rechnerOffen = false;
+    if (!breit()) A.rechnerOffen = false;
     schliesseModal();
     zeigeAufgabe();
     const box = document.querySelector('.fach-inhalt'); if (box) box.scrollTop = 0;
@@ -4877,20 +4878,29 @@ function werkzeugLeiste() {
   const fs = fsAufgabe(a) && fsDa();
   const hw = fs && a.thema !== 'prozent-formel' ? [] : (a.hinweise || []).filter(id => HMAP[id]);
   if (!r && !fs && !hw.length) return '';
-  const fachAn = fachOffen() && !fach.klein && !A.rechnerOffen;
+  const b = breit();
+  const fachAn = fachOffen() && !fach.klein && (b || !A.rechnerOffen);
   const offenTitel = fachOffen() ? fach.titel : null;
   const tipp = A.meldung && A.phase === 'tipp';
   const t = aktuellerTeil();
   const fsLeuchten = A.fsEinladung || (t && t.versuche && t.versuche.some(v => !v.richtig));
   const knopf = (an, act, inhalt, extra = '') => `<button class="wz${an ? ' an' : ''}${extra}" data-act="${act}">${inhalt}</button>`;
   return `<div class="werkzeug-leiste">
-    ${knopf(!A.rechnerOffen && !fachAn, 'wzTippen', '⌨ Tippen')}
+    ${knopf(!A.rechnerOffen && (b || !fachAn), 'wzTippen', '⌨ Tippen')}
     ${r ? knopf(A.rechnerOffen, A.rechnerOffen ? 'wzTippen' : r, `${RECHNER_ICON} Rechner${rechnerKosten()}`) : ''}
-    ${hw.map(id => { const h = HMAP[id], auf = offenTitel === h.titel; return `<button class="wz wz-hw${fachAn && auf ? ' an' : ''}${auf && !fachAn ? ' merk' : ''}${tipp ? ' pulsieren' : ''}" data-act="${auf ? 'fachAuf' : 'hinweis'}" data-id="${id}" aria-label="Hinweis ${esc(h.titel)}">${hinweisIcon(h, 26)}</button>`; }).join('')}
-    ${fs ? knopf(fachAn && offenTitel === 'Formelsammlung', offenTitel === 'Formelsammlung' ? 'fachAuf' : 'fsOeffnen', '▤ Formeln', `${fsLeuchten ? ' leuchten' : ''}${offenTitel === 'Formelsammlung' && !fachAn ? ' merk' : ''}`) : ''}
+    ${hw.map(id => { const h = HMAP[id], auf = offenTitel === h.titel; return `<button class="wz wz-hw${fachAn && auf ? ' an' : ''}${auf && !fachAn ? ' merk' : ''}${tipp ? ' pulsieren' : ''}" data-act="${auf ? (b && fachAn ? 'fachWeg' : 'fachAuf') : 'hinweis'}" data-id="${id}" aria-label="Hinweis ${esc(h.titel)}">${hinweisIcon(h, 26)}</button>`; }).join('')}
+    ${fs ? knopf(fachAn && offenTitel === 'Formelsammlung', offenTitel === 'Formelsammlung' ? (b && fachAn ? 'fachWeg' : 'fachAuf') : 'fsOeffnen', '▤ Formeln', `${fsLeuchten ? ' leuchten' : ''}${offenTitel === 'Formelsammlung' && !fachAn ? ' merk' : ''}`) : ''}
   </div>`;
 }
 const fachOffen = () => !!(fach && A && !A.fertig && fach.id === A.aufgabe.id);
+// Breiter Bildschirm (Mac, Wunsch Vater 25.11.): Aufgabe links, rechts Hilfe und Tastatur bzw. Rechner gleichzeitig
+const BREIT_MQ = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(min-width: 1100px) and (orientation: landscape)') : null;
+const breit = () => !!(BREIT_MQ && BREIT_MQ.matches);
+function fussInhalt() {
+  const auf = fachOffen() && !fach.klein;
+  if (breit()) return (auf ? fachHtml() : '') + fussHtml();
+  return auf && !A.rechnerOffen ? fachHtml() : fussHtml();
+}
 const fachHtml = () => `<section class="fach"><div class="fach-kopf"><span class="fach-titel">${esc(fach.titel)}</span><button class="fach-weg" data-act="fachWeg" aria-label="Hilfe schließen">✕</button></div><div class="fach-inhalt">${fach.html}</div></section>`;
 
 function hinweisOeffnen(id) {
@@ -4951,7 +4961,7 @@ function rechnerAngeboten(a) { return L.rechnerAnbieten(a) && S.einstellungen.re
 function rechnerOeffnen() {
   if (!A.rechner) A.rechner = { ausdruck: '', ergebnis: null };
   A.rechnerOffen = true;
-  if (fach) fach.klein = true;
+  if (fach && !breit()) fach.klein = true;
   protokoll(S, 'rechner_offen', { id: A.aufgabe.id, teil: A.idx });
   zeigeAufgabe();
 }
@@ -5029,6 +5039,23 @@ function rechnerTaste(k) {
     else { r.hoch = false; r.ausdruck += k === 'x²' ? '²' : k === 'x³' ? '³' : /^(sin|cos|tan)/.test(k) ? k + '(' : k; }
   }
   rechnerAnzeigeAktualisieren();
+}
+
+// Echte Tastatur im Rechner: Enter rechnet, noch einmal Enter trägt ein, dann gibt Enter die Antwort
+function rechnerTastaturTaste(e) {
+  const r = A.rechner, t = aktuellerTeil();
+  if (!t || t.art === 'zuordnung') return false;
+  const k = e.key;
+  const m = { '+': '+', '-': '−', '*': '×', 'x': '×', '/': '÷', ':': '÷', '(': '(', ')': ')', ',': ',', '.': ',', '^': 'xⁿ', 'Backspace': '⌫', 'Delete': 'C', 'Escape': 'C', '=': '=' };
+  if (/^[0-9]$/.test(k)) { rechnerTaste(k); return true; }
+  if (m[k]) { rechnerTaste(m[k]); return true; }
+  if (k === 'Enter') {
+    if (r.ausdruck && r.ergebnis == null) rechnerTaste('=');
+    else if (rechnerWert() != null && t.art === 'zahl') rechnerUebernehmen();
+    else antwortGeben();
+    return true;
+  }
+  return false;
 }
 
 function rechnerUebernehmen() {
@@ -5379,6 +5406,16 @@ function taste(e) {
     const m = { ArrowLeft: 'links', ArrowRight: 'rechts', ArrowUp: 'hoch', ArrowDown: 'runter' }[e.key];
     if (m) { e.preventDefault(); zug(m); }
   } else if (ansicht === 'aufgabe' && A && !A.fertig && !$modal.classList.contains('offen')) {
+    if (e.metaKey || e.ctrlKey || e.altKey || (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))) return;
+    // Mac (25.11.): R öffnet und schließt den Rechner; ist er offen, tippt die Tastatur in den Rechner
+    if ((e.key === 'r' || e.key === 'R') && A.phase === 'eingabe') {
+      const act = rechnerAct();
+      if (A.rechnerOffen) { e.preventDefault(); A.rechnerOffen = false; zeigeAufgabe(); }
+      else if (act === 'rAufklappen') { e.preventDefault(); A.rechnerOffen = true; if (fach && !breit()) fach.klein = true; zeigeAufgabe(); }
+      else if (act === 'rechner') { e.preventDefault(); rechnerOeffnen(); }
+      return;
+    }
+    if (A.rechnerOffen && A.rechner && A.phase === 'eingabe' && rechnerTastaturTaste(e)) { e.preventDefault(); return; }
     if (/^[0-9]$/.test(e.key)) tastatur(e.key);
     else if (e.key === 'Backspace') tastatur('⌫');
     else if (e.key === '-') tastatur('−');
@@ -6472,8 +6509,8 @@ function klick(e) {
     case 'fsUebersicht': fsZeigen(null); break;
     case 'fsAnheften': fsAnheften(el.dataset.k, Number(el.dataset.i)); break;
     case 'fsLoesen': fsLoesen(); break;
-    case 'wzTippen': A.rechnerOffen = false; if (fach) fach.klein = true; zeigeAufgabe(); break;
-    case 'fachAuf': if (fach) fach.klein = false; A.rechnerOffen = false; zeigeAufgabe(); break;
+    case 'wzTippen': A.rechnerOffen = false; if (fach && !breit()) fach.klein = true; zeigeAufgabe(); break;
+    case 'fachAuf': if (fach) fach.klein = false; if (!breit()) A.rechnerOffen = false; zeigeAufgabe(); break;
     case 'fachWeg': fach = null; zeigeAufgabe(); break;
     case 'fsSeite': fsSeiteZeigen(Number(el.dataset.n)); break;
     case 'fsZoom': fsZoom(Number(el.dataset.d)); break;
@@ -6524,7 +6561,7 @@ function klick(e) {
     case 'rTaste': rechnerTaste(el.dataset.k); break;
     case 'rUebernehmen': rechnerUebernehmen(); break;
     case 'rEinklappen': A.rechnerOffen = false; zeigeAufgabe(); break;
-    case 'rAufklappen': A.rechnerOffen = true; if (fach) fach.klein = true; zeigeAufgabe(); break;
+    case 'rAufklappen': A.rechnerOffen = true; if (fach && !breit()) fach.klein = true; zeigeAufgabe(); break;
     case 'zuoSlot': zuoAuswahl(Number(el.dataset.g), el.dataset.s); break;
     case 'zuoWahl': zuoWaehlen(Number(el.dataset.g), el.dataset.s, Number(el.dataset.o)); break;
     case 'modalZu': schliesseModal(); break;
