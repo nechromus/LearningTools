@@ -1534,8 +1534,17 @@ export function teilschrittAufgabe(a) {
 export const LESEZEIT_MS = 3000;
 export const leseAuswahl = (a, label) => !!a && ((['zylinder', 'kegel', 'pyramide', 'kugel'].includes(a.thema) && /gesucht|^Welche (Höhe|Länge)|^Volumen oder/i.test(String(label || '')))
   || (istTrig(a) && TRIG_LESE.test(String(label || ''))));
-// Auftrag 72: Lesezeit bei sin, cos, tan
-export const TRIG_LESE = /^(Welche zwei Seiten|sin, cos oder tan\?|Welche Taste|Was tippst du zuerst)/;
+// Auftrag 72: Lesezeit bei sin, cos, tan; Auftrag 75: auch „Was ist gesucht?“, „x oben oder unten?“, „Was tippst du?“ und trig-weg Stufe 1 („Zeile N“)
+export const TRIG_LESE = /^(Welche zwei Seiten|sin, cos oder tan\?|Welche Taste|Was tippst du|Was ist gesucht\?$|x oben oder unten\?|Zeile \d+$)/;
+// Hinweis bei zu schneller falscher Wahl (sin, cos, tan)
+export function trigLeseTipp(label) {
+  const l = String(label || '');
+  if (/^Welche Taste/.test(l)) return 'Lies noch einmal: Ist ein Winkel oder eine Seite gesucht? Schau ins Bild.';
+  if (/^Was ist gesucht\?/.test(l)) return 'Lies noch einmal: Wo steht das Fragezeichen – am Winkel oder an einer Seite?';
+  if (/^x oben oder unten|^Was tippst du\?$/.test(l)) return 'Lies noch einmal: Steht x oben oder unten im Bruch?';
+  if (/^Zeile \d/.test(l)) return 'Lies alle drei Zeilen, bevor du tippst.';
+  return 'Lies noch einmal: Welche Seiten sind gegeben? Schau ins Bild.';
+}
 // Signalwörter im Text markieren (nach mathe(), nur im Text außerhalb von Tags)
 const SIGNAL = ['auch Boden und Deckel', 'mit Deckel und Boden', 'Deckel und Boden', 'Boden und Deckel', 'ohne Boden', 'ohne Deckel', 'passt hinein', 'passen hinein', 'rund herum', 'rundherum',
   'gerade nach unten', 'hinein', 'herum', 'füllt', 'gefüllt', 'füllen', 'Inhalt', 'fasst', 'außen', 'ganze', 'ganz', 'Folie', 'Etikett', 'Leder', 'Holz', 'Wachs', 'Boden', 'Deckel', 'beklebt', 'bekleben', 'bemalt', 'bemalen', 'anmalen', 'angemalt', 'streicht', 'Papier', 'Stoff', 'Pappe', 'Blech', 'Farbe', 'Wasser', 'Sand', 'Luft', 'schräg'];

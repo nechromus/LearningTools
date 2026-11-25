@@ -42,7 +42,7 @@ import { allesNeuLaden } from './neuladen.js';
 import * as TW from './themenwahl.js';
 import * as TWU from './themenwahl-ui.js';
 
-export const APP_VERSION = '2.63.0';
+export const APP_VERSION = '2.64.0';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Abschicken, Formelsammlung. Testgeräte laden keine Messung hoch.
 M.init({ app: 'mathe', version: APP_VERSION });
 
@@ -4035,7 +4035,10 @@ function teileHtml() {
           const aus = A.phase !== 'eingabe' || t.versuche.some(v => v.eingabe === String(k) || v.eingabe === o);
           return `<button class="wahl-btn weg-wahl" data-act="wahl" data-k="${k}" ${aus ? 'disabled' : ''}>${mathe(o)}</button>`;
         }).join('');
-        inhalt = `<div class="weg-zeile weg-offen"><span class="weg-nr">${q.zeile}</span><span class="weg-text">…</span></div><div class="teil-label weg-frage"><span><b>${esc(q.anzeige || t.label)}</b></span></div><div class="wahl-reihe wahl-spalte">${knoepfe}</div>`;
+        // Auftrag 75: Lesezeit auch hier (Hinweis und Sperre wie bei den anderen Auswahl-Schritten)
+        const rest = A.phase === 'eingabe' && t.lesenBis ? t.lesenBis - Date.now() : 0;
+        const leseTipp = t.leseSchnell && A.phase === 'eingabe' ? `<div class="lese-tipp">${esc(L.trigLeseTipp(t.label))}</div>` : '';
+        inhalt = `<div class="weg-zeile weg-offen"><span class="weg-nr">${q.zeile}</span><span class="weg-text">…</span></div><div class="teil-label weg-frage"><span><b>${esc(q.anzeige || t.label)}</b></span></div>${leseTipp}<div class="wahl-reihe wahl-spalte${rest > 0 ? ' lesen' : ''}"${rest > 0 ? ` style="--lese-ms:${Math.round(rest)}ms"` : ''}>${knoepfe}</div>`;
       }
     } else if (t.art === 'wahl' && t.detektiv) {
       const dAus = (k) => (A.phase === 'eingabe' && !t.versuche.some(v => v.eingabe === k) ? '' : 'disabled');
@@ -4053,7 +4056,7 @@ function teileHtml() {
       const rest = aktiv && A.phase === 'eingabe' && t.lesenBis ? t.lesenBis - Date.now() : 0;
       const frageMarkiert = a.frage && L.signalMarkieren(mathe(a.frage));
       const leseTipp = aktiv && t.leseSchnell && A.phase === 'eingabe'
-        ? L.istTrig(a) ? `<div class="lese-tipp">${esc(/^Welche Taste/.test(t.label || '') ? 'Lies noch einmal: Ist ein Winkel oder eine Seite gesucht?' : 'Lies noch einmal: Welche Seiten sind gegeben?')} Schau ins Bild.</div>`
+        ? L.istTrig(a) ? `<div class="lese-tipp">${esc(L.trigLeseTipp(t.label))}</div>`
         : `<div class="lese-tipp">${esc(LESE_TIPP)}${frageMarkiert && frageMarkiert.includes('<mark') ? `<div class="lese-frage">${frageMarkiert}</div>` : ' Die wichtigen Wörter sind oben markiert.'}</div>` : '';
       inhalt = `<div class="teil-label">${nr}<span><b>${mathe(t.anzeige || t.label)}</b></span></div>${leseTipp}${aktiv ? fsPinHtml() : ''}<div class="wahl-reihe${t.spalte || t.seitenSchritt || /wahl-text lang/.test(knoepfe) || L.KOERPER_THEMEN.includes(a.thema) || a.thema === 'formelsammlung' ? ' wahl-spalte' : ''}${rest > 0 ? ' lesen' : ''}"${rest > 0 ? ` style="--lese-ms:${Math.round(rest)}ms"` : ''}>${knoepfe}</div>`;
     } else if (t.art === 'zuordnung') {
