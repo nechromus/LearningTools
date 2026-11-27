@@ -279,3 +279,8 @@ body.archiv[data-style="tv"] .modal-box .btn:not(.btn-haupt) { color: #1E2A2B; }
 .archiv .les .fb .fb-frei span { display: block; font: 600 16px 'Atkinson Hyperlegible', system-ui, sans-serif; color: var(--s-fg); margin-bottom: 6px; }
 .archiv .les .fb .fb-frei textarea { width: 100%; box-sizing: border-box; font: 18px 'Atkinson Hyperlegible', system-ui, sans-serif; padding: 10px 12px; border-radius: 10px; border: 2px solid var(--s-rand, #9aa); background: #fff; color: #1E2A2B; resize: vertical; }
 .archiv .les .fb .fb-senden { text-align: center; font-weight: 700; margin-top: 10px; }
+/* Auftrag 76: Lesezeit nach einem Fehler */
+.archiv .les .zu-schnell { background: #FFF4D6; color: #1E2A2B; border: 2px solid #B26A00; border-radius: 12px; padding: 10px 12px; margin: 8px 0 10px; font-size: 16px; line-height: 1.4; }
+.archiv .les .ant.gesperrt { opacity: .55; }
+@media (prefers-reduced-motion: no-preference) { .archiv .les .zu-schnell.sperre { animation: zs-ein .25s ease-out; } }
+@keyframes zs-ein { from { transform: translateY(-4px); opacity: 0; } to { transform: none; opacity: 1; } }

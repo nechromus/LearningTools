@@ -15,7 +15,7 @@ import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 import { allesNeuLaden } from '../js/neuladen.js';
 
-export const LESE_VERSION = '0.13.3';
+export const LESE_VERSION = '0.14.0';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Inhalt, Abschicken. Testgeräte laden keine Messung hoch.
 M.init({ app: 'lesen', version: LESE_VERSION });
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
@@ -437,9 +437,38 @@ function gelesenBeobachten() {
   }, { threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 1] });
   document.querySelectorAll('[data-abs]').forEach(el => absBeob.observe(el));
 }
+// Auftrag 76: Lesezeit nach einem Fehler (2./3. Versuch, Zwischenfragen der Leiter).
+// Eine falsche Antwort in den ersten 3 s ab dem Zeigen zählt nicht; Hinweis über den Antworten, dann 3 s Sperre für falsche Antworten.
+// Tippen in der Sperre wird nicht protokolliert und verlängert sie nicht. Eine richtige Antwort zählt immer. Je Schritt nur einmal.
+function zuSchnellWo() {
+  if (A.phase === 'frage' && A.versuch >= 2) return 'versuch' + A.versuch;
+  if (A.phase === 'leiter1' || A.phase === 'leiter2') return 'zf' + (A.zfNr + 1);
+  return null;
+}
+function zuSchnellPruefen(richtig, gewaehlt) {
+  const wo = zuSchnellWo();
+  if (!wo || richtig) return false;
+  if (A.sperreBis && A.sperreWo === wo) return Date.now() < A.sperreBis; // in der Sperre: nichts protokollieren
+  const ms = Date.now() - A.gezeigt;
+  if (ms >= KL.SCHNELL_MS) return false;
+  A.sperreWo = wo; A.sperreBis = Date.now() + KL.SCHNELL_MS;
+  protokoll('lese_zu_schnell', { karte: A.nr, wo, gewaehlt, ms });
+  zeigeKarte();
+  setTimeout(() => { if (A && A.sperreWo === wo && ansicht === 'karte') zeigeKarte(); }, KL.SCHNELL_MS + 50);
+  return true;
+}
+function zuSchnellHtml(wo, q) {
+  if (!A.sperreBis || A.sperreWo !== wo) return '';
+  const zu = Date.now() < A.sperreBis;
+  const text = wo === 'versuch2' ? `<b>Lies den Hinweis noch einmal. Dann wähle.</b>${A.hinweis ? `<br>${esc(A.hinweis)}` : ''}`
+    : wo === 'versuch3' ? `<b>Lies den Merksatz noch einmal. Dann wähle.</b><br>${esc(q.merksatz || '')}`
+    : wo === 'zf1' ? '<b>Lies den markierten Absatz noch einmal.</b>' : '<b>Lies den markierten Satz noch einmal.</b>';
+  return `<div class="zu-schnell${zu ? ' sperre' : ''}" role="status">${text}</div>`;
+}
 function frageTeil(q, t) {
   const b = q.beleg[0] + 1;
-  const ant = (liste, act) => liste.map(a => `<button class="ant" data-act="${act}" data-id="${a.id}">${esc(a.t)}</button>`).join('');
+  const wo = zuSchnellWo(), gesperrt = !!(wo && A.sperreWo === wo && A.sperreBis && Date.now() < A.sperreBis);
+  const ant = (liste, act) => `${zuSchnellHtml(wo, q)}${liste.map(a => `<button class="ant${gesperrt ? ' gesperrt' : ''}" data-act="${act}" data-id="${a.id}">${esc(a.t)}</button>`).join('')}`;
   const frage = `${A.imText > 1 ? `<div class="frage-nr" data-ziel>Frage ${A.imText} zum Text</div>` : ''}<div class="fr"${A.imText > 1 ? '' : ' data-ziel'}>${esc(q.frage)}</div>`;
   switch (A.phase) {
     case 'frage':
@@ -450,7 +479,8 @@ function frageTeil(q, t) {
       return `${frage}<div class="blatt nn" data-ziel><div class="t nn">Noch nicht.</div><p>${esc(A.hinweis)}</p>${/\bLies\b/.test(A.hinweis) ? '' : `<p><b>Lies Absatz ${b} noch einmal.</b></p>`}<div class="ruhe"><i id="stopp-balken"></i></div><button class="weiter" data-act="verstanden" id="stopp-weiter" disabled>Weiter</button></div>`;
     case 'leiter1': case 'leiter2': {
       const zf = q.zf[A.zfNr];
-      const opts = KL.mischen([{ id: 'ja', t: zf.richtig }, { id: 'nein', t: zf.falsch }]);
+      if (!A.zfOpts || A.zfOpts.nr !== A.zfNr) A.zfOpts = { nr: A.zfNr, liste: KL.mischen([{ id: 'ja', t: zf.richtig }, { id: 'nein', t: zf.falsch }]) };
+      const opts = A.zfOpts.liste;
       return `${frage}<div class="blatt" data-ziel><div class="t">${A.phase === 'leiter1' ? 'Wir suchen zusammen.' : 'Lies den markierten Satz.'}</div>${A.phase === 'leiter1' ? `<p>${esc(q.eingrenzen)}</p>` : ''}<p><b>${esc(zf.frage)}</b></p>${ant(opts, 'zf')}</div>`;
     }
     case 'leiterHinweis':
@@ -531,6 +561,7 @@ function antworten(id) {
   const q = INH.fragen[A.frage];
   const a = A.zug.find(x => x.id === id);
   if (!a) return;
+  if (zuSchnellPruefen(a.richtig, id)) return;
   const ms = Date.now() - A.gezeigt;
   A.antwortGegeben = true;
   if (A.versuch === 1 && !A.gelesenGeloggt) {
@@ -557,6 +588,7 @@ function naechsterVersuch(abstand) {
 }
 function zfAntwort(ok) {
   const zf = INH.fragen[A.frage].zf[A.zfNr];
+  if (zuSchnellPruefen(ok, ok ? 'ja' : 'nein')) return;
   protokoll('lese_zf', { karte: A.nr, nr: A.zfNr + 1, richtig: ok, ms: Date.now() - A.gezeigt });
   if (ok) { A.phase = 'merksatz'; return zeigeKarte(); }
   if (A.zfNr === 0) { A.phase = 'leiterHinweis'; return zeigeKarte(); }

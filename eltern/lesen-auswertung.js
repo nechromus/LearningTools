@@ -14,8 +14,8 @@ export function leseAuswertung(eintraege, { ab = null, bis = null, tagVon = (t) 
   const liste = (eintraege || []).filter(e => e && e.t && String(e.typ || '').startsWith('lese_') && (!ab || tagVon(e.t) >= ab) && (!bis || tagVon(e.t) <= bis))
     .sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
   const r = { karten: 0, folge: { n: 0, voll: 0 }, ergebnis: { voll: 0, hinweis: 0, leiter: 0, aufloesung: 0 }, lohnSek: 0, sekunden: 0, schnell: 0, ersteVersuche: 0, ersteSchnell: 0,
-    typen: {}, stufen: {}, stories: {}, nachgeschlagen: {}, zurueck: 0, wuensche: [], tage: {}, letzte: null, falsch: {}, falschN: 0, tagSchnell: {}, abbruch: 0, dauern: [], beleg: { n: 0, erst: 0 }, gelesen: { n: 0, belegGesehen: 0 } };
-  const ts = (e) => { const k = tagVon(e.t); return r.tagSchnell[k] || (r.tagSchnell[k] = { erste: 0, schnell: 0, stopp: 0 }); };
+    typen: {}, stufen: {}, stories: {}, nachgeschlagen: {}, zurueck: 0, wuensche: [], tage: {}, letzte: null, falsch: {}, falschN: 0, tagSchnell: {}, zuSchnell: 0, abbruch: 0, dauern: [], beleg: { n: 0, erst: 0 }, gelesen: { n: 0, belegGesehen: 0 } };
+  const ts = (e) => { const k = tagVon(e.t); return r.tagSchnell[k] || (r.tagSchnell[k] = { erste: 0, schnell: 0, stopp: 0, zuSchnell: 0 }); };
   const start = {};                         // geraet|karte → lese_karte_start
   let letzteStory = null;
   for (const e of liste) {
@@ -27,6 +27,8 @@ export function leseAuswertung(eintraege, { ab = null, bis = null, tagVon = (t) 
         if (e.richtig === false) { const ft = e.fehlertyp || 'ohne Typ'; r.falsch[ft] = (r.falsch[ft] || 0) + 1; r.falschN++; }
         break;
       case 'lese_lesestopp': r.schnell++; ts(e).stopp++; break;
+      // Auftrag 76 (Archiv 0.14.0): falsche Antwort nach einem Fehler in unter 3 s, zählt nicht als Versuch
+      case 'lese_zu_schnell': r.zuSchnell++; ts(e).zuSchnell++; break;
       case 'lese_nachschlagen': r.nachgeschlagen[e.wort] = (r.nachgeschlagen[e.wort] || 0) + 1; break;
       case 'lese_zurueckgelegt': r.zurueck++; break;
       case 'lese_karte_abbruch': r.abbruch++; break;
@@ -93,7 +95,7 @@ export function leseVerlauf(eintraege, { tagVon = (t) => String(t).slice(0, 10) 
   for (const e of liste) {
     if (e.typ === 'lese_karte_start') {
       const k = { id: `${e.geraet || ''}-${e.karte}`, geraet: e.geraet || '', nr: e.karte, start: e, t: e.t, tag: tagVon(e.t), frage: e.frage, text: e.text, story: e.story,
-        ereignisse: [e], versuche: [], zf: [], beleg: [], leiter: [], nachgeschlagen: [], hintergrundMs: 0, lesestopp: 0, aufloesung: false, zurueckgelegt: false, wiederkehr: null, ende: null, abbruch: null };
+        ereignisse: [e], versuche: [], zf: [], beleg: [], leiter: [], nachgeschlagen: [], hintergrundMs: 0, lesestopp: 0, zuSchnell: 0, aufloesung: false, zurueckgelegt: false, wiederkehr: null, ende: null, abbruch: null };
       karten[`${e.geraet || ''}|${e.karte}`] = k; reihe.push(k);
       continue;
     }
@@ -107,6 +109,7 @@ export function leseVerlauf(eintraege, { tagVon = (t) => String(t).slice(0, 10) 
       case 'lese_beleg': k.beleg.push(e); break;
       case 'lese_leiter': k.leiter.push(e.stufe); break;
       case 'lese_lesestopp': k.lesestopp++; break;
+      case 'lese_zu_schnell': k.zuSchnell++; break;
       case 'lese_aufloesung': k.aufloesung = true; break;
       case 'lese_nachschlagen': k.nachgeschlagen.push(e.wort); break;
       case 'lese_hintergrund': k.hintergrundMs += e.ms || 0; break;
@@ -121,12 +124,12 @@ export function leseVerlauf(eintraege, { tagVon = (t) => String(t).slice(0, 10) 
     k.ergebnis = k.ende ? k.ende.ergebnis : k.abbruch ? 'abbruch' : 'offen';
     k.sekunden = k.ende ? k.ende.sekunden || 0 : k.abbruch ? k.abbruch.sekunden || 0 : 0;
     const d = tage[k.tag] || (tage[k.tag] = { tag: k.tag, karten: [], fertig: 0, ergebnis: { voll: 0, hinweis: 0, leiter: 0, aufloesung: 0 }, abbruch: 0, offen: 0,
-      lohnSek: 0, sekunden: 0, ersteVersuche: 0, ersteSchnell: 0, lesestopp: 0, falsch: {}, falschN: 0 });
+      lohnSek: 0, sekunden: 0, ersteVersuche: 0, ersteSchnell: 0, lesestopp: 0, zuSchnell: 0, falsch: {}, falschN: 0 });
     d.karten.push(k);
     if (k.ende) { d.fertig++; if (k.ende.ergebnis in d.ergebnis) d.ergebnis[k.ende.ergebnis]++; d.lohnSek += k.ende.lohn || 0; }
     else if (k.abbruch) d.abbruch++; else d.offen++;
     d.sekunden += k.sekunden;
-    d.lesestopp += k.lesestopp;
+    d.lesestopp += k.lesestopp; d.zuSchnell += k.zuSchnell;
     for (const v of k.versuche) {
       if (v.versuch === 1) { d.ersteVersuche++; if (v.ms < 3000) d.ersteSchnell++; }
       if (!v.richtig) { const ft = v.fehlertyp || 'ohne Typ'; d.falsch[ft] = (d.falsch[ft] || 0) + 1; d.falschN++; }
@@ -276,6 +279,15 @@ export function leseAblauf(k, q, t) {
         r.push({ art: 'beleg', t: e.t, titel: `Beleg: Absatz ${e.absatz + 1}`, ok: !!e.richtig, zusatz: e.richtig ? 'richtig' : (b ? `richtig wäre Absatz ${b}` : 'falsch'), klein: true });
         if (!e.richtig) r.push({ art: 'hinweis', titel: e.versuch >= 2 ? 'Hinweis, Absatz jetzt markiert' : 'Hinweis: „Noch nicht.“', text: wortlaut ? q.belegHinweis : null });
         break;
+      case 'lese_zu_schnell': {
+        if (e.wo === 'versuch3' && leiterAktiv && !merkGezeigt && wortlaut && q.merksatz) { r.push({ art: 'merk', titel: 'Merk dir', text: q.merksatz }); merkGezeigt = true; }
+        const wo = { versuch2: '2. Antwort', versuch3: '3. Antwort', zf1: 'Zwischenfrage 1', zf2: 'Zwischenfrage 2' }[e.wo] || e.wo;
+        const zfI = e.wo === 'zf1' ? 0 : e.wo === 'zf2' ? 1 : null;
+        const zf = zfI != null && wortlaut && q.zf ? q.zf[zfI] : null;
+        const text = zf ? `„${e.gewaehlt === 'ja' ? zf.richtig : zf.falsch}“` : (wortlaut && zfI == null ? (antwortText(q, e.gewaehlt) ? `„${antwortText(q, e.gewaehlt)}“` : null) : null);
+        r.push({ art: 'stopp', t: e.t, titel: `Zu schnell: ${wo} falsch nach ${sek(e.ms || 0)}, zählt nicht`, text, zusatz: 'Hinweis „Lies … noch einmal“, dann 3 s warten', klein: true });
+        break;
+      }
       case 'lese_hintergrund':
         r.push({ art: 'weg', t: e.t, titel: `${sek(e.ms || 0)} in einer anderen App`, klein: true });
         break;

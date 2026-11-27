@@ -31,7 +31,7 @@ import * as LL from '../lesen/lesen-logik.js';
 import { allesNeuLaden } from '../js/neuladen.js';
 import * as TWE from './themenwahl-eltern.js';
 
-export const ELTERN_VERSION = '1.80.0';
+export const ELTERN_VERSION = '1.81.0';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -2570,9 +2570,9 @@ function lesenSeite() {
   const schnellKarte = Object.keys(sch).length ? `<section class="karte"><div class="karte-kopf"><h2>Schnelle Antworten</h2><span class="klein gedaempft">1. Antworten unter 3 s · 14 Tage</span></div>
     <div class="lr-diagramm" role="img" aria-label="Anteil schneller erster Antworten je Tag">
       <span class="lr-linie" style="bottom:${LA.MARKER.raten * 100}%"><span>${LA.MARKER.raten * 100} %</span></span>
-      ${t14.map(t => { const d = sch[t]; const q = d && d.erste ? d.schnell / d.erste : 0; return `<span class="lr-tag${t === L.tagKey() ? ' heute' : ''}" title="${tagLang(t)}: ${d ? `${d.schnell} von ${d.erste} unter 3 s, ${d.stopp} Lesestopp${d.stopp === 1 ? '' : 's'}` : 'nicht gelesen'}">${d && d.erste ? `<span class="lr-zahl">${Math.round(q * 100)}</span>` : ''}<i style="height:${Math.round(q * 100)}%"></i>${d && d.stopp ? `<span class="lr-stopp">${d.stopp}</span>` : ''}<span class="ml-wt">${new Date(t + 'T12:00').toLocaleDateString('de-DE', { weekday: 'narrow' })}</span></span>`; }).join('')}
+      ${t14.map(t => { const d = sch[t]; const q = d && d.erste ? d.schnell / d.erste : 0; return `<span class="lr-tag${t === L.tagKey() ? ' heute' : ''}" title="${tagLang(t)}: ${d ? `${d.schnell} von ${d.erste} unter 3 s, ${d.stopp} Lesestopp${d.stopp === 1 ? '' : 's'}, ${d.zuSchnell || 0}-mal nach einem Fehler zu schnell` : 'nicht gelesen'}">${d && d.erste ? `<span class="lr-zahl">${Math.round(q * 100)}</span>` : ''}<i style="height:${Math.round(q * 100)}%"></i>${d && d.stopp ? `<span class="lr-stopp">${d.stopp}</span>` : ''}${d && d.zuSchnell ? `<span class="lr-zs">${d.zuSchnell}</span>` : ''}<span class="ml-wt">${new Date(t + 'T12:00').toLocaleDateString('de-DE', { weekday: 'narrow' })}</span></span>`; }).join('')}
     </div>
-    <p class="klein gedaempft">Balken: Anteil der 1. Antworten unter 3 s. Zahl unten: Lesestopps an dem Tag. Linie: ab hier steht „Viele schnelle Antworten“ auf „Heute“.</p></section>` : '';
+    <p class="klein gedaempft">Balken: Anteil der 1. Antworten unter 3 s. Zahl unten: Lesestopps an dem Tag${Object.values(sch).some(d => d.zuSchnell) ? '. <span class="lr-zs-leg">Blaue Zahl</span>: nach einem Fehler zu schnell falsch getippt (2./3. Antwort, Zwischenfrage; zählt nicht als Versuch)' : ''}. Linie: ab hier steht „Viele schnelle Antworten“ auf „Heute“.</p></section>` : '';
   const falsch = Object.entries(r.falsch).sort((a, b) => b[1] - a[1]);
   const falschKarte = falsch.length ? `<section class="karte liste-karte"><div class="karte-kopf"><h2>Falsche Antworten nach Art</h2><span class="klein gedaempft">7 Tage · ${r.falschN}</span></div>
     ${falsch.map(([ft, n]) => `<div class="themen-zeile lz-typ"><span class="themen-name">${esc(ft)}</span><span class="lz-balken"><i style="width:${pz(n, r.falschN)}%"></i></span><span class="themen-quote">${pz(n, r.falschN)} %</span><span class="themen-info">${n}</span></div>`).join('')}</section>` : '';
