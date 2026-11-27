@@ -31,7 +31,7 @@ import * as LL from '../lesen/lesen-logik.js';
 import { allesNeuLaden } from '../js/neuladen.js';
 import * as TWE from './themenwahl-eltern.js';
 
-export const ELTERN_VERSION = '1.81.0';
+export const ELTERN_VERSION = '1.81.1';
 const KEY = 'eltern-v1';
 const MIN_APP = '1.4.0'; // ab dieser Version übernimmt die Übungs-App Einstellungen aus der Ferne
 
@@ -2640,7 +2640,7 @@ function bzKarte() {
   return `<section class="karte liste-karte bz-liste">
     <div class="karte-kopf"><h2>Bildschirmzeit</h2></div>
     <div class="bz-zeile"><div><b>Heute</b><span class="klein gedaempft block">verdient ${A.minutenText(heute)} von ${w.max + w.extraMin} Min.</span></div></div>
-    ${liste.slice(0, 10).map(e => `<div class="bz-zeile"><div><b>${esc(zeitText(e.t))}</b><span class="klein gedaempft block">${A.minutenText(e.sekunden)} · ${e.aufgaben} ${e.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}${e.lesen > 0 ? ` · ${e.lesekarten || 0} ${e.lesekarten === 1 ? 'Lesekarte' : 'Lesekarten'}` : ''}</span>${e.lesen > 0 ? `<span class="klein gedaempft block">Mathe ${A.minutenText(e.mathe || 0)} · Lesen ${A.minutenText(e.lesen)}</span>` : ''}${e.doppelt ? `<span class="klein block bz-doppelt">⚠ Code schon am ${esc(zeitText(e.doppelt))} abgeschickt. Neu sind nur ${A.minutenText(e.neuSek)} (${e.neuAufgaben} ${e.neuAufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}).</span>` : ''}</div><span class="bz-code">${esc(e.code || '–')}</span></div>`).join('')}
+    ${liste.slice(0, 10).map(e => `<div class="bz-zeile"><div><b>${esc(zeitText(e.t))}</b><span class="klein gedaempft block">${A.minutenText(e.sekunden)} · ${e.aufgaben} ${e.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}${e.lesen > 0 ? ` · ${e.folgen ? `${e.folgen} ${e.folgen === 1 ? 'Folge' : 'Folgen'} · ` : ''}${e.lesekarten || 0} ${e.lesekarten === 1 ? 'Frage' : 'Fragen'}` : ''}</span>${e.lesen > 0 ? `<span class="klein gedaempft block">Mathe ${A.minutenText(e.mathe || 0)} · Lesen ${A.minutenText(e.lesen)}</span>` : ''}${e.doppelt ? `<span class="klein block bz-doppelt">⚠ Code schon am ${esc(zeitText(e.doppelt))} abgeschickt. Neu sind nur ${A.minutenText(e.neuSek)} (${e.neuAufgaben} ${e.neuAufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}).</span>` : ''}</div><span class="bz-code">${esc(e.code || '–')}</span></div>`).join('')}
     ${liste.length ? '<p class="klein gedaempft">Stimmt der Code in der Nachricht mit dem hier überein, ist die Anfrage echt.</p>' : ''}
   </section>`;
 }

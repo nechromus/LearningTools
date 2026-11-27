@@ -25,10 +25,11 @@ export function tagVon(t, tag) {
 
 // Lohn einer Lesekarte buchen (Sekunden vor dem Faktor). Höchstens bis zur Lese-Grenze. Gibt { plus, voll } zurück.
 // Auch eine Karte ohne Lohn zählt als Lesekarte (für „Heute gelesen“ und die Nachricht).
-export function verdienen(kasse, tag, sek, regeln, { ms = 0, t } = {}) {
+// neueFolge: die erste fertige Karte zu einem Text zählt als gelesene Folge (Bildschirmzeit-Nachricht: „Folgen · Fragen“)
+export function verdienen(kasse, tag, sek, regeln, { ms = 0, t, neueFolge = false } = {}) {
   const rest = Math.max(0, grenzeSek(regeln, tag.tag) - tag.sek);
   const plus = Math.min(rest, Math.round(Math.max(0, sek) * regeln.faktor));
-  K.buchen(kasse, { sek: plus, a: 1, ms, ...(t ? { t } : {}) });
+  K.buchen(kasse, { sek: plus, a: 1, ms, ...(neueFolge ? { f: 1 } : {}), ...(t ? { t } : {}) });
   tag.sek += plus; tag.karten += 1;
   return { plus, voll: tag.sek >= grenzeSek(regeln, tag.tag) };
 }

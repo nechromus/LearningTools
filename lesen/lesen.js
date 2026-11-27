@@ -15,7 +15,7 @@ import * as LL from './lesen-logik.js';
 import * as KL from './karte-logik.js';
 import { allesNeuLaden } from '../js/neuladen.js';
 
-export const LESE_VERSION = '0.14.0';
+export const LESE_VERSION = '0.15.0';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Inhalt, Abschicken. Testgeräte laden keine Messung hoch.
 M.init({ app: 'lesen', version: LESE_VERSION });
 const KEY = 'archiv-v1', LOG_KEY = 'archiv-v1-log';
@@ -613,7 +613,7 @@ function karteFertig() {
   const k = kasse();
   const roh = KL.lohnSek(A.ergebnis, A.belegHinweis);
   const vorher = heute().sek;
-  const g = k ? LL.verdienen(k, heute(), roh, R(), { ms }) : { plus: 0, voll: false };
+  const g = k ? LL.verdienen(k, heute(), roh, R(), { ms, neueFolge: !f.gelesen[A.text] }) : { plus: 0, voll: false };
   A.lohnPlus = g.plus; A.vollJetzt = g.voll && vorher < LL.grenzeSek(R(), heute().tag);
   f.gelesen[A.text] = true;
   // Auftrag 67: Geschichte fertig, wenn die letzte Folge mit voll, hinweis oder leiter endet (Tag merken)
@@ -728,7 +728,7 @@ function glossarZeigen(w, el) {
 let bzBild = null, bzGeschickt = null, bzGeoeffnet = 0;
 function resDaten() {
   const r = S.kasse && S.kasse.res;
-  return r ? { stand: r.sek, aufgaben: r.aufgaben || 0, ms: r.uebung_ms || 0, msVoll: true, code: r.code, teile: { mathe: r.mathe || 0, lesen: r.lesen || 0, karten: r.lesekarten || 0 } } : null;
+  return r ? { stand: r.sek, aufgaben: r.aufgaben || 0, ms: r.uebung_ms || 0, msVoll: true, code: r.code, teile: { mathe: r.mathe || 0, lesen: r.lesen || 0, karten: r.lesekarten || 0, folgen: r.folgen || 0 } } : null;
 }
 function zeigeAbschicken() {
   bodyStyle(null);
@@ -754,10 +754,10 @@ function zeigeAbschicken() {
   const res = resDaten(), jetzt = new Date();
   const fertig = res && res.stand >= ab;
   bzBild = null;
-  if (fertig) bildschirmBild({ sekunden: res.stand, aufgaben: res.aufgaben, code: res.code, name: S.name, geuebt: BS.geuebtText(res), teile: BS.teileText(res.teile), karten: res.teile.karten, fuss: 'Archiv der Welten' }, jetzt).then(f => { bzBild = f; });
+  if (fertig) bildschirmBild({ sekunden: res.stand, aufgaben: res.aufgaben, code: res.code, name: S.name, geuebt: BS.geuebtText(res), teile: BS.teileText(res.teile), karten: res.teile.karten, folgen: res.teile.folgen, fuss: 'Archiv der Welten' }, jetzt).then(f => { bzBild = f; });
   const teile = fertig && res.teile.lesen > 0 && res.teile.mathe > 0
     ? `<div class="bz-teile"><div><b>${minTxt(res.teile.mathe)}</b><span>aus Mathe</span></div><div><b>${minTxt(res.teile.lesen)}</b><span>aus Lesen</span></div></div>` : '';
-  const zeilen = fertig ? [res.aufgaben ? `${res.aufgaben} ${res.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}` : '', res.teile.karten ? `${res.teile.karten} ${res.teile.karten === 1 ? 'Lesekarte' : 'Lesekarten'}` : ''].filter(Boolean).join(' · ') : '';
+  const zeilen = fertig ? [res.aufgaben ? `${res.aufgaben} ${res.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}` : '', BS.leseText(res.teile.karten, res.teile.folgen)].filter(Boolean).join(' · ') : '';
   let unten;
   if (fertig) unten = `
     <p class="gedaempft bz-mitte">${esc(BS.zeitpunktText(jetzt))} Uhr${zeilen ? '<br>' + zeilen : ''}${BS.geuebtText(res) ? '<br>' + esc(BS.geuebtText(res)) : ''}</p>
@@ -811,7 +811,7 @@ function nachfragen(mitBild) {
 function abgeschickt(mitBild, bestaetigt = false) {
   const res = test() ? (() => { const r = S.kasse.res; S.kasse.res = null; sichern(); return r; })() : ablauf.geteilt();
   if (!res) return;
-  protokoll('bildschirmzeit', { sekunden: res.sek, aufgaben: res.aufgaben || 0, lesekarten: res.lesekarten || 0, code: res.code, mathe: res.mathe || 0, lesen: res.lesen || 0, ...(res.uebung_ms ? { uebung_ms: res.uebung_ms } : {}), kasse: true, bild: !!mitBild, ...(bestaetigt ? { bestaetigt: true } : {}) });
+  protokoll('bildschirmzeit', { sekunden: res.sek, aufgaben: res.aufgaben || 0, lesekarten: res.lesekarten || 0, folgen: res.folgen || 0, code: res.code, mathe: res.mathe || 0, lesen: res.lesen || 0, ...(res.uebung_ms ? { uebung_ms: res.uebung_ms } : {}), kasse: true, bild: !!mitBild, ...(bestaetigt ? { bestaetigt: true } : {}) });
   syncen();
   bzGeschickt = { sek: res.sek };
   zeigeAbschicken();

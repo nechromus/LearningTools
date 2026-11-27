@@ -226,9 +226,15 @@ export function geuebtText(konto) {
 export function teileText(teile) {
   return teile && teile.lesen > 0 && teile.mathe > 0 ? `Mathe ${minText(teile.mathe || 0)} · Lesen ${minText(teile.lesen)}` : '';
 }
+// Lesen (Wunsch Vater 27.11.): „2 Folgen · 5 Fragen“ statt „5 Lesekarten“ (eine Lesekarte ist eine Frage; Folgen = Texte, die dabei zum ersten Mal gelesen wurden)
+export function leseText(karten, folgen = 0) {
+  const k = karten || 0, f = folgen || 0;
+  if (!k) return '';
+  return `${f ? `${f} ${f === 1 ? 'Folge' : 'Folgen'} · ` : ''}${k} ${k === 1 ? 'Frage' : 'Fragen'}`;
+}
 export function nachrichtText(konto, jetzt, teile = null) {
   const a = konto.aufgaben, g = geuebtText(konto), t = teileText(teile), kn = (teile && teile.karten) || 0;
-  return `📺 Bildschirmzeit: ${minText(konto.stand)}\n${t ? t + '\n' : ''}${zeitpunktText(jetzt)} · ${a} ${a === 1 ? 'Aufgabe' : 'Aufgaben'}${kn ? ` · ${kn} ${kn === 1 ? 'Lesekarte' : 'Lesekarten'}` : ''}${g ? ' · ' + g : ''}\nCode: ${konto.code}`;
+  return `📺 Bildschirmzeit: ${minText(konto.stand)}\n${t ? t + '\n' : ''}${zeitpunktText(jetzt)} · ${a} ${a === 1 ? 'Aufgabe' : 'Aufgaben'}${kn ? ` · ${leseText(kn, teile.folgen)}` : ''}${g ? ' · ' + g : ''}\nCode: ${konto.code}`;
 }
 
 // Nach dem Teilen: Konto auf 0, Eintrag für das Protokoll zurückgeben

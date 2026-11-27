@@ -42,7 +42,7 @@ import { allesNeuLaden } from './neuladen.js';
 import * as TW from './themenwahl.js';
 import * as TWU from './themenwahl-ui.js';
 
-export const APP_VERSION = '2.64.0';
+export const APP_VERSION = '2.64.1';
 // Messpunkte Ladezeit (21.11.): Start, Hochladen, Abschicken, Formelsammlung. Testgeräte laden keine Messung hoch.
 M.init({ app: 'mathe', version: APP_VERSION });
 
@@ -1641,7 +1641,7 @@ let bzResGeoeffnet = 0;
 function bzResDaten() {
   const r = S.kasse && S.kasse.res;
   if (!r) return null;
-  return { stand: r.sek, aufgaben: r.aufgaben || 0, ms: r.uebung_ms || 0, msVoll: true, code: r.code, teile: { mathe: r.mathe || 0, lesen: r.lesen || 0, karten: r.lesekarten || 0 } };
+  return { stand: r.sek, aufgaben: r.aufgaben || 0, ms: r.uebung_ms || 0, msVoll: true, code: r.code, teile: { mathe: r.mathe || 0, lesen: r.lesen || 0, karten: r.lesekarten || 0, folgen: r.folgen || 0 } };
 }
 function zeigeBildschirmzeitKasse() {
   const k = bzKonto(), r = BZ();
@@ -1651,14 +1651,14 @@ function zeigeBildschirmzeitKasse() {
   const jetzt = new Date();
   const bereit = res && res.stand >= BS.abSek(r);
   bzBildDatei = null;
-  if (bereit) bildschirmBild({ sekunden: res.stand, aufgaben: res.aufgaben, code: res.code, name: S.einstellungen.name || '', geuebt: BS.geuebtText(res), teile: BS.teileText(res.teile), karten: res.teile.karten }, jetzt).then(f => { bzBildDatei = f; });
+  if (bereit) bildschirmBild({ sekunden: res.stand, aufgaben: res.aufgaben, code: res.code, name: S.einstellungen.name || '', geuebt: BS.geuebtText(res), teile: BS.teileText(res.teile), karten: res.teile.karten, folgen: res.teile.folgen }, jetzt).then(f => { bzBildDatei = f; });
   const zeig = bereit ? res : k;
   const teile = bereit && res.teile.lesen > 0
     ? `<div class="bz-teile"><div><b>${BS.minText(res.teile.mathe)}</b><span>aus Mathe</span></div><div><b>${BS.minText(res.teile.lesen)}</b><span>aus Lesen</span></div></div>` : '';
   const mehr = bereit && k.stand > res.stand + 30 ? `<p class="gedaempft bz-mitte">Dazu kommen gleich noch ${BS.minText(k.stand - res.stand)}.</p>` : '';
   let unten;
   if (bereit) unten = `
-    <p class="gedaempft bz-mitte">${esc(BS.zeitpunktText(jetzt))} Uhr<br>${res.aufgaben} ${res.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}${res.teile.karten ? ` · ${res.teile.karten} ${res.teile.karten === 1 ? 'Lesekarte' : 'Lesekarten'}` : ' geschafft'}${BS.geuebtText(res) ? '<br>' + esc(BS.geuebtText(res)) : ''}</p>
+    <p class="gedaempft bz-mitte">${esc(BS.zeitpunktText(jetzt))} Uhr<br>${res.aufgaben} ${res.aufgaben === 1 ? 'Aufgabe' : 'Aufgaben'}${res.teile.karten ? ` · ${BS.leseText(res.teile.karten, res.teile.folgen)}` : ' geschafft'}${BS.geuebtText(res) ? '<br>' + esc(BS.geuebtText(res)) : ''}</p>
     <div><p class="gedaempft bz-mitte bz-code-label">Dein Code</p><div class="bz-code">${esc(res.code.split('').join(' '))}</div></div>
     <button class="btn btn-bz btn-gross" data-act="bzTeilen">Teilen</button>
     <p class="gedaempft bz-mitte">Schick die Nachricht an deine Eltern.<br>Danach steht hier wieder 0.</p>${mehr}
@@ -1734,7 +1734,7 @@ function bzAbgeschicktKasse(mitBild, bestaetigt) {
   if (!res) return;
   const konto = bzKonto();
   protokoll(S, 'bildschirmzeit', { sekunden: res.sek, aufgaben: res.aufgaben || 0, code: res.code, ...(res.uebung_ms ? { uebung_ms: res.uebung_ms } : {}),
-    mathe: res.mathe || 0, lesen: res.lesen || 0, ...(res.lesekarten ? { lesekarten: res.lesekarten } : {}), kasse: true,
+    mathe: res.mathe || 0, lesen: res.lesen || 0, ...(res.lesekarten ? { lesekarten: res.lesekarten, folgen: res.folgen || 0 } : {}), kasse: true,
     faktor: BZ().faktor, bild: !!mitBild, ...(bestaetigt ? { bestaetigt: true } : {}) });
   kb.melden = [...kb.melden, res.code];
   konto.gesendet = [...(konto.gesendet || []), res.code].slice(-20);

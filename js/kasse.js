@@ -2,7 +2,8 @@
 //
 // Idee: Jede App (Mathe, später Lesen) auf jedem Handy ist eine „Quelle“. Sie bucht ihre verdiente Zeit nur in ihre eigene
 // Datei daten/<name>/konto/<quelle>.json (ein Schreiber je Datei, nie überschrieben mit weniger). Die Datei enthält
-// laufende Summen (kum = Sekunden, kumA = Aufgaben bzw. Lesekarten, kumMs = Übungszeit) seit Beginn des Kassenbuchs.
+// laufende Summen (kum = Sekunden, kumA = Aufgaben bzw. Lesekarten (= Fragen), kumMs = Übungszeit, kumF = neu gelesene Folgen
+// (nur Lesen, seit Archiv 0.15.0)) seit Beginn des Kassenbuchs.
 // Abschicken schreibt eine Auszahlung in daten/<name>/konto/auszahlungen.json: Code, je Quelle der Bereich bis zur
 // aktuellen Summe, und „bezahlt“ je Quelle. Diese Datei wird nur geschrieben, wenn sie seit dem Lesen unverändert ist
 // (sha bei GitHub). Offen ist je Quelle kum − bezahlt. So kann dieselbe Zeit nie zweimal ausgezahlt werden.
@@ -16,7 +17,8 @@ export const FORMAT_AUSZAHLUNGEN = 'konto-auszahlungen-1';
 export const ORDNER = 'konto';
 export const LISTE_MAX = 300;
 const zahl = (v) => (Number.isFinite(v) && v > 0 ? Math.round(v) : 0);
-const summen = (x) => ({ kum: zahl(x && x.kum), kumA: zahl(x && x.kumA), kumMs: zahl(x && x.kumMs) });
+const summen = (x) => ({ kum: zahl(x && x.kum), kumA: zahl(x && x.kumA), kumMs: zahl(x && x.kumMs), ...(zahl(x && x.kumF) ? { kumF: zahl(x.kumF) } : {}) });
+const kf = (x) => zahl(x && x.kumF);
 
 export const quelleId = (app, geraet) => `${app}-${geraet}`;
 export const quellPfad = (ordner, quelle) => `daten/${ordner}/${ORDNER}/${quelle}.json`;
@@ -43,19 +45,20 @@ export function kasseVon(k) {
   };
 }
 
-// Eine Buchung: sek Bildschirmzeit, a Aufgaben (bzw. Lesekarten), ms Übungszeit (je Aufgabe höchstens 10 Min.)
-export function buchen(k, { sek, a = 1, ms = 0, t = new Date().toISOString(), art }) {
-  const s = zahl(sek), aa = zahl(a), m = art === 'uebertrag' ? zahl(ms) : Math.min(zahl(ms), 10 * 60 * 1000);
+// Eine Buchung: sek Bildschirmzeit, a Aufgaben (bzw. Lesekarten), ms Übungszeit (je Aufgabe höchstens 10 Min.), f neu gelesene Folgen (Lesen)
+export function buchen(k, { sek, a = 1, ms = 0, f = 0, t = new Date().toISOString(), art }) {
+  const s = zahl(sek), aa = zahl(a), m = art === 'uebertrag' ? zahl(ms) : Math.min(zahl(ms), 10 * 60 * 1000), ff = zahl(f);
   if (!s && !aa) return null;
   k.n += 1; k.kum += s; k.kumA += aa; k.kumMs += m;
-  const b = { n: k.n, t, sek: s, ...(aa !== 1 ? { a: aa } : {}), ...(m ? { ms: m } : {}), ...(art ? { art } : {}) };
+  if (ff) k.kumF = kf(k) + ff;
+  const b = { n: k.n, t, sek: s, ...(aa !== 1 ? { a: aa } : {}), ...(m ? { ms: m } : {}), ...(ff ? { f: ff } : {}), ...(art ? { art } : {}) };
   k.letzte = [...(k.letzte || []), b].slice(-30);
   return b;
 }
 
 // Inhalt der eigenen Quell-Datei
 export function quellDatei(k, geraet, heute, t = new Date().toISOString()) {
-  return { format: FORMAT_QUELLE, app: k.app, geraet, quelle: k.quelle, n: k.n, kum: k.kum, kumA: k.kumA, kumMs: k.kumMs,
+  return { format: FORMAT_QUELLE, app: k.app, geraet, quelle: k.quelle, n: k.n, kum: k.kum, kumA: k.kumA, kumMs: k.kumMs, ...(kf(k) ? { kumF: kf(k) } : {}),
     ...(heute ? { heute } : {}), geaendert: t, letzte: k.letzte };
 }
 // Darf die eigene Datei auf dem Server überschrieben werden? Nie mit weniger Buchungen.
@@ -84,11 +87,12 @@ export function offen(quellen, bezahlt) {
   let sek = 0;
   for (const [id, q] of Object.entries(quellen)) {
     const b = summen(bezahlt && bezahlt[id]);
-    const t = { app: q.app, sek: Math.max(0, q.kum - b.kum), a: Math.max(0, q.kumA - b.kumA), ms: Math.max(0, q.kumMs - b.kumMs), bis: summen(q) };
+    const f = Math.max(0, kf(q) - kf(b));
+    const t = { app: q.app, sek: Math.max(0, q.kum - b.kum), a: Math.max(0, q.kumA - b.kumA), ms: Math.max(0, q.kumMs - b.kumMs), ...(f ? { f } : {}), bis: summen(q) };
     if (t.sek <= 0 && t.a <= 0) continue;
     teile[id] = t; sek += t.sek;
-    const j = je[q.app] || (je[q.app] = { sek: 0, a: 0, ms: 0 });
-    j.sek += t.sek; j.a += t.a; j.ms += t.ms;
+    const j = je[q.app] || (je[q.app] = { sek: 0, a: 0, ms: 0, f: 0 });
+    j.sek += t.sek; j.a += t.a; j.ms += t.ms; j.f += f;
   }
   return { teile, sek, je };
 }
@@ -97,8 +101,8 @@ export function offen(quellen, bezahlt) {
 export function jeApp(teile) {
   const je = {};
   for (const t of Object.values(teile || {})) {
-    const j = je[t.app] || (je[t.app] = { sek: 0, a: 0, ms: 0 });
-    j.sek += t.sek || 0; j.a += t.a || 0; j.ms += t.ms || 0;
+    const j = je[t.app] || (je[t.app] = { sek: 0, a: 0, ms: 0, f: 0 });
+    j.sek += t.sek || 0; j.a += t.a || 0; j.ms += t.ms || 0; j.f += t.f || 0;
   }
   return je;
 }
@@ -116,7 +120,8 @@ export function reservieren(datei, quellen, { res, code, app, geraet, t = new Da
     const teile = { ...(vorhanden.teile || {}) };
     for (const [id, x] of Object.entries(o.teile)) {
       const alt = teile[id] || { app: x.app, sek: 0, a: 0, ms: 0 };
-      teile[id] = { app: x.app, sek: alt.sek + x.sek, a: alt.a + x.a, ms: alt.ms + x.ms, bis: x.bis };
+      const f = (alt.f || 0) + (x.f || 0);
+      teile[id] = { app: x.app, sek: alt.sek + x.sek, a: alt.a + x.a, ms: alt.ms + x.ms, ...(f ? { f } : {}), bis: x.bis };
     }
     const eintrag = eintragAus({ ...vorhanden, teile, t_neu: t });
     const bezahlt = { ...d.bezahlt };
@@ -135,7 +140,7 @@ function eintragAus(e) {
   const sek = Object.values(e.teile).reduce((s, x) => s + (x.sek || 0), 0);
   const { t_neu, ...rest } = e;
   return { ...rest, ...(t_neu ? { geaendert: t_neu } : {}), sek, mathe: (je.mathe && je.mathe.sek) || 0, lesen: (je.lesen && je.lesen.sek) || 0,
-    aufgaben: (je.mathe && je.mathe.a) || 0, lesekarten: (je.lesen && je.lesen.a) || 0, uebung_ms: Object.values(je).reduce((s, x) => s + x.ms, 0) };
+    aufgaben: (je.mathe && je.mathe.a) || 0, lesekarten: (je.lesen && je.lesen.a) || 0, folgen: (je.lesen && je.lesen.f) || 0, uebung_ms: Object.values(je).reduce((s, x) => s + x.ms, 0) };
 }
 
 // Nach dem Teilen: Status „geteilt“ eintragen (Eltern-App zählt nur geteilte als eingelöst)
@@ -153,8 +158,8 @@ export function anzeige(k) {
   const res = k.res ? { sek: k.res.sek || 0, je: jeApp(k.res.teile) } : { sek: 0, je: {} };
   const je = {};
   for (const src of [o.je, res.je]) for (const [app, x] of Object.entries(src)) {
-    const j = je[app] || (je[app] = { sek: 0, a: 0, ms: 0 });
-    j.sek += x.sek; j.a += x.a; j.ms += x.ms;
+    const j = je[app] || (je[app] = { sek: 0, a: 0, ms: 0, f: 0 });
+    j.sek += x.sek; j.a += x.a; j.ms += x.ms; j.f += x.f || 0;
   }
   return { sek: o.sek + res.sek, je };
 }
